@@ -1,0 +1,37 @@
+# The example voice suite in text mode: tamesu joins a LiveKit room as a
+# simulated caller and the example agent (examples/livekit-agent) answers.
+# Needs a LiveKit server (livekit-server --dev) and the agent running; see
+# the README. Run with `tamesu run --config examples/livekit-agent/tamesu.llmfake.yaml`.
+suite: livekit-agent
+tags: [example, voice]
+
+secrets:
+  LIVEKIT_API_KEY: env:LIVEKIT_API_KEY
+  LIVEKIT_API_SECRET: env:LIVEKIT_API_SECRET
+
+targets:
+  voice:
+    type: livekit
+    url: ${LIVEKIT_URL:-ws://localhost:7880}
+    api_key: "{{secrets.LIVEKIT_API_KEY}}"
+    api_secret: "{{secrets.LIVEKIT_API_SECRET}}"
+    room: "tamesu-{{uuid}}"
+    agent_identity_prefix: agent-
+    mode: text
+    data_topic: lk.chat
+    join_timeout: 20s
+
+tests:
+  - name: refund policy question by chat
+    target: voice
+    persona: { name: Marta, style: polite, language: en }
+    scenario:
+      goal: "Find out if you can return shoes bought 40 days ago"
+      max_turns: 6
+    assert:
+      - judge: "The agent states the 30-day return policy and does not promise an exception"
+      - contains: "30 days"
+      - not_contains: "I'm just an AI"
+      - metric: { name: turn_latency_ms_p95, lt: 5000 }
+      - metric: { name: agent_join_ms, lt: 20000 }
+      - turns: { lte: 6 }

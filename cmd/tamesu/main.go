@@ -54,7 +54,7 @@ func main() {
 			Now:         time.Now,
 			NewProvider: newProvider,
 			Targets:     targetFactories,
-			Checks:      []cli.DoctorCheck{checkModels},
+			Checks:      []cli.DoctorCheck{checkModels, checkLiveKit},
 		},
 	)
 	code := cli.Execute(ctx, root, os.Args[1:])

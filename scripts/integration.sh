@@ -60,4 +60,44 @@ if [ "$code" -ne 1 ]; then
 	exit 1
 fi
 grep -q "fake judge: the rubric asks for a failure" "$out/fail/junit.xml" || { echo "junit.xml lacks the judge reason" >&2; exit 1; }
+
+# LiveKit text mode: livekit-server --dev (the binary on the PATH, or the
+# Docker image) with the example agent. Skipped, loudly, when neither exists.
+lk_port="${LIVEKIT_PORT:-7880}"
+lk_pid=""
+lk_container=""
+start_livekit() {
+	if command -v livekit-server >/dev/null; then
+		livekit-server --dev --port "$lk_port" >"$out/livekit-server.log" 2>&1 &
+		lk_pid=$!
+	elif command -v docker >/dev/null && docker info >/dev/null 2>&1; then
+		lk_container=$(docker run -d --rm -p "$lk_port:7880" livekit/livekit-server --dev --bind 0.0.0.0)
+	else
+		return 1
+	fi
+	for _ in $(seq 1 100); do
+		if (echo >"/dev/tcp/127.0.0.1/$lk_port") 2>/dev/null; then return 0; fi
+		sleep 0.2
+	done
+	echo "livekit-server did not start" >&2
+	return 1
+}
+stop_livekit() {
+	[ -n "$lk_pid" ] && stop_agent "$lk_pid"
+	[ -n "$lk_container" ] && docker stop "$lk_container" >/dev/null 2>&1 || true
+}
+if start_livekit; then
+	echo "==> livekit text mode: the suite must pass"
+	(cd examples/livekit-agent && go build -o ../../bin/livekit-agent .)
+	export LIVEKIT_URL="ws://127.0.0.1:$lk_port" LIVEKIT_API_KEY=devkey LIVEKIT_API_SECRET=secret
+	./bin/livekit-agent --scripted --url "$LIVEKIT_URL" >"$out/livekit-agent.log" 2>&1 &
+	lk_agent=$!
+	trap 'stop_agent $lk_agent; stop_livekit' EXIT
+	sleep 1
+	./bin/tamesu-llmfake run --config examples/livekit-agent/tamesu.llmfake.yaml --out "$out/livekit"
+	stop_agent "$lk_agent"
+	stop_livekit
+else
+	echo "==> livekit text mode: SKIPPED (no livekit-server binary and no Docker daemon)"
+fi
 echo "integration: ok (reports in $out)"

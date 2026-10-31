@@ -1,0 +1,22 @@
+# livekit-agent: the example LiveKit agent (text mode)
+
+A tiny text-mode LiveKit agent for the Mochi Shoes support desk, built with the LiveKit Go SDK
+and Genkit. It behaves like a LiveKit Agents worker in text mode: it joins every room whose name
+starts with `tamesu-`, publishes its state in the `lk.agent.state` attribute, reads user turns
+from the `lk.chat` text stream and answers on `lk.transcription`.
+
+```sh
+# A LiveKit server with the dev keys (devkey / secret):
+livekit-server --dev                       # brew install livekit, or docker run livekit/livekit-server --dev
+
+# The agent, without a model (as CI does):
+go run . --scripted &
+
+# The suite, with the fake model provider (a tamesu binary built with -tags llmfake):
+export LIVEKIT_API_KEY=devkey LIVEKIT_API_SECRET=secret
+tamesu run --config tamesu.llmfake.yaml
+```
+
+With a model: `GEMINI_API_KEY=... go run .` and a `tamesu.yaml` with real models (see
+`examples/rest-agent/tamesu.yaml`). `make integration` at the repository root runs the scripted
+flow end to end when `livekit-server` is on the PATH or Docker is available.

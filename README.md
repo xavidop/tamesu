@@ -154,12 +154,12 @@ scenario generator) and `tamesu sip setup` (planned); see the
 |---|---|---|---|---|
 | `browser` | Chromium over CDP (chromedp) | agentic `goal` and `expect` steps, deterministic actions | `goal_steps`, `llm_cost_usd` | a bundled demo web app (runner planned) |
 | `rest` | HTTP, SSE | text | `turn_latency_ms`, `time_to_first_token_ms`, `turns` | [`examples/rest-agent`](examples/rest-agent/), a Genkit agent, in CI with the fake provider |
-| `livekit` | WebRTC room (LiveKit) | text, audio | `turn_latency_ms`, `time_to_first_audio_ms`, `interruption_stop_ms`, `talk_over_ratio` | `livekit-server --dev` (runner planned) |
+| `livekit` | WebRTC room (LiveKit) | text (audio planned) | `turn_latency_ms`, `agent_join_ms`; audio adds `time_to_first_audio_ms`, `interruption_stop_ms`, `talk_over_ratio` | [`examples/livekit-agent`](examples/livekit-agent/) on `livekit-server --dev`, in CI with the fake provider |
 | `sip` | phone call through a LiveKit SIP service and your trunk | audio | `call_setup_ms`, `ring_ms`, `greeting_ms`, `call_duration_ms` | Asterisk as the carrier (runner planned) |
 
 All four target types are part of the suite schema, so suites can be written, validated and
-listed; `rest` runs today and the voice, phone and browser runners land phase by phase (see the
-[roadmap](https://xavidop.github.io/tamesu/docs/roadmap/)).
+listed; `rest` and `livekit` text mode run today, and voice audio, phone and browser land phase
+by phase (see the [roadmap](https://xavidop.github.io/tamesu/docs/roadmap/)).
 
 ## CI
 

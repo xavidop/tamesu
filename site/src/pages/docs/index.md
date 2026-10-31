@@ -37,6 +37,7 @@ The [Quick start](/docs/quickstart/) walks through a first project.
 | Check the whole setup, secrets included, without printing a value | [`tamesu doctor`](/docs/cli/#tamesu-doctor) |
 | Run the suites and read the reports | [`tamesu run`](/docs/cli/#tamesu-run), [Reports](/docs/reports/) |
 | Test a REST agent | [REST target](/docs/targets/rest/) |
+| Test a LiveKit voice agent in text mode | [LiveKit target](/docs/targets/livekit/) |
 | Pick models, override prompts, see traces, count cost | [AI (Genkit)](/docs/ai/) |
 | Drive tests from `go test` | [Go API](/docs/go-api/) |
 | Run tamesu in GitHub Actions, GitLab CI or Docker | [CI](/docs/ci/) |
@@ -51,8 +52,8 @@ The [Quick start](/docs/quickstart/) walks through a first project.
 | `sip` | A phone agent reached through a LiveKit SIP service and your trunk | SIP / PSTN |
 
 All four share the suite schema, the assertion model, the persona and scenario definitions, the
-metrics and the report format. `rest` runs today; the voice, phone and browser runners land
-phase by phase (see the [roadmap](/docs/roadmap/)).
+metrics and the report format. `rest` and `livekit` text mode run today; voice audio, phone and
+browser land phase by phase (see the [roadmap](/docs/roadmap/)).
 
 ## All AI through Genkit, all secrets through mamori
 

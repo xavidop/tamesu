@@ -170,8 +170,8 @@ PASS   support-agent / refund policy question  3.4s
 The run directory holds `summary.json`, `junit.xml` and, per run, `transcript.json` and
 `result.json` with every assertion's reason. A failing judge prints its reason and the last
 turns under the test. See [Reports](/docs/reports/) and [`tamesu run`](/docs/cli/#tamesu-run).
-The voice test needs the livekit runner, which is planned; `tamesu run` reports
-`target type livekit is not available in this build` for it until then (planned).
+The voice test runs in text mode against a LiveKit room; see the
+[LiveKit target](/docs/targets/livekit/) for the agent it expects.
 
 ## Next
 

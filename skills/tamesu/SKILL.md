@@ -13,10 +13,10 @@ LLM **judges**; every run leaves a transcript, metrics and reports. Module:
 `github.com/xavidop/tamesu`. Docs: https://xavidop.github.io/tamesu/docs/
 
 What the CLI has today: `tamesu init`, `tamesu validate`, `tamesu list`, `tamesu run`,
-`tamesu doctor` and `tamesu version`, with the `rest` target runnable and the suite schema for all
-four target types. Planned, not shipped: `tamesu report` (planned HTML report), `tamesu record`
-(planned), `tamesu generate` (planned) and `tamesu sip setup` (planned); livekit, sip and browser
-targets validate but do not run yet (planned).
+`tamesu doctor` and `tamesu version`, with the `rest` and `livekit` (text mode) targets runnable
+and the suite schema for all four target types. Planned, not shipped: `tamesu report` (planned HTML
+report), `tamesu record` (planned), `tamesu generate` (planned) and `tamesu sip setup` (planned);
+livekit audio mode, sip and browser targets validate but do not run yet (planned).
 
 ## The model in one minute
 
@@ -25,7 +25,10 @@ targets validate but do not run yet (planned).
 - A **target** has a `type`: `browser` (a URL and browser options), `rest` (URL, method,
   headers, how a user turn is sent with `request.body` and how the agent turn is read back
   with JSONPaths in `response.text`, `response.tool_calls`, `response.done`), `livekit` (server
-  URL, `api_key`/`api_secret` from secrets, `room`, `mode: text|audio`) or `sip` (`direction:
+  URL, `api_key`/`api_secret` from secrets, `room`, `dispatch.agent_name`,
+  `agent_identity_prefix`, `mode: text|audio`, `data_topic`, `join_timeout`; text mode sends
+  user turns on `lk.chat` and reads replies on `lk.transcription`, ending a turn on the agent's
+  `lk.agent.state` or after 1.5 s idle) or `sip` (`direction:
   outbound|inbound`, `to`, `from`, `trunk_id`, `ring_timeout`, `max_call_duration`, an inbound
   `trigger`).
 - A **test** names a target. Browser tests have `steps` (`goal:` agentic, `expect:` agentic

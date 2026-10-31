@@ -52,12 +52,16 @@ This is a multi-module repository tied together by a `go.work` file:
   Genkit evaluators and, behind `-tags llmfake`, the fake provider CI runs with.
 - `targets/rest`: the REST target (HTTP, SSE), its own module; it passes the `targettest`
   conformance suite of the root module.
+- `targets/livekit`: the LiveKit target (text mode today), its own module on the LiveKit Go SDK
+  and pion; the SDK sits behind a small room interface with a fake for the unit tests.
 - `examples/rest-agent`: a tiny Genkit REST agent with the suite that tests it; `make integration`
   runs it with the fake model provider.
+- `examples/livekit-agent`: a text-mode LiveKit agent (LiveKit Go SDK plus a Genkit reply flow)
+  and its suite; `make integration` runs it against `livekit-server --dev` when available.
 - `skills/tamesu`: the agent skill.
 - `site/`: the Astro documentation site.
 
-The modules for the other targets (`targets/livekit`, `targets/sip`, `targets/browser`), the audio pipeline
+The modules for the other targets (`targets/sip`, `targets/browser`), the audio pipeline
 (`audio`) and the examples are added phase by phase; each gets its own `go.mod`, a `go.work`
 entry and a dependabot entry.
 

@@ -9,15 +9,10 @@ tamesu is built phase by phase, each ending with acceptance criteria that must p
 next starts. Done: the suite schema and validator, the secrets layer, `init`, `validate`, `list`
 and `doctor`; the runner with repeats, retries, timeouts and budgets; the Genkit layer with the
 simulator and judge flows, evaluators, cost accounting and the fake provider for CI; the `rest`
-target; `tamesu run` with console, JSON and JUnit reporters; the Go API. This page is what comes
-next, in order.
+target; `tamesu run` with console, JSON and JUnit reporters; the Go API; the `livekit` target in
+text mode with its example agent. This page is what comes next, in order.
 
 ## Planned
-
-### LiveKit text mode
-
-- Room join, token generation, agent detection, data and text-stream turns, end of turn from the
-  agent's state, with an example LiveKit agent and `livekit-server --dev` in Docker Compose.
 
 ### LiveKit audio mode
 

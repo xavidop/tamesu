@@ -1,0 +1,13 @@
+# Project configuration for CI: the fake model provider (a tamesu binary built
+# with -tags llmfake) against livekit-server --dev's default keys.
+version: 1
+suites: ["suite.yaml"]
+genkit:
+  plugins: [fake]
+models:
+  default: fake/text
+  simulator: fake/simulator
+  judge: fake/judge
+defaults: { timeout: 1m, repeat: 1 }
+livekit: { max_concurrent_rooms: 2 }
+reporters: [console, junit]

@@ -3,7 +3,9 @@ go 1.27.3
 use (
 	.
 	./cmd/tamesu
+	./examples/livekit-agent
 	./examples/rest-agent
 	./llm
+	./targets/livekit
 	./targets/rest
 )

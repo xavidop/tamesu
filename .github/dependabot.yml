@@ -29,6 +29,18 @@ updates:
     schedule: { interval: weekly }
     labels: [dependencies, go, target]
 
+  # LiveKit target (own go.mod; LiveKit Go SDK, pion)
+  - package-ecosystem: gomod
+    directory: "/targets/livekit"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, target]
+
+  # Example LiveKit agent (own go.mod; LiveKit Go SDK and Genkit)
+  - package-ecosystem: gomod
+    directory: "/examples/livekit-agent"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, examples]
+
   # Example REST agent (own go.mod; a Genkit app)
   - package-ecosystem: gomod
     directory: "/examples/rest-agent"
