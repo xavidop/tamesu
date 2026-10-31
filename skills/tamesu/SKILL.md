@@ -1,0 +1,166 @@
+---
+name: tamesu
+description: Use when working with tamesu (試す), the Go agentic testing framework and CLI for web apps and AI agents, when writing or fixing a tamesu suite in YAML (targets of type browser, rest, livekit or sip; personas, scenarios, steps, assertions such as judge, contains, not_contains, regex, json_path, status, tool_called, tool_not_called, dtmf_received, call_ended_by, transferred_to, evaluator, metric, turns, custom, on_turn), configuring tamesu.yaml (genkit plugins, models, speech, sip, defaults, budgets, reporters, secrets via mamori refs such as env: aws-sm:// vault:// op://), running `tamesu init`, `tamesu validate`, `tamesu list`, `tamesu doctor` or `tamesu version`, reading its exit codes (0 passed, 1 failed, 2 config error, 3 infrastructure error, 4 budget exceeded), running it in CI, reading its reports and run directories, debugging a failing validation or an unresolved secret, or answering what the tamesu CLI can do. Covers github.com/xavidop/tamesu.
+---
+
+# tamesu: put your web apps and AI agents to the test
+
+tamesu (試す, Japanese for *to try / to put to the test*) is a Go CLI and framework that runs
+agentic tests against web apps and AI agents. A **persona** with a **scenario** plays the user;
+the **target** is the system under test (`browser`, `rest`, `livekit` voice over WebRTC, or
+`sip` phone calls through a LiveKit SIP service); **assertions** mix deterministic checks with
+LLM **judges**; every run leaves a transcript, metrics and reports. Module:
+`github.com/xavidop/tamesu`. Docs: https://xavidop.github.io/tamesu/docs/
+
+What the CLI has today: `tamesu init`, `tamesu validate`, `tamesu list`, `tamesu doctor` and
+`tamesu version`, plus the suite schema for all four target types. Planned, not shipped:
+`tamesu run` (planned runner), `tamesu report` (planned HTML report), `tamesu record` (planned),
+`tamesu generate` (planned) and `tamesu sip setup` (planned); do not promise them in CI yet.
+
+## The model in one minute
+
+- A **suite** is a YAML file: `suite:` (name), `tags:`, `vars:`, `secrets:`, `targets:` (by
+  name) and `tests:`.
+- A **target** has a `type`: `browser` (a URL and browser options), `rest` (URL, method,
+  headers, how a user turn is sent with `request.body` and how the agent turn is read back
+  with JSONPaths in `response.text`, `response.tool_calls`, `response.done`), `livekit` (server
+  URL, `api_key`/`api_secret` from secrets, `room`, `mode: text|audio`) or `sip` (`direction:
+  outbound|inbound`, `to`, `from`, `trunk_id`, `ring_timeout`, `max_call_duration`, an inbound
+  `trigger`).
+- A **test** names a target. Browser tests have `steps` (`goal:` agentic, `expect:` agentic
+  assertion, `action:` one of `navigate click fill press wait screenshot eval_js assert_url
+  assert_text`). Conversational tests have a `persona` and a `scenario` with a `goal`,
+  `max_turns`, `stop_when` and, for voice, a `script` of `wait_for` / `dtmf` / `say` steps.
+- **Assertions** go under `assert:`. Exactly one kind per entry: `judge` (a rubric string, or
+  `{ rubric, model, scale: binary|1-5, min }`), `contains`, `not_contains`, `regex`,
+  `json_path` (`{ path, equals }`, rest only), `status` (rest only), `tool_called` /
+  `tool_not_called` (a name, or `{ name, args }`), `dtmf_received` (`{ equals }`, sip and
+  livekit audio), `call_ended_by` (sip: `agent caller timeout error no_answer busy`),
+  `transferred_to` (`{ matches }`, sip), `evaluator` (a Genkit evaluator name, or `{ name, min }`),
+  `metric` (`{ name, lt|lte|gt|gte|eq }`), `turns` (`{ lte: 6 }`), `custom` (a Go-registered
+  name). Add `on_turn: N` or `on_turn: last` to check one agent turn.
+- **Metrics** are built in: `turn_latency_ms` (with `_p50`, `_p95`, `_max`),
+  `time_to_first_token_ms`, `time_to_first_audio_ms`, `interruption_stop_ms`,
+  `talk_over_ratio`, `silence_gap_max_ms`, `call_setup_ms`, `ring_ms`, `greeting_ms`,
+  `call_duration_ms`, `stt_word_error_rate`, `turns`, `goal_steps`, `llm_cost_usd`,
+  `llm_tokens`.
+- **Templates**: `{{uuid}}`, `{{now}}`, `{{env.X}}`, `{{vars.x}}`, `{{secrets.X}}`,
+  `{{faker.email}}`, and in a REST body `{{session}}` and `{{message}}`. `${VAR}` and
+  `${VAR:-default}` expand from the environment for non-secret values only.
+- **Secrets** are mamori refs declared under `secrets:` in `tamesu.yaml` or the suite:
+  `env:NAME`, `dotenv://.env#NAME`, `aws-sm://path#key`, `aws-ps://`, `vault://secret/data/x#key`,
+  `gcp-sm://`, `azure-kv://`, `k8s-secret://`, `op://vault/item/field`, `doppler://`,
+  `infisical://`, `sops://`, or a chain `env:X,aws-sm://ci/x#key` tried in order. `${VAR}`
+  inside a ref is a ref var fed by `--var KEY=VAL` and `vars:`, never the environment. Use
+  `{{secrets.NAME}}` in the suite. Never put a value in a suite; never use `${VAR}` for
+  `api_key`, `api_secret`, `headers.Authorization`, `password` or `token` (validate warns).
+
+## Writing a suite
+
+Start from `tamesu init`, which writes `tamesu.yaml` and `examples/support-agent.yaml`. A
+minimal REST suite:
+
+```yaml
+suite: support-agent
+secrets:
+  API_TOKEN: env:SUPPORT_API_TOKEN
+targets:
+  api:
+    type: rest
+    url: https://api.example.com/v1/chat
+    headers: { Authorization: "Bearer {{secrets.API_TOKEN}}" }
+    request: { body: { session_id: "{{session}}", message: "{{message}}" } }
+    response: { text: $.reply, tool_calls: $.tool_calls[*].name, done: $.end_session }
+tests:
+  - name: refund policy question
+    target: api
+    persona: { name: Marta, style: polite, slightly confused, language: es }
+    scenario: { goal: "Find out if you can return shoes bought 40 days ago", max_turns: 8 }
+    assert:
+      - judge: "The agent states the 30-day return policy and does not promise an exception"
+      - not_contains: "I'm just an AI"
+      - metric: { name: turn_latency_p95_ms, lt: 4000 }
+```
+
+Rules the validator enforces (each error is `file:line: path: message`):
+
+- a test's `target` must be a key of `targets`; browser tests need `steps` and no
+  `persona`/`scenario`; conversational tests need `scenario.goal` and no `steps`;
+- a step is exactly one of `goal`, `expect`, `action`; an action is exactly one known action;
+- an assertion is exactly one kind; `metric` and `turns` take exactly one comparator;
+  `json_path`/`status` are rest only; `call_ended_by`/`transferred_to` are sip only;
+- `repeat` is 1 or more, `pass_threshold` is in (0, 1], `mode` is `text` or `audio` and only on
+  livekit or sip tests;
+- every `{{secrets.X}}` must be declared; a `${VAR}` in a secret field is a warning;
+- an unset `${VAR}` is a warning for `validate` (so CI without the variables can check suites)
+  and an error for `doctor` (and the runner).
+
+## Configuration (tamesu.yaml)
+
+```yaml
+version: 1
+suites: ["tests/**/*.yaml"]          # what run/validate/list use when no paths are given
+genkit: { plugins: [googlegenai, anthropic, openai, ollama, deepgram, elevenlabs], dev_ui: false }
+models:                               # every value is a Genkit model reference
+  default: googleai/gemini-2.5-flash
+  judge: anthropic/claude-sonnet-4-5
+  browser_agent: googleai/gemini-2.5-pro
+  simulator: openai/gpt-4.1-mini
+  scenario_generator: googleai/gemini-2.5-pro
+speech:
+  stt: { model: deepgram/nova-3, language: en }
+  tts: { model: googleai/gemini-2.5-flash-preview-tts }
+  vad: { provider: silero }
+sip: { livekit_url: ${LIVEKIT_URL}, outbound_trunk_id: ST_xxx, inbound_number: "+34910000000", max_concurrent_calls: 2, allowed_numbers: ["+1800555*"] }
+defaults: { timeout: 3m, repeat: 1, retries: 0, pass_threshold: 1.0 }
+budgets: { max_cost_usd: 5, max_tokens: 2_000_000 }
+livekit: { max_concurrent_rooms: 4 }
+reporters: [console, junit, html]
+secrets:
+  GEMINI_API_KEY: env:GEMINI_API_KEY
+  ANTHROPIC_API_KEY: env:ANTHROPIC_API_KEY,aws-sm://ci/tamesu#anthropic
+```
+
+Suites can override `defaults`, `models`, `budgets` and `secrets`. Model credentials are
+picked up by their conventional names (`GEMINI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`,
+`DEEPGRAM_API_KEY`, `ELEVENLABS_API_KEY`) or from `models.credentials`.
+
+## Commands
+
+```text
+tamesu init [dir] [--force]                 scaffold tamesu.yaml and examples/
+tamesu validate [paths...] [--strict]       check tamesu.yaml and the suites; exit 2 on errors
+tamesu list [paths...] [--json] [--filter re] [--tags a,b] [--target name]
+tamesu doctor [paths...]                    config, suites, every secret (which chain link answered), models, Chromium, LiveKit
+tamesu version
+```
+
+Global flags: `--config tamesu.yaml`, `-v/--verbose`, `--var KEY=VAL` (repeatable; ref vars for
+`${VAR}` in secret refs and `{{vars.KEY}}`), `--env-file .env` (read through mamori's dotenv
+provider when an `env:` secret or `${VAR}` is not set; the process environment is never mutated).
+
+Exit codes: `0` passed, `1` a test failed, `2` config/schema/usage error (also an unresolvable
+secret ref), `3` infrastructure error (a secret provider down, LiveKit or a model unreachable),
+`4` budget exceeded.
+
+## Debugging
+
+- `validate` prints every problem; fix from the top, the line number points at the YAML key.
+- `warning: targets.voice.url: env var LIVEKIT_URL is not set` means the suite is fine but the
+  machine lacks the variable; `doctor` and the runner treat it as an error.
+- `secret X is not declared`: add `X` under `secrets:` in the suite or `tamesu.yaml`.
+- `doctor` says `fail secret X: not found in any of N ref(s)`: none of the chain's links had a
+  value; `provider ... failed (unavailable)` is the backend, not your config (exit 3).
+- `ref var ENV is not set`: a secret ref uses `${ENV}`; pass `--var ENV=staging` or add it to
+  `vars:`.
+- Values are never printed. If you need to confirm a secret resolved, look at `doctor`'s
+  `(link i of n)` and the scheme.
+
+## Go API
+
+```go
+suite, err := tamesu.LoadSuite("tests/support.yaml")   // validated; errors list file:line problems
+```
+
+`target.Target` / `target.Session` are what a target implements; `assert.Assertion` is what an
+assertion implements; `metrics` names the built-in metrics.
