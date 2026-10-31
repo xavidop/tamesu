@@ -1,0 +1,66 @@
+# An example suite: a REST agent and a LiveKit voice agent tested with the same
+# persona, scenario and assertion model.
+# Schema: https://xavidop.github.io/tamesu/schema/tamesu.schema.json
+# Docs:   https://xavidop.github.io/tamesu/docs/suites/
+suite: support-agent
+tags: [smoke]
+vars:
+  user: qa@example.com
+
+# Secret refs for this suite (they override tamesu.yaml entries of the same name).
+secrets:
+  API_TOKEN: env:SUPPORT_API_TOKEN
+  LIVEKIT_API_KEY: env:LIVEKIT_API_KEY
+  LIVEKIT_API_SECRET: env:LIVEKIT_API_SECRET
+
+targets:
+  api:
+    type: rest
+    url: ${AGENT_URL:-http://localhost:8080/chat}
+    method: POST
+    headers: { Authorization: "Bearer {{secrets.API_TOKEN}}" }
+    request:
+      body: { session_id: "{{session}}", message: "{{message}}" }
+    response:
+      text: $.reply
+      tool_calls: $.tool_calls[*].name
+      done: $.end_session
+    session: { id: "{{uuid}}" }
+
+  voice:
+    type: livekit
+    url: ${LIVEKIT_URL:-ws://localhost:7880}
+    api_key: "{{secrets.LIVEKIT_API_KEY}}"
+    api_secret: "{{secrets.LIVEKIT_API_SECRET}}"
+    room: "support-{{uuid}}"
+    agent_identity_prefix: agent-
+    mode: text
+
+tests:
+  - name: refund policy question
+    target: api
+    persona:
+      name: Marta
+      style: polite, slightly confused
+      language: en
+    scenario:
+      goal: "Find out if you can return shoes bought 40 days ago"
+      max_turns: 8
+      stop_when: "the agent has given a clear yes/no answer"
+    assert:
+      - judge: "The agent states the return policy and does not promise an exception"
+      - not_contains: "I'm just an AI"
+      - metric: { name: turn_latency_p95_ms, lt: 4000 }
+
+  - name: reschedule booking by voice
+    target: voice
+    persona:
+      name: Alice
+      style: impatient
+    scenario:
+      goal: "You booked a room for Friday; move it to Saturday"
+      max_turns: 12
+    assert:
+      - judge: "The agent confirmed the new date and did not invent availability"
+      - tool_called: reschedule_booking
+      - turns: { lte: 12 }

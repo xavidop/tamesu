@@ -279,3 +279,14 @@ func EnvLookup(envFile string, getenv func(string) (string, bool)) config.EnvLoo
 		return string(v.Bytes), true
 	}
 }
+
+// NewStoreFromStrings builds a Store from plaintext values (used to merge
+// stores resolved one at a time).
+func NewStoreFromStrings(values map[string]string) *Store {
+	s := &Store{values: map[string]secret.String{}, sources: map[string]Source{}}
+	for k, v := range values {
+		s.values[k] = secret.NewString(v)
+		s.sources[k] = Source{Name: k, Scheme: "provided", Ref: "provided", Link: 1, Links: 1}
+	}
+	return s
+}

@@ -1,0 +1,35 @@
+# tamesu project configuration.
+# Schema: https://xavidop.github.io/tamesu/schema/tamesu-config.schema.json
+# Docs:   https://xavidop.github.io/tamesu/docs/configuration/
+version: 1
+
+# Suite files that `tamesu run`, `validate` and `list` use when no paths are given.
+suites: ["examples/**/*.yaml"]
+
+# Every model call goes through Genkit; only the plugins listed here are initialised.
+genkit:
+  plugins: [googlegenai]
+models:
+  default: googleai/gemini-2.5-flash
+  judge: googleai/gemini-2.5-flash
+  simulator: googleai/gemini-2.5-flash
+
+defaults:
+  timeout: 3m
+  repeat: 1
+  retries: 0
+  pass_threshold: 1.0
+
+budgets:
+  max_cost_usd: 5
+  max_tokens: 2_000_000
+
+reporters: [console, junit]
+
+# Secrets are mamori refs, never values: env:NAME, dotenv://.env#NAME,
+# aws-sm://path#key, vault://secret/data/x#key, op://vault/item/field, or a chain
+# such as "env:NAME,aws-sm://ci/tamesu#name" tried in order. Use them in suites
+# as {{secrets.NAME}}. Model credentials are picked up by their conventional
+# names (GEMINI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, ...).
+secrets:
+  GEMINI_API_KEY: env:GEMINI_API_KEY
