@@ -1,0 +1,10 @@
+suite: bad
+targets:
+  api:
+    type: rest
+    url: http://localhost
+tests:
+  - name: refund
+    target: nope
+    scenario:
+      goal: x

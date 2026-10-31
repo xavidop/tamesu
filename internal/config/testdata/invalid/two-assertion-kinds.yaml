@@ -1,0 +1,10 @@
+suite: bad
+targets:
+  api: { type: rest, url: http://localhost, response: { text: $.reply } }
+tests:
+  - name: t
+    target: api
+    scenario: { goal: g }
+    assert:
+      - contains: a
+        regex: b

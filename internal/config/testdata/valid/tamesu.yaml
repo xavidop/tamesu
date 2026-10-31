@@ -1,0 +1,36 @@
+version: 1
+genkit:
+  plugins: [googlegenai, anthropic, openai, ollama, deepgram, elevenlabs]   # only these are initialised
+  dev_ui: false                             # true: export traces to the Genkit Developer UI (genkit start -- tamesu run …)
+models:                                     # every value is a Genkit model reference
+  default: googleai/gemini-2.5-flash
+  judge: anthropic/claude-sonnet-4-5
+  browser_agent: googleai/gemini-2.5-pro
+  simulator: openai/gpt-4.1-mini
+  scenario_generator: googleai/gemini-2.5-pro
+speech:                                     # voice audio mode and sip; still Genkit models (section 7.1)
+  stt: { model: deepgram/nova-3, language: en }          # or googleai/gemini-2.5-flash (audio input)
+  tts: { model: googleai/gemini-2.5-flash-preview-tts }  # or elevenlabs/eleven_flash_v2_5, openai/gpt-4o-mini-tts
+  vad: { provider: silero }                 # onnxruntime-go (not a model call, so not Genkit)
+sip:
+  livekit_url: ${LIVEKIT_URL}               # LiveKit server with the SIP service enabled
+  outbound_trunk_id: ST_xxxxxxxx            # created once with `tamesu sip setup` or the LiveKit CLI
+  inbound_number: "+34910000000"            # number your trunk routes to tamesu (for testing outbound agents)
+  max_concurrent_calls: 2
+  allowed_numbers: ["+1800555*", "+3491*"]  # E.164 patterns tamesu may dial
+defaults:
+  timeout: 3m
+  repeat: 1
+  retries: 0
+  pass_threshold: 1.0                       # fraction of repeats that must pass
+budgets:
+  max_cost_usd: 5
+  max_tokens: 2_000_000
+livekit:
+  max_concurrent_rooms: 4
+reporters: [console, junit, html]
+secrets:                                    # resolved with mamori (section 4.1)
+  GEMINI_API_KEY: env:GEMINI_API_KEY
+  ANTHROPIC_API_KEY: env:ANTHROPIC_API_KEY,aws-sm://ci/tamesu#anthropic
+  DEEPGRAM_API_KEY: vault://secret/data/tamesu#deepgram
+  ELEVENLABS_API_KEY: op://CI/elevenlabs/credential

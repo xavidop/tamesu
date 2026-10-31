@@ -1,0 +1,11 @@
+suite: bad
+targets:
+  voice:
+    type: livekit
+    url: ws://localhost
+tests:
+  - name: t
+    target: voice
+    scenario: { goal: g }
+    assert:
+      - status: 200

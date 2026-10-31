@@ -1,0 +1,9 @@
+suite: bad
+targets:
+  api: { type: rest, url: http://localhost, response: { text: $.reply } }
+tests:
+  - name: t
+    target: api
+    scenario: { goal: g }
+    assert:
+      - metric: { name: turn_latency_ms }

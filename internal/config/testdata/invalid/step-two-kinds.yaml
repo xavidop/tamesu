@@ -1,0 +1,9 @@
+suite: bad
+targets:
+  web: { type: browser, url: http://localhost }
+tests:
+  - name: t
+    target: web
+    steps:
+      - goal: a
+        expect: b

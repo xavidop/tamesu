@@ -1,0 +1,121 @@
+suite: support-agent
+tags: [smoke]
+vars:
+  user: qa@example.com
+  ENV: staging
+secrets:                                          # mamori refs, see 4.1
+  API_TOKEN: env:SUPPORT_API_TOKEN,aws-sm://${ENV}/support-agent#api_token
+  TEST_PASSWORD: aws-sm://${ENV}/qa-user#password
+  LIVEKIT_API_KEY: env:LIVEKIT_API_KEY,vault://secret/data/livekit#api_key
+  LIVEKIT_API_SECRET: env:LIVEKIT_API_SECRET,vault://secret/data/livekit#api_secret
+
+targets:
+  web:
+    type: browser
+    url: https://app.example.com
+    browser: { engine: chromium, viewport: 1280x800, locale: en-US }
+    auth: { storage_state: .auth/web.json }      # optional pre-auth
+
+  api:
+    type: rest
+    url: https://api.example.com/v1/chat
+    method: POST
+    headers: { Authorization: "Bearer {{secrets.API_TOKEN}}" }
+    request:                                      # how a user turn is sent
+      body: { session_id: "{{session}}", message: "{{message}}" }
+    response:                                     # how the agent turn is read
+      text: $.reply                               # JSONPath
+      tool_calls: $.tool_calls[*].name
+      done: $.end_session
+    streaming: none                               # none | sse | websocket
+    session: { id: "{{uuid}}" }
+
+  voice:
+    type: livekit
+    url: ${LIVEKIT_URL}
+    api_key: "{{secrets.LIVEKIT_API_KEY}}"
+    api_secret: "{{secrets.LIVEKIT_API_SECRET}}"
+    room: "support-{{uuid}}"
+    dispatch: { agent_name: support-agent }       # optional explicit agent dispatch
+    agent_identity_prefix: agent-                 # how to recognise the agent participant
+    mode: text                                    # text | audio
+    data_topic: lk.chat                           # text mode transport (data channel / text streams)
+
+  phone:
+    type: sip
+    direction: outbound                           # outbound: tamesu calls the agent | inbound: the agent calls tamesu
+    to: "+18005550100"                            # the agent's phone number (outbound)
+    from: "+34910000000"                          # caller ID presented by the trunk
+    trunk_id: ST_xxxxxxxx                         # defaults to sip.outbound_trunk_id
+    ring_timeout: 30s
+    max_call_duration: 5m
+    # inbound only: how to make the agent call us, then we answer on sip.inbound_number
+    # trigger: { http: { url: https://api.example.com/campaigns/test-call, method: POST,
+    #            body: { to: "{{sip.inbound_number}}" }, headers: { Authorization: "Bearer {{secrets.API_TOKEN}}" } } }
+
+tests:
+  - name: checkout happy path
+    target: web
+    steps:
+      - goal: "Log in as {{vars.user}} with password {{secrets.TEST_PASSWORD}}"
+      - goal: "Search for 'laptop' and add the first result to the cart"
+      - expect: "The cart badge shows 1 item"
+      - action: { screenshot: cart }
+
+  - name: refund policy question
+    target: api
+    persona:
+      name: Marta
+      style: polite, slightly confused
+      language: es
+    scenario:
+      goal: "Find out if you can return shoes bought 40 days ago"
+      max_turns: 8
+      stop_when: "the agent has given a clear yes/no answer"
+    assert:
+      - judge: "The agent states the 30-day return policy and does not promise an exception"
+      - not_contains: "I'm just an AI"
+      - metric: { name: turn_latency_p95_ms, lt: 4000 }
+
+  - name: reschedule booking by voice
+    target: voice
+    mode: audio
+    repeat: 5
+    pass_threshold: 0.8
+    persona:
+      name: Alice
+      voice: en-GB-female
+      style: impatient
+      behaviors:
+        interrupt_probability: 0.3
+        silence_after_turn_ms: [300, 1500]
+        background_noise: cafe
+    scenario:
+      goal: "You booked a room for Friday; move it to Saturday"
+      max_turns: 12
+    assert:
+      - judge: "The agent confirmed the new date and did not invent availability"
+      - tool_called: { name: reschedule_booking, args: { day: saturday } }
+      - metric: { name: time_to_first_audio_ms, lt: 1500 }
+      - metric: { name: talk_over_ratio, lt: 0.1 }
+
+  - name: phone IVR routes to billing
+    target: phone
+    persona:
+      name: Jordi
+      voice: es-ES-male
+      style: calm
+      behaviors: { background_noise: street, line_quality: pstn }   # 8 kHz G.711, packet loss/jitter profile
+    scenario:
+      goal: "Reach billing and ask why your last invoice is higher"
+      max_turns: 10
+      script:                                     # optional deterministic steps mixed with free conversation
+        - wait_for: "press 2 for billing"         # matched on the STT transcript (fuzzy)
+        - dtmf: "2"
+        - say: "Hi, my last invoice is higher than usual"   # then the persona takes over
+    assert:
+      - judge: "The caller reached billing and got an explanation, or was offered a transfer to a human"
+      - metric: { name: call_setup_ms, lt: 5000 }
+      - metric: { name: time_to_first_audio_ms, lt: 2000 }
+      - call_ended_by: [agent, caller]            # fail on dropped calls or ring timeouts
+      - transferred_to: { matches: "^sip:billing@" }   # when the agent does a SIP REFER

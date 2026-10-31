@@ -1,0 +1,8 @@
+suite: bad
+targets:
+  api:
+    type: rest
+    url: http://localhost
+tests:
+  - nmae: typo
+    target: api

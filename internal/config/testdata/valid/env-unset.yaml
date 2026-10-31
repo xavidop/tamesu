@@ -1,0 +1,10 @@
+suite: env
+targets:
+  api:
+    type: rest
+    url: ${AGENT_URL}
+    response: { text: $.reply }
+tests:
+  - name: t
+    target: api
+    scenario: { goal: g }

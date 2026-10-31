@@ -1,0 +1,8 @@
+suite: bad
+targets:
+  api: { type: rest, url: http://localhost, response: { text: $.reply } }
+tests:
+  - name: t
+    target: api
+    repeat: 0
+    scenario: { goal: g }

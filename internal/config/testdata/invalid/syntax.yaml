@@ -1,0 +1,4 @@
+suite: bad
+targets:
+  api: { type: rest
+tests: []

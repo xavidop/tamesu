@@ -1,0 +1,9 @@
+suite: bad
+targets:
+  phone:
+    type: sip
+    direction: inbound
+tests:
+  - name: t
+    target: phone
+    scenario: { goal: g }
