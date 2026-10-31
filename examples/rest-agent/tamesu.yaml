@@ -1,0 +1,14 @@
+# Project configuration for the example, with real models. Needs GEMINI_API_KEY.
+version: 1
+suites: ["suite.yaml"]
+genkit:
+  plugins: [googlegenai]
+models:
+  default: googleai/gemini-2.5-flash
+  simulator: googleai/gemini-2.5-flash
+  judge: googleai/gemini-2.5-flash
+defaults: { timeout: 2m, repeat: 1 }
+budgets: { max_cost_usd: 1 }
+reporters: [console, junit]
+secrets:
+  GEMINI_API_KEY: env:GEMINI_API_KEY

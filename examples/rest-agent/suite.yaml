@@ -1,0 +1,39 @@
+# The example suite: tests the rest-agent (examples/rest-agent) over HTTP.
+# Run it with `tamesu run --config examples/rest-agent/tamesu.yaml` (real
+# models) or `tamesu run --config examples/rest-agent/tamesu.llmfake.yaml`
+# with a binary built with -tags llmfake (no network, no keys).
+suite: rest-agent
+tags: [smoke, example]
+
+targets:
+  api:
+    type: rest
+    url: ${AGENT_URL:-http://localhost:8080/chat}
+    method: POST
+    request:
+      body: { session_id: "{{session}}", message: "{{message}}" }
+    response:
+      text: $.reply
+      tool_calls: $.tool_calls[*]
+      done: $.end_session
+    session: { id: "{{uuid}}" }
+
+tests:
+  - name: refund policy question
+    target: api
+    persona:
+      name: Marta
+      style: polite, slightly confused
+      language: en
+    scenario:
+      goal: "Find out if you can return shoes bought 40 days ago"
+      max_turns: 6
+      stop_when: "the agent has given a clear yes/no answer"
+    assert:
+      - judge: "The agent states the 30-day return policy and does not promise an exception"
+      - not_contains: "I'm just an AI"
+      - tool_called: lookup_policy
+      - status: 200
+      - json_path: { path: $.session_id }
+      - metric: { name: turn_latency_ms_p95, lt: 4000 }
+      - turns: { lte: 6 }

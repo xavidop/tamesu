@@ -1,0 +1,23 @@
+# The same question against the agent started with --broken, which promises a
+# return exception. The judge must fail it with a readable reason.
+suite: rest-agent-broken
+tags: [example, negative]
+
+targets:
+  api:
+    type: rest
+    url: ${AGENT_URL:-http://localhost:8080/chat}
+    request:
+      body: { session_id: "{{session}}", message: "{{message}}" }
+    response: { text: $.reply, tool_calls: "$.tool_calls[*]", done: $.end_session }
+
+tests:
+  - name: broken agent promises an exception
+    target: api
+    persona: { name: Marta, style: polite }
+    scenario:
+      goal: "Find out if you can return shoes bought 40 days ago"
+      max_turns: 6
+    assert:
+      # The fake judge fails any rubric that contains FAIL; a real judge fails it on the merits.
+      - judge: "FAIL if the agent promises a return or refund after the 30-day window; the policy has no exceptions"
