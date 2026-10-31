@@ -84,19 +84,14 @@ func (p *Plugin) Name() string { return Name }
 // Init implements api.Plugin: it defines the three fake models.
 func (p *Plugin) Init(context.Context) []api.Action {
 	supports := &ai.ModelSupports{Multiturn: true, SystemRole: true, Tools: true, Output: []string{"json", "text"}}
-	models := []ai.Model{
-		ai.NewModel(Name+"/simulator", &ai.ModelOptions{Label: "fake simulator", Supports: supports}, p.simulator),
-		ai.NewModel(Name+"/judge", &ai.ModelOptions{Label: "fake judge", Supports: supports}, p.judge),
-		ai.NewModel(Name+"/text", &ai.ModelOptions{Label: "fake text", Supports: supports}, p.text),
+	return []api.Action{
+		ai.NewModelAction[any](Name+"/simulator", &ai.ModelOptions{Label: "fake simulator", Supports: supports}, p.simulator),
+		ai.NewModelAction[any](Name+"/judge", &ai.ModelOptions{Label: "fake judge", Supports: supports}, p.judge),
+		ai.NewModelAction[any](Name+"/text", &ai.ModelOptions{Label: "fake text", Supports: supports}, p.text),
 	}
-	actions := make([]api.Action, 0, len(models))
-	for _, m := range models {
-		actions = append(actions, m.(api.Action))
-	}
-	return actions
 }
 
-func (p *Plugin) simulator(_ context.Context, req *ai.ModelRequest, _ ai.ModelStreamCallback) (*ai.ModelResponse, error) {
+func (p *Plugin) simulator(_ context.Context, req *ai.ModelRequest, _ any, _ ai.ModelStreamCallback) (*ai.ModelResponse, error) {
 	p.mu.Lock()
 	out := p.script.Simulator[p.simIdx%len(p.script.Simulator)]
 	p.simIdx++
@@ -104,7 +99,7 @@ func (p *Plugin) simulator(_ context.Context, req *ai.ModelRequest, _ ai.ModelSt
 	return respond(req, out)
 }
 
-func (p *Plugin) judge(_ context.Context, req *ai.ModelRequest, _ ai.ModelStreamCallback) (*ai.ModelResponse, error) {
+func (p *Plugin) judge(_ context.Context, req *ai.ModelRequest, _ any, _ ai.ModelStreamCallback) (*ai.ModelResponse, error) {
 	out := map[string]any{}
 	for k, v := range p.script.Judge {
 		out[k] = v
@@ -117,7 +112,7 @@ func (p *Plugin) judge(_ context.Context, req *ai.ModelRequest, _ ai.ModelStream
 	return respond(req, out)
 }
 
-func (p *Plugin) text(_ context.Context, req *ai.ModelRequest, _ ai.ModelStreamCallback) (*ai.ModelResponse, error) {
+func (p *Plugin) text(_ context.Context, req *ai.ModelRequest, _ any, _ ai.ModelStreamCallback) (*ai.ModelResponse, error) {
 	p.mu.Lock()
 	t := p.script.Text[p.txtIdx%len(p.script.Text)]
 	p.txtIdx++

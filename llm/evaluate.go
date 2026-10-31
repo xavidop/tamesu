@@ -20,11 +20,11 @@ const JudgeEvaluator = "tamesu/judge"
 // defineJudgeEvaluator registers the judge so any Genkit tooling (and the
 // evaluator: assertion) can use it.
 func (c *Client) defineJudgeEvaluator() {
-	genkit.DefineEvaluator(c.g, JudgeEvaluator, &ai.EvaluatorOptions{
+	genkit.DefineEvaluatorAction[any](c.g, JudgeEvaluator, &ai.EvaluatorOptions{
 		DisplayName: "tamesu judge",
 		Definition:  "Grades a conversation transcript against a rubric with structured output (pass, score, reason, evidence).",
 		IsBilled:    true,
-	}, func(ctx context.Context, req *ai.EvaluatorCallbackRequest) (*ai.EvaluatorCallbackResponse, error) {
+	}, func(ctx context.Context, req *ai.EvaluatorCallbackRequest, _ any) (*ai.EvaluatorCallbackResponse, error) {
 		jr := assert.JudgeRequest{Scale: "binary"}
 		if opts, ok := req.Options.(map[string]any); ok {
 			if r, ok := opts["rubric"].(string); ok {
