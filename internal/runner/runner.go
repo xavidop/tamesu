@@ -54,6 +54,10 @@ type Options struct {
 	OutDir string
 	// Parallel caps concurrent runs; 0 means GOMAXPROCS.
 	Parallel int
+	// Limits cap concurrent runs per target type on top of Parallel
+	// (livekit.max_concurrent_rooms, sip.max_concurrent_calls); 0 means no
+	// extra cap.
+	Limits map[string]int
 	// Repeat overrides every test's repeat count when > 0.
 	Repeat int
 	// Mode overrides every voice test's mode when set.
@@ -152,6 +156,12 @@ func Run(ctx context.Context, o Options) (*report.Summary, error) {
 	runCtx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
 	sem := make(chan struct{}, parallel)
+	typeSem := map[string]chan struct{}{}
+	for typ, n := range o.Limits {
+		if n > 0 {
+			typeSem[typ] = make(chan struct{}, n)
+		}
+	}
 	var wg sync.WaitGroup
 	for _, it := range items {
 		wg.Add(1)
@@ -172,6 +182,15 @@ func Run(ctx context.Context, o Options) (*report.Summary, error) {
 						return
 					}
 					defer func() { <-sem }()
+					if ts := typeSem[it.target.Type]; ts != nil {
+						select {
+						case ts <- struct{}{}:
+						case <-runCtx.Done():
+							runs[i] = r.skipped(runCtx, it, i)
+							return
+						}
+						defer func() { <-ts }()
+					}
 					runs[i] = r.runWithRetries(runCtx, it, i)
 					r.reporter.RunFinished(it.outcome, runs[i])
 					r.checkBudget(cancel)

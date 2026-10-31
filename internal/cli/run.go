@@ -216,6 +216,7 @@ func (a *app) newRunCmd() *cobra.Command {
 			summary, err := runner.Run(ctx, runner.Options{
 				Project: p, Suites: suites, Select: selection, OutDir: out, Parallel: parallel, Repeat: repeat, Mode: mode,
 				MaxCostUSD: budget, Targets: a.targetFactory(), Provider: provider, Secrets: store, Vars: flagVars, Env: a.env(),
+				Limits:   map[string]int{config.TargetLiveKit: p.LiveKit.MaxConcurrentRooms, config.TargetSIP: p.SIP.MaxConcurrentCalls},
 				Reporter: reps, Logger: logger, Now: a.deps.Now, Version: a.info.Version,
 			})
 			if err != nil {

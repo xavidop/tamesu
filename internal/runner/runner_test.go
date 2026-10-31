@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -313,6 +314,63 @@ func TestRunBudget(t *testing.T) {
 	}
 	assert.Equal(t, 2, kinds[""], "two tests complete (2.0 then 4.0 USD) before the cap is noticed")
 	assert.Equal(t, 1, kinds[report.KindBudget], "the third never starts")
+}
+
+// slowTarget answers after a delay and records how many sessions are open at once.
+type slowTarget struct {
+	open, peak atomic.Int32
+}
+
+func (s *slowTarget) Name() string { return "slow" }
+
+func (s *slowTarget) Start(context.Context, *target.RunContext) (target.Session, error) {
+	n := s.open.Add(1)
+	for {
+		p := s.peak.Load()
+		if n <= p || s.peak.CompareAndSwap(p, n) {
+			break
+		}
+	}
+	return &slowSession{t: s}, nil
+}
+
+type slowSession struct {
+	t       *slowTarget
+	pending *target.AgentTurn
+}
+
+func (s *slowSession) Send(ctx context.Context, turn target.UserTurn) error {
+	time.Sleep(30 * time.Millisecond)
+	now := time.Now()
+	s.pending = &target.AgentTurn{Text: "echo: " + turn.Text, StartedAt: now, EndedAt: now}
+	return nil
+}
+
+func (s *slowSession) Receive(context.Context) (target.AgentTurn, error) {
+	t := *s.pending
+	s.pending = nil
+	return t, nil
+}
+
+func (s *slowSession) Close(context.Context) (target.Artifacts, error) {
+	s.t.open.Add(-1)
+	return target.Artifacts{}, nil
+}
+
+func TestRunLimitsPerTargetType(t *testing.T) {
+	slow := &slowTarget{}
+	s := &config.Suite{Suite: "s", Path: "s.yaml", Targets: map[string]config.Target{"voice": {Type: config.TargetLiveKit, URL: "ws://x"}}}
+	for i := 0; i < 6; i++ {
+		s.Tests = append(s.Tests, config.Test{Name: fmt.Sprintf("t%d", i), Target: "voice", Scenario: &config.Scenario{Goal: "g"}})
+	}
+	o, _ := newOptions(t, s, &fakeProvider{})
+	o.Parallel = 6
+	o.Limits = map[string]int{config.TargetLiveKit: 2}
+	o.Targets = func(context.Context, TargetSpec) (target.Target, error) { return slow, nil }
+	sum, err := Run(context.Background(), o)
+	require.NoError(t, err)
+	assert.Equal(t, 0, sum.ExitCode())
+	assert.LessOrEqual(t, slow.peak.Load(), int32(2), "livekit runs are capped by max_concurrent_rooms")
 }
 
 func TestRunSelection(t *testing.T) {
