@@ -1,0 +1,223 @@
+# GoReleaser configuration for tamesu.
+#
+# The root module is a library consumed via `go get` at the git tag. GoReleaser
+# builds and releases the tamesu CLI (cmd/tamesu, its own module) in two
+# flavours:
+#   - tamesu-lite: CGO_ENABLED=0, -tags lite, cross-compiled for every OS and
+#     arch here. No audio mode and no SIP. This is what the archives, the
+#     Linux packages, the Homebrew cask, the Scoop manifest and the Docker image
+#     ship, because it is fully static.
+#   - tamesu: the full build (audio mode and SIP need CGO: onnxruntime, opus),
+#     which cannot be cross-compiled. release.yml builds it on a native runner
+#     per OS/arch with `TAMESU_CGO=1 goreleaser build --single-target --id tamesu`
+#     and uploads the results to the same release. It is skipped unless
+#     TAMESU_CGO is set, so a plain `goreleaser release --snapshot` works.
+version: 2
+
+project_name: tamesu
+
+before:
+  hooks:
+    # The shell completions go into the archives and the Linux packages.
+    - ./scripts/completions.sh
+
+builds:
+  - id: tamesu
+    dir: cmd/tamesu
+    main: .
+    binary: tamesu
+    skip: '{{ if index .Env "TAMESU_CGO" }}false{{ else }}true{{ end }}'
+    env:
+      - CGO_ENABLED=1
+      - GOWORK=off
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+
+  - id: tamesu-lite
+    dir: cmd/tamesu
+    main: .
+    binary: tamesu
+    env:
+      - CGO_ENABLED=0
+      - GOWORK=off
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    flags:
+      - -tags=lite
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+
+archives:
+  - id: tamesu
+    ids: [tamesu]
+    name_template: "tamesu_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE
+      - README.md
+      - completions/*
+  - id: tamesu-lite
+    ids: [tamesu-lite]
+    name_template: "tamesu-lite_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE
+      - README.md
+      - completions/*
+
+# Linux packages, attached to the GitHub Release next to the archives. They
+# install the lite binary and the shell completions; no package repository is
+# published, so a user downloads the file for their distribution.
+nfpms:
+  - id: tamesu
+    ids: [tamesu-lite]
+    package_name: tamesu
+    file_name_template: "tamesu_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    vendor: Xavier Portilla Edo
+    maintainer: Xavier Portilla Edo <xavi_tb@hotmail.com>
+    homepage: "https://xavidop.github.io/tamesu/"
+    description: Put your web apps and AI agents to the test.
+    license: MIT
+    formats: [deb, rpm, apk]
+    bindir: /usr/bin
+    section: utils
+    contents:
+      - src: ./completions/tamesu.bash
+        dst: /usr/share/bash-completion/completions/tamesu
+        file_info:
+          mode: 0644
+      - src: ./completions/tamesu.fish
+        dst: /usr/share/fish/vendor_completions.d/tamesu.fish
+        file_info:
+          mode: 0644
+      - src: ./completions/tamesu.zsh
+        dst: /usr/share/zsh/vendor-completions/_tamesu
+        file_info:
+          mode: 0644
+      - src: ./LICENSE
+        dst: /usr/share/doc/tamesu/copyright
+        file_info:
+          mode: 0644
+    deb:
+      lintian_overrides:
+        - statically-linked-binary
+        - changelog-file-missing-in-native-package
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+sboms:
+  - artifacts: archive
+
+changelog:
+  use: github
+  sort: asc
+  groups:
+    - title: Targets
+      regexp: '^.*?(feat|fix)\((rest|livekit|sip|browser|targettest)\).+$'
+      order: 0
+    - title: Features
+      regexp: '^.*?feat(\(.+\))??!?:.+$'
+      order: 1
+    - title: Bug fixes
+      regexp: '^.*?fix(\(.+\))??!?:.+$'
+      order: 2
+    - title: Documentation
+      regexp: '^.*?docs(\(.+\))??!?:.+$'
+      order: 3
+    - title: Other
+      order: 999
+  filters:
+    exclude:
+      - "^test:"
+      - "^chore:"
+      - "merge conflict"
+      - Merge pull request
+      - Merge branch
+
+release:
+  github:
+    owner: xavidop
+    name: tamesu
+  draft: false
+  prerelease: auto
+  name_template: "tamesu {{ .Tag }}"
+  footer: |
+    ---
+    **Install:** `brew install xavidop/tap/tamesu` (macOS), `scoop install tamesu` (Windows, after
+    `scoop bucket add xavidop https://github.com/xavidop/scoop-bucket`), the `.deb`, `.rpm` or
+    `.apk` package below (Linux), or `docker pull ghcr.io/xavidop/tamesu:{{ .Version }}`.
+
+    The `tamesu_*` archives are the full build (audio mode and SIP); `tamesu-lite_*` and the
+    packages are the pure-Go build.
+
+    **Docs:** https://xavidop.github.io/tamesu/
+
+# The Docker image ships the lite binary with Chromium preinstalled, for CI
+# users of the browser target.
+dockers:
+  - id: tamesu
+    ids: [tamesu-lite]
+    goos: linux
+    goarch: amd64
+    dockerfile: Dockerfile
+    image_templates:
+      - "ghcr.io/xavidop/tamesu:{{ .Version }}"
+      - "ghcr.io/xavidop/tamesu:latest"
+    build_flag_templates:
+      - "--label=org.opencontainers.image.title=tamesu"
+      - "--label=org.opencontainers.image.description=Put your web apps and AI agents to the test."
+      - "--label=org.opencontainers.image.url=https://xavidop.github.io/tamesu/"
+      - "--label=org.opencontainers.image.source=https://github.com/xavidop/tamesu"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.licenses=MIT"
+
+# The Scoop manifest is committed to xavidop/scoop-bucket, which needs a token
+# that can write there (see release.yml). Scoop reads the Windows zip archives.
+scoops:
+  - name: tamesu
+    ids: [tamesu-lite]
+    repository:
+      owner: xavidop
+      name: scoop-bucket
+      token: "{{ .Env.SCOOP_BUCKET_TOKEN }}"
+    homepage: "https://xavidop.github.io/tamesu/"
+    description: "Put your web apps and AI agents to the test"
+    license: MIT
+
+# The tap lives in a different repository, so this block needs its own token
+# (see release.yml, which falls back to GITHUB_TOKEN when the secret is absent).
+# Casks have no `test` block: release.yml smoke-tests the built binary with
+# `tamesu version` instead. The binary is unsigned, so the postflight clears
+# the macOS quarantine attribute. Casks install on macOS only.
+homebrew_casks:
+  - name: tamesu
+    ids: [tamesu-lite]
+    binaries: [tamesu]
+    directory: Casks
+    repository:
+      owner: xavidop
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    homepage: "https://xavidop.github.io/tamesu/"
+    # Homebrew rejects a description that ends with a period.
+    description: "Put your web apps and AI agents to the test"
+    custom_block: |
+      postflight_steps do
+        on_macos do
+          run "/usr/bin/xattr",
+              args:           ["-dr", "com.apple.quarantine", "{{ "{{" }}staged_path}}/tamesu"],
+              writable_paths: ["tamesu"],
+              writable_base:  :staged_path
+        end
+      end

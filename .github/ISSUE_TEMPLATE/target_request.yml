@@ -1,0 +1,41 @@
+name: Target request
+description: Request (or volunteer to build) a new target or transport (Pipecat, OpenAI Realtime, WhatsApp, ...)
+labels: [target, triage]
+body:
+  - type: input
+    id: system
+    attributes:
+      label: System under test
+      placeholder: "OpenAI Realtime, Pipecat, WhatsApp Business, a WebSocket agent, ..."
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of conversation
+      options:
+        - Text turns over HTTP or WebSocket
+        - Realtime voice (WebRTC or WebSocket audio)
+        - Phone call
+        - Web UI
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: sdk
+    attributes:
+      label: Go SDK or protocol
+      description: Link to the Go SDK, or the protocol documentation if there is no SDK.
+  - type: textarea
+    id: turns
+    attributes:
+      label: How does a user turn go in, and how is the agent's turn read back?
+      description: Endpoints, messages, events; how the end of an agent turn is detected.
+    validations:
+      required: true
+  - type: checkboxes
+    id: volunteer
+    attributes:
+      label: Are you volunteering to build it?
+      options:
+        - label: I'd like to implement this target and make it pass the targettest conformance suite.

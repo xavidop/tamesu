@@ -1,0 +1,27 @@
+name: ✨ Feature request
+description: Suggest a capability for tamesu
+labels: [enhancement, triage]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to test, and what gets in the way?
+      description: Describe the use case, not just the proposed solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed YAML, flag or behaviour
+      description: Sketch the suite keys, the command or the report change you have in mind.
+      render: yaml
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: I checked that this fits tamesu's scope (testing web apps and AI agents from a CLI, not a hosted dashboard or a load-testing tool).

@@ -1,0 +1,30 @@
+version: 2
+updates:
+  # Root module (public API, target/assert/metrics contracts, internal/*)
+  - package-ecosystem: gomod
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      go-dependencies:
+        patterns: ["*"]
+    labels: [dependencies, go]
+
+  # CLI module (own go.mod; the only module that pulls everything, including
+  # the mamori cloud secret providers)
+  - package-ecosystem: gomod
+    directory: "/cmd/tamesu"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, cli]
+
+  # GitHub Actions
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule: { interval: weekly }
+    labels: [dependencies, ci]
+
+  # Docs site (npm)
+  - package-ecosystem: npm
+    directory: "/site"
+    schedule: { interval: weekly }
+    labels: [dependencies, docs]

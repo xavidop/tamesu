@@ -37,7 +37,6 @@ func (e *exitError) Unwrap() error { return e.err }
 
 func usageError(err error) error  { return &exitError{code: ExitConfig, err: err} }
 func configError(err error) error { return &exitError{code: ExitConfig, err: err} }
-func infraError(err error) error  { return &exitError{code: ExitInfra, err: err} }
 func silentExit(code int) error   { return &exitError{code: code, silent: true} }
 
 // ExitCode maps err to a process exit code: 0 for nil; the code of an

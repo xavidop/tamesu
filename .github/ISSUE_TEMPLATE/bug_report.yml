@@ -1,0 +1,61 @@
+name: 🐛 Bug report
+description: Report a defect in the tamesu CLI, a target, the runner or the reports
+labels: [bug, triage]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time to file a bug! Please do NOT paste real API keys, tokens or transcripts with personal data.
+  - type: input
+    id: version
+    attributes:
+      label: tamesu version
+      description: Output of `tamesu version`.
+      placeholder: "tamesu 0.1.0 (abc1234, 2026-10-31)"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS and architecture
+      placeholder: "macOS 15 arm64, Ubuntu 24.04 amd64, Windows 11"
+    validations:
+      required: true
+  - type: dropdown
+    id: target
+    attributes:
+      label: Target type
+      options:
+        - browser
+        - rest
+        - livekit
+        - sip
+        - none (CLI, config, reports)
+    validations:
+      required: true
+  - type: textarea
+    id: suite
+    attributes:
+      label: Suite snippet
+      description: The smallest suite that shows the problem. Replace secrets with {{secrets.NAME}} placeholders.
+      render: yaml
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Run output
+      description: What `tamesu` printed (with `-v` if you can). Confirm no credentials are included.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Confirmation
+      options:
+        - label: I have removed all real credentials and personal data from this report.
+          required: true

@@ -415,7 +415,7 @@ func (v *validator) assertion(ap []string, a Assertion, ttype, mode string) {
 			v.errorf(kp, "%s needs a tool name", kind)
 		}
 	case "dtmf_received":
-		if ttype != "" && !(ttype == TargetSIP || (ttype == TargetLiveKit && mode == "audio")) {
+		if ttype != "" && ttype != TargetSIP && (ttype != TargetLiveKit || mode != "audio") {
 			v.errorf(kp, "dtmf_received applies to sip tests and livekit tests in audio mode; this test is %s %s", ttype, mode)
 		}
 		if a.DTMFReceived.Equals == "" || !dtmfRe.MatchString(a.DTMFReceived.Equals) {

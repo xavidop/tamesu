@@ -1,0 +1,251 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Each module is tested independently against its own go.mod (no workspace).
+  GOWORK: off
+
+jobs:
+  discover:
+    name: Discover modules
+    runs-on: ubuntu-latest
+    outputs:
+      dirs: ${{ steps.set.outputs.dirs }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: set
+        name: Find all Go modules
+        run: |
+          dirs=$(find . -name go.mod -not -path './site/*' -not -path './**/testdata/*' \
+            -exec dirname {} \; | sort | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          echo "dirs=$dirs" >> "$GITHUB_OUTPUT"
+          echo "Modules: $dirs"
+
+  test:
+    name: test ${{ matrix.dir }}
+    needs: discover
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: ${{ fromJSON(needs.discover.outputs.dirs) }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: ${{ matrix.dir }}/go.mod
+          cache-dependency-path: ${{ matrix.dir }}/go.sum
+      - name: go build
+        working-directory: ${{ matrix.dir }}
+        run: go build ./...
+      - name: go vet
+        working-directory: ${{ matrix.dir }}
+        run: go vet ./...
+      # Integration tests carry a //go:build integration tag, so no default
+      # build compiles them. Type-checking them costs nothing and keeps a
+      # refactor from quietly orphaning them.
+      - name: go vet (integration build tag)
+        working-directory: ${{ matrix.dir }}
+        run: go vet -tags integration ./...
+      - name: go test (race, coverage)
+        working-directory: ${{ matrix.dir }}
+        run: go test -race -count=1 -covermode=atomic -coverpkg=./... -coverprofile=coverage.out ./...
+      - name: Coverage summary
+        working-directory: ${{ matrix.dir }}
+        run: |
+          total=$(go tool cover -func=coverage.out | tail -1 | awk '{print $3}')
+          {
+            echo "### Coverage: \`${{ matrix.dir }}\`"
+            echo
+            echo "**$total** of statements"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "Total coverage for ${{ matrix.dir }}: $total"
+      - name: Name the coverage artifact
+        id: slug
+        run: echo "v=$(echo '${{ matrix.dir }}' | sed 's|^\./||; s|/|-|g; s|^\.$|core|')" >> "$GITHUB_OUTPUT"
+      - name: Upload coverage profile
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-${{ steps.slug.outputs.v }}
+          path: ${{ matrix.dir }}/coverage.out
+          retention-days: 14
+
+  lint:
+    name: lint ${{ matrix.dir }}
+    needs: discover
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: ${{ fromJSON(needs.discover.outputs.dirs) }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: ${{ matrix.dir }}/go.mod
+          cache-dependency-path: ${{ matrix.dir }}/go.sum
+      - name: golangci-lint
+        # The version is pinned for reproducibility; the timeout lives in
+        # .golangci.yml (run.timeout).
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.15.0
+          working-directory: ${{ matrix.dir }}
+      - name: golangci-lint (integration build tag)
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.15.0
+          working-directory: ${{ matrix.dir }}
+          args: --build-tags integration
+
+  gofmt:
+    name: gofmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Check formatting
+        run: |
+          unformatted=$(gofmt -l $(find . -name '*.go' -not -path './**/testdata/*' -not -path './site/*'))
+          if [ -n "$unformatted" ]; then
+            echo "These files are not gofmt-ed:"; echo "$unformatted"; exit 1
+          fi
+
+  checks:
+    name: Dependency, AI and claim checks
+    needs: discover
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.x"
+      - run: pip install --disable-pip-version-check pyyaml
+      - name: The root module has no heavy SDK
+        run: bash .github/scripts/check_root_deps.sh .
+      - name: Only llm/ talks to model providers
+        run: bash .github/scripts/check_ai_deps.sh
+      - name: README makes no unshipped claims
+        run: bash .github/scripts/check_readme_claims.sh
+      - name: Docs, skill and README match the CLI
+        run: bash .github/scripts/check_docs_claims.sh
+      # dependabot.yml is hand-maintained while the matrix above is discovered,
+      # so the two drift apart silently and a new module never gets a dependency
+      # update. Fail instead.
+      - name: Every Go module has a dependabot entry
+        run: python3 .github/scripts/check_dependabot_coverage.py '${{ needs.discover.outputs.dirs }}'
+
+  schema:
+    name: JSON Schema is up to date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: make schema-check
+
+  smoke:
+    name: Build the CLI and run init + validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: cmd/tamesu/go.mod
+          cache-dependency-path: cmd/tamesu/go.sum
+      - name: Build
+        working-directory: cmd/tamesu
+        run: go build -o "$RUNNER_TEMP/tamesu" .
+      - name: tamesu version, init, validate, list, doctor
+        run: |
+          set -x
+          "$RUNNER_TEMP/tamesu" version
+          d=$(mktemp -d)
+          cd "$d"
+          "$RUNNER_TEMP/tamesu" init
+          "$RUNNER_TEMP/tamesu" validate --strict
+          "$RUNNER_TEMP/tamesu" list
+          # The scaffold declares env secrets; give them values so doctor passes.
+          GEMINI_API_KEY=ci SUPPORT_API_TOKEN=ci LIVEKIT_API_KEY=ci LIVEKIT_API_SECRET=ci "$RUNNER_TEMP/tamesu" doctor
+
+  # Starts livekit-server --dev, livekit/sip, Redis, Asterisk, headless Chromium
+  # and the example agents (examples/compose.yaml) and runs the example suites
+  # with the fake model provider, so CI needs no API keys. Until the compose
+  # file exists the target reports so and passes.
+  integration:
+    name: Integration (compose + llmfake)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: make integration
+
+  # govulncheck is call-graph aware, so an advisory in a module we require but
+  # never call does not fail the build. One job loops every module so a single
+  # log shows the whole picture.
+  govulncheck:
+    name: govulncheck
+    needs: discover
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - name: Scan every module
+        run: |
+          govulncheck="$(go env GOPATH)/bin/govulncheck"
+          failed=""
+          for dir in $(echo '${{ needs.discover.outputs.dirs }}' | jq -r '.[]'); do
+            echo "::group::govulncheck $dir"
+            if (cd "$dir" && "$govulncheck" ./...); then
+              echo "OK $dir"
+            else
+              echo "::error::govulncheck found a reachable vulnerability in $dir"
+              failed="$failed $dir"
+            fi
+            echo "::endgroup::"
+          done
+          if [ -n "$failed" ]; then
+            echo "Modules with reachable vulnerabilities:$failed"
+            exit 1
+          fi
+          echo "No reachable vulnerabilities in any module."
+
+  docs:
+    name: Docs build & link check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - name: Install dependencies
+        working-directory: site
+        run: npm ci || npm install
+      - name: Build the docs site
+        working-directory: site
+        run: npm run build
+      - name: Check for broken internal links
+        working-directory: site
+        run: npm run linkcheck
