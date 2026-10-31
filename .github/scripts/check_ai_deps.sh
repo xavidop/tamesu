@@ -15,7 +15,9 @@ status=0
 while IFS= read -r modfile; do
 	dir="$(dirname "$modfile")"
 	case "$dir" in
-	./llm | ./llm/plugins/*) continue ;;
+	# llm is where models are called; the examples are standalone Genkit apps
+	# (the agents under test), not tamesu modules.
+	./llm | ./llm/plugins/* | ./examples/*) continue ;;
 	esac
 	offenders="$(cd "$dir" && GOWORK=off go list -f '{{$p := .ImportPath}}{{range .Imports}}{{$p}} {{.}}{{"\n"}}{{end}}' ./... 2>/dev/null | awk '{print $2 " <- " $1}' | grep -E "^($denylist)" || true)"
 	if [ -n "$offenders" ]; then

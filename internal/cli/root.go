@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/xavidop/mamori"
 
+	"github.com/xavidop/tamesu/internal/model"
 	"github.com/xavidop/tamesu/internal/redact"
 )
 
@@ -41,6 +42,13 @@ type Deps struct {
 	// Checks are extra `tamesu doctor` checks: models, Chromium and LiveKit
 	// come from the modules that know how to reach them.
 	Checks []DoctorCheck
+	// NewProvider builds the AI layer for a run (the llm module); nil means
+	// this build has no model provider and conversational tests fail with an
+	// infrastructure error.
+	NewProvider func(ctx context.Context, cfg ProviderConfig) (model.Provider, error)
+	// Targets are the target factories by type (rest, livekit, sip, browser)
+	// this build links.
+	Targets map[string]TargetFactory
 }
 
 type app struct {
@@ -108,6 +116,7 @@ func NewRoot(info BuildInfo, streams Streams, deps Deps) *cobra.Command {
 		a.newInitCmd(),
 		a.newValidateCmd(),
 		a.newListCmd(),
+		a.newRunCmd(),
 		a.newDoctorCmd(),
 	)
 	apps.Store(root, a)

@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -33,6 +34,10 @@ var (
 )
 
 func main() {
+	// Genkit and the provider SDKs log through slog's default at Info; the CLI
+	// replaces it with a redacting handler at Warn (Debug with -v) when a run
+	// starts. Until then, drop it so nothing unredacted reaches the terminal.
+	slog.SetDefault(slog.New(slog.DiscardHandler))
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	go func() {
 		// After the first signal cancels ctx, restore the default handlers so
@@ -44,7 +49,13 @@ func main() {
 	root := cli.NewRoot(
 		cli.BuildInfo{Version: version, Commit: commit, Date: date},
 		cli.Streams{In: os.Stdin, Out: os.Stdout, Err: os.Stderr},
-		cli.Deps{LookupEnv: os.LookupEnv, Now: time.Now},
+		cli.Deps{
+			LookupEnv:   os.LookupEnv,
+			Now:         time.Now,
+			NewProvider: newProvider,
+			Targets:     targetFactories,
+			Checks:      []cli.DoctorCheck{checkModels},
+		},
 	)
 	code := cli.Execute(ctx, root, os.Args[1:])
 	stop()

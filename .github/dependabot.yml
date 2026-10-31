@@ -17,11 +17,23 @@ updates:
     schedule: { interval: weekly }
     labels: [dependencies, go, cli]
 
+  # AI layer (own go.mod; Genkit and the model provider plugins)
+  - package-ecosystem: gomod
+    directory: "/llm"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, llm]
+
   # REST target (own go.mod; net/http and ojg for JSONPath)
   - package-ecosystem: gomod
     directory: "/targets/rest"
     schedule: { interval: weekly }
     labels: [dependencies, go, target]
+
+  # Example REST agent (own go.mod; a Genkit app)
+  - package-ecosystem: gomod
+    directory: "/examples/rest-agent"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, examples]
 
   # GitHub Actions
   - package-ecosystem: github-actions

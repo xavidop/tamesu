@@ -34,6 +34,9 @@ site/.astro/
 # Shell completions scripts/completions.sh writes for GoReleaser.
 /completions/
 
+# Run output and the binaries make integration builds.
+.tamesu/
+
 # Binaries from a plain `go build` in the repo root or cmd/tamesu.
 /cmd/tamesu/tamesu
 /tamesu

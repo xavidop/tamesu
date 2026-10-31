@@ -47,13 +47,17 @@ This is a multi-module repository tied together by a `go.work` file:
 - `cmd/tamesu`: the `tamesu` binary, its own module. It is the only module that links everything,
   including the mamori cloud secret providers (`aws-sm://`, `vault://`, `gcp-sm://`, `azure-kv://`,
   `k8s-secret://`, `op://`, `doppler://`, `infisical://`, `sops://`).
+- `llm`: the only place a model is called, its own module built on [Genkit](https://genkit.dev):
+  the simulated user and judge flows, the dotprompt files under `llm/prompts/`, cost accounting,
+  Genkit evaluators and, behind `-tags llmfake`, the fake provider CI runs with.
 - `targets/rest`: the REST target (HTTP, SSE), its own module; it passes the `targettest`
   conformance suite of the root module.
+- `examples/rest-agent`: a tiny Genkit REST agent with the suite that tests it; `make integration`
+  runs it with the fake model provider.
 - `skills/tamesu`: the agent skill.
 - `site/`: the Astro documentation site.
 
-The modules for the AI layer (`llm`, the only place a model is called, through Genkit), the
-other targets (`targets/livekit`, `targets/sip`, `targets/browser`), the audio pipeline
+The modules for the other targets (`targets/livekit`, `targets/sip`, `targets/browser`), the audio pipeline
 (`audio`) and the examples are added phase by phase; each gets its own `go.mod`, a `go.work`
 entry and a dependabot entry.
 

@@ -78,7 +78,7 @@ schema-check: ## Fail if the committed schemas or the suites page differ from wh
 # The end-to-end tests with the fake model provider (no network, no keys) build
 # only with -tags llmfake, so a default build never contains the fake provider.
 # Entries are "module dir:packages"; modules join the list as they gain llmfake tests.
-LLMFAKE := .:./...
+LLMFAKE := .:./... llm:./... cmd/tamesu:./...
 
 test-llmfake: ## go test -tags llmfake for the fake-provider suites
 	@for p in $(LLMFAKE); do d=$${p%%:*}; pkgs=$${p#*:}; echo "==> test -tags llmfake $$d $$pkgs"; \
@@ -92,13 +92,8 @@ lint-llmfake: ## golangci-lint -tags llmfake for the fake-provider suites
 	@for p in $(LLMFAKE); do d=$${p%%:*}; pkgs=$${p#*:}; echo "==> lint -tags llmfake $$d $$pkgs"; \
 		(cd $$d && golangci-lint run --build-tags llmfake $$pkgs) || exit 1; done
 
-integration: ## docker compose up (livekit server, livekit/sip, Asterisk, example agents) and run the integration suites
-	@if [ ! -f examples/compose.yaml ]; then \
-		echo "integration: examples/compose.yaml does not exist yet (the example agents arrive with the runner)"; exit 0; \
-	fi
-	@docker compose -f examples/compose.yaml up -d --wait
-	@trap 'docker compose -f examples/compose.yaml down -v' EXIT; \
-	for m in $(MODULES); do echo "==> test -tags integration $$m"; (cd $$m && $(GO) test -race -count=1 -tags integration ./...) || exit 1; done
+integration: ## Run the example suites end to end with the fake model provider (scripts/integration.sh); docker compose services join as the voice targets land
+	@bash scripts/integration.sh
 
 genkit-ui: ## Run an example suite under `genkit start` to inspect traces in the Genkit Developer UI
 	@command -v genkit >/dev/null || { echo "genkit CLI is not installed: npm i -g genkit-cli"; exit 1; }

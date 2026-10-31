@@ -14,7 +14,7 @@ type JudgeRequest struct {
 	Min   float64 `json:"min,omitempty"`
 	// Model overrides the configured judge model (a Genkit reference).
 	Model      string             `json:"model,omitempty"`
-	Transcript []Turn             `json:"transcript"`
+	Transcript []Turn             `json:"transcript,omitempty"`
 	ToolCalls  []target.ToolCall  `json:"tool_calls,omitempty"`
 	Metrics    map[string]float64 `json:"metrics,omitempty"`
 }

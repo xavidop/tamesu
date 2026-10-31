@@ -1,0 +1,255 @@
+package cli
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"path/filepath"
+	"slices"
+	"strings"
+
+	"github.com/spf13/cobra"
+
+	"github.com/xavidop/tamesu/internal/config"
+	"github.com/xavidop/tamesu/internal/model"
+	"github.com/xavidop/tamesu/internal/runner"
+	"github.com/xavidop/tamesu/internal/secrets"
+	"github.com/xavidop/tamesu/report"
+	"github.com/xavidop/tamesu/target"
+)
+
+// ProviderConfig is what cmd/tamesu needs to build the AI layer for a run.
+type ProviderConfig struct {
+	Project config.Project
+	// Models are the effective models (project, overridden by the suites).
+	Models config.Models
+	// Secrets holds the resolved secrets; model credentials are read from it
+	// by conventional name or through models.credentials.
+	Secrets *secrets.Store
+	Logger  *slog.Logger
+	// MaxCostUSD is the effective cost budget.
+	MaxCostUSD float64
+	MaxTokens  int
+}
+
+// Credentials returns the lookup the llm module uses for plugin credentials:
+// models.credentials first ({googleai: "{{secrets.X}}"}), then the secret
+// with the conventional name.
+func (p ProviderConfig) Credentials(name string) (string, bool) {
+	if p.Secrets == nil {
+		return "", false
+	}
+	for plugin, tmpl := range p.Models.Credentials {
+		if !strings.EqualFold(pluginForCredential(name), plugin) {
+			continue
+		}
+		for _, secret := range config.SecretRefs(tmpl) {
+			if v, ok := p.Secrets.Lookup(secret); ok {
+				return v, true
+			}
+		}
+	}
+	return p.Secrets.Lookup(name)
+}
+
+// pluginForCredential maps a conventional credential name to its plugin.
+func pluginForCredential(name string) string {
+	switch name {
+	case "GEMINI_API_KEY", "GOOGLE_API_KEY":
+		return "googleai"
+	case "ANTHROPIC_API_KEY":
+		return "anthropic"
+	case "OPENAI_API_KEY":
+		return "openai"
+	case "DEEPGRAM_API_KEY":
+		return "deepgram"
+	case "ELEVENLABS_API_KEY":
+		return "elevenlabs"
+	}
+	return ""
+}
+
+// TargetFactory builds a target of one type.
+type TargetFactory func(ctx context.Context, spec runner.TargetSpec) (target.Target, error)
+
+// supportedReporters are the reporters this build has; html arrives with the
+// action cache.
+var supportedReporters = []string{"console", "json", "junit"}
+
+func (a *app) newRunCmd() *cobra.Command {
+	var (
+		sel        selectFlags
+		parallel   int
+		repeat     int
+		mode       string
+		out        string
+		reporters  []string
+		maxCostUSD float64
+	)
+	cmd := &cobra.Command{
+		Use:   "run [paths...]",
+		Short: "Run the suites",
+		Long: "Run loads tamesu.yaml and the suites (the paths and globs given, or the project's\n" +
+			"suites:), resolves the secrets the selected tests use through mamori, and runs every\n" +
+			"test against its target, repeats in parallel. Each run writes a directory under\n" +
+			"--out with transcript.json and result.json; the reporters write summary.json,\n" +
+			"junit.xml and the console output.\n\n" +
+			"Exit codes: 0 all passed, 1 a test failed, 2 config error, 3 infrastructure error,\n" +
+			"4 the cost budget was exceeded.",
+		Args: cobra.ArbitraryArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			filter, err := sel.compile()
+			if err != nil {
+				return err
+			}
+			if mode != "" && mode != "text" && mode != "audio" {
+				return usageError(fmt.Errorf("--mode must be text or audio"))
+			}
+			p, perrs, err := a.loadProject(cmd, true)
+			if err != nil {
+				return err
+			}
+			paths, err := a.suitePaths(args, p)
+			if err != nil {
+				return err
+			}
+			files, err := a.loadSuites(paths, p, true)
+			if err != nil {
+				return err
+			}
+			nErr, _ := printErrors(cmd.ErrOrStderr(), perrs.Only())
+			var suites []*config.Suite
+			for _, f := range files {
+				e, _ := printErrors(cmd.ErrOrStderr(), f.Errs.Only())
+				nErr += e
+				if e == 0 && f.Suite != nil {
+					suites = append(suites, f.Suite)
+				}
+			}
+			if nErr > 0 {
+				return silentExit(ExitConfig)
+			}
+
+			// Reporters.
+			if len(reporters) == 0 {
+				reporters = p.Reporters
+			}
+			if !slices.Contains(reporters, "json") {
+				reporters = append(reporters, "json")
+			}
+			if out == "" {
+				out = filepath.Join(".tamesu", "runs", a.deps.Now().Format("2006-01-02T15-04-05"))
+			}
+			var reps report.Multi
+			for _, r := range reporters {
+				switch r {
+				case "console":
+					reps = append(reps, report.NewConsole(cmd.OutOrStdout(), a.verbose))
+				case "json":
+					reps = append(reps, report.NewJSON(out))
+				case "junit":
+					reps = append(reps, report.NewJUnit(out))
+				case "html":
+					a.logger().Warn("the html reporter is not available in this build; skipped")
+				default:
+					return usageError(fmt.Errorf("--reporter: unknown reporter %q (have %s)", r, strings.Join(supportedReporters, ", ")))
+				}
+			}
+
+			// Selection and secrets: only what the selected tests use.
+			selection := runner.Selection{Filter: filter, Tags: sel.tags, Target: sel.target}
+			refs := map[string]string{}
+			refVars := map[string]string{}
+			selected := 0
+			models := p.Models
+			for _, s := range suites {
+				tests := s.SelectTests(filter, sel.tags, sel.target)
+				selected += len(tests)
+				if len(tests) == 0 {
+					continue
+				}
+				for k, v := range secrets.Collect(p, s, tests) {
+					refs[k] = v
+				}
+				for k, v := range s.Vars {
+					refVars[k] = v
+				}
+				models = s.EffectiveModels(p)
+			}
+			if selected == 0 {
+				return configError(fmt.Errorf("no tests match the selection in %s", plural(len(suites), "suite")))
+			}
+			flagVars, err := a.refVars(nil)
+			if err != nil {
+				return err
+			}
+			for k, v := range flagVars {
+				refVars[k] = v
+			}
+			store, err := secrets.Resolve(ctx, refs, secrets.Options{RefVars: refVars, EnvFile: a.envFile, Providers: a.deps.Providers})
+			if err != nil {
+				return err
+			}
+			for _, name := range store.Names() {
+				if v, ok := store.Lookup(name); ok {
+					a.redactor.Add(name, v)
+				}
+			}
+			logger := a.logger()
+			slog.SetDefault(logger)
+
+			budget := maxCostUSD
+			if budget <= 0 {
+				budget = p.Budgets.MaxCostUSD
+			}
+			var provider model.Provider
+			if a.deps.NewProvider != nil {
+				provider, err = a.deps.NewProvider(ctx, ProviderConfig{Project: p, Models: models, Secrets: store, Logger: logger, MaxCostUSD: budget, MaxTokens: p.Budgets.MaxTokens})
+				if err != nil {
+					return infraError(fmt.Errorf("model provider: %w", err))
+				}
+				defer func() { _ = provider.Close(context.WithoutCancel(ctx)) }()
+			}
+
+			summary, err := runner.Run(ctx, runner.Options{
+				Project: p, Suites: suites, Select: selection, OutDir: out, Parallel: parallel, Repeat: repeat, Mode: mode,
+				MaxCostUSD: budget, Targets: a.targetFactory(), Provider: provider, Secrets: store, Vars: flagVars, Env: a.env(),
+				Reporter: reps, Logger: logger, Now: a.deps.Now, Version: a.info.Version,
+			})
+			if err != nil {
+				if errors.Is(err, runner.ErrNoTests) {
+					return configError(err)
+				}
+				return infraError(err)
+			}
+			if code := summary.ExitCode(); code != ExitOK {
+				return silentExit(code)
+			}
+			return nil
+		},
+	}
+	sel.add(cmd)
+	cmd.Flags().IntVar(&parallel, "parallel", 0, "concurrent runs (default: the number of CPUs)")
+	cmd.Flags().IntVar(&repeat, "repeat", 0, "override every test's repeat count")
+	cmd.Flags().StringVar(&mode, "mode", "", "voice tests: text or audio (default from the suite)")
+	cmd.Flags().StringVar(&out, "out", "", "run output directory (default .tamesu/runs/<timestamp>)")
+	cmd.Flags().StringSliceVar(&reporters, "reporter", nil, "reporters: console, json, junit (default from tamesu.yaml)")
+	cmd.Flags().Float64Var(&maxCostUSD, "max-cost-usd", 0, "stop the run once tamesu's own model spend exceeds this (default budgets.max_cost_usd)")
+	return cmd
+}
+
+// targetFactory dispatches on the target type to the factories cmd/tamesu
+// registered.
+func (a *app) targetFactory() runner.TargetFactory {
+	return func(ctx context.Context, spec runner.TargetSpec) (target.Target, error) {
+		f, ok := a.deps.Targets[spec.Config.Type]
+		if !ok {
+			return nil, fmt.Errorf("target type %s is not available in this build", spec.Config.Type)
+		}
+		return f(ctx, spec)
+	}
+}
+
+func infraError(err error) error { return &exitError{code: ExitInfra, err: err} }

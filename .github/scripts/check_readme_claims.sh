@@ -10,7 +10,7 @@
 set -euo pipefail
 
 file="${1:-README.md}"
-words='tamesu run|tamesu report|tamesu record|tamesu generate|tamesu sip|--replay|--update-cache|--max-cost-usd|--reporter'
+words='tamesu report|tamesu record|tamesu generate|tamesu sip|--replay|--update-cache|--headed'
 
 if [ ! -f "$file" ]; then
 	echo "check-readme-claims: $file not found" >&2

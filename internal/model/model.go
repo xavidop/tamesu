@@ -16,7 +16,7 @@ type SimInput struct {
 	Persona  config.Persona  `json:"persona"`
 	Scenario config.Scenario `json:"scenario"`
 	// History is the conversation so far, user and agent turns in order.
-	History []assert.Turn `json:"history"`
+	History []assert.Turn `json:"history,omitempty"`
 	// Turn is the 1-based number of the user turn about to be produced.
 	Turn int `json:"turn"`
 	// MaxTurns is the scenario's turn budget (0 means the default).
