@@ -20,6 +20,7 @@ brew install xavidop/tap/tamesu        # macOS; Windows: scoop install tamesu; L
 tamesu init                            # tamesu.yaml + examples/support-agent.yaml
 tamesu validate                        # file:line errors for anything wrong
 tamesu doctor                          # resolve every secret through mamori and check the setup
+tamesu run                             # run the suites: transcripts, metrics, junit.xml, exit code
 ```
 
 The [Quick start](/docs/quickstart/) walks through a first project.
@@ -34,6 +35,10 @@ The [Quick start](/docs/quickstart/) walks through a first project.
 | Keep API keys out of suites with mamori secret refs | [Configuration: secrets](/docs/configuration/#secrets-with-mamori) |
 | Validate suites with file and line numbers, in your editor and in CI | [`tamesu validate`](/docs/cli/#tamesu-validate) |
 | Check the whole setup, secrets included, without printing a value | [`tamesu doctor`](/docs/cli/#tamesu-doctor) |
+| Run the suites and read the reports | [`tamesu run`](/docs/cli/#tamesu-run), [Reports](/docs/reports/) |
+| Test a REST agent | [REST target](/docs/targets/rest/) |
+| Pick models, override prompts, see traces, count cost | [AI (Genkit)](/docs/ai/) |
+| Drive tests from `go test` | [Go API](/docs/go-api/) |
 | Run tamesu in GitHub Actions, GitLab CI or Docker | [CI](/docs/ci/) |
 
 ## Four targets, one model
@@ -46,8 +51,8 @@ The [Quick start](/docs/quickstart/) walks through a first project.
 | `sip` | A phone agent reached through a LiveKit SIP service and your trunk | SIP / PSTN |
 
 All four share the suite schema, the assertion model, the persona and scenario definitions, the
-metrics and the report format. The schema is complete today, so suites for every target can be
-written, validated and listed; the runners land phase by phase (see the [roadmap](/docs/roadmap/)).
+metrics and the report format. `rest` runs today; the voice, phone and browser runners land
+phase by phase (see the [roadmap](/docs/roadmap/)).
 
 ## All AI through Genkit, all secrets through mamori
 

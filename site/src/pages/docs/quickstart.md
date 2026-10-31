@@ -150,15 +150,34 @@ with exit code `2`; a secret backend that is down is `fail ... provider ... fail
 with exit code `3`. Keep secrets out of the shell history with a `.env` file and `--env-file .env`:
 mamori reads it, the process environment is never mutated.
 
-## Running the tests
+## Run the tests
 
-Running a suite is the next phase of tamesu: the runner, the Genkit layer and the REST target
-are planned (`tamesu run` is not in the CLI yet; see the [roadmap](/docs/roadmap/)). The schema,
-the validator, the secrets layer and `doctor` you just used are what every run will build on.
+With a model configured (`genkit.plugins` and `models.*` in `tamesu.yaml`, the key under
+`secrets:`) and your agent reachable at `AGENT_URL`:
+
+```sh
+export GEMINI_API_KEY=...
+tamesu run --filter refund
+```
+
+```text
+tamesu run: 1 test, output in .tamesu/runs/2026-10-31T14-20-00
+PASS   support-agent / refund policy question  3.4s
+
+1 passed, 0 failed, 0 errors in 3.4s · 3 model calls, 2890 tokens, $0.0012
+```
+
+The run directory holds `summary.json`, `junit.xml` and, per run, `transcript.json` and
+`result.json` with every assertion's reason. A failing judge prints its reason and the last
+turns under the test. See [Reports](/docs/reports/) and [`tamesu run`](/docs/cli/#tamesu-run).
+The voice test needs the livekit runner, which is planned; `tamesu run` reports
+`target type livekit is not available in this build` for it until then (planned).
 
 ## Next
 
 - [Suites](/docs/suites/): every key of the YAML, generated from the schema.
 - [Configuration](/docs/configuration/): `tamesu.yaml`, secrets with mamori, interpolation.
+- [Personas and scenarios](/docs/personas-and-scenarios/), [Assertions](/docs/assertions/) and
+  [Judges](/docs/judges/): how a test is written and graded.
 - [CLI reference](/docs/cli/): every command, flag and exit code.
-- [CI](/docs/ci/): validate and doctor in GitHub Actions, GitLab and Docker.
+- [CI](/docs/ci/): run, validate and doctor in GitHub Actions, GitLab and Docker.

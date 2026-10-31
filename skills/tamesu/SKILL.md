@@ -1,6 +1,6 @@
 ---
 name: tamesu
-description: Use when working with tamesu (試す), the Go agentic testing framework and CLI for web apps and AI agents, when writing or fixing a tamesu suite in YAML (targets of type browser, rest, livekit or sip; personas, scenarios, steps, assertions such as judge, contains, not_contains, regex, json_path, status, tool_called, tool_not_called, dtmf_received, call_ended_by, transferred_to, evaluator, metric, turns, custom, on_turn), configuring tamesu.yaml (genkit plugins, models, speech, sip, defaults, budgets, reporters, secrets via mamori refs such as env: aws-sm:// vault:// op://), running `tamesu init`, `tamesu validate`, `tamesu list`, `tamesu doctor` or `tamesu version`, reading its exit codes (0 passed, 1 failed, 2 config error, 3 infrastructure error, 4 budget exceeded), running it in CI, reading its reports and run directories, debugging a failing validation or an unresolved secret, or answering what the tamesu CLI can do. Covers github.com/xavidop/tamesu.
+description: Use when working with tamesu (試す), the Go agentic testing framework and CLI for web apps and AI agents, when writing or fixing a tamesu suite in YAML (targets of type browser, rest, livekit or sip; personas, scenarios, steps, assertions such as judge, contains, not_contains, regex, json_path, status, tool_called, tool_not_called, dtmf_received, call_ended_by, transferred_to, evaluator, metric, turns, custom, on_turn), configuring tamesu.yaml (genkit plugins, models, speech, sip, defaults, budgets, reporters, secrets via mamori refs such as env: aws-sm:// vault:// op://), running `tamesu init`, `tamesu validate`, `tamesu list`, `tamesu run` (filter, tags, target, parallel, repeat, mode, out, reporter, max-cost-usd), `tamesu doctor` or `tamesu version`, reading its exit codes (0 passed, 1 failed, 2 config error, 3 infrastructure error, 4 budget exceeded), running it in CI, reading its reports and run directories, debugging a failing validation or an unresolved secret, or answering what the tamesu CLI can do. Covers github.com/xavidop/tamesu.
 ---
 
 # tamesu: put your web apps and AI agents to the test
@@ -12,10 +12,11 @@ the **target** is the system under test (`browser`, `rest`, `livekit` voice over
 LLM **judges**; every run leaves a transcript, metrics and reports. Module:
 `github.com/xavidop/tamesu`. Docs: https://xavidop.github.io/tamesu/docs/
 
-What the CLI has today: `tamesu init`, `tamesu validate`, `tamesu list`, `tamesu doctor` and
-`tamesu version`, plus the suite schema for all four target types. Planned, not shipped:
-`tamesu run` (planned runner), `tamesu report` (planned HTML report), `tamesu record` (planned),
-`tamesu generate` (planned) and `tamesu sip setup` (planned); do not promise them in CI yet.
+What the CLI has today: `tamesu init`, `tamesu validate`, `tamesu list`, `tamesu run`,
+`tamesu doctor` and `tamesu version`, with the `rest` target runnable and the suite schema for all
+four target types. Planned, not shipped: `tamesu report` (planned HTML report), `tamesu record`
+(planned), `tamesu generate` (planned) and `tamesu sip setup` (planned); livekit, sip and browser
+targets validate but do not run yet (planned).
 
 ## The model in one minute
 
@@ -131,9 +132,22 @@ picked up by their conventional names (`GEMINI_API_KEY`, `OPENAI_API_KEY`, `ANTH
 tamesu init [dir] [--force]                 scaffold tamesu.yaml and examples/
 tamesu validate [paths...] [--strict]       check tamesu.yaml and the suites; exit 2 on errors
 tamesu list [paths...] [--json] [--filter re] [--tags a,b] [--target name]
+tamesu run [paths...] [--filter re] [--tags a,b] [--target name] [--parallel N] [--repeat N]
+           [--mode text|audio] [--out dir] [--reporter console,json,junit] [--max-cost-usd X]
 tamesu doctor [paths...]                    config, suites, every secret (which chain link answered), models, Chromium, LiveKit
 tamesu version
 ```
+
+`tamesu run` resolves only the secrets the selected tests use, runs repeats in parallel, retries
+infrastructure errors (`retries`), stops at `budgets.max_cost_usd` (exit 4) and writes
+`.tamesu/runs/<timestamp>/` with `summary.json`, `junit.xml` and per run
+`tests/<test>/run-<n>/{transcript.json,result.json}`. `result.json` has every assertion's reason,
+the metrics, the judge trace ids and prompt version. With `-v` each run prints a line.
+
+The AI layer needs a model: `genkit.plugins` and `models.*` in `tamesu.yaml`, with the
+credential declared under `secrets:` (`GEMINI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or
+`models.credentials`). A binary built with `-tags llmfake` also accepts `plugins: [fake]` and
+`fake/simulator`, `fake/judge` models that replay `TAMESU_LLMFAKE_SCRIPT`, for CI without keys.
 
 Global flags: `--config tamesu.yaml`, `-v/--verbose`, `--var KEY=VAL` (repeatable; ref vars for
 `${VAR}` in secret refs and `{{vars.KEY}}`), `--env-file .env` (read through mamori's dotenv
@@ -149,6 +163,10 @@ secret ref), `3` infrastructure error (a secret provider down, LiveKit or a mode
 - `warning: targets.voice.url: env var LIVEKIT_URL is not set` means the suite is fine but the
   machine lacks the variable; `doctor` and the runner treat it as an error.
 - `secret X is not declared`: add `X` under `secrets:` in the suite or `tamesu.yaml`.
+- `tamesu run` exit 3 with `no simulator model is available` means `models.simulator` (or
+  `models.default`) is unset or its plugin is not configured; `target type X is not available in
+  this build` means that target's runner has not landed (planned) or the lite build lacks it.
+- A judge failure prints the judge's reason under the test; the transcript's last turns follow.
 - `doctor` says `fail secret X: not found in any of N ref(s)`: none of the chain's links had a
   value; `provider ... failed (unavailable)` is the backend, not your config (exit 3).
 - `ref var ENV is not set`: a secret ref uses `${ENV}`; pass `--var ENV=staging` or add it to

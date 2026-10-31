@@ -6,9 +6,9 @@ title: CI
 # CI
 
 tamesu is built for pipelines: deterministic exit codes, `file:line` errors, secrets that come
-from your CI's secret store through mamori rather than from the environment, and a Docker image
-with Chromium preinstalled. This page shows how to validate suites and check a setup in GitHub
-Actions, GitLab CI and Docker; running tests is [on the roadmap](/docs/roadmap/).
+from your CI's secret store through mamori rather than from the environment, JUnit output your
+CI's test reporter reads, and a Docker image with Chromium preinstalled. This page shows how to
+validate, check and run suites in GitHub Actions, GitLab CI and Docker.
 
 ## GitHub Actions
 
@@ -29,6 +29,16 @@ jobs:
         env:
           SUPPORT_API_TOKEN: ${{ secrets.SUPPORT_API_TOKEN }}
           AWS_REGION: eu-west-1
+      - run: tamesu run --var ENV=ci --out out
+        env:
+          SUPPORT_API_TOKEN: ${{ secrets.SUPPORT_API_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      - uses: dorny/test-reporter@v2
+        if: always()
+        with:
+          name: agent tests
+          path: out/junit.xml
+          reporter: java-junit
 ```
 
 `validate --strict` fails the job on any warning, including a `${VAR}` used for a secret.
@@ -90,6 +100,12 @@ A chain `env:NAME,aws-sm://...` lets developers use a local variable and CI the 
 
 ## Reports
 
-Every run writes a run directory with a `summary.json`, a `junit.xml` for the CI's test reporter
-and, per test and run, a `transcript.json` and a `result.json` with the assertions, metrics and
-judge reasoning. The reporters (`console`, `junit`, `json`, `html`) arrive with the runner.
+Every run writes a run directory with `summary.json`, `junit.xml` for the CI's test reporter
+and, per test and run, `transcript.json` and `result.json` with the assertions, metrics and
+judge reasoning. Upload the run directory as an artifact to read a failure after the fact. See
+[Reports](/docs/reports/).
+
+## Budgets
+
+`budgets.max_cost_usd` (or `--max-cost-usd`) caps what a pipeline run may spend on models and
+exits 4 when reached, so a looping agent cannot run up a bill overnight.

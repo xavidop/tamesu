@@ -6,20 +6,13 @@ title: Roadmap
 # Roadmap
 
 tamesu is built phase by phase, each ending with acceptance criteria that must pass before the
-next starts. The suite schema, the validator, the secrets layer, `tamesu init`, `validate`,
-`list` and `doctor` are done. This page is what comes next, in order.
+next starts. Done: the suite schema and validator, the secrets layer, `init`, `validate`, `list`
+and `doctor`; the runner with repeats, retries, timeouts and budgets; the Genkit layer with the
+simulator and judge flows, evaluators, cost accounting and the fake provider for CI; the `rest`
+target; `tamesu run` with console, JSON and JUnit reporters; the Go API. This page is what comes
+next, in order.
 
 ## Planned
-
-### Core runner, Genkit layer and the REST target
-
-- The runner: parallelism, repeats, retries, timeouts, budgets and cancellation; the persona loop.
-- The `llm` module: Genkit initialised from `tamesu.yaml` and mamori secrets, dotprompt files, the
-  `simulateUserTurn` and `judgeRun` flows, Genkit evaluators, cost accounting, a fake provider
-  for CI (`llmfake`), trace IDs in results and the Developer UI.
-- The `rest` target (plain JSON and SSE) and the assertions `judge`, `evaluator`, `contains`,
-  `regex`, `json_path`, `status`, `turns`, `tool_called`, `metric`.
-- `tamesu run` with console, JSON and JUnit reporters, and an example Genkit REST agent.
 
 ### LiveKit text mode
 

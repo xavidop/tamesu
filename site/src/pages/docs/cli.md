@@ -25,12 +25,12 @@ tamesu --help                   # every command
 | [`tamesu init`](#tamesu-init) | Scaffold `tamesu.yaml` and an `examples/` suite |
 | [`tamesu validate`](#tamesu-validate) | Check `tamesu.yaml` and the suites without running them |
 | [`tamesu list`](#tamesu-list) | List the tests of the suites |
+| [`tamesu run`](#tamesu-run) | Run the suites and write the reports |
 | [`tamesu doctor`](#tamesu-doctor) | Check the config, suites, secrets, models, Chromium and LiveKit |
 | [`tamesu version`](#tamesu-version) | Print the version, commit and build date |
 
 `tamesu completion` prints a shell completion script, and `tamesu help` shows help for any
-command. The runner and the other commands of the roadmap are listed on the
-[roadmap page](/docs/roadmap/).
+command. The other commands of the roadmap are listed on the [roadmap page](/docs/roadmap/).
 
 ## Global flags
 
@@ -43,7 +43,7 @@ command. The runner and the other commands of the roadmap are listed on the
 
 ## Suite paths
 
-`validate`, `list` and `doctor` take suite paths and globs as arguments (`**` matches across
+`validate`, `list`, `run` and `doctor` take suite paths and globs as arguments (`**` matches across
 directories; a directory means every `.yaml` and `.yml` under it). Without arguments they use the
 `suites:` globs of `tamesu.yaml`, relative to that file. A pattern that matches nothing is an
 error (exit `2`).
@@ -100,6 +100,41 @@ reported on stderr and makes the command exit `2`; warnings are not printed.
 | `--tags a,b` | Only tests having any of these tags (the suite's tags count for every test). |
 | `--target <name>` | Only tests of this target. |
 
+## tamesu run
+
+```text
+tamesu run [paths...] [--filter <regex>] [--tags a,b] [--target <name>] [--parallel N] [--repeat N] [--mode text|audio] [--out <dir>] [--reporter console,json,junit] [--max-cost-usd X]
+```
+
+Runs the selected tests. `tamesu.yaml` and the suites are loaded with `${VAR}` required; the
+secrets the selected tests use (and the model credentials) are resolved through mamori once,
+before anything runs; the AI layer is initialised from `genkit.plugins` and `models.*`; then every
+test runs against its target, `repeat` times, in parallel. Each run gets a directory with
+`transcript.json` and `result.json` (assertions with reasons, metrics, trace ids, prompt
+versions); the reporters write `summary.json`, `junit.xml` and the console output. See
+[Reports](/docs/reports/).
+
+| Flag | Meaning |
+|---|---|
+| `--filter <regex>` | Only tests whose name matches. |
+| `--tags a,b` | Only tests having any of these tags. |
+| `--target <name>` | Only tests of this target. |
+| `--parallel N` | Concurrent runs (default: the number of CPUs). |
+| `--repeat N` | Override every test's repeat count. |
+| `--mode text\|audio` | Voice tests: override the mode (livekit and sip). |
+| `--out <dir>` | Run directory (default `.tamesu/runs/<timestamp>`). |
+| `--reporter console,json,junit` | Reporters to run (default `reporters:` of `tamesu.yaml`; `json` is always on). |
+| `--max-cost-usd X` | Stop the run once tamesu's own model spend exceeds X (default `budgets.max_cost_usd`). |
+
+Exit `0` when every test passed, `1` when a test failed (including a timeout), `2` on a config
+error (an invalid suite, no tests selected, a secret ref with no value, an unknown reporter), `3`
+when a target, a model or a secret provider was unreachable, `4` when the budget stopped the run.
+
+A test fails when any assertion fails or it exceeds its `timeout`; an infrastructure error
+(target unreachable, model error) is retried `retries` times and then counts as an error, not a
+failure. With `repeat` above 1, the test passes when the fraction of passing runs reaches
+`pass_threshold`.
+
 ## tamesu doctor
 
 ```text
@@ -137,7 +172,7 @@ Prints the version, commit and build date on one line, such as
 | Code | Meaning |
 |---|---|
 | `0` | All tests passed (or, for `validate`, `list` and `doctor`, nothing failed). |
-| `1` | One or more tests failed. |
+| `1` | One or more tests failed, or timed out. |
 | `2` | Config or schema error: an invalid suite or `tamesu.yaml`, a bad flag, an unknown command, a secret ref with no value, no suites matching a path. |
 | `3` | Infrastructure error: a secret provider, LiveKit, a browser or a model that could not be reached. |
 | `4` | The cost or token budget was exceeded. |

@@ -1,0 +1,97 @@
+---
+layout: ../../layouts/DocsLayout.astro
+title: Assertions
+---
+
+# Assertions
+
+An assertion is one check over a finished run. Each entry under `assert:` is exactly one kind;
+a test may have any number. Deterministic assertions read the transcript, the responses, the
+tool calls, the metrics and the call timeline; `judge` and `evaluator` ask a model (see
+[Judges](/docs/judges/)). Every result carries a one-line reason that the console, `junit.xml`
+and `result.json` show, so a failure reads like a code review comment.
+
+## The transcript
+
+| Assertion | Passes when |
+|---|---|
+| `contains: text` | some agent turn contains `text` (case-sensitive). |
+| `not_contains: text` | no agent turn contains `text`. |
+| `regex: pattern` | some agent turn matches the Go regular expression. |
+| `turns: { lte: 6 }` | the number of agent turns satisfies the one comparator (`lt`, `lte`, `gt`, `gte`, `eq`). |
+
+## Responses (rest)
+
+| Assertion | Passes when |
+|---|---|
+| `status: 200` | every turn's HTTP status is the code. |
+| `json_path: { path: $.status, equals: ok }` | the path exists in every turn's response and, with `equals`, has that value (numbers and strings compared after JSON normalisation). |
+
+## Tool calls
+
+| Assertion | Passes when |
+|---|---|
+| `tool_called: name` | the agent called the tool at least once. |
+| `tool_called: { name: reschedule_booking, args: { day: saturday } }` | the agent called it with those argument values (a subset of the call's arguments). |
+| `tool_not_called: name` (or with `args`) | the agent never called it (with those arguments). |
+
+Tool calls come from the target: the REST target's `response.tool_calls` path, the LiveKit
+agent's attributes and data messages.
+
+## Metrics
+
+```yaml
+- metric: { name: turn_latency_ms_p95, lt: 4000 }
+- metric: { name: time_to_first_audio_ms, lt: 1500 }
+```
+
+Exactly one comparator (`lt`, `lte`, `gt`, `gte`, `eq`). A metric the run did not collect fails
+with the list of the ones it did. See [Metrics](/docs/metrics/).
+
+## Phone calls (sip)
+
+| Assertion | Passes when |
+|---|---|
+| `dtmf_received: { equals: "1234#" }` | the digits the agent sent, concatenated, equal the value (sip and livekit audio). |
+| `call_ended_by: [agent, caller]` | the call ended for one of the listed reasons: `agent`, `caller`, `timeout`, `error`, `no_answer`, `busy`. |
+| `transferred_to: { matches: "^sip:billing@" }` | the agent transferred the call (a SIP REFER) to a matching target. |
+
+These read the session timeline the sip target records; the sip runner is planned.
+
+## Models
+
+| Assertion | Passes when |
+|---|---|
+| `judge: "rubric"` | the judge model says the rubric holds. `judge: { rubric, model, scale: binary\|1-5, min }` picks the model and the scale. |
+| `evaluator: genkitEval/regex` or `{ name, min }` | a registered Genkit evaluator scores the run at least `min` (or reports PASS). |
+
+## Custom
+
+`custom: name` runs an assertion registered from Go with `assert.Register`; the Go API takes
+`assert.Assertion` values directly. See [Go API](/docs/go-api/).
+
+## One turn only
+
+`on_turn: N` (1-based) or `on_turn: last` evaluates the assertion on a single agent turn: its
+text, its response and its status.
+
+```yaml
+- contains: "anything else"
+  on_turn: last
+- json_path: { path: $.end_session, equals: true }
+  on_turn: last
+```
+
+## How a result reads
+
+```text
+FAIL   support-agent / refund policy question  2.1s
+    x judge "The agent states the 30-day return policy and does not promise an exception": the agent said a 40-day return "should be fine", which promises an exception
+    x metric turn_latency_ms_p95 < 4000: turn_latency_ms_p95 = 5120, want < 4000
+    last turns:
+      user:  So I can still return them?
+      agent: Sure, 40 days should be fine, I'll make an exception.
+```
+
+`result.json` holds the same, plus the judge's evidence quotes, its trace id and the prompt
+version.

@@ -12,7 +12,7 @@ export const LLMS_DESCRIPTION =
   "targets of type browser, rest, livekit (realtime voice over WebRTC) and sip (phone calls through a " +
   "LiveKit SIP service), personas, scenarios and assertions (judge, contains, regex, json_path, " +
   "tool_called, metric, ...). Every model call goes through Genkit and every secret through mamori. " +
-  "The CLI has init, validate, list, doctor and version.";
+  "The CLI has init, validate, list, run, doctor and version; the rest target runs today.";
 // No absolute URL here: every link in these files is built with absoluteUrl
 // from Astro's own `site` and `base`, and a domain written a second time here
 // is one that goes stale the day the site moves.
@@ -56,9 +56,17 @@ const ORDER = [
   "/docs/quickstart",
   "/docs/concepts",
   "/docs/suites",
+  "/docs/personas-and-scenarios",
+  "/docs/assertions",
+  "/docs/judges",
+  "/docs/metrics",
   "/docs/configuration",
+  "/docs/targets/rest",
   "/docs/cli",
+  "/docs/reports",
   "/docs/ci",
+  "/docs/ai",
+  "/docs/go-api",
   "/docs/security",
   "/docs/contributing",
   "/docs/roadmap",

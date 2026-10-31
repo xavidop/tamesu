@@ -75,8 +75,8 @@ After you install, run `tamesu doctor` to check your setup. More options are on 
 ```bash
 tamesu init              # scaffold tamesu.yaml + examples/
 tamesu validate          # schema-validate the suites, with file:line errors
-tamesu list              # list the tests
 tamesu doctor            # resolve every secret through mamori and check the setup
+tamesu run               # run the suites: transcripts, metrics, junit.xml, exit code
 ```
 
 `tamesu init` writes a `tamesu.yaml` and `examples/support-agent.yaml`, a suite with a REST
@@ -104,20 +104,23 @@ tests:
       - metric: { name: turn_latency_p95_ms, lt: 4000 }
 ```
 
-The commands the CLI has today:
+The commands:
 
 ```text
 tamesu init [dir]                scaffold tamesu.yaml and examples/ (--force overwrites)
 tamesu validate [paths...]       schema-validate suites without running them (--strict)
 tamesu list [paths...]           list tests (--json, --filter, --tags, --target)
+tamesu run [paths...]            run suites (--filter, --tags, --target, --parallel, --repeat, --mode, --out, --reporter, --max-cost-usd)
 tamesu doctor [paths...]         check config, suites and secrets (via mamori), models, Chromium and LiveKit
 tamesu version                   print the version, commit and build date
 ```
 
-Every command takes `--config`, `--verbose`, `--var KEY=VAL` and `--env-file`.
-Planned, not in the CLI yet: `tamesu run` (the runner), `tamesu report` (the HTML report),
-`tamesu record` (planned browser recorder), `tamesu generate` (planned scenario generator) and
-`tamesu sip setup` (planned); see the [roadmap](https://xavidop.github.io/tamesu/docs/roadmap/).
+Every command takes `--config`, `--verbose`, `--var KEY=VAL` and `--env-file`. `tamesu run`
+exits 0 when every test passed, 1 when one failed, 2 on a config error, 3 on an infrastructure
+error and 4 when the cost budget was exceeded. Planned, not in the CLI yet: `tamesu report`
+(the HTML report), `tamesu record` (planned browser recorder), `tamesu generate` (planned
+scenario generator) and `tamesu sip setup` (planned); see the
+[roadmap](https://xavidop.github.io/tamesu/docs/roadmap/).
 
 ## Features
 
@@ -136,20 +139,26 @@ Planned, not in the CLI yet: `tamesu run` (the runner), `tamesu report` (the HTM
   and `tamesu validate` warns when it is used for a key.
 - **`tamesu doctor`.** Validates the config and the suites, resolves every declared secret and
   reports which link of each chain answered, without printing a value.
-- **Determinism and budgets.** Seeds per test, versioned judge prompts, cost and token budgets,
-  deterministic metrics from transport timestamps; repeats with a `pass_threshold` for variance.
+- **A runner built for CI.** Repeats with a `pass_threshold`, retries on infrastructure errors,
+  timeouts, parallel runs, a cost budget that stops the run (exit 4), and a run directory with
+  `transcript.json` and `result.json` per run plus `summary.json` and `junit.xml`.
+- **All AI through Genkit.** The simulated user and the judges are Genkit flows with dotprompt
+  files you can override; every model is a Genkit reference; usage is priced on every call; a
+  fake provider (`-tags llmfake`) runs the whole pipeline in CI without keys.
+- **Determinism.** Seeds per test, versioned judge prompts recorded in every result, and metrics
+  from transport timestamps, never from a model.
 
 ## Targets
 
 | Target | Transport | Modes | Metrics | Tested against |
 |---|---|---|---|---|
 | `browser` | Chromium over CDP (chromedp) | agentic `goal` and `expect` steps, deterministic actions | `goal_steps`, `llm_cost_usd` | a bundled demo web app (runner planned) |
-| `rest` | HTTP, SSE, WebSocket | text | `turn_latency_ms`, `time_to_first_token_ms`, `turns` | an example Genkit agent (runner planned) |
+| `rest` | HTTP, SSE | text | `turn_latency_ms`, `time_to_first_token_ms`, `turns` | [`examples/rest-agent`](examples/rest-agent/), a Genkit agent, in CI with the fake provider |
 | `livekit` | WebRTC room (LiveKit) | text, audio | `turn_latency_ms`, `time_to_first_audio_ms`, `interruption_stop_ms`, `talk_over_ratio` | `livekit-server --dev` (runner planned) |
 | `sip` | phone call through a LiveKit SIP service and your trunk | audio | `call_setup_ms`, `ring_ms`, `greeting_ms`, `call_duration_ms` | Asterisk as the carrier (runner planned) |
 
-All four target types are part of the suite schema today, so suites can be written, validated and
-listed; the runners land phase by phase (see the
+All four target types are part of the suite schema, so suites can be written, validated and
+listed; `rest` runs today and the voice, phone and browser runners land phase by phase (see the
 [roadmap](https://xavidop.github.io/tamesu/docs/roadmap/)).
 
 ## CI
@@ -172,11 +181,27 @@ The [CI page](https://xavidop.github.io/tamesu/docs/ci/) has GitHub Actions and 
 The root module `github.com/xavidop/tamesu` has no heavy dependencies and is the public API:
 
 ```go
-suite, err := tamesu.LoadSuite("tests/support.yaml")   // loads and validates a YAML suite
+func TestRefundPolicy(t *testing.T) {
+    client, _ := llm.New(ctx, llm.Config{Plugins: []string{"googlegenai"}, Models: llm.Models{Default: "googleai/gemini-2.5-flash"}})
+    api := rest.New("api", rest.Config{URL: "https://api.example.com/v1/chat", TextPath: "$.reply"})
+    tamesu.Run(t, tamesu.Test{
+        Name:     "refund policy question",
+        Target:   api,
+        Persona:  tamesu.Persona{Name: "Marta", Style: "polite, slightly confused"},
+        Scenario: tamesu.Scenario{Goal: "Find out if you can return shoes bought 40 days ago", MaxTurns: 8},
+        Assert: []assert.Assertion{
+            llm.Judge("The agent states the 30-day return policy and does not promise an exception"),
+            assert.NotContains("I'm just an AI"),
+            assert.Metric("turn_latency_ms_p95").Lt(4000),
+        },
+    }, tamesu.WithProvider(client))
+}
 ```
 
-`target`, `assert` and `metrics` hold the contracts a target or an assertion implements. Running
-tests from `go test` with `tamesu.Run` is planned with the runner.
+`tamesu.Run` makes a subtest per repeat, logs the transcript and writes the run directory to
+`TAMESU_OUT` or the test's temp dir. `tamesu.LoadSuite` loads a YAML suite, and `target`,
+`assert` and `metrics` hold the contracts a target or an assertion implements. `llm.WithGenkit`
+lets a Genkit app reuse its own instance to test its agent in-process.
 
 ## Agent skill
 
