@@ -17,6 +17,12 @@ updates:
     schedule: { interval: weekly }
     labels: [dependencies, go, cli]
 
+  # REST target (own go.mod; net/http and ojg for JSONPath)
+  - package-ecosystem: gomod
+    directory: "/targets/rest"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, target]
+
   # GitHub Actions
   - package-ecosystem: github-actions
     directory: "/"

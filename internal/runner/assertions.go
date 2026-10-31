@@ -1,0 +1,114 @@
+package runner
+
+import (
+	"fmt"
+
+	"github.com/xavidop/tamesu/assert"
+	"github.com/xavidop/tamesu/internal/config"
+)
+
+// Build turns one YAML assertion into an Assertion. The validator has already
+// checked the shape; an error here is a programming error or an unregistered
+// custom assertion.
+func Build(a config.Assertion) (assert.Assertion, error) {
+	inner, err := buildKind(a)
+	if err != nil {
+		return nil, err
+	}
+	if a.OnTurn.IsSet() {
+		return assert.OnTurn(a.OnTurn.N, a.OnTurn.Last, inner), nil
+	}
+	return inner, nil
+}
+
+func buildKind(a config.Assertion) (assert.Assertion, error) {
+	switch kind := a.Kind(); kind {
+	case "judge":
+		var opts []assert.JudgeOption
+		if a.Judge.Scale != "" {
+			opts = append(opts, assert.WithScale(a.Judge.Scale))
+		}
+		if a.Judge.Min != 0 {
+			opts = append(opts, assert.WithMin(a.Judge.Min))
+		}
+		if a.Judge.Model != "" {
+			opts = append(opts, assert.WithModel(a.Judge.Model))
+		}
+		return assert.Judge(a.Judge.Rubric, opts...), nil
+	case "contains":
+		return assert.Contains(*a.Contains), nil
+	case "not_contains":
+		return assert.NotContains(*a.NotContains), nil
+	case "regex":
+		return assert.Regex(*a.Regex)
+	case "json_path":
+		return assert.JSONPath(a.JSONPath.Path, a.JSONPath.Equals)
+	case "status":
+		return assert.Status(*a.Status), nil
+	case "tool_called":
+		return assert.ToolCalled(a.ToolCalled.Name, a.ToolCalled.Args), nil
+	case "tool_not_called":
+		return assert.ToolNotCalled(a.ToolNotCalled.Name, a.ToolNotCalled.Args), nil
+	case "dtmf_received":
+		return assert.DTMFReceived(a.DTMFReceived.Equals), nil
+	case "call_ended_by":
+		return assert.CallEndedBy([]string(a.CallEndedBy)), nil
+	case "transferred_to":
+		return assert.TransferredTo(a.TransferredTo.Matches)
+	case "evaluator":
+		return assert.Evaluate(a.Evaluator.Name, a.Evaluator.Min), nil
+	case "metric":
+		c, err := comparison(a.Metric.Comparators(), func(op string) *float64 {
+			switch op {
+			case "lt":
+				return a.Metric.Lt
+			case "lte":
+				return a.Metric.Lte
+			case "gt":
+				return a.Metric.Gt
+			case "gte":
+				return a.Metric.Gte
+			}
+			return a.Metric.Eq
+		})
+		if err != nil {
+			return nil, fmt.Errorf("metric %s: %w", a.Metric.Name, err)
+		}
+		return assert.Metric(a.Metric.Name).Compare(c), nil
+	case "turns":
+		ops := a.Turns.Comparators()
+		if len(ops) != 1 {
+			return nil, fmt.Errorf("turns: exactly one comparator is needed")
+		}
+		var v int
+		switch ops[0] {
+		case "lt":
+			v = *a.Turns.Lt
+		case "lte":
+			v = *a.Turns.Lte
+		case "gt":
+			v = *a.Turns.Gt
+		case "gte":
+			v = *a.Turns.Gte
+		default:
+			v = *a.Turns.Eq
+		}
+		return assert.Turns(assert.Comparison{Op: ops[0], Value: float64(v)}), nil
+	case "custom":
+		if c, ok := assert.Lookup(*a.Custom); ok {
+			return c, nil
+		}
+		return nil, fmt.Errorf("custom assertion %q is not registered (have %v)", *a.Custom, assert.Registered())
+	case "":
+		return nil, fmt.Errorf("an assertion is exactly one of %v (have %v)", config.AssertionKinds, a.Kinds())
+	default:
+		return nil, fmt.Errorf("unknown assertion %q", kind)
+	}
+}
+
+func comparison(ops []string, value func(op string) *float64) (assert.Comparison, error) {
+	if len(ops) != 1 {
+		return assert.Comparison{}, fmt.Errorf("exactly one comparator is needed")
+	}
+	return assert.Comparison{Op: ops[0], Value: *value(ops[0])}, nil
+}

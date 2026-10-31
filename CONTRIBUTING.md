@@ -47,11 +47,13 @@ This is a multi-module repository tied together by a `go.work` file:
 - `cmd/tamesu`: the `tamesu` binary, its own module. It is the only module that links everything,
   including the mamori cloud secret providers (`aws-sm://`, `vault://`, `gcp-sm://`, `azure-kv://`,
   `k8s-secret://`, `op://`, `doppler://`, `infisical://`, `sops://`).
+- `targets/rest`: the REST target (HTTP, SSE), its own module; it passes the `targettest`
+  conformance suite of the root module.
 - `skills/tamesu`: the agent skill.
 - `site/`: the Astro documentation site.
 
 The modules for the AI layer (`llm`, the only place a model is called, through Genkit), the
-targets (`targets/rest`, `targets/livekit`, `targets/sip`, `targets/browser`), the audio pipeline
+other targets (`targets/livekit`, `targets/sip`, `targets/browser`), the audio pipeline
 (`audio`) and the examples are added phase by phase; each gets its own `go.mod`, a `go.work`
 entry and a dependabot entry.
 
