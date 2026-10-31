@@ -1,0 +1,817 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xavidop.github.io/tamesu/schema/tamesu.schema.json",
+  "$defs": {
+    "Assertion": {
+      "properties": {
+        "judge": {
+          "$ref": "#/$defs/Judge"
+        },
+        "contains": {
+          "type": "string",
+          "description": "The agent transcript contains this text."
+        },
+        "not_contains": {
+          "type": "string"
+        },
+        "regex": {
+          "type": "string",
+          "description": "A regular expression the agent transcript matches."
+        },
+        "json_path": {
+          "$ref": "#/$defs/JSONPathAssertion",
+          "description": "rest only."
+        },
+        "status": {
+          "type": "integer",
+          "description": "rest only: the HTTP status of every turn."
+        },
+        "tool_called": {
+          "$ref": "#/$defs/ToolCall"
+        },
+        "tool_not_called": {
+          "$ref": "#/$defs/ToolCall"
+        },
+        "dtmf_received": {
+          "$ref": "#/$defs/DTMFAssertion",
+          "description": "sip and livekit audio: digits the agent sent."
+        },
+        "call_ended_by": {
+          "$ref": "#/$defs/StringList",
+          "description": "sip: agent caller timeout error no_answer busy."
+        },
+        "transferred_to": {
+          "$ref": "#/$defs/Matches",
+          "description": "sip: target of a SIP REFER."
+        },
+        "evaluator": {
+          "$ref": "#/$defs/Evaluator"
+        },
+        "metric": {
+          "$ref": "#/$defs/MetricAssertion"
+        },
+        "turns": {
+          "$ref": "#/$defs/IntCompare",
+          "description": "Number of agent turns."
+        },
+        "custom": {
+          "type": "string",
+          "description": "A Go-registered assertion by name."
+        },
+        "on_turn": {
+          "$ref": "#/$defs/OnTurn"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Behaviors": {
+      "properties": {
+        "interrupt_probability": {
+          "type": "number",
+          "maximum": 1,
+          "minimum": 0
+        },
+        "silence_after_turn_ms": {
+          "items": {
+            "type": "integer"
+          },
+          "type": "array",
+          "description": "[min max] milliseconds of silence after each turn."
+        },
+        "background_noise": {
+          "type": "string",
+          "description": "A noise preset such as cafe or street."
+        },
+        "line_quality": {
+          "type": "string",
+          "enum": [
+            "pstn",
+            "mobile_poor",
+            "voip_good"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "BrowserAuth": {
+      "properties": {
+        "storage_state": {
+          "type": "string",
+          "description": "Path to a saved storage state (cookies and local storage)."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "BrowserOptions": {
+      "properties": {
+        "engine": {
+          "type": "string",
+          "enum": [
+            "chromium"
+          ]
+        },
+        "viewport": {
+          "type": "string",
+          "description": "WIDTHxHEIGHT such as 1280x800."
+        },
+        "locale": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Budgets": {
+      "properties": {
+        "max_cost_usd": {
+          "type": "number"
+        },
+        "max_tokens": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "DTMFAssertion": {
+      "properties": {
+        "equals": {
+          "type": "string",
+          "description": "The exact digits such as 1234#."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "equals"
+      ]
+    },
+    "Defaults": {
+      "properties": {
+        "timeout": {
+          "$ref": "#/$defs/Duration"
+        },
+        "repeat": {
+          "type": "integer",
+          "description": "Times each test runs."
+        },
+        "retries": {
+          "type": "integer"
+        },
+        "pass_threshold": {
+          "type": "number",
+          "description": "Fraction of repeats that must pass (0 to 1]."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Dispatch": {
+      "properties": {
+        "agent_name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "agent_name"
+      ]
+    },
+    "Duration": {
+      "type": "string",
+      "pattern": "^(\\d+(\\.\\d+)?(ns|us|µs|ms|s|m|h))+$",
+      "description": "A duration such as 30s, 3m or 1h30m."
+    },
+    "Evaluator": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "The evaluator name."
+        },
+        {
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Genkit evaluator name such as genkitEval/faithfulness."
+            },
+            "min": {
+              "type": "number",
+              "description": "Minimum score to pass (0 to 1)."
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "name"
+          ]
+        }
+      ]
+    },
+    "HTTPTrigger": {
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string"
+        },
+        "body": true,
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "url"
+      ]
+    },
+    "IntCompare": {
+      "properties": {
+        "lt": {
+          "type": "integer"
+        },
+        "lte": {
+          "type": "integer"
+        },
+        "gt": {
+          "type": "integer"
+        },
+        "gte": {
+          "type": "integer"
+        },
+        "eq": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "JSONPathAssertion": {
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "JSONPath into the response body such as $.status."
+        },
+        "equals": {
+          "description": "The value the path must equal."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "path"
+      ]
+    },
+    "Judge": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "The rubric; the judge model and a binary scale are the defaults."
+        },
+        {
+          "properties": {
+            "rubric": {
+              "type": "string",
+              "description": "What the judge checks in plain language."
+            },
+            "model": {
+              "type": "string",
+              "description": "Genkit model reference; defaults to models.judge."
+            },
+            "scale": {
+              "type": "string",
+              "enum": [
+                "binary",
+                "1-5"
+              ],
+              "description": "binary (pass or fail) or 1-5 with min."
+            },
+            "min": {
+              "type": "number",
+              "description": "Minimum score to pass on the 1-5 scale."
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "rubric"
+          ]
+        }
+      ]
+    },
+    "Matches": {
+      "properties": {
+        "matches": {
+          "type": "string",
+          "description": "A regular expression such as ^sip:billing@."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "matches"
+      ]
+    },
+    "MetricAssertion": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Metric name such as turn_latency_p95_ms."
+        },
+        "lt": {
+          "type": "number"
+        },
+        "lte": {
+          "type": "number"
+        },
+        "gt": {
+          "type": "number"
+        },
+        "gte": {
+          "type": "number"
+        },
+        "eq": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name"
+      ]
+    },
+    "Models": {
+      "properties": {
+        "default": {
+          "type": "string"
+        },
+        "judge": {
+          "type": "string"
+        },
+        "browser_agent": {
+          "type": "string"
+        },
+        "simulator": {
+          "type": "string"
+        },
+        "scenario_generator": {
+          "type": "string"
+        },
+        "credentials": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Plugin name to {{secrets.NAME}} when the secret is not named conventionally."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "OnTurn": {
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 1
+        },
+        {
+          "type": "string",
+          "enum": [
+            "last"
+          ]
+        }
+      ],
+      "description": "Evaluate the assertion on one agent turn: a 1-based number or last."
+    },
+    "Persona": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "style": {
+          "type": "string",
+          "description": "How the persona talks such as polite or impatient."
+        },
+        "language": {
+          "type": "string",
+          "description": "BCP 47 language such as es or en-GB."
+        },
+        "voice": {
+          "type": "string",
+          "description": "TTS voice such as en-GB-female."
+        },
+        "behaviors": {
+          "$ref": "#/$defs/Behaviors"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "RESTRequest": {
+      "properties": {
+        "body": {
+          "description": "Request body template; {{message}} is the user turn and {{session}} the session id."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "RESTResponse": {
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "JSONPath of the agent's reply such as $.reply."
+        },
+        "tool_calls": {
+          "type": "string",
+          "description": "JSONPath of the tool call names."
+        },
+        "done": {
+          "type": "string",
+          "description": "JSONPath of a boolean that ends the session."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "RESTSession": {
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Session id template; defaults to {{uuid}}."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Scenario": {
+      "properties": {
+        "goal": {
+          "type": "string"
+        },
+        "max_turns": {
+          "type": "integer"
+        },
+        "stop_when": {
+          "type": "string",
+          "description": "A plain-language stop condition judged after each agent turn."
+        },
+        "script": {
+          "items": {
+            "$ref": "#/$defs/ScriptStep"
+          },
+          "type": "array",
+          "description": "Deterministic steps mixed with free conversation (sip and livekit audio)."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "goal"
+      ]
+    },
+    "ScriptStep": {
+      "properties": {
+        "wait_for": {
+          "type": "string",
+          "description": "Wait until the transcript fuzzily contains this text."
+        },
+        "dtmf": {
+          "type": "string",
+          "description": "Digits to send."
+        },
+        "say": {
+          "type": "string",
+          "description": "Exact text to say before the persona takes over."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Step": {
+      "properties": {
+        "goal": {
+          "type": "string",
+          "description": "Agentic: the browser agent acts until the goal is met."
+        },
+        "expect": {
+          "type": "string",
+          "description": "Agentic assertion against the current page."
+        },
+        "action": {
+          "type": "object",
+          "description": "Deterministic: one of navigate click fill press wait screenshot eval_js assert_url assert_text."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "StringList": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      ]
+    },
+    "Target": {
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "browser",
+            "rest",
+            "livekit",
+            "sip"
+          ]
+        },
+        "url": {
+          "type": "string",
+          "description": "The page (browser) or endpoint (rest) or LiveKit server (livekit)."
+        },
+        "browser": {
+          "$ref": "#/$defs/BrowserOptions"
+        },
+        "auth": {
+          "$ref": "#/$defs/BrowserAuth"
+        },
+        "allowed_domains": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Domains the browser agent may navigate to; defaults to the url's domain."
+        },
+        "method": {
+          "type": "string",
+          "description": "HTTP method; defaults to POST."
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "request": {
+          "$ref": "#/$defs/RESTRequest"
+        },
+        "response": {
+          "$ref": "#/$defs/RESTResponse"
+        },
+        "streaming": {
+          "type": "string",
+          "enum": [
+            "none",
+            "sse",
+            "websocket"
+          ]
+        },
+        "session": {
+          "$ref": "#/$defs/RESTSession"
+        },
+        "api_key": {
+          "type": "string",
+          "description": "Use {{secrets.NAME}}."
+        },
+        "api_secret": {
+          "type": "string",
+          "description": "Use {{secrets.NAME}}."
+        },
+        "room": {
+          "type": "string",
+          "description": "Room name template; defaults to tamesu-{{uuid}}."
+        },
+        "dispatch": {
+          "$ref": "#/$defs/Dispatch"
+        },
+        "agent_identity_prefix": {
+          "type": "string",
+          "description": "How to recognise the agent participant; defaults to kind=agent."
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "text",
+            "audio"
+          ]
+        },
+        "data_topic": {
+          "type": "string",
+          "description": "Text-mode transport topic; defaults to lk.chat."
+        },
+        "join_timeout": {
+          "$ref": "#/$defs/Duration"
+        },
+        "direction": {
+          "type": "string",
+          "enum": [
+            "outbound",
+            "inbound"
+          ]
+        },
+        "to": {
+          "type": "string",
+          "description": "The agent's phone number in E.164 (outbound)."
+        },
+        "from": {
+          "type": "string",
+          "description": "Caller ID presented by the trunk."
+        },
+        "trunk_id": {
+          "type": "string",
+          "description": "LiveKit SIP trunk; defaults to sip.outbound_trunk_id."
+        },
+        "ring_timeout": {
+          "$ref": "#/$defs/Duration"
+        },
+        "max_call_duration": {
+          "$ref": "#/$defs/Duration"
+        },
+        "trigger": {
+          "$ref": "#/$defs/Trigger"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "type"
+      ]
+    },
+    "Test": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string",
+          "description": "A key of targets."
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "text",
+            "audio"
+          ],
+          "description": "Voice tests: overrides the target's mode."
+        },
+        "repeat": {
+          "type": "integer",
+          "description": "Times the test runs to measure variance."
+        },
+        "pass_threshold": {
+          "type": "number"
+        },
+        "retries": {
+          "type": "integer"
+        },
+        "timeout": {
+          "$ref": "#/$defs/Duration"
+        },
+        "seed": {
+          "type": "integer",
+          "description": "Seed for the simulator prompts and the behaviour RNG."
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/Step"
+          },
+          "type": "array",
+          "description": "Browser tests only."
+        },
+        "persona": {
+          "$ref": "#/$defs/Persona"
+        },
+        "scenario": {
+          "$ref": "#/$defs/Scenario"
+        },
+        "assert": {
+          "items": {
+            "$ref": "#/$defs/Assertion"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name",
+        "target"
+      ]
+    },
+    "ToolCall": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "The tool name."
+        },
+        {
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Tool name as the target reports it."
+            },
+            "args": {
+              "type": "object",
+              "description": "Argument values that must match (a subset of the call's arguments)."
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "name"
+          ]
+        }
+      ]
+    },
+    "Trigger": {
+      "properties": {
+        "http": {
+          "$ref": "#/$defs/HTTPTrigger"
+        },
+        "command": {
+          "type": "string",
+          "description": "A shell command that makes the agent dial sip.inbound_number."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    }
+  },
+  "properties": {
+    "suite": {
+      "type": "string",
+      "description": "Suite name."
+    },
+    "tags": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array",
+      "description": "Tags every test of the suite carries."
+    },
+    "vars": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object",
+      "description": "Values for {{vars.x}} and for ${VAR} expansion in secret refs."
+    },
+    "secrets": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object",
+      "description": "Secret name to mamori ref; overrides the project entry of the same name."
+    },
+    "defaults": {
+      "$ref": "#/$defs/Defaults"
+    },
+    "models": {
+      "$ref": "#/$defs/Models"
+    },
+    "budgets": {
+      "$ref": "#/$defs/Budgets"
+    },
+    "targets": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Target"
+      },
+      "type": "object",
+      "description": "The systems under test by name."
+    },
+    "tests": {
+      "items": {
+        "$ref": "#/$defs/Test"
+      },
+      "type": "array"
+    }
+  },
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "suite",
+    "targets",
+    "tests"
+  ],
+  "title": "tamesu suite",
+  "description": "A tamesu suite: targets, defaults and tests. See https://xavidop.github.io/tamesu/docs/suites/."
+}

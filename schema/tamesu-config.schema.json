@@ -1,0 +1,231 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xavidop.github.io/tamesu/schema/tamesu-config.schema.json",
+  "$defs": {
+    "Budgets": {
+      "properties": {
+        "max_cost_usd": {
+          "type": "number"
+        },
+        "max_tokens": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Defaults": {
+      "properties": {
+        "timeout": {
+          "$ref": "#/$defs/Duration"
+        },
+        "repeat": {
+          "type": "integer",
+          "description": "Times each test runs."
+        },
+        "retries": {
+          "type": "integer"
+        },
+        "pass_threshold": {
+          "type": "number",
+          "description": "Fraction of repeats that must pass (0 to 1]."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Duration": {
+      "type": "string",
+      "pattern": "^(\\d+(\\.\\d+)?(ns|us|µs|ms|s|m|h))+$",
+      "description": "A duration such as 30s, 3m or 1h30m."
+    },
+    "Genkit": {
+      "properties": {
+        "plugins": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Genkit plugins to initialise: googlegenai anthropic openai ollama deepgram elevenlabs."
+        },
+        "dev_ui": {
+          "type": "boolean",
+          "description": "Export traces to the Genkit Developer UI."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "LiveKitConfig": {
+      "properties": {
+        "max_concurrent_rooms": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Models": {
+      "properties": {
+        "default": {
+          "type": "string"
+        },
+        "judge": {
+          "type": "string"
+        },
+        "browser_agent": {
+          "type": "string"
+        },
+        "simulator": {
+          "type": "string"
+        },
+        "scenario_generator": {
+          "type": "string"
+        },
+        "credentials": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Plugin name to {{secrets.NAME}} when the secret is not named conventionally."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "SIPConfig": {
+      "properties": {
+        "livekit_url": {
+          "type": "string"
+        },
+        "outbound_trunk_id": {
+          "type": "string"
+        },
+        "inbound_number": {
+          "type": "string"
+        },
+        "max_concurrent_calls": {
+          "type": "integer"
+        },
+        "allowed_numbers": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "E.164 patterns tamesu may dial such as +1800555*."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Speech": {
+      "properties": {
+        "stt": {
+          "$ref": "#/$defs/SpeechModel"
+        },
+        "tts": {
+          "$ref": "#/$defs/SpeechModel"
+        },
+        "vad": {
+          "$ref": "#/$defs/VADConfig"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "SpeechModel": {
+      "properties": {
+        "model": {
+          "type": "string",
+          "description": "Genkit model reference such as deepgram/nova-3 or googleai/gemini-2.5-flash-preview-tts."
+        },
+        "language": {
+          "type": "string"
+        },
+        "voice": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "VADConfig": {
+      "properties": {
+        "provider": {
+          "type": "string",
+          "enum": [
+            "silero"
+          ],
+          "description": "silero (onnxruntime)."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    }
+  },
+  "properties": {
+    "version": {
+      "type": "integer",
+      "enum": [
+        1
+      ],
+      "description": "Config format version. Always 1."
+    },
+    "suites": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array",
+      "description": "Globs of suite files that run and validate and list use when no paths are given."
+    },
+    "genkit": {
+      "$ref": "#/$defs/Genkit"
+    },
+    "models": {
+      "$ref": "#/$defs/Models"
+    },
+    "speech": {
+      "$ref": "#/$defs/Speech"
+    },
+    "sip": {
+      "$ref": "#/$defs/SIPConfig"
+    },
+    "defaults": {
+      "$ref": "#/$defs/Defaults"
+    },
+    "budgets": {
+      "$ref": "#/$defs/Budgets"
+    },
+    "livekit": {
+      "$ref": "#/$defs/LiveKitConfig"
+    },
+    "reporters": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array",
+      "description": "Reporters to run: console and junit and json and html."
+    },
+    "secrets": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object",
+      "description": "Secret name to mamori ref (env:X or aws-sm://... or a precedence chain)."
+    },
+    "vars": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object",
+      "description": "Project-wide values for {{vars.x}} and ${VAR} expansion in secret refs."
+    }
+  },
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "version"
+  ],
+  "title": "tamesu.yaml",
+  "description": "tamesu project configuration. See https://xavidop.github.io/tamesu/docs/configuration/."
+}
