@@ -1,0 +1,179 @@
+package llm
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"sort"
+	"strings"
+
+	"github.com/firebase/genkit/go/ai"
+	"github.com/firebase/genkit/go/core/tracing"
+	"github.com/firebase/genkit/go/genkit"
+
+	"github.com/xavidop/tamesu/assert"
+	"github.com/xavidop/tamesu/internal/model"
+)
+
+// Flow names, as they appear in the Genkit Developer UI.
+const (
+	FlowSimulateUserTurn = "simulateUserTurn"
+	FlowJudgeRun         = "judgeRun"
+)
+
+// defineFlows registers tamesu's flows and the judge evaluator on the
+// Genkit instance.
+func (c *Client) defineFlows() {
+	c.simFlow = genkit.DefineFlow(c.g, FlowSimulateUserTurn, c.simulate)
+	c.judgeFlow = genkit.DefineFlow(c.g, FlowJudgeRun, c.judge)
+	c.defineJudgeEvaluator()
+}
+
+// Simulate produces the simulated user's next turn through the
+// simulateUserTurn flow.
+func (c *Client) Simulate(ctx context.Context, in model.SimInput) (model.SimOutput, error) {
+	if c.overBudget() {
+		return model.SimOutput{}, ErrBudgetExceeded
+	}
+	return c.simFlow.Run(ctx, in)
+}
+
+func (c *Client) simulate(ctx context.Context, in model.SimInput) (model.SimOutput, error) {
+	modelName := c.modelFor("simulator", "")
+	prompt := genkit.LookupPrompt(c.g, "simulator")
+	if prompt == nil {
+		return model.SimOutput{}, fmt.Errorf("llm: prompt simulator is not loaded")
+	}
+	input := map[string]any{
+		"persona":   describePersona(in),
+		"goal":      in.Scenario.Goal,
+		"stop_when": in.Scenario.StopWhen,
+		"turn":      in.Turn,
+		"max_turns": in.MaxTurns,
+		"audio":     in.Mode == "audio",
+		"history":   formatHistory(in.History),
+		"seed":      in.Seed,
+	}
+	resp, err := prompt.Execute(ctx, ai.WithInput(input), ai.WithModelName(modelName))
+	budgetErr := c.record(modelName, resp)
+	if err != nil {
+		return model.SimOutput{}, fmt.Errorf("llm: %s with %s: %w", FlowSimulateUserTurn, modelName, err)
+	}
+	var out model.SimOutput
+	if err := resp.Output(&out); err != nil {
+		return model.SimOutput{}, fmt.Errorf("llm: %s: the model did not return the expected JSON: %w (text: %s)", FlowSimulateUserTurn, err, short(resp.Text()))
+	}
+	out.TraceID = tracing.SpanTraceInfo(ctx).TraceID
+	if budgetErr != nil {
+		return out, budgetErr
+	}
+	return out, nil
+}
+
+// Judge grades a run through the judgeRun flow.
+func (c *Client) Judge(ctx context.Context, req assert.JudgeRequest) (assert.JudgeVerdict, error) {
+	if c.overBudget() {
+		return assert.JudgeVerdict{}, ErrBudgetExceeded
+	}
+	return c.judgeFlow.Run(ctx, req)
+}
+
+func (c *Client) judge(ctx context.Context, req assert.JudgeRequest) (assert.JudgeVerdict, error) {
+	modelName := c.modelFor("judge", req.Model)
+	prompt := genkit.LookupPrompt(c.g, "judge")
+	if prompt == nil {
+		return assert.JudgeVerdict{}, fmt.Errorf("llm: prompt judge is not loaded")
+	}
+	scale := req.Scale
+	if scale == "" {
+		scale = "binary"
+	}
+	input := map[string]any{
+		"rubric":     req.Rubric,
+		"scale":      scale,
+		"min":        req.Min,
+		"transcript": formatHistory(req.Transcript),
+		"tool_calls": formatToolCalls(req),
+		"metrics":    formatMetrics(req.Metrics),
+	}
+	resp, err := prompt.Execute(ctx, ai.WithInput(input), ai.WithModelName(modelName))
+	budgetErr := c.record(modelName, resp)
+	if err != nil {
+		return assert.JudgeVerdict{}, fmt.Errorf("llm: %s with %s: %w", FlowJudgeRun, modelName, err)
+	}
+	var out assert.JudgeVerdict
+	if err := resp.Output(&out); err != nil {
+		return assert.JudgeVerdict{}, fmt.Errorf("llm: %s: the model did not return the expected JSON: %w (text: %s)", FlowJudgeRun, err, short(resp.Text()))
+	}
+	out.TraceID = tracing.SpanTraceInfo(ctx).TraceID
+	out.PromptVersion = c.prompts.Version("judge")
+	if budgetErr != nil {
+		return out, budgetErr
+	}
+	return out, nil
+}
+
+func describePersona(in model.SimInput) string {
+	p := in.Persona
+	var b strings.Builder
+	if p.Name != "" {
+		fmt.Fprintf(&b, "- Name: %s\n", p.Name)
+	}
+	if p.Style != "" {
+		fmt.Fprintf(&b, "- Style: %s\n", p.Style)
+	}
+	if p.Language != "" {
+		fmt.Fprintf(&b, "- Language: %s (speak only this language)\n", p.Language)
+	}
+	if b.Len() == 0 {
+		b.WriteString("- An ordinary customer, polite and direct.\n")
+	}
+	return strings.TrimRight(b.String(), "\n")
+}
+
+func formatHistory(turns []assert.Turn) string {
+	if len(turns) == 0 {
+		return "(nothing yet)"
+	}
+	var b strings.Builder
+	for _, t := range turns {
+		fmt.Fprintf(&b, "%s: %s\n", t.Role, strings.TrimSpace(t.Text))
+	}
+	return strings.TrimRight(b.String(), "\n")
+}
+
+func formatToolCalls(req assert.JudgeRequest) string {
+	if len(req.ToolCalls) == 0 {
+		return "(none)"
+	}
+	var b strings.Builder
+	for _, tc := range req.ToolCalls {
+		args, _ := json.Marshal(tc.Args)
+		fmt.Fprintf(&b, "- %s %s\n", tc.Name, args)
+	}
+	return strings.TrimRight(b.String(), "\n")
+}
+
+func formatMetrics(m map[string]float64) string {
+	if len(m) == 0 {
+		return "(none)"
+	}
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var b strings.Builder
+	for _, k := range keys {
+		fmt.Fprintf(&b, "- %s: %g\n", k, m[k])
+	}
+	return strings.TrimRight(b.String(), "\n")
+}
+
+func short(s string) string {
+	s = strings.Join(strings.Fields(s), " ")
+	if len(s) > 200 {
+		return s[:197] + "..."
+	}
+	return s
+}
