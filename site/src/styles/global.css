@@ -1,10 +1,10 @@
-/* tobira - terminal-flavoured, with the mint-teal accent (#5EEAD4) from the
-   logo. Two themes: a soft, faintly cool off-white (light) and a medium slate
-   (dark) - deliberately not near-black, so long reading stays comfortable.
-   The light theme derives a darker teal from the same accent so contrast
-   holds on near-white. Token names are stable across the codebase (--rail is
-   the accent). Status colours (muted red / amber / green, plus a slate
-   neutral) describe state in docs only and are never the site's own accents.
+/* tamesu - the hanko seal's palette: indigo (#1E2A5A) as the accent, vermilion
+   (#E5482F) as the signal, off-white (#F7F3EA) as the light surface. Two
+   themes: a warm off-white (light) and a deep indigo night (dark) - not
+   near-black, so long reading stays comfortable. Token names are stable across
+   the codebase (--rail is the accent, --signal the vermilion). Status colours
+   (muted red / amber / green, plus a slate neutral) describe a run's state in
+   docs only.
 
    How the theme is chosen: the header toggle stores light, dark or system.
    light/dark set data-theme on <html>; system removes it and the
@@ -16,16 +16,16 @@
 :root {
   /* Dark values, defined once. The two dark blocks below only map them onto
      the live tokens, so the media query and the toggle can never drift. */
-  --d-bg: #1e2433;
-  --d-bg-2: #252c3d;
-  --d-bg-3: #2d3548;
-  --d-code-bg: #222938;
-  --d-rail: #5eead4;
-  --d-rail-hi: #7ff0de;
-  --d-rail-deep: #a7f5e9;
-  --d-rail-soft: rgba(94, 234, 212, 0.14);
-  --d-signal: #e9a59c;
-  --d-signal-soft: rgba(233, 165, 156, 0.16);
+  --d-bg: #151b35;
+  --d-bg-2: #1c2342;
+  --d-bg-3: #242c52;
+  --d-code-bg: #181f3e;
+  --d-rail: #9aaaf0;
+  --d-rail-hi: #b3bff5;
+  --d-rail-deep: #c6cffa;
+  --d-rail-soft: rgba(154, 170, 240, 0.16);
+  --d-signal: #f08a76;
+  --d-signal-soft: rgba(240, 138, 118, 0.16);
   --d-ok: #93d0b2;
   --d-ok-soft: rgba(147, 208, 178, 0.16);
   --d-running: #e6c58a;
@@ -33,35 +33,34 @@
   --d-neutral: #b5b9c8;
   --d-neutral-soft: rgba(181, 185, 200, 0.14);
   --d-fn: #c9a6dc;
-  --d-ink: #e8ecf3;
-  --d-muted: #aab4c5;
-  --d-muted-2: #97a3b6;
-  --d-line: rgba(232, 236, 243, 0.1);
-  --d-line-strong: rgba(232, 236, 243, 0.18);
-  --d-shadow: 8, 11, 20;
-  --d-backdrop: rgba(12, 15, 24, 0.55);
+  --d-ink: #eef0f8;
+  --d-muted: #b4bbd4;
+  --d-muted-2: #9aa3c0;
+  --d-line: rgba(238, 240, 248, 0.1);
+  --d-line-strong: rgba(238, 240, 248, 0.18);
+  --d-shadow: 6, 8, 20;
+  --d-backdrop: rgba(10, 12, 28, 0.55);
 
   /* Light theme (the default token values) */
   color-scheme: light;
 
-  /* Surfaces: a soft, faintly cool off-white, not stark white or warm cream */
-  --bg: #f4f8f8;
-  --bg-2: #ffffff;
-  --bg-3: #e8f0f0;
-  --code-bg: #eef4f4;
+  /* Surfaces: the seal's off-white, warm but not cream */
+  --bg: #f7f3ea;
+  --bg-2: #fffdf8;
+  --bg-3: #eee8da;
+  --code-bg: #f1ecdf;
 
-  /* Primary accent: teal from the logo - calm, not saturated */
-  --rail: #0f9b8a;
-  --rail-hi: #14b3a0;
-  --rail-deep: #0b6f64;
-  --rail-soft: rgba(15, 155, 138, 0.12);
-  --on-rail: #04130f;
+  /* Primary accent: the seal's indigo */
+  --rail: #1e2a5a;
+  --rail-hi: #2e3f86;
+  --rail-deep: #1e2a5a;
+  --rail-soft: rgba(30, 42, 90, 0.1);
+  --on-rail: #f7f3ea;
 
   /* Status colours: for describing a run's state only (pills, legends,
-     docs) - never the site's own headings, borders or accents. Kept muted,
-     but dark enough to read as text on the light surfaces. */
-  --signal: #a9524a; /* failed */
-  --signal-soft: rgba(169, 82, 74, 0.12);
+     docs). The signal is the seal's vermilion. */
+  --signal: #c73e28; /* failed; vermilion darkened to hold AA on off-white */
+  --signal-soft: rgba(229, 72, 47, 0.12);
   --ok: #34734f; /* passed */
   --ok-soft: rgba(52, 115, 79, 0.12);
   --running: #8a6420; /* running or retrying */
@@ -71,15 +70,15 @@
   --fn: #7e5096; /* function names in hand-highlighted code */
 
   /* Text & lines */
-  --ink: #0b1220;
-  --muted: #475569;
-  --muted-2: #5d6b7e;
-  --line: rgba(11, 18, 32, 0.08);
-  --line-strong: rgba(11, 18, 32, 0.14);
+  --ink: #171c33;
+  --muted: #4a5170;
+  --muted-2: #5f6683;
+  --line: rgba(30, 42, 90, 0.1);
+  --line-strong: rgba(30, 42, 90, 0.17);
 
   /* Shadow tint as an r, g, b triplet: rgba(var(--shadow), alpha) */
-  --shadow: 11, 18, 32;
-  --backdrop: rgba(11, 18, 32, 0.32);
+  --shadow: 30, 42, 90;
+  --backdrop: rgba(23, 28, 51, 0.32);
 
   --font-display: "Plus Jakarta Sans Variable", "Inter Variable", system-ui, sans-serif;
   --font-body: "Inter Variable", system-ui, -apple-system, sans-serif;
@@ -112,6 +111,7 @@
     --rail-hi: var(--d-rail-hi);
     --rail-deep: var(--d-rail-deep);
     --rail-soft: var(--d-rail-soft);
+    --on-rail: #151b35;
     --signal: var(--d-signal);
     --signal-soft: var(--d-signal-soft);
     --ok: var(--d-ok);
@@ -141,6 +141,7 @@
   --rail-hi: var(--d-rail-hi);
   --rail-deep: var(--d-rail-deep);
   --rail-soft: var(--d-rail-soft);
+  --on-rail: #151b35;
   --signal: var(--d-signal);
   --signal-soft: var(--d-signal-soft);
   --ok: var(--d-ok);

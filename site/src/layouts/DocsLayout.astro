@@ -8,8 +8,8 @@ const { frontmatter, headings = [] } = Astro.props as {
   headings?: MarkdownHeading[];
 };
 const title = frontmatter?.title
-  ? `${frontmatter.title} - tobira docs`
-  : "tobira docs";
+  ? `${frontmatter.title} - tamesu docs`
+  : "tamesu docs";
 
 // In-page table of contents: the h2/h3 headings of the current page, rendered
 // on the right with scroll-spy so a reader always sees where they are. Astro
@@ -35,174 +35,30 @@ const groups: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
-    label: "Terminal UI",
+    label: "Writing tests",
     items: [
-      { slug: "tui", title: "Overview" },
-      { slug: "tui/browsing", title: "Browsing", sub: true },
-      { slug: "tui/kind-views", title: "Kind views", sub: true },
-      { slug: "tui/commands", title: "Commands", sub: true },
-      { slug: "editor", title: "Query editor" },
-      { slug: "editing", title: "Editing rows" },
-      { slug: "export", title: "Export" },
-      { slug: "keymaps", title: "Keymaps" },
-      { slug: "history", title: "Query history" },
-    ],
-  },
-  {
-    label: "Connections",
-    items: [
-      { slug: "connections", title: "Managing connections" },
-      { slug: "connections/import", title: "Importing connections", sub: true },
-      { slug: "connections/ssh", title: "SSH tunnels", sub: true },
-      { slug: "secrets", title: "Passwords and secrets" },
+      { slug: "suites", title: "Suites (YAML reference)" },
       { slug: "configuration", title: "Configuration" },
     ],
   },
   {
-    label: "Command line",
+    label: "Running",
     items: [
       { slug: "cli", title: "CLI reference" },
-      { slug: "cli/query", title: "tobira query", sub: true },
-      { slug: "cli/connect", title: "tobira connect", sub: true },
-      { slug: "cli/connections", title: "tobira connections", sub: true },
-      { slug: "cli/ask", title: "tobira ask", sub: true },
-      { slug: "cli/mcp", title: "tobira mcp", sub: true },
-      { slug: "cli/history", title: "tobira history", sub: true },
-      { slug: "cli/driver", title: "tobira driver", sub: true },
-      { slug: "cli/doctor", title: "tobira doctor", sub: true },
-      { slug: "cli/watch", title: "tobira watch", sub: true },
-    ],
-  },
-  {
-    label: "AI and agents",
-    items: [
-      { slug: "ai", title: "AI assistant" },
-      { slug: "ai/configuration", title: "Configuration", sub: true },
-      { slug: "ai/using", title: "Using the assistant", sub: true },
-      { slug: "ai/privacy", title: "Data and safety", sub: true },
-      { slug: "ai/prompts", title: "Prompts", sub: true },
-      { slug: "mcp", title: "MCP server" },
-      { slug: "mcp/clients", title: "Client setup", sub: true },
-      { slug: "mcp/tools", title: "Tools and resources", sub: true },
-      { slug: "mcp/http", title: "HTTP mode", sub: true },
-    ],
-  },
-  {
-    label: "Drivers",
-    items: [
-      { slug: "drivers", title: "Overview" },
-    ],
-  },
-  {
-    label: "SQL drivers",
-    items: [
-      { slug: "drivers/redshift", title: "Amazon Redshift" },
-      { slug: "drivers/d1", title: "Cloudflare D1" },
-      { slug: "drivers/cockroachdb", title: "CockroachDB" },
-      { slug: "drivers/greenplum", title: "Greenplum" },
-      { slug: "drivers/libsql", title: "libSQL / Turso" },
-      { slug: "drivers/mariadb", title: "MariaDB" },
-      { slug: "drivers/mysql", title: "MySQL" },
-      { slug: "drivers/oracle", title: "Oracle" },
-      { slug: "drivers/postgres", title: "PostgreSQL" },
-      { slug: "drivers/postgres/queries", title: "PostgreSQL: queries, browsing and editing", sub: true },
-      { slug: "drivers/postgres/read-only", title: "PostgreSQL: read-only guard", sub: true },
-      { slug: "drivers/postgres/listen-and-export", title: "PostgreSQL: LISTEN and COPY export", sub: true },
-      { slug: "drivers/singlestore", title: "SingleStore" },
-      { slug: "drivers/mssql", title: "SQL Server" },
-      { slug: "drivers/sqlite", title: "SQLite" },
-    ],
-  },
-  {
-    label: "Analytical drivers",
-    items: [
-      { slug: "drivers/bigquery", title: "BigQuery" },
-      { slug: "drivers/clickhouse", title: "ClickHouse" },
-      { slug: "drivers/snowflake", title: "Snowflake" },
-      { slug: "drivers/vertica", title: "Vertica" },
-    ],
-  },
-  {
-    label: "Document and key-value drivers",
-    items: [
-      { slug: "drivers/dynamodb", title: "Amazon DynamoDB" },
-      { slug: "drivers/cosmos", title: "Azure Cosmos DB" },
-      { slug: "drivers/cassandra", title: "Cassandra" },
-      { slug: "drivers/firestore", title: "Cloud Firestore" },
-      { slug: "drivers/firestore/queries", title: "Firestore: queries and types", sub: true },
-      { slug: "drivers/firestore/browsing", title: "Firestore: browsing, editing and watching", sub: true },
-      { slug: "drivers/mongodb", title: "MongoDB" },
-      { slug: "drivers/redis", title: "Redis" },
-    ],
-  },
-  {
-    label: "Search drivers",
-    items: [
-      { slug: "drivers/elasticsearch", title: "Elasticsearch / OpenSearch" },
-    ],
-  },
-  {
-    label: "Time-series drivers",
-    items: [
-      { slug: "drivers/influxdb", title: "InfluxDB" },
-    ],
-  },
-  {
-    label: "Vector drivers",
-    items: [
-      { slug: "drivers/chroma", title: "Chroma" },
-      { slug: "drivers/milvus", title: "Milvus" },
-      { slug: "drivers/pgvector", title: "pgvector" },
-      { slug: "drivers/pinecone", title: "Pinecone" },
-      { slug: "drivers/qdrant", title: "Qdrant" },
-      { slug: "drivers/weaviate", title: "Weaviate" },
-    ],
-  },
-  {
-    label: "API drivers",
-    items: [
-      { slug: "drivers/github", title: "GitHub" },
-    ],
-  },
-  {
-    label: "Plugin drivers",
-    items: [
-      { slug: "drivers/duckdb", title: "DuckDB" },
-    ],
-  },
-  {
-    label: "Extend",
-    items: [
-      { slug: "write-a-driver", title: "Write a driver" },
-      { slug: "write-a-driver/module", title: "Driver module", sub: true },
-      { slug: "write-a-driver/conformance", title: "Conformance kit", sub: true },
-      { slug: "write-a-driver/plugin", title: "External plugin", sub: true },
-      { slug: "plugin-protocol", title: "Plugin protocol" },
-      { slug: "plugin-protocol/host", title: "Plugin host", sub: true },
-      { slug: "plugin-protocol/wire", title: "Wire protocol", sub: true },
+      { slug: "ci", title: "CI" },
     ],
   },
   {
     label: "Help",
     items: [
       { slug: "security", title: "Security" },
-      { slug: "security/read-only", title: "Security: read-only guard", sub: true },
-      { slug: "security/network", title: "Security: network credentials", sub: true },
-      { slug: "security/ai-and-mcp", title: "Security: AI and MCP", sub: true },
-      { slug: "security/plugins", title: "Security: plugin trust", sub: true },
-      { slug: "troubleshooting", title: "Troubleshooting" },
-      { slug: "troubleshooting/connections", title: "Troubleshooting: connections and passwords", sub: true },
-      { slug: "troubleshooting/read-only", title: "Troubleshooting: read-only refusals", sub: true },
-      { slug: "troubleshooting/drivers", title: "Troubleshooting: driver connections", sub: true },
-      { slug: "troubleshooting/ai-and-mcp", title: "Troubleshooting: AI and MCP", sub: true },
-      { slug: "troubleshooting/plugins", title: "Troubleshooting: plugins", sub: true },
     ],
   },
   {
     label: "Project",
     items: [
       { slug: "contributing", title: "Contributing" },
-      { slug: "roadmap", title: "What's next" },
+      { slug: "roadmap", title: "Roadmap" },
     ],
   },
 ];
@@ -545,7 +401,7 @@ const next = idx >= 0 && idx < flat.length - 1 ? flat[idx + 1] : null;
     letter-spacing: 0.02em;
   }
   /* Code in a table cell wraps: the cells hold import paths like
-     github.com/xavidop/tobira/driver/registry, and one of those unwrapped
+     github.com/xavidop/tamesu/targets/livekit, and one of those unwrapped
      would force the whole table wider than the content column.
      box-decoration-break keeps each fragment of a wrapped pill looking like a
      pill instead of one open-ended box. */
@@ -557,7 +413,7 @@ const next = idx >= 0 && idx < flat.length - 1 ? flat[idx + 1] : null;
     box-decoration-break: clone;
   }
   /* Short code stays whole. Wrapping alone is not enough: the browser breaks
-     at every hyphen and dot it finds, so driver.ErrReadOnly and --filter
+     at every hyphen and dot it finds, so config.Assertion and --filter
      came apart mid-identifier with room to spare on the line. remarkTableCode
      in astro.config.mjs flags the ones short enough to fit a column. */
   .doc td code.code-atom,

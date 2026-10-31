@@ -1,8 +1,9 @@
 //go:build ignore
 
-// gen regenerates the JSON Schemas under schema/ from the Go structs:
+// gen regenerates the JSON Schemas under schema/ and the suites reference page
+// of the docs site from the Go structs:
 //
-//	go run ./schema/gen.go [dir]
+//	go run ./schema/gen.go [schema-dir] [suites-page]
 //
 // make schema runs it; make schema-check fails when the committed files differ.
 package main
@@ -18,21 +19,29 @@ import (
 
 func main() {
 	dir := "schema"
+	page := filepath.Join("site", "src", "pages", "docs", "suites.md")
 	if len(os.Args) > 1 {
 		dir = os.Args[1]
+	}
+	if len(os.Args) > 2 {
+		page = os.Args[2]
 	}
 	for name, s := range map[string]*jsonschema.Schema{
 		"tamesu.schema.json":        config.SuiteSchema(),
 		"tamesu-config.schema.json": config.ProjectSchema(),
 	} {
 		b, err := config.SchemaJSON(s)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "gen:", err)
-			os.Exit(1)
-		}
-		if err := os.WriteFile(filepath.Join(dir, name), b, 0o644); err != nil {
-			fmt.Fprintln(os.Stderr, "gen:", err)
-			os.Exit(1)
-		}
+		check(err)
+		check(os.MkdirAll(dir, 0o755))
+		check(os.WriteFile(filepath.Join(dir, name), b, 0o644))
+	}
+	check(os.MkdirAll(filepath.Dir(page), 0o755))
+	check(os.WriteFile(page, config.SuitesMarkdown(), 0o644))
+}
+
+func check(err error) {
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "gen:", err)
+		os.Exit(1)
 	}
 }

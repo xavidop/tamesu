@@ -11,12 +11,12 @@ interface Props {
   description?: string;
 }
 const {
-  title = "tobira - every database, one terminal",
-  description = "tobira is a terminal client for databases, written in Go: one interface in front of many engines, with capabilities and policy deciding what each connection may do.",
+  title = "tamesu - put your web apps and AI agents to the test",
+  description = "tamesu is an agentic testing framework and CLI written in Go: write tests in YAML or Go and run them against web apps and AI agents (REST, LiveKit voice, SIP phone) with one runner, one assertion model and one report format.",
 } = Astro.props;
 
 const base = import.meta.env.BASE_URL;
-const repo = "https://github.com/xavidop/tobira";
+const repo = "https://github.com/xavidop/tamesu";
 // Landing-page section anchors are absolute so they work from any page
 // (including /docs/*), not just the home page.
 const nav = [
@@ -31,8 +31,8 @@ const nav = [
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
-    <meta name="theme-color" content="#f4f8f8" media="(prefers-color-scheme: light)" data-theme-color="light" />
-    <meta name="theme-color" content="#1e2433" media="(prefers-color-scheme: dark)" data-theme-color="dark" />
+    <meta name="theme-color" content="#f7f3ea" media="(prefers-color-scheme: light)" data-theme-color="light" />
+    <meta name="theme-color" content="#151b35" media="(prefers-color-scheme: dark)" data-theme-color="dark" />
     <!-- Applies a saved light/dark choice before first paint, so there is no
          flash of the other theme. "system" (or nothing saved, or storage
          blocked) leaves data-theme unset and prefers-color-scheme decides.
@@ -42,11 +42,11 @@ const nav = [
       (function () {
         var t = null;
         try {
-          t = localStorage.getItem("tobira-theme");
+          t = localStorage.getItem("tamesu-theme");
         } catch (e) {}
         if (t !== "light" && t !== "dark") return;
         document.documentElement.setAttribute("data-theme", t);
-        var c = t === "dark" ? "#1e2433" : "#f4f8f8";
+        var c = t === "dark" ? "#151b35" : "#f7f3ea";
         document.querySelectorAll("meta[data-theme-color]").forEach(function (m) {
           m.setAttribute("content", c);
         });
@@ -60,10 +60,10 @@ const nav = [
   <body>
     <header class="site-header">
       <div class="wrap site-header__inner">
-        <a class="brand" href={base} aria-label="tobira home">
-          <img src={`${base}brand/tobira-logo.svg`} alt="" width="26" height="26" />
-          <span class="brand__word">tobira</span>
-          <span class="brand__kana">扉</span>
+        <a class="brand" href={base} aria-label="tamesu home">
+          <img src={`${base}brand/tamesu-logo.svg`} alt="" width="26" height="26" style="border-radius:6px" />
+          <span class="brand__word">tamesu</span>
+          <span class="brand__kana">試す</span>
         </a>
         <div class="theme-toggle" role="group" aria-label="Colour theme" data-theme-toggle>
           <button type="button" class="theme-toggle__btn" data-theme-value="light" aria-label="Light theme" aria-pressed="false" title="Light theme">
@@ -89,7 +89,7 @@ const nav = [
         </button>
         <nav class="site-nav" id="site-nav" aria-label="Primary">
           {nav.map((n) => <a href={n.href}>{n.label}</a>)}
-          <a class="site-nav__gh" href={repo} target="_blank" rel="noopener" aria-label="tobira on GitHub">
+          <a class="site-nav__gh" href={repo} target="_blank" rel="noopener" aria-label="tamesu on GitHub">
             <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
               <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"></path>
             </svg>
@@ -108,8 +108,8 @@ const nav = [
       // set data-theme on <html>; system removes it so prefers-color-scheme
       // decides. The choice is saved in localStorage when storage allows;
       // the inline script in <head> re-applies it before first paint.
-      const THEME_KEY = "tobira-theme";
-      const THEME_COLORS = { light: "#f4f8f8", dark: "#1e2433" };
+      const THEME_KEY = "tamesu-theme";
+      const THEME_COLORS = { light: "#f7f3ea", dark: "#151b35" };
       const root = document.documentElement;
       const themeButtons = document.querySelectorAll<HTMLButtonElement>("[data-theme-value]");
       const themeMetas = document.querySelectorAll<HTMLMetaElement>("meta[data-theme-color]");
@@ -171,10 +171,10 @@ const nav = [
     <footer class="site-footer">
       <div class="wrap site-footer__inner">
         <div class="site-footer__brand">
-          <img src={`${base}brand/tobira-logo.svg`} alt="" width="30" height="30" />
+          <img src={`${base}brand/tamesu-logo.svg`} alt="" width="30" height="30" />
           <div>
-            <strong>tobira</strong>
-            <p>Every database, one terminal.</p>
+            <strong>tamesu</strong>
+            <p>Put your web apps and AI agents to the test.</p>
           </div>
         </div>
         <div class="site-footer__links">
@@ -185,7 +185,7 @@ const nav = [
         </div>
       </div>
       <div class="wrap site-footer__base">
-        <span>扉 · tobira · door</span>
+        <span>試す · tamesu · to try, to put to the test</span>
         <span>© 2026 Xavier Portilla Edo</span>
       </div>
     </footer>

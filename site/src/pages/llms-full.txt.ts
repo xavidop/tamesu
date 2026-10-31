@@ -15,7 +15,7 @@ export const GET: APIRoute = ({ site }) => {
     "",
     `> ${LLMS_DESCRIPTION}`,
     "",
-    "The entire tobira documentation, concatenated for agent consumption.",
+    "The entire tamesu documentation, concatenated for agent consumption.",
     "",
   ].join("\n");
 

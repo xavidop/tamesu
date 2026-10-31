@@ -16,7 +16,7 @@ import path from "node:path";
 import process from "node:process";
 
 const distDir = path.resolve(process.argv[2] || "dist");
-// When the site is built with a base path (BASE_PATH=/tobira on GitHub Pages),
+// When the site is built with a base path (BASE_PATH=/tamesu on GitHub Pages),
 // root-relative hrefs are prefixed with it, but the dist file layout is not.
 // Strip the base so root-relative links resolve to real files either way.
 const basePrefix = (process.env.BASE_PATH || "").replace(/\/+$/, "");

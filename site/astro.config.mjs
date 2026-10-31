@@ -7,14 +7,14 @@ import { visit } from "unist-util-visit";
 // links) derives it from Astro's `site`/`base` context rather than
 // hardcoding it a second time. Change it here and it changes everywhere.
 //
-// The Pages workflow passes BASE_PATH (usually "/tobira"); locally it's "/".
+// The Pages workflow passes BASE_PATH (usually "/tamesu"); locally it's "/".
 // Normalized to always end in a trailing slash: import.meta.env.BASE_URL
 // mirrors this value verbatim (Astro does not add the slash back), and every
 // page/component in this site builds hrefs as `${base}docs/...`. Without a
 // guaranteed trailing slash here, that concatenation silently produces
-// "/tobiradocs" instead of "/tobira/docs". actions/configure-pages's own
+// "/tamesudocs" instead of "/tamesu/docs". actions/configure-pages's own
 // base_path output has no trailing slash, so this was reproduced with a real
-// `BASE_PATH=/tobira build`, not a hypothetical.
+// `BASE_PATH=/tamesu build`, not a hypothetical.
 const rawBase = process.env.BASE_PATH || "/";
 const base = rawBase.endsWith("/") ? rawBase : `${rawBase}/`;
 
@@ -54,9 +54,9 @@ function remarkTableCode() {
 
 // remarkBaseLinks prefixes root-relative Markdown links and images with the configured
 // base. Astro rewrites `base` into component hrefs but NOT into links written
-// inside Markdown, so on a project Pages site (base "/tobira/") a page linking
+// inside Markdown, so on a project Pages site (base "/tamesu/") a page linking
 // "/docs/steps/" resolves to <origin>/docs/steps/ and 404s: the docs are at
-// <origin>/tobira/docs/steps/. Every cross-link in the docs tree is written
+// <origin>/tamesu/docs/steps/. Every cross-link in the docs tree is written
 // root-relative, so without this the whole tree is broken the moment it is
 // served under a base, and only there, which is why a base-less build looks
 // fine.
@@ -87,7 +87,7 @@ export default defineConfig({
   // a host that does not answer.
   //
   // This is the GitHub Pages project URL, which is what
-  // `gh api repos/xavidop/tobira/pages` reports and where the Docs workflow
+  // `gh api repos/xavidop/tamesu/pages` reports and where the Docs workflow
   // publishes. To move to a custom domain, do BOTH: add site/public/CNAME
   // containing the bare domain, and change this line to match. Doing only
   // one leaves the built HTML disagreeing with where it is served.

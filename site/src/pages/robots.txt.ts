@@ -5,7 +5,7 @@ import type { APIRoute } from "astro";
 // astro.config.mjs: `site` is the one place the origin is declared.
 //
 // BASE_URL matters as much as `site`. On a project Pages site the whole thing
-// is served under /tobira/, and @astrojs/sitemap writes its entries with that
+// is served under /tamesu/, and @astrojs/sitemap writes its entries with that
 // prefix, so a Sitemap: line built from the origin alone points at a path
 // that does not exist. There is no fallback origin here on purpose: a wrong
 // absolute URL is worse than a relative one, and Astro only leaves `site`
