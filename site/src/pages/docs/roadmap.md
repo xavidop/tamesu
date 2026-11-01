@@ -15,15 +15,11 @@ text and audio mode with its example agent, the `synthesize` and `transcribe` fl
 Opus, stereo WAV); the `sip` target with `tamesu sip setup`, outbound and inbound calls, DTMF,
 `wait_for`/`say` scripts, call events and metrics, and the Asterisk-based example; the `browser`
 target on chromedp with the browser agent, `expect` checks, deterministic actions, screenshots
-and HAR, and the demo shop example. This page is what comes next, in order.
+and HAR, and the demo shop example; and, for v1.0, the action cache with `--replay` and
+`--update-cache`, `tamesu record browser`, `tamesu generate` and the HTML report with
+`tamesu report`. That is v1.0. This page is what comes next, in order.
 
 ## Planned
-
-### Action cache, replay, recorder, generator and the HTML report (v1.0)
-
-- The action cache with `--replay` and `--update-cache`, `tamesu record` for browser sessions,
-  `tamesu generate` to draft suites from a PRD or a system prompt, `tamesu report` and the full
-  HTML report.
 
 ### After v1.0
 

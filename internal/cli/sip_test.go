@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/xavidop/tamesu/internal/cli"
+	"github.com/xavidop/tamesu/internal/model"
 )
 
 func TestSIPSetup(t *testing.T) {
@@ -134,4 +135,103 @@ func TestReportCommand(t *testing.T) {
 	root = cli.NewRoot(cli.BuildInfo{}, cli.Streams{Out: &out, Err: &errOut}, cli.Deps{})
 	assert.Equal(t, cli.ExitConfig, cli.Execute(context.Background(), root, []string{"report", dir}))
 	assert.Contains(t, errOut.String(), "has no summary.json")
+}
+
+// generatingModel is a fake provider that also drafts tests.
+type generatingModel struct {
+	fakeModel
+	req model.GenerateRequest
+}
+
+func (g *generatingModel) GenerateTests(_ context.Context, req model.GenerateRequest) (model.Draft, error) {
+	g.req = req
+	if req.Type == "browser" {
+		return model.Draft{Tests: []model.DraftTest{{Name: "log in", Steps: []string{"Log in as {{vars.user}} with the password {{secrets.TEST_PASSWORD}}"}, Expects: []string{"The user is signed in"}}}}, nil
+	}
+	return model.Draft{Tests: []model.DraftTest{
+		{Name: "refund inside the window", Tags: []string{"returns"}, Persona: "Marta", Style: "polite", Goal: "Return shoes bought 10 days ago", MaxTurns: 6, Judges: []string{"The agent accepts the return"}},
+		{Name: "refund after the window", Persona: "Jordi", Goal: "Insist on a refund after 40 days", Judges: []string{"The agent refuses and offers the voucher"}, NotContains: []string{"I'm just an AI"}},
+	}}, nil
+}
+
+func TestGenerateCommand(t *testing.T) {
+	dir := t.TempDir()
+	cfg := filepath.Join(dir, "tamesu.yaml")
+	require.NoError(t, os.WriteFile(cfg, []byte("version: 1\nmodels: { default: fake/text, scenario_generator: fake/generate }\n"), 0o644))
+	prd := filepath.Join(dir, "PRD.md")
+	require.NoError(t, os.WriteFile(prd, []byte("# Support agent\n\nReturns within 30 days.\n"), 0o644))
+	gen := &generatingModel{}
+	deps := cli.Deps{
+		LookupEnv:   func(string) (string, bool) { return "", false },
+		NewProvider: func(context.Context, cli.ProviderConfig) (model.Provider, error) { return gen, nil },
+	}
+	out := filepath.Join(dir, "suites", "generated.yaml")
+	var stdout, stderr bytes.Buffer
+	root := cli.NewRoot(cli.BuildInfo{}, cli.Streams{Out: &stdout, Err: &stderr}, deps)
+	code := cli.Execute(context.Background(), root, []string{"generate", "--config", cfg, "--from", prd, "--target", "api", "--count", "2", "--out", out})
+	assert.Equal(t, 0, code, stderr.String())
+	assert.Equal(t, "api", gen.req.Target)
+	assert.Equal(t, "rest", gen.req.Type)
+	assert.Equal(t, 2, gen.req.Count)
+	assert.Contains(t, gen.req.Source, "Returns within 30 days")
+	assert.Contains(t, stdout.String(), "2 draft test(s) for target api (rest)")
+	data, err := os.ReadFile(out)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "suite: prd\n")
+	assert.Contains(t, string(data), "- judge: The agent refuses and offers the voucher")
+
+	// The draft validates with tamesu validate.
+	stdout.Reset()
+	stderr.Reset()
+	root = cli.NewRoot(cli.BuildInfo{}, cli.Streams{Out: &stdout, Err: &stderr}, deps)
+	assert.Equal(t, 0, cli.Execute(context.Background(), root, []string{"validate", "--config", cfg, out}), stderr.String())
+
+	// A browser draft, printed.
+	stdout.Reset()
+	stderr.Reset()
+	root = cli.NewRoot(cli.BuildInfo{}, cli.Streams{Out: &stdout, Err: &stderr}, deps)
+	assert.Equal(t, 0, cli.Execute(context.Background(), root, []string{"generate", "--config", cfg, "--from", prd, "--target", "web", "--type", "browser"}), stderr.String())
+	assert.Contains(t, stdout.String(), "type: browser")
+	assert.Contains(t, stdout.String(), "- expect: The user is signed in")
+
+	// Usage errors.
+	stderr.Reset()
+	root = cli.NewRoot(cli.BuildInfo{}, cli.Streams{Out: &stdout, Err: &stderr}, deps)
+	assert.Equal(t, cli.ExitConfig, cli.Execute(context.Background(), root, []string{"generate", "--config", cfg, "--from", prd}))
+	assert.Contains(t, stderr.String(), "--target <name> are required")
+	stderr.Reset()
+	root = cli.NewRoot(cli.BuildInfo{}, cli.Streams{Out: &stdout, Err: &stderr}, deps)
+	assert.Equal(t, cli.ExitConfig, cli.Execute(context.Background(), root, []string{"generate", "--config", cfg, "--from", prd, "--target", "x", "--type", "grpc"}))
+	assert.Contains(t, stderr.String(), "--type must be one of")
+}
+
+func TestRecordBrowserCommand(t *testing.T) {
+	dir := t.TempDir()
+	deps := cli.Deps{RecordBrowser: func(_ context.Context, req cli.RecordRequest) (cli.RecordResult, error) {
+		steps := []map[string]any{{"navigate": req.URL}, {"click": "#add"}}
+		if req.Log != nil {
+			for _, s := range steps {
+				req.Log(s)
+			}
+		}
+		return cli.RecordResult{Steps: steps, YAML: "steps:\n  - action: { navigate: \"" + req.URL + "\" }\n  - action: { click: \"#add\" }\n"}, nil
+	}}
+	var stdout, stderr bytes.Buffer
+	root := cli.NewRoot(cli.BuildInfo{}, cli.Streams{Out: &stdout, Err: &stderr}, deps)
+	assert.Equal(t, 0, cli.Execute(context.Background(), root, []string{"record", "browser", "http://shop.test/"}))
+	assert.Contains(t, stdout.String(), `- action: { click: "#add" }`)
+	assert.Contains(t, stderr.String(), "recorded click: #add")
+
+	out := filepath.Join(dir, "steps.yaml")
+	stdout.Reset()
+	root = cli.NewRoot(cli.BuildInfo{}, cli.Streams{Out: &stdout, Err: &stderr}, deps)
+	assert.Equal(t, 0, cli.Execute(context.Background(), root, []string{"record", "browser", "http://shop.test/", "--out", out}))
+	assert.Contains(t, stdout.String(), "steps.yaml: 2 step(s)")
+	_, err := os.Stat(out)
+	assert.NoError(t, err)
+
+	stderr.Reset()
+	root = cli.NewRoot(cli.BuildInfo{}, cli.Streams{Out: &stdout, Err: &stderr}, cli.Deps{})
+	assert.Equal(t, cli.ExitConfig, cli.Execute(context.Background(), root, []string{"record", "browser", "http://shop.test/"}))
+	assert.Contains(t, stderr.String(), "not available in this build")
 }

@@ -52,6 +52,8 @@ type Deps struct {
 	// SIPSetup runs `tamesu sip setup` (the sip module); nil means the
 	// command reports that this build has no sip support.
 	SIPSetup func(ctx context.Context, req SIPSetupRequest) (SIPSetupResult, error)
+	// RecordBrowser runs `tamesu record browser` (the browser module).
+	RecordBrowser func(ctx context.Context, req RecordRequest) (RecordResult, error)
 }
 
 type app struct {
@@ -122,6 +124,8 @@ func NewRoot(info BuildInfo, streams Streams, deps Deps) *cobra.Command {
 		a.newRunCmd(),
 		a.newDoctorCmd(),
 		a.newReportCmd(),
+		a.newRecordCmd(),
+		a.newGenerateCmd(),
 		a.newSIPCmd(),
 	)
 	apps.Store(root, a)

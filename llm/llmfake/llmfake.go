@@ -41,6 +41,8 @@ type Script struct {
 	Text []string `json:"text"`
 	// STT transcripts are replayed in a cycle, one per fake/stt call.
 	STT []string `json:"stt"`
+	// Generate is what fake/generate answers (the draft tests as JSON).
+	Generate map[string]any `json:"generate"`
 	// Browser is the tool calls fake/browser makes for a goal, in order, then
 	// it answers with text. An input "find" picks the ref of the first element
 	// line of the latest page that contains the text, so scripts need no
@@ -70,6 +72,10 @@ var DefaultScript = Script{
 	Text:    []string{"Our return window is 30 days from delivery, so a return after 40 days is not possible. I am sorry about that."},
 	STT:     []string{"Our return window is 30 days from delivery, so a return after 40 days is not possible."},
 	Browser: []BrowserAction{{Tool: "done", Input: map[string]any{"success": true, "reason": "fake browser agent: goal assumed met"}}},
+	Generate: map[string]any{"tests": []any{
+		map[string]any{"name": "refund inside the window", "tags": []any{"returns", "happy-path"}, "persona": "Marta", "style": "polite", "language": "en", "goal": "You bought shoes 10 days ago and want to return them for a refund", "max_turns": 6, "judges": []any{"The agent accepts the return and explains the 30-day window"}, "contains": []any{"30 days"}},
+		map[string]any{"name": "refund after the window", "tags": []any{"returns", "policy"}, "persona": "Jordi", "style": "impatient", "language": "en", "goal": "You bought shoes 40 days ago and insist on a refund", "max_turns": 8, "stop_when": "the agent offered the voucher or refused twice", "judges": []any{"The agent refuses the refund, does not promise an exception and offers the 10% voucher"}, "not_contains": []any{"I'm just an AI"}},
+	}},
 }
 
 // Plugin is the fake provider.
@@ -104,6 +110,9 @@ func New() *Plugin {
 				if len(s.Browser) > 0 {
 					p.script.Browser = s.Browser
 				}
+				if s.Generate != nil {
+					p.script.Generate = s.Generate
+				}
 			}
 		}
 	}
@@ -134,6 +143,9 @@ func (p *Plugin) SetScript(s Script) {
 	if len(p.script.Browser) == 0 {
 		p.script.Browser = DefaultScript.Browser
 	}
+	if p.script.Generate == nil {
+		p.script.Generate = DefaultScript.Generate
+	}
 }
 
 // Name implements api.Plugin.
@@ -150,7 +162,23 @@ func (p *Plugin) Init(context.Context) []api.Action {
 		ai.NewModelAction(Name+"/stt", &ai.ModelOptions{Label: "fake stt", Supports: &ai.ModelSupports{Media: true, Output: []string{"text"}}}, p.stt),
 		ai.NewModelAction[any](Name+"/browser", &ai.ModelOptions{Label: "fake browser agent", Supports: &ai.ModelSupports{Multiturn: true, SystemRole: true, Tools: true, Media: true, Output: []string{"text"}}}, p.browser),
 		ai.NewModelAction[any](Name+"/expect", &ai.ModelOptions{Label: "fake expect", Supports: &ai.ModelSupports{Multiturn: true, SystemRole: true, Output: []string{"json", "text"}}}, p.expect),
+		ai.NewModelAction[any](Name+"/generate", &ai.ModelOptions{Label: "fake scenario generator", Supports: &ai.ModelSupports{Multiturn: true, SystemRole: true, Output: []string{"json", "text"}}}, p.generate),
 	}
+}
+
+// generate answers the scripted draft; a browser target gets steps instead
+// of personas when the script has none.
+func (p *Plugin) generate(_ context.Context, req *ai.ModelRequest, _ any, _ ai.ModelStreamCallback) (*ai.ModelResponse, error) {
+	p.mu.Lock()
+	out := p.script.Generate
+	p.mu.Unlock()
+	if strings.Contains(promptText(req), "of type browser") {
+		out = map[string]any{"tests": []any{
+			map[string]any{"name": "log in and reach the cart", "tags": []any{"happy-path"}, "steps": []any{"Log in as {{vars.user}} with the password {{secrets.TEST_PASSWORD}}", "Open the cart"}, "expects": []any{"The page shows the user is signed in", "The cart page is shown"}},
+			map[string]any{"name": "wrong password is refused", "tags": []any{"auth"}, "steps": []any{"Try to log in as {{vars.user}} with the password wrong-password"}, "expects": []any{"The page shows an error about the username or password"}},
+		}}
+	}
+	return respond(req, out)
 }
 
 // browser replays the scripted tool calls: one per model call, in order,

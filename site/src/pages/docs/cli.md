@@ -28,6 +28,8 @@ tamesu --help                   # every command
 | [`tamesu run`](#tamesu-run) | Run the suites and write the reports |
 | [`tamesu doctor`](#tamesu-doctor) | Check the config, suites, secrets, models, speech, Chromium, LiveKit and SIP |
 | [`tamesu report`](#tamesu-report) | Rebuild `report.html` from a run directory |
+| [`tamesu record browser`](#tamesu-record-browser) | Record a browser session as deterministic steps |
+| [`tamesu generate`](#tamesu-generate) | Draft tests from a PRD, a system prompt or a knowledge base |
 | [`tamesu sip setup`](#tamesu-sip-setup) | Create or reuse the LiveKit SIP trunks and the inbound dispatch rule |
 | [`tamesu version`](#tamesu-version) | Print the version, commit and build date |
 
@@ -178,6 +180,42 @@ timeline, step screenshots and an audio player with turn markers, linking the ru
 relative to itself. The `html` reporter writes the same file during `tamesu run`
 (`reporters: [console, junit, html]`, or `--reporter html`). Exit `2` when the directory has no
 `summary.json`. See [Reports](/docs/reports/).
+
+## tamesu record
+
+```text
+tamesu record <command>
+```
+
+Recorders; today there is one, `tamesu record browser`.
+
+## tamesu record browser
+
+```text
+tamesu record browser <url> [--out steps.yaml]
+```
+
+Opens Chromium with a window on the URL and records what you do: clicks, typing (reported when
+you leave the field or press Enter), selections, Enter, and the pages you navigate to by hand.
+Each becomes a deterministic `action:` step with a durable selector (an id, a `name`, an
+`aria-label`, else a short path such as `#login > button`); a password field is recorded as
+`{{secrets.PASSWORD}}`, never its value. Close the browser or press Ctrl-C to finish: the
+`steps:` block is printed (or written with `--out`), ready to paste into a browser test and mix
+with `goal` and `expect` steps. Exit `3` when Chromium cannot start.
+
+## tamesu generate
+
+```text
+tamesu generate --from <file> --target <name> [--type rest|livekit|sip|browser] [--count N] [--out suite.yaml]
+```
+
+Reads a PRD, a system prompt or a knowledge base and asks `models.scenario_generator` (or
+`models.default`) for `--count` draft tests (default 5) for one target: personas, goals, judge
+rubrics and fixed phrases for a conversational target, goals and expectations for a browser
+target. It writes a suite with a target stub (`url: ${AGENT_URL}` and the usual request and
+response mapping for `rest`) to review, then validates it the way `tamesu validate` would. Exit
+`0` when the draft validates, `1` when it does not (the file is kept for review), `2` on a
+usage or config error, `3` when the model failed. See [Generating tests](/docs/generate/).
 
 ## tamesu sip
 

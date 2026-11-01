@@ -50,12 +50,13 @@ func main() {
 		cli.BuildInfo{Version: version, Commit: commit, Date: date},
 		cli.Streams{In: os.Stdin, Out: os.Stdout, Err: os.Stderr},
 		cli.Deps{
-			LookupEnv:   os.LookupEnv,
-			Now:         time.Now,
-			NewProvider: newProvider,
-			Targets:     targetFactories,
-			Checks:      []cli.DoctorCheck{checkModels, checkSpeech, checkChromium, checkLiveKit, checkSIP},
-			SIPSetup:    sipSetup,
+			LookupEnv:     os.LookupEnv,
+			Now:           time.Now,
+			NewProvider:   newProvider,
+			Targets:       targetFactories,
+			Checks:        []cli.DoctorCheck{checkModels, checkSpeech, checkChromium, checkLiveKit, checkSIP},
+			SIPSetup:      sipSetup,
+			RecordBrowser: recordBrowser,
 		},
 	)
 	code := cli.Execute(ctx, root, os.Args[1:])

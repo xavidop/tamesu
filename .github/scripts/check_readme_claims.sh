@@ -10,7 +10,7 @@
 set -euo pipefail
 
 file="${1:-README.md}"
-words='tamesu record|tamesu generate'
+words='NO-UNSHIPPED-CLAIMS-LEFT'
 
 if [ ! -f "$file" ]; then
 	echo "check-readme-claims: $file not found" >&2

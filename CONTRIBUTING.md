@@ -42,7 +42,7 @@ This is a multi-module repository tied together by a `go.work` file:
 
 - `/` (module `github.com/xavidop/tamesu`): the core. It holds the public API (`tamesu.go`), the
   `target`, `assert` and `metrics` contracts, the reporters, and the config, secrets (mamori),
-  redaction and CLI packages under `internal/`. It must never depend on Genkit, LiveKit, pion,
+  redaction, action cache, suite generator and CLI packages under `internal/`. It must never depend on Genkit, LiveKit, pion,
   chromedp, CGO audio or a cloud SDK: `make check-deps` fails the build if it does.
 - `cmd/tamesu`: the `tamesu` binary, its own module. It is the only module that links everything,
   including the mamori cloud secret providers (`aws-sm://`, `vault://`, `gcp-sm://`, `azure-kv://`,

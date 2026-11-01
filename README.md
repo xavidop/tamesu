@@ -113,14 +113,15 @@ tamesu list [paths...]           list tests (--json, --filter, --tags, --target)
 tamesu run [paths...]            run suites (--filter, --tags, --target, --parallel, --repeat, --mode, --headed, --replay, --update-cache, --out, --reporter, --max-cost-usd)
 tamesu doctor [paths...]         check config, suites and secrets (via mamori), models, speech, Chromium, LiveKit and SIP
 tamesu report <run-dir>          rebuild report.html from a run directory
+tamesu record browser <url>      record a browser session into deterministic steps (--out)
+tamesu generate                  draft tests from a PRD or system prompt (--from, --target, --type, --count, --out)
 tamesu sip setup                 create or reuse the LiveKit SIP trunks and dispatch rule (--outbound, --inbound)
 tamesu version                   print the version, commit and build date
 ```
 
 Every command takes `--config`, `--verbose`, `--var KEY=VAL` and `--env-file`. `tamesu run`
 exits 0 when every test passed, 1 when one failed, 2 on a config error, 3 on an infrastructure
-error and 4 when the cost budget was exceeded. Planned, not in the CLI yet: `tamesu record`
-(planned browser recorder) and `tamesu generate` (planned scenario generator); see the
+error and 4 when the cost budget was exceeded. What comes after v1.0 is on the
 [roadmap](https://xavidop.github.io/tamesu/docs/roadmap/).
 
 ## Features
@@ -159,8 +160,9 @@ error and 4 when the cost budget was exceeded. Planned, not in the CLI yet: `tam
 | `sip` | phone call through a LiveKit SIP service and your trunk (outbound or inbound, DTMF, `wait_for`/`say` scripts, line simulation) | audio | the audio metrics plus `call_setup_ms`, `ring_ms`, `greeting_ms`, `call_duration_ms`; `dtmf_received`, `call_ended_by`, `transferred_to` | [`examples/sip-ivr`](examples/sip-ivr/) through Asterisk as the carrier and IVR (`examples/compose.yaml`) |
 
 All four target types are part of the suite schema, so suites can be written, validated and
-listed and all four run today; the action cache, the recorder, the generator and the HTML report
-come next (see the [roadmap](https://xavidop.github.io/tamesu/docs/roadmap/)).
+listed and all four run today, with the action cache for browser goals (`--replay`), `tamesu record
+browser`, `tamesu generate` and the HTML report; what comes after v1.0 is on the
+[roadmap](https://xavidop.github.io/tamesu/docs/roadmap/).
 
 ## CI
 

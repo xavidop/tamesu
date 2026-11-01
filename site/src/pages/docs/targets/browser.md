@@ -75,6 +75,13 @@ and cheap: a stable app replays with no model calls for its goals.
   `cache_replay_failed` and `cache_saved` are events in `result.json`. Commit the cache
   directory to replay in CI, or keep it as a CI cache keyed on the suite.
 
+## Recording steps
+
+`tamesu record browser <url>` opens a window on the URL and turns what you do into `action:`
+steps with durable selectors (an id, a `name`, an `aria-label`, else a short path), passwords as
+`{{secrets.PASSWORD}}`. Close the browser to get the `steps:` block, paste it into a test and
+replace the brittle parts with `goal` steps where a person would rather say what they want.
+
 ## Deterministic actions
 
 | Action | Argument | Does |

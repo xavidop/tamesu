@@ -29,6 +29,16 @@ func newBrowserTarget(_ context.Context, spec runner.TargetSpec) (target.Target,
 	return browser.New(spec.Name, cfg), nil
 }
 
+// recordBrowser is `tamesu record browser`.
+func recordBrowser(ctx context.Context, req cli.RecordRequest) (cli.RecordResult, error) {
+	steps, err := browser.Record(ctx, req.URL, browser.RecordOptions{Log: req.Log})
+	res := cli.RecordResult{Steps: steps}
+	if len(steps) > 0 {
+		res.YAML = browser.StepsYAML(steps)
+	}
+	return res, err
+}
+
 // checkChromium is the `tamesu doctor` check for the browser target: a
 // Chromium binary is found (no download during doctor) and reports a version.
 func checkChromium(ctx context.Context, env cli.DoctorEnv) []cli.DoctorResult {

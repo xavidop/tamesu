@@ -8,6 +8,7 @@ models:
   default: fake/text
   simulator: fake/simulator
   judge: fake/judge
+  scenario_generator: fake/generate
 defaults: { timeout: 1m, repeat: 1 }
 budgets: { max_cost_usd: 1 }
 reporters: [console, junit]

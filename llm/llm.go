@@ -85,13 +85,14 @@ type Client struct {
 	mu    sync.Mutex
 	usage model.Usage
 
-	simFlow    flowFunc[model.SimInput, model.SimOutput]
-	judgeFlow  flowFunc[assert.JudgeRequest, assert.JudgeVerdict]
-	ttsFlow    flowFunc[synthInput, synthOutput]
-	sttFlow    flowFunc[sttInput, sttOutput]
-	goalFlow   flowFunc[goalInput, goalOutput]
-	expectFlow flowFunc[expectInput, expectOutput]
-	tools      []ai.ToolRef
+	simFlow      flowFunc[model.SimInput, model.SimOutput]
+	judgeFlow    flowFunc[assert.JudgeRequest, assert.JudgeVerdict]
+	ttsFlow      flowFunc[synthInput, synthOutput]
+	sttFlow      flowFunc[sttInput, sttOutput]
+	goalFlow     flowFunc[goalInput, goalOutput]
+	expectFlow   flowFunc[expectInput, expectOutput]
+	generateFlow flowFunc[generateInput, model.Draft]
+	tools        []ai.ToolRef
 }
 
 type flowFunc[In, Out any] interface {
