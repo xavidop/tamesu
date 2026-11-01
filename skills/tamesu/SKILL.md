@@ -16,7 +16,7 @@ What the CLI has today: `tamesu init`, `tamesu validate`, `tamesu list`, `tamesu
 `tamesu doctor` and `tamesu version`, with the `rest` and `livekit` (text mode) targets runnable
 and the suite schema for all four target types. Planned, not shipped: `tamesu report` (planned HTML
 report), `tamesu record` (planned), `tamesu generate` (planned) and `tamesu sip setup` (planned);
-livekit audio mode, sip and browser targets validate but do not run yet (planned).
+sip and browser targets validate but do not run yet (planned); livekit runs in text and audio mode.
 
 ## The model in one minute
 

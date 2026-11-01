@@ -243,7 +243,7 @@ func TestConnectErrorsAndAudioMode(t *testing.T) {
 	_, err = New("voice", Config{URL: "ws://lk", APIKey: "", APISecret: "s", connect: failing}).Start(context.Background(), runCtx(t))
 	assert.ErrorContains(t, err, "api_key and api_secret are required")
 	_, err = New("voice", Config{URL: "ws://lk", APIKey: "k", APISecret: "s", Mode: ModeAudio, connect: failing}).Start(context.Background(), runCtx(t))
-	assert.ErrorContains(t, err, "audio mode lands")
+	assert.ErrorIs(t, err, ErrNoSpeech, "audio mode without a speech layer fails before connecting")
 }
 
 func TestParseToolCalls(t *testing.T) {

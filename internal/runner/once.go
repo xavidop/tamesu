@@ -92,6 +92,13 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 		return fail(r.classify(tctx, err), fmt.Errorf("target %s: %w", it.test.Target, err))
 	}
 	rc := &target.RunContext{TestName: it.test.Name, RunIndex: idx, Dir: dir, Vars: vars, Render: render, Logger: logger}
+	if it.mode == "audio" {
+		if sp, ok := r.o.Provider.(target.Speech); ok {
+			rc.Speech = sp
+		}
+		rc.Voice = voiceOf(it.test.Persona, it.seed, it.target.TranscriptSource)
+		rc.Voice.VAD = r.o.Project.Speech.VAD.Provider
+	}
 	sess, err := tgt.Start(tctx, rc)
 	if err != nil {
 		return fail(r.classify(tctx, err), fmt.Errorf("start %s: %w", it.test.Target, err))
@@ -189,6 +196,27 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 	out.Metrics[metrics.LLMTokens] = float64(out.Usage.Total())
 	r.writeResult(out)
 	return out
+}
+
+// voiceOf maps a persona's voice and behaviors onto the target's Voice.
+func voiceOf(p *config.Persona, seed int64, transcriptSource string) *target.Voice {
+	v := &target.Voice{Seed: seed, NoiseSNRdB: 20, TranscriptSource: transcriptSource}
+	if p == nil {
+		return v
+	}
+	v.Hint, v.Language = p.Voice, p.Language
+	if b := p.Behaviors; b != nil {
+		v.InterruptProbability = b.InterruptProbability
+		if len(b.SilenceAfterTurnMs) == 2 {
+			v.SilenceMin = time.Duration(b.SilenceAfterTurnMs[0]) * time.Millisecond
+			v.SilenceMax = time.Duration(b.SilenceAfterTurnMs[1]) * time.Millisecond
+		}
+		v.BackgroundNoise, v.LineQuality = b.BackgroundNoise, b.LineQuality
+		if b.BackgroundNoiseSNRdB != nil {
+			v.NoiseSNRdB = *b.BackgroundNoiseSNRdB
+		}
+	}
+	return v
 }
 
 func (r *run) simulator() model.Simulator {

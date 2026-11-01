@@ -170,6 +170,9 @@ func FromFloat32(samples []float32) []int16 {
 	return out
 }
 
+// Clip rounds v to int16, saturating at full scale.
+func Clip(v float64) int16 { return clip(v) }
+
 func clip(v float64) int16 {
 	switch {
 	case v > 32767:

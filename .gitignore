@@ -49,3 +49,7 @@ site/.astro/
 
 # Genkit dev-mode traces (tamesu ai dev)
 .genkit/
+
+# Example binaries built in place
+/examples/livekit-agent/livekit-agent
+/examples/rest-agent/rest-agent

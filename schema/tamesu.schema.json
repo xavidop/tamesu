@@ -81,7 +81,11 @@
         },
         "background_noise": {
           "type": "string",
-          "description": "A noise preset such as cafe or street."
+          "description": "A noise preset (cafe street office white) or a WAV file mixed under the caller's voice."
+        },
+        "background_noise_snr_db": {
+          "type": "number",
+          "description": "Signal-to-noise ratio of the background noise in dB; default 20."
         },
         "line_quality": {
           "type": "string",
@@ -614,6 +618,15 @@
         },
         "join_timeout": {
           "$ref": "#/$defs/Duration"
+        },
+        "transcript_source": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "agent",
+            "stt"
+          ],
+          "description": "Audio mode: where the agent's words come from; auto (default) takes the agent's own transcription when it publishes one and transcribes its audio otherwise."
         },
         "direction": {
           "type": "string",

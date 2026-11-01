@@ -1,9 +1,10 @@
-// Command livekit-agent is a tiny text-mode LiveKit agent for the Mochi Shoes
-// support desk, built with the LiveKit Go SDK and Genkit, that tamesu's
-// example suite tests. It behaves like a LiveKit Agents worker in text mode:
-// it joins every room whose name starts with --room-prefix, publishes its
-// state in the lk.agent.state attribute, reads user turns from the lk.chat
-// text stream and answers on lk.transcription.
+// Command livekit-agent is a tiny LiveKit agent for the Mochi Shoes support
+// desk, built with the LiveKit Go SDK and Genkit, that tamesu's example
+// suites test. It behaves like a LiveKit Agents worker: it joins every room
+// whose name starts with --room-prefix, publishes its state in the
+// lk.agent.state attribute, reads user turns from the lk.chat text stream and
+// answers on lk.transcription. With --audio it also listens to the caller's
+// microphone track and speaks its replies (see audio.go).
 //
 // With --scripted (or AGENT_SCRIPTED=1) the reply step uses rules instead of
 // a model, so the example runs in CI without keys.
@@ -26,6 +27,7 @@ import (
 	"github.com/livekit/protocol/auth"
 	"github.com/livekit/protocol/livekit"
 	lksdk "github.com/livekit/server-sdk-go/v2"
+	"github.com/pion/webrtc/v4"
 )
 
 const policy = `You are the support agent of Mochi Shoes, an online shoe store, on a text chat.
@@ -35,7 +37,7 @@ After 30 days offer a 10% voucher instead. Shipping takes 2 to 4 business days. 
 type agent struct {
 	url, apiKey, apiSecret string
 	roomPrefix, identity   string
-	scripted               bool
+	scripted, audio        bool
 	reply                  func(ctx context.Context, text string) (string, error)
 
 	mu     sync.Mutex
@@ -49,10 +51,11 @@ func main() {
 	roomPrefix := flag.String("room-prefix", envOr("AGENT_ROOM_PREFIX", "tamesu-"), "join rooms whose name starts with this")
 	identity := flag.String("identity", envOr("AGENT_IDENTITY", "agent-mochi"), "participant identity")
 	scripted := flag.Bool("scripted", os.Getenv("AGENT_SCRIPTED") == "1", "answer from rules, without a model (CI)")
+	audioMode := flag.Bool("audio", os.Getenv("AGENT_AUDIO") == "1", "listen to the caller's audio track and speak the replies")
 	modelName := flag.String("model", envOr("AGENT_MODEL", "googleai/gemini-2.5-flash"), "Genkit model reference")
 	flag.Parse()
 
-	a := &agent{url: *url, apiKey: *apiKey, apiSecret: *apiSecret, roomPrefix: *roomPrefix, identity: *identity, scripted: *scripted, joined: map[string]bool{}}
+	a := &agent{url: *url, apiKey: *apiKey, apiSecret: *apiSecret, roomPrefix: *roomPrefix, identity: *identity, scripted: *scripted, audio: *audioMode, joined: map[string]bool{}}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -73,7 +76,7 @@ func main() {
 	})
 	a.reply = flow.Run
 
-	log.Printf("livekit-agent: watching %s for rooms %s* (scripted=%v)", a.url, a.roomPrefix, a.scripted)
+	log.Printf("livekit-agent: watching %s for rooms %s* (scripted=%v audio=%v)", a.url, a.roomPrefix, a.scripted, a.audio)
 	svc := lksdk.NewRoomServiceClient(httpURL(a.url), a.apiKey, a.apiSecret)
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
@@ -132,8 +135,21 @@ func (a *agent) serve(ctx context.Context, roomName string) {
 			finish()
 		}
 	}
-	room = lksdk.NewRoom(cb)
 	var turns sync.Mutex
+	var v *voice
+	if a.audio {
+		cb.OnTrackPublished = func(pub *lksdk.RemoteTrackPublication, rp *lksdk.RemoteParticipant) {
+			if pub.Kind() == lksdk.TrackKindAudio {
+				_ = pub.SetSubscribed(true)
+			}
+		}
+		cb.OnTrackSubscribed = func(track *webrtc.TrackRemote, pub *lksdk.RemoteTrackPublication, rp *lksdk.RemoteParticipant) {
+			if track.Kind() == webrtc.RTPCodecTypeAudio && v != nil {
+				go a.listen(ctx, room, v, track, rp.Identity(), &turns)
+			}
+		}
+	}
+	room = lksdk.NewRoom(cb)
 	err = room.RegisterTextStreamHandler("lk.chat", func(reader *lksdk.TextStreamReader, identity string) {
 		go func() {
 			text := reader.ReadAll()
@@ -161,6 +177,14 @@ func (a *agent) serve(ctx context.Context, roomName string) {
 	if err := room.JoinWithContextAndToken(ctx, a.url, token, lksdk.WithAutoSubscribe(false)); err != nil {
 		log.Printf("%s: join: %v", roomName, err)
 		return
+	}
+	if a.audio {
+		var err error
+		if v, err = publishVoice(room); err != nil {
+			log.Printf("%s: publish voice: %v", roomName, err)
+			room.Disconnect()
+			return
+		}
 	}
 	room.LocalParticipant.SetAttributes(map[string]string{"lk.agent.state": "listening"})
 	log.Printf("%s: joined", roomName)

@@ -26,6 +26,7 @@ func newLiveKitTarget(_ context.Context, spec runner.TargetSpec) (target.Target,
 		AgentIdentityPrefix: t.AgentIdentityPrefix, Mode: spec.Mode, DataTopic: t.DataTopic,
 		JoinTimeout: t.JoinTimeout.Std(),
 	}
+	// transcript_source travels on the run context (target.Voice), set by the runner.
 	if t.Dispatch != nil {
 		cfg.AgentName = t.Dispatch.AgentName
 	}

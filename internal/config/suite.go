@@ -68,6 +68,7 @@ type Target struct {
 	Mode                string    `yaml:"mode,omitempty" json:"mode,omitempty" jsonschema:"enum=text,enum=audio"`
 	DataTopic           string    `yaml:"data_topic,omitempty" json:"data_topic,omitempty" jsonschema:"description=Text-mode transport topic; defaults to lk.chat."`
 	JoinTimeout         Duration  `yaml:"join_timeout,omitempty" json:"join_timeout,omitempty"`
+	TranscriptSource    string    `yaml:"transcript_source,omitempty" json:"transcript_source,omitempty" jsonschema:"enum=auto,enum=agent,enum=stt,description=Audio mode: where the agent's words come from; auto (default) takes the agent's own transcription when it publishes one and transcribes its audio otherwise."`
 
 	// sip
 	Direction       string   `yaml:"direction,omitempty" json:"direction,omitempty" jsonschema:"enum=outbound,enum=inbound"`
@@ -187,11 +188,16 @@ type Persona struct {
 
 // Behaviors are the persona's audio-mode habits.
 type Behaviors struct {
-	InterruptProbability float64 `yaml:"interrupt_probability,omitempty" json:"interrupt_probability,omitempty" jsonschema:"minimum=0,maximum=1"`
-	SilenceAfterTurnMs   []int   `yaml:"silence_after_turn_ms,omitempty" json:"silence_after_turn_ms,omitempty" jsonschema:"description=[min max] milliseconds of silence after each turn."`
-	BackgroundNoise      string  `yaml:"background_noise,omitempty" json:"background_noise,omitempty" jsonschema:"description=A noise preset such as cafe or street."`
-	LineQuality          string  `yaml:"line_quality,omitempty" json:"line_quality,omitempty" jsonschema:"enum=pstn,enum=mobile_poor,enum=voip_good"`
+	InterruptProbability float64  `yaml:"interrupt_probability,omitempty" json:"interrupt_probability,omitempty" jsonschema:"minimum=0,maximum=1"`
+	SilenceAfterTurnMs   []int    `yaml:"silence_after_turn_ms,omitempty" json:"silence_after_turn_ms,omitempty" jsonschema:"description=[min max] milliseconds of silence after each turn."`
+	BackgroundNoise      string   `yaml:"background_noise,omitempty" json:"background_noise,omitempty" jsonschema:"description=A noise preset (cafe street office white) or a WAV file mixed under the caller's voice."`
+	BackgroundNoiseSNRdB *float64 `yaml:"background_noise_snr_db,omitempty" json:"background_noise_snr_db,omitempty" jsonschema:"description=Signal-to-noise ratio of the background noise in dB; default 20."`
+	LineQuality          string   `yaml:"line_quality,omitempty" json:"line_quality,omitempty" jsonschema:"enum=pstn,enum=mobile_poor,enum=voip_good"`
 }
+
+// NoisePresets are the background_noise presets the audio module synthesises
+// (kept in step with audio/noise.Presets; anything else must be a .wav path).
+var NoisePresets = []string{"cafe", "office", "street", "white"}
 
 // Scenario is what the persona tries to achieve and when to stop.
 type Scenario struct {

@@ -6,14 +6,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/xavidop/tamesu/audio/opus"
+	"github.com/xavidop/tamesu/audio/vad"
 	"github.com/xavidop/tamesu/internal/cli"
 	"github.com/xavidop/tamesu/internal/config"
 	"github.com/xavidop/tamesu/internal/model"
 	"github.com/xavidop/tamesu/internal/runner"
 	"github.com/xavidop/tamesu/internal/secrets"
 	"github.com/xavidop/tamesu/llm"
-	"github.com/xavidop/tamesu/audio/opus"
-	"github.com/xavidop/tamesu/audio/vad"
 	"github.com/xavidop/tamesu/target"
 	"github.com/xavidop/tamesu/targets/rest"
 )

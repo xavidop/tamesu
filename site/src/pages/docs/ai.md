@@ -6,8 +6,8 @@ title: AI (Genkit)
 # AI: Genkit everywhere
 
 Every model call in tamesu goes through [Genkit](https://genkit.dev), from the `llm` module: the
-simulated user, the judges, the Genkit evaluators and, as they land, the browser agent, scenario
-generation and speech. No other module imports a model SDK (`check_ai_deps.sh` fails CI if one
+simulated user, the judges, the Genkit evaluators, speech (text to speech and speech to text)
+and, as they land, the browser agent and scenario generation. No other module imports a model SDK (`check_ai_deps.sh` fails CI if one
 does). That buys three things: every model is a Genkit reference so switching provider is a
 config change, every call is a traced flow visible in the Genkit Developer UI, and usage is
 counted on every response.
@@ -33,8 +33,10 @@ secrets:
 | `anthropic` | `anthropic/claude-sonnet-4-5`, ... | `ANTHROPIC_API_KEY` |
 | `openai` | `openai/gpt-4.1-mini`, ... | `OPENAI_API_KEY` |
 | `ollama` | `ollama/llama3.1`, any local model | none (`OLLAMA_URL` for a remote server) |
+| `deepgram` | `deepgram/nova-3`, `deepgram/nova-2` (speech to text) | `DEEPGRAM_API_KEY` |
+| `elevenlabs` | `elevenlabs/eleven_flash_v2_5`, `elevenlabs/eleven_multilingual_v2`, `elevenlabs/eleven_v3` (text to speech) | `ELEVENLABS_API_KEY` |
 | `evaluators` | the evaluators `genkitEval/deep_equal`, `genkitEval/regex`, `genkitEval/jsonata` | none |
-| `fake` | `fake/simulator`, `fake/judge`, `fake/text` | none; only in a build with `-tags llmfake` |
+| `fake` | `fake/simulator`, `fake/judge`, `fake/text`, `fake/tts`, `fake/stt` | none; only in a build with `-tags llmfake` |
 
 Credentials are the resolved secrets with those conventional names, or `models.credentials:
 { googleai: "{{secrets.MY_KEY}}" }` for another name. The provider of every configured model is
@@ -50,9 +52,37 @@ fallback for both (and `browser_agent` and `scenario_generator` as those land).
 |---|---|
 | `simulateUserTurn` | persona, scenario, history, turn budget → `{ say, dtmf?, hang_up?, stop, reason }` |
 | `judgeRun` | rubric, scale, transcript, tool calls, metrics → `{ pass, score, reason, evidence[] }` |
+| `synthesize` | text, voice hint, language → PCM (the caller's turn, audio mode) |
+| `transcribe` | PCM, language → `{ text, confidence }` (the agent's turn, audio mode) |
 
 Each flow is one span in the trace; the simulator and judge responses carry their trace id into
 `result.json`.
+
+## Speech
+
+```yaml
+speech:
+  tts: { model: googleai/gemini-2.5-flash-preview-tts, voice: en-GB-female }
+  stt: { model: deepgram/nova-3, language: en }
+  vad: { provider: energy }
+```
+
+Text to speech is `genkit.Generate` with a TTS model that answers with an audio media part:
+Gemini TTS natively (`googleai/gemini-2.5-flash-preview-tts`, `googleai/gemini-2.5-pro-preview-tts`)
+or ElevenLabs through the bundled `elevenlabs` plugin. Speech to text is `genkit.Generate` with
+the agent's audio as a media part and text out: Gemini audio input natively (`googleai/gemini-2.5-flash`)
+or Deepgram through the bundled `deepgram` plugin. Switching provider is a config change.
+
+A persona's `voice` is a hint, `<language>-<gender>` such as `en-GB-female`, `es-ES-male` or
+just `female`, mapped to each provider's voices (Gemini `Kore`/`Puck`, ElevenLabs
+`Rachel`/`Adam`, OpenAI `nova`/`onyx`); a provider voice name or ID passes through. The hint's
+language is also the TTS language when `speech.tts.language` is not set.
+
+The two plugins, `github.com/xavidop/tamesu/llm/plugins/deepgram` and
+`github.com/xavidop/tamesu/llm/plugins/elevenlabs`, are ordinary Genkit model plugins and work
+in any Genkit Go app. Speech is priced from `llm/pricing.yaml` too: TTS per character and STT
+per minute of audio, counted into the same budget. `tamesu doctor` has a `speech` check: the
+models and their credentials, the VAD this build can run and whether libopus is linked.
 
 ## Prompts
 
@@ -93,6 +123,7 @@ with its own evaluators.
 
 A binary built with `-tags llmfake` registers the `fake` plugin: `fake/simulator` and
 `fake/judge` replay `TAMESU_LLMFAKE_SCRIPT` (JSON: `simulator` outputs in a cycle, a `judge`
-verdict that fails any rubric containing `FAIL`, `text` replies), so the whole pipeline runs
-with no network. `make integration` and the CI integration job use it; a default build never
+verdict that fails any rubric containing `FAIL`, `text` replies, `stt` transcripts in a cycle),
+`fake/tts` speaks a tone and `fake/stt` replays the transcripts, so the whole pipeline, audio
+mode included, runs with no network. `make integration` and the CI integration job use it; a default build never
 contains the fake provider.

@@ -21,15 +21,17 @@ var (
 
 // Enumerations the validator checks.
 var (
-	StreamingModes  = []string{"none", "sse", "websocket"}
-	VoiceModes      = []string{"text", "audio"}
-	SIPDirections   = []string{"outbound", "inbound"}
-	JudgeScales     = []string{"binary", "1-5"}
-	CallEnders      = []string{"agent", "caller", "timeout", "error", "no_answer", "busy"}
-	LineQualities   = []string{"pstn", "mobile_poor", "voip_good"}
-	ReporterNames   = []string{"console", "junit", "json", "html"}
-	GenkitPlugins   = []string{"googlegenai", "anthropic", "openai", "ollama", "deepgram", "elevenlabs", "evaluators"}
-	ScriptStepKinds = []string{"wait_for", "dtmf", "say"}
+	StreamingModes = []string{"none", "sse", "websocket"}
+	VoiceModes     = []string{"text", "audio"}
+	// TranscriptSources are the livekit audio-mode transcript_source values.
+	TranscriptSources = []string{"auto", "agent", "stt"}
+	SIPDirections     = []string{"outbound", "inbound"}
+	JudgeScales       = []string{"binary", "1-5"}
+	CallEnders        = []string{"agent", "caller", "timeout", "error", "no_answer", "busy"}
+	LineQualities     = []string{"pstn", "mobile_poor", "voip_good"}
+	ReporterNames     = []string{"console", "junit", "json", "html"}
+	GenkitPlugins     = []string{"googlegenai", "anthropic", "openai", "ollama", "deepgram", "elevenlabs", "evaluators"}
+	ScriptStepKinds   = []string{"wait_for", "dtmf", "say"}
 )
 
 // targetFieldTypes maps each type-specific target field to the type it
@@ -39,7 +41,8 @@ var targetFieldTypes = map[string]string{
 	"method": TargetREST, "headers": TargetREST, "request": TargetREST, "response": TargetREST, "streaming": TargetREST, "session": TargetREST,
 	"api_key": TargetLiveKit, "api_secret": TargetLiveKit, "room": TargetLiveKit, "dispatch": TargetLiveKit,
 	"agent_identity_prefix": TargetLiveKit, "mode": TargetLiveKit, "data_topic": TargetLiveKit, "join_timeout": TargetLiveKit,
-	"direction": TargetSIP, "to": TargetSIP, "from": TargetSIP, "trunk_id": TargetSIP, "ring_timeout": TargetSIP,
+	"transcript_source": TargetLiveKit,
+	"direction":         TargetSIP, "to": TargetSIP, "from": TargetSIP, "trunk_id": TargetSIP, "ring_timeout": TargetSIP,
 	"max_call_duration": TargetSIP, "trigger": TargetSIP,
 }
 
@@ -191,6 +194,9 @@ func (v *validator) target(name string, t Target) {
 		}
 		if t.Mode != "" && !slices.Contains(VoiceModes, t.Mode) {
 			v.errorf(with(tp, "mode"), "mode must be text or audio")
+		}
+		if t.TranscriptSource != "" && !slices.Contains(TranscriptSources, t.TranscriptSource) {
+			v.errorf(with(tp, "transcript_source"), "transcript_source must be one of %s", strings.Join(TranscriptSources, ", "))
 		}
 	case TargetSIP:
 		switch t.Direction {
@@ -358,6 +364,12 @@ func (v *validator) behaviors(bp []string, b Behaviors) {
 	}
 	if b.LineQuality != "" && !slices.Contains(LineQualities, b.LineQuality) {
 		v.errorf(with(bp, "line_quality"), "line_quality must be one of %s", strings.Join(LineQualities, ", "))
+	}
+	if n := b.BackgroundNoise; n != "" && !slices.Contains(NoisePresets, n) && !strings.HasSuffix(strings.ToLower(n), ".wav") {
+		v.errorf(with(bp, "background_noise"), "background_noise must be one of %s or a .wav file", strings.Join(NoisePresets, ", "))
+	}
+	if b.BackgroundNoiseSNRdB != nil && (*b.BackgroundNoiseSNRdB < -10 || *b.BackgroundNoiseSNRdB > 60) {
+		v.errorf(with(bp, "background_noise_snr_db"), "background_noise_snr_db must be between -10 and 60")
 	}
 }
 

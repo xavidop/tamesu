@@ -1,13 +1,17 @@
-# Project configuration for CI: the fake model provider (a tamesu binary built
-# with -tags llmfake) against livekit-server --dev's default keys.
+# Project configuration for CI: the fake model provider and fake speech models
+# (a tamesu binary built with -tags llmfake) against livekit-server --dev's
+# default keys, in text mode (suite.yaml) and audio mode (suite-audio.yaml).
 version: 1
-suites: ["suite.yaml"]
+suites: ["suite.yaml", "suite-audio.yaml"]
 genkit:
   plugins: [fake]
 models:
   default: fake/text
   simulator: fake/simulator
   judge: fake/judge
+speech:
+  tts: { model: fake/tts }
+  stt: { model: fake/stt }
 defaults: { timeout: 1m, repeat: 1 }
 livekit: { max_concurrent_rooms: 2 }
 reporters: [console, junit]

@@ -40,13 +40,14 @@ tests:
 | `voice` | The TTS voice for audio mode (`en-GB-female`); ignored in text mode. |
 | `behaviors.interrupt_probability` | Audio: the chance per turn that the persona starts talking before the agent finishes (measures `interruption_stop_ms`). |
 | `behaviors.silence_after_turn_ms` | Audio: `[min, max]` milliseconds of silence after the agent's turn before answering. |
-| `behaviors.background_noise` | Audio: a noise preset mixed into the outgoing audio (`cafe`, `street`). |
-| `behaviors.line_quality` | Sip: `pstn` (8 kHz G.711), `mobile_poor`, `voip_good`. |
+| `behaviors.background_noise` | Audio: a noise preset (`cafe`, `street`, `office`, `white`) or a `.wav` file mixed under the caller's voice, at `behaviors.background_noise_snr_db` (default 20 dB). |
+| `behaviors.line_quality` | Audio and sip: `pstn` (8 kHz μ-law), `mobile_poor` (A-law with loss and jitter) or `voip_good` applied to the caller's audio. |
 
 Give the persona what the agent will ask for: a name, an order reference in the goal, a date. The
 simulator invents plausible details that fit the persona when it must, and never gives a real
-secret, card number or password. The audio behaviours take effect with the audio runners, which
-are planned.
+secret, card number or password. The audio behaviours take effect in livekit audio mode (and
+sip when it lands); text mode ignores them. A test's `seed` drives the behaviour RNG, so a run
+with the same seed pauses and interrupts at the same points.
 
 ## Scenario
 

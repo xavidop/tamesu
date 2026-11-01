@@ -39,6 +39,9 @@ func sdkConnect(ctx context.Context, cfg connectConfig, ev events) (room, error)
 			ev.onText(p.Identity(), TranscriptionTopic, s.Text, attrs)
 		}
 	}
+	if cfg.Audio {
+		subscribeAudio(cb, ev)
+	}
 	r := lksdk.NewRoom(cb)
 	for _, topic := range cfg.ReplyTopics {
 		topic := topic
@@ -61,6 +64,9 @@ func sdkConnect(ctx context.Context, cfg connectConfig, ev events) (room, error)
 	}
 	if err := r.JoinWithContextAndToken(ctx, cfg.URL, token, lksdk.WithAutoSubscribe(false)); err != nil {
 		return nil, err
+	}
+	if cfg.Audio {
+		subscribeExisting(r)
 	}
 	return &sdkRoom{r: r}, nil
 }

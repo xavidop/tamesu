@@ -1,0 +1,72 @@
+# The example voice suite in audio mode: tamesu speaks to the example agent
+# (examples/livekit-agent --audio) with the TTS model, listens with the VAD and
+# the STT model, and records a stereo WAV per run. Needs a LiveKit server and
+# the agent running with --audio; see the README.
+suite: livekit-agent-audio
+tags: [example, voice, audio]
+
+secrets:
+  LIVEKIT_API_KEY: env:LIVEKIT_API_KEY
+  LIVEKIT_API_SECRET: env:LIVEKIT_API_SECRET
+
+targets:
+  voice:
+    type: livekit
+    url: ${LIVEKIT_URL:-ws://localhost:7880}
+    api_key: "{{secrets.LIVEKIT_API_KEY}}"
+    api_secret: "{{secrets.LIVEKIT_API_SECRET}}"
+    room: "tamesu-{{uuid}}"
+    agent_identity_prefix: agent-
+    mode: audio
+    join_timeout: 20s
+  voice_stt:
+    type: livekit
+    url: ${LIVEKIT_URL:-ws://localhost:7880}
+    api_key: "{{secrets.LIVEKIT_API_KEY}}"
+    api_secret: "{{secrets.LIVEKIT_API_SECRET}}"
+    room: "tamesu-{{uuid}}"
+    agent_identity_prefix: agent-
+    mode: audio
+    transcript_source: stt                      # ignore the agent's transcription, transcribe its audio
+    join_timeout: 20s
+
+tests:
+  - name: refund policy question by voice
+    target: voice
+    seed: 1
+    persona:
+      name: Marta
+      style: polite
+      language: en
+      voice: en-GB-female
+      behaviors:
+        silence_after_turn_ms: [200, 500]
+        background_noise: cafe
+        background_noise_snr_db: 25
+    scenario:
+      goal: "Find out if you can return shoes bought 40 days ago"
+      max_turns: 6
+    assert:
+      - judge: "The agent states the 30-day return policy and does not promise an exception"
+      - contains: "30 days"
+      - metric: { name: time_to_first_audio_ms_p95, lt: 3000 }
+      - metric: { name: talk_over_ratio, lt: 0.2 }
+      - metric: { name: agent_join_ms, lt: 20000 }
+      - turns: { lte: 6 }
+
+  - name: refund policy question by voice, transcribed by tamesu
+    target: voice_stt
+    seed: 2
+    persona:
+      name: Jordi
+      style: calm
+      language: en
+      voice: en-GB-male
+      behaviors: { line_quality: voip_good }
+    scenario:
+      goal: "Find out if you can return shoes bought 40 days ago"
+      max_turns: 6
+    assert:
+      - contains: "30 days"
+      - metric: { name: time_to_first_audio_ms_p95, lt: 3000 }
+      - turns: { lte: 6 }

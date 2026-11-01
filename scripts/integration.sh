@@ -87,10 +87,10 @@ stop_livekit() {
 	[ -n "$lk_container" ] && docker stop "$lk_container" >/dev/null 2>&1 || true
 }
 if start_livekit; then
-	echo "==> livekit text mode: the suite must pass"
+	echo "==> livekit text and audio mode: both suites must pass (fake speech models, real Opus tracks)"
 	(cd examples/livekit-agent && go build -o ../../bin/livekit-agent .)
 	export LIVEKIT_URL="ws://127.0.0.1:$lk_port" LIVEKIT_API_KEY=devkey LIVEKIT_API_SECRET=secret
-	./bin/livekit-agent --scripted --url "$LIVEKIT_URL" >"$out/livekit-agent.log" 2>&1 &
+	./bin/livekit-agent --scripted --audio --url "$LIVEKIT_URL" >"$out/livekit-agent.log" 2>&1 &
 	lk_agent=$!
 	trap 'stop_agent $lk_agent; stop_livekit' EXIT
 	sleep 1
@@ -98,6 +98,6 @@ if start_livekit; then
 	stop_agent "$lk_agent"
 	stop_livekit
 else
-	echo "==> livekit text mode: SKIPPED (no livekit-server binary and no Docker daemon)"
+	echo "==> livekit text and audio mode: SKIPPED (no livekit-server binary and no Docker daemon)"
 fi
 echo "integration: ok (reports in $out)"

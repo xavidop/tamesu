@@ -4,7 +4,10 @@
 // on the data topic and reads the agent's replies from its transcription and
 // data streams; the end of an agent turn comes from the agent's
 // lk.agent.state attribute, with an idle timeout as the fallback. Audio mode
-// lands with the audio pipeline.
+// speaks the user turns (TTS through the speech layer) on a published Opus
+// track, listens to the agent's track with a voice activity detector,
+// transcribes it (or takes the agent's own transcription), handles
+// interruptions, pauses and background noise, and records a stereo WAV.
 package livekit
 
 import (
@@ -154,6 +157,8 @@ type events struct {
 	onData              func(identity, topic string, payload []byte)
 	onAttributes        func(identity string, changed map[string]string)
 	onDisconnected      func()
+	// onAudio delivers a participant's decoded audio (48 kHz mono PCM).
+	onAudio func(identity string, pcm []int16)
 }
 
 // connectConfig is what a connector needs.
@@ -162,16 +167,22 @@ type connectConfig struct {
 	Room, Identity         string
 	AgentName              string
 	ReplyTopics            []string
+	// Audio subscribes to the agent's audio tracks.
+	Audio bool
 }
 
 type connector func(ctx context.Context, cfg connectConfig, ev events) (room, error)
 
 // Start renders the config, joins the room and waits for the agent.
 func (t *Target) Start(ctx context.Context, run *target.RunContext) (target.Session, error) {
-	if t.cfg.Mode != ModeText {
-		return nil, fmt.Errorf("livekit %s: mode %q is not available yet; audio mode lands with the audio pipeline", t.name, t.cfg.Mode)
+	if t.cfg.Mode != ModeText && t.cfg.Mode != ModeAudio {
+		return nil, fmt.Errorf("livekit %s: mode must be text or audio, not %q", t.name, t.cfg.Mode)
 	}
-	cc := connectConfig{ReplyTopics: t.cfg.ReplyTopics, AgentName: t.cfg.AgentName}
+	audioMode := t.cfg.Mode == ModeAudio
+	if audioMode && run.Speech == nil {
+		return nil, fmt.Errorf("livekit %s: %w", t.name, ErrNoSpeech)
+	}
+	cc := connectConfig{ReplyTopics: t.cfg.ReplyTopics, AgentName: t.cfg.AgentName, Audio: audioMode}
 	var err error
 	for _, f := range []struct {
 		name string
@@ -197,6 +208,7 @@ func (t *Target) Start(ctx context.Context, run *target.RunContext) (target.Sess
 		onData:              s.data,
 		onAttributes:        s.attributes,
 		onDisconnected:      s.disconnected,
+		onAudio:             s.agentAudio,
 	}
 	r, err := t.cfg.connect(ctx, cc, ev)
 	if err != nil {
@@ -216,6 +228,13 @@ func (t *Target) Start(ctx context.Context, run *target.RunContext) (target.Sess
 		return nil, fmt.Errorf("livekit %s: no agent joined room %s within %s (agent_identity_prefix=%q, dispatch=%q); is the agent running and dispatched to this room?", t.name, cc.Room, t.cfg.JoinTimeout, t.cfg.AgentIdentityPrefix, t.cfg.AgentName)
 	}
 	s.metrics["agent_join_ms"] = float64(time.Since(s.startedAt).Microseconds()) / 1000
+	if audioMode {
+		if err := s.startAudio(ctx, r, run); err != nil {
+			r.Disconnect()
+			return nil, fmt.Errorf("livekit %s: audio mode: %w", t.name, err)
+		}
+		s.event("audio_published", "")
+	}
 	return s, nil
 }
 
@@ -229,6 +248,14 @@ type turn struct {
 	spoke    bool // the agent went through thinking/speaking since the user turn
 	tools    []target.ToolCall
 	segments map[string]bool
+
+	// Audio mode, in samples of the session timeline (-1 unset).
+	userStart, userEnd   int
+	agentStart, agentEnd int
+	audioFrom            int
+	userEndAt            time.Time
+	interrupt            bool
+	interruptAfter       time.Duration
 }
 
 type session struct {
@@ -252,6 +279,7 @@ type session struct {
 	metrics     map[string]float64
 	startedAt   time.Time
 	closed      bool
+	audio       *audioState // audio mode only
 }
 
 func (s *session) isAgent(p participant) bool {
@@ -399,14 +427,22 @@ func (s *session) Send(ctx context.Context, ut target.UserTurn) error {
 		s.mu.Unlock()
 		return errors.New("livekit: session is closed")
 	}
-	cur := &turn{sentAt: time.Now()}
+	cur := &turn{sentAt: time.Now(), userStart: -1, userEnd: -1, agentStart: -1, agentEnd: -1}
+	if s.audio != nil {
+		cur.audioFrom = s.audio.agent.pos()
+	}
 	if s.greeting.Len() > 0 {
 		cur.text.WriteString(s.greeting.String())
-		cur.firstAt, cur.lastAt = cur.sentAt, cur.sentAt
+		if s.audio == nil {
+			cur.firstAt, cur.lastAt = cur.sentAt, cur.sentAt
+		}
 		s.greeting.Reset()
 	}
 	s.cur = cur
 	s.mu.Unlock()
+	if s.audio != nil {
+		return s.sendAudio(ctx, ut, cur)
+	}
 	if ut.Text == "" {
 		return nil
 	}
@@ -422,6 +458,9 @@ func (s *session) Receive(ctx context.Context) (target.AgentTurn, error) {
 	s.mu.Unlock()
 	if cur == nil {
 		return target.AgentTurn{}, errors.New("livekit: Receive without a pending Send")
+	}
+	if s.audio != nil {
+		return s.receiveAudio(ctx, cur)
 	}
 	deadline := time.NewTimer(s.t.cfg.TurnTimeout)
 	defer deadline.Stop()
@@ -492,6 +531,10 @@ func (s *session) Close(context.Context) (target.Artifacts, error) {
 	already := s.closed
 	s.closed = true
 	s.mu.Unlock()
+	var files map[string]string
+	if s.audio != nil && !already {
+		files = s.closeAudio(s.run.Dir)
+	}
 	if !already && s.room != nil {
 		s.room.Disconnect()
 	}
@@ -501,7 +544,7 @@ func (s *session) Close(context.Context) (target.Artifacts, error) {
 	for k, v := range s.metrics {
 		m[k] = v
 	}
-	return target.Artifacts{Metrics: m, Events: append([]target.Event(nil), s.events...)}, nil
+	return target.Artifacts{Files: files, Metrics: m, Events: append([]target.Event(nil), s.events...)}, nil
 }
 
 // parseToolCalls reads {"name","args"} or a list of them.

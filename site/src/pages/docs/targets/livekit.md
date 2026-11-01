@@ -7,9 +7,10 @@ title: LiveKit target
 
 The `livekit` target tests a realtime voice agent by joining its LiveKit room as a simulated
 participant, whatever the agent was built with: LiveKit Agents, Voiceflow, Pipecat, a custom
-participant. **Text mode** (this page) exchanges text streams, so a text-capable agent is tested
-without audio: fast, cheap, deterministic. Audio mode (TTS in, VAD and STT out, interruptions,
-noise) is planned with the audio pipeline.
+participant. **Text mode** exchanges text streams, so a text-capable agent is tested without
+audio: fast, cheap, deterministic. **Audio mode** speaks to the agent and listens to it the way a
+caller would: TTS in, VAD and STT out, interruptions, pauses, background noise, a phone line, and
+a stereo WAV of every run.
 
 ```yaml
 targets:
@@ -24,6 +25,7 @@ targets:
     mode: text                                    # text | audio
     data_topic: lk.chat                           # text-mode transport
     join_timeout: 30s
+    transcript_source: auto                       # audio: auto | agent | stt
 ```
 
 ## How a turn works
@@ -47,6 +49,35 @@ targets:
 
 A greeting the agent sends before the first user turn is attached to the first reply.
 
+## Audio mode
+
+`mode: audio` on the target, a test or `--mode audio` needs `speech.tts` and `speech.stt` in
+`tamesu.yaml` (see [AI](../ai)) and a full build (the lite build has no Opus). A turn then goes:
+
+1. The simulator's text is spoken by the TTS model with the persona's `voice`, resampled to
+   48 kHz, run through `behaviors.line_quality` when set, mixed with `behaviors.background_noise`
+   at `background_noise_snr_db`, and published as the caller's Opus microphone track, 20 ms at a
+   time. Between turns the track carries the noise alone (or silence). A `dtmf` from the
+   simulator is sent as real keypad tones.
+2. tamesu subscribes to the agent's audio track, decodes it and runs the voice activity
+   detector (`speech.vad.provider`: `energy` by default, `silero` in a build with `-tags onnx`).
+   `time_to_first_audio_ms` is the caller's speech end to the agent's speech start, from the
+   audio itself, never from a model.
+3. The turn is complete when the agent stopped speaking and went back to `listening` (its
+   `lk.agent.state`), or stayed silent for 1.5 s. The agent's words come from its own
+   `lk.transcription` stream when it publishes one (`transcript_source: agent`), else tamesu
+   transcribes the utterance with the STT model (`stt`); `auto` (the default) prefers the agent's.
+   `result.json` records which (`transcript_source` events).
+4. With `behaviors.interrupt_probability`, the caller starts its next turn 0.6 to 2 s into the
+   agent's reply; `interruption_stop_ms` is how long the agent kept talking after the caller
+   started, `talk_over_ratio` the overlap over the agent's total speech. `silence_after_turn_ms`
+   adds a pause before each caller turn; `seed` makes both repeatable.
+5. `audio.wav` in the run directory is the whole session: left channel the caller (noise
+   included), right channel the agent, aligned on one clock.
+
+The scripted example agent speaks and listens too (`--audio`), so `make integration` runs audio
+mode end to end with the fake speech models.
+
 ## Keys
 
 | Key | Meaning |
@@ -56,9 +87,10 @@ A greeting the agent sends before the first user turn is attached to the first r
 | `room` | Room name template; default `tamesu-{{uuid}}`. |
 | `dispatch.agent_name` | Requests an explicit agent dispatch when the room is created. |
 | `agent_identity_prefix` | Identity prefix of the agent participant; default: a participant of kind agent, else any. |
-| `mode` | `text` (this page) or `audio` (planned). A test's `mode` and `--mode` override it. |
+| `mode` | `text` or `audio`. A test's `mode` and `--mode` override it. |
 | `data_topic` | The text-input topic; default `lk.chat`. |
 | `join_timeout` | How long to wait for the agent; default 30s. |
+| `transcript_source` | Audio: `auto` (default), `agent` or `stt`. |
 
 ## Metrics
 
@@ -68,21 +100,26 @@ A greeting the agent sends before the first user turn is attached to the first r
 | `time_to_first_token_ms` | user text sent → the agent's first text |
 | `agent_join_ms` | room joined → the agent participant present |
 | `turns` | the number of agent turns |
+| `time_to_first_audio_ms` (`_p50`, `_p95`, `_max`) | audio: caller speech end → agent speech start (VAD) |
+| `interruption_stop_ms` (`_p50`, `_p95`, `_max`) | audio: caller talks over → agent audio stops |
+| `talk_over_ratio` | audio: overlapping speech / the agent's speech |
+| `silence_gap_max_ms` | audio: the longest dead air while a reply was expected |
+| `agent_speech_ms`, `user_speech_ms`, `interruptions` | audio: totals for the run |
 
-The audio metrics (`time_to_first_audio_ms`, `interruption_stop_ms`, `talk_over_ratio`) come
-with audio mode. `livekit.max_concurrent_rooms` in `tamesu.yaml` caps how many livekit tests
-run at once.
+`livekit.max_concurrent_rooms` in `tamesu.yaml` caps how many livekit tests run at once.
 
 ## Events
 
 `result.json` records `joined`, `agent_joined`, `agent_left` and `disconnected` with
-timestamps, the beginning of the call timeline the sip target extends.
+timestamps, plus in audio mode `audio_published`, `user_speech_start`/`_end`,
+`agent_speech_start`/`_end`, `interruption`, `interruption_stopped`, `dtmf_sent` and
+`transcript_source`: the beginning of the call timeline the sip target extends.
 
 ## Example
 
 [`examples/livekit-agent`](https://github.com/xavidop/tamesu/tree/main/examples/livekit-agent) is
-a text-mode agent built with the LiveKit Go SDK and Genkit that joins every `tamesu-*` room, and
-the suite that tests it. `make integration` runs it against `livekit-server --dev` when the
+an agent built with the LiveKit Go SDK and Genkit that joins every `tamesu-*` room, in text mode
+or (`--audio`) speaking and listening, and the suites that test it in both modes. `make integration` runs it against `livekit-server --dev` when the
 binary or Docker is available:
 
 ```sh

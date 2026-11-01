@@ -174,7 +174,7 @@ func (s *session) Send(ctx context.Context, turn target.UserTurn) error {
 	if err != nil {
 		return fmt.Errorf("rest: %s %s: %w", s.t.cfg.Method, url, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var agent target.AgentTurn
 	if s.t.cfg.Streaming == StreamingSSE || strings.HasPrefix(resp.Header.Get("Content-Type"), "text/event-stream") {
 		agent, err = s.readSSE(resp.Body)

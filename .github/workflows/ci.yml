@@ -43,6 +43,10 @@ jobs:
         with:
           go-version-file: ${{ matrix.dir }}/go.mod
           cache-dependency-path: ${{ matrix.dir }}/go.sum
+      # audio/opus is a cgo binding to libopus; the lite build (-tags lite) does
+      # without it, every other module build needs the development package.
+      - name: Install libopus
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libopus-dev pkg-config
       - name: go build
         working-directory: ${{ matrix.dir }}
         run: go build ./...
@@ -92,6 +96,8 @@ jobs:
         with:
           go-version-file: ${{ matrix.dir }}/go.mod
           cache-dependency-path: ${{ matrix.dir }}/go.sum
+      - name: Install libopus
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libopus-dev pkg-config
       - name: golangci-lint
         # The version is pinned for reproducibility; the timeout lives in
         # .golangci.yml (run.timeout).
@@ -167,6 +173,8 @@ jobs:
         with:
           go-version-file: cmd/tamesu/go.mod
           cache-dependency-path: cmd/tamesu/go.sum
+      - name: Install libopus
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libopus-dev pkg-config
       - name: Build
         working-directory: cmd/tamesu
         run: go build -o "$RUNNER_TEMP/tamesu" .

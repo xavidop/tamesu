@@ -49,6 +49,11 @@ type RunContext struct {
 	Render func(s string) (string, error)
 	// Logger is a redacting logger scoped to the run.
 	Logger *slog.Logger
+	// Speech is the speech layer for audio mode (nil in text mode or when
+	// no speech models are configured).
+	Speech Speech
+	// Voice is the caller's voice and behaviors for audio mode (nil otherwise).
+	Voice *Voice
 }
 
 // UserTurn is what the simulated user sends.
@@ -70,6 +75,12 @@ type AgentTurn struct {
 	ToolCalls []ToolCall
 	// Done is set when the agent ended the session.
 	Done bool
+	// Interrupted is set when the caller started its next turn before the
+	// agent finished this one (audio mode); Text is what was heard so far.
+	Interrupted bool
+	// TranscriptSource says where Text came from in audio mode: agent (the
+	// agent's own transcription stream) or stt (tamesu transcribed its audio).
+	TranscriptSource string
 	// Raw is the transport payload (the JSON body, the data message).
 	Raw any
 	// Status is the HTTP status (rest).

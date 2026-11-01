@@ -58,6 +58,7 @@ The top level of the file.
 | `mode` | one of `text`, `audio` |  |  |
 | `data_topic` | string |  | Text-mode transport topic; defaults to lk.chat. |
 | `join_timeout` | [Duration](#duration) |  |  |
+| `transcript_source` | one of `auto`, `agent`, `stt` |  | Audio mode: where the agent's words come from; auto (default) takes the agent's own transcription when it publishes one and transcribes its audio otherwise. |
 | `direction` | one of `outbound`, `inbound` |  |  |
 | `to` | string |  | The agent's phone number in E.164 (outbound). |
 | `from` | string |  | Caller ID presented by the trunk. |
@@ -164,7 +165,8 @@ The top level of the file.
 |---|---|---|---|
 | `interrupt_probability` | number |  |  |
 | `silence_after_turn_ms` | list of integer |  | [min max] milliseconds of silence after each turn. |
-| `background_noise` | string |  | A noise preset such as cafe or street. |
+| `background_noise` | string |  | A noise preset (cafe street office white) or a WAV file mixed under the caller's voice. |
+| `background_noise_snr_db` | number |  | Signal-to-noise ratio of the background noise in dB; default 20. |
 | `line_quality` | one of `pstn`, `mobile_poor`, `voip_good` |  |  |
 
 ## Scenario

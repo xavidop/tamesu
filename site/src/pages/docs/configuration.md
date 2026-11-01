@@ -26,7 +26,7 @@ models:                                     # every value is a Genkit model refe
 speech:                                     # audio mode and sip; still Genkit models
   stt: { model: deepgram/nova-3, language: en }          # or googleai/gemini-2.5-flash (audio input)
   tts: { model: googleai/gemini-2.5-flash-preview-tts }  # or elevenlabs/eleven_flash_v2_5, openai/gpt-4o-mini-tts
-  vad: { provider: silero }                 # onnxruntime (not a model call)
+  vad: { provider: energy }                 # energy (default) or silero (needs a build with -tags onnx)
 sip:
   livekit_url: ${LIVEKIT_URL}               # LiveKit server with the SIP service enabled
   outbound_trunk_id: ST_xxxxxxxx
@@ -60,7 +60,7 @@ secrets:                                    # resolved with mamori, see below
 | `genkit.plugins` | none | Genkit plugins to initialise: `googlegenai`, `anthropic`, `openai`, `ollama`, `deepgram`, `elevenlabs`, `evaluators`. Credentials come from the secrets with the conventional names below. |
 | `genkit.dev_ui` | `false` | Export traces to the Genkit Developer UI. |
 | `models.*` | `default: googleai/gemini-2.5-flash` | The model for each job: `default`, `judge`, `browser_agent`, `simulator`, `scenario_generator`. `models.credentials` maps a plugin to `{{secrets.X}}` when the secret is not named conventionally. |
-| `speech.stt`, `speech.tts`, `speech.vad` | none | Speech models (Genkit references) and the VAD provider, for audio mode and sip. |
+| `speech.stt`, `speech.tts`, `speech.vad` | `vad: energy` | Speech models (Genkit references, with `language` and `voice` defaults) and the voice activity detector, for audio mode and sip. See [AI](ai) for the speech models. |
 | `sip.*` | `max_concurrent_calls: 2` | The LiveKit SIP service, trunk and number, concurrency and the numbers tamesu may dial. |
 | `defaults.*` | `timeout: 3m`, `repeat: 1`, `retries: 0`, `pass_threshold: 1.0` | Per-test defaults; a suite's `defaults:` and a test's own keys override them. |
 | `budgets.*` | `max_cost_usd: 5`, `max_tokens: 2_000_000` | Caps on tamesu's own model spend per run (exit code 4 when exceeded). |

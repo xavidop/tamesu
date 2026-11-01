@@ -97,3 +97,12 @@ func TestSliceAndInterleave(t *testing.T) {
 	st := Interleave(PCM{Rate: 8000, Samples: []int16{1, 2}}, PCM{Rate: 8000, Samples: []int16{9}})
 	assert.Equal(t, []int16{1, 9, 2, 0}, st)
 }
+
+func TestDTMF(t *testing.T) {
+	d := DTMF("1#x", 8000)
+	assert.Equal(t, 8000, d.Rate)
+	assert.Equal(t, 2*(640+640), d.Len(), "two valid keys, 80 ms tone plus 80 ms gap each")
+	assert.Greater(t, RMS(d.Samples[:640]), 0.1, "the tone is there")
+	assert.Equal(t, 0.0, RMS(d.Samples[640:1280]), "then the gap")
+	assert.Equal(t, 0, DTMF("", 8000).Len())
+}

@@ -45,12 +45,12 @@ func (a *agent) handle(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		fl := w.(http.Flusher)
 		for _, word := range splitWords(reply) {
-			fmt.Fprintf(w, "data: %s\n\n", mustJSON(map[string]any{"delta": word}))
+			_, _ = fmt.Fprintf(w, "data: %s\n\n", mustJSON(map[string]any{"delta": word}))
 			fl.Flush()
 			time.Sleep(2 * time.Millisecond)
 		}
-		fmt.Fprintf(w, "data: %s\n\n", mustJSON(map[string]any{"end_session": last, "tool_calls": []any{map[string]any{"name": "lookup", "args": map[string]any{"q": body["message"]}}}}))
-		fmt.Fprint(w, "data: [DONE]\n\n")
+		_, _ = fmt.Fprintf(w, "data: %s\n\n", mustJSON(map[string]any{"end_session": last, "tool_calls": []any{map[string]any{"name": "lookup", "args": map[string]any{"q": body["message"]}}}}))
+		_, _ = fmt.Fprint(w, "data: [DONE]\n\n")
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -214,7 +214,7 @@ func TestSSETurn(t *testing.T) {
 func TestNonJSONBodyAndErrors(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadGateway)
-		fmt.Fprint(w, "upstream down")
+		_, _ = fmt.Fprint(w, "upstream down")
 	}))
 	t.Cleanup(srv.Close)
 	tgt := New("api", Config{URL: srv.URL, TextPath: "$.reply"})
