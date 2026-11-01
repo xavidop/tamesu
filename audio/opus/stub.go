@@ -27,7 +27,9 @@ type Decoder struct{}
 func NewDecoder(rate, channels int) (*Decoder, error) { return nil, ErrUnavailable }
 
 // Decode returns ErrUnavailable.
-func (d *Decoder) Decode(packet []byte, frameSamples int) ([]int16, error) { return nil, ErrUnavailable }
+func (d *Decoder) Decode(packet []byte, frameSamples int) ([]int16, error) {
+	return nil, ErrUnavailable
+}
 
 // Close is a no-op.
 func (d *Decoder) Close() {}
