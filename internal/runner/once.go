@@ -104,7 +104,7 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 		return fail(r.classify(tctx, err), fmt.Errorf("start %s: %w", it.test.Target, err))
 	}
 
-	loop := &persona.Loop{Sim: r.simulator(), Seed: it.seed, Mode: it.mode, Logger: logger, Now: r.now}
+	loop := &persona.Loop{Sim: r.simulator(), Seed: it.seed, Mode: it.mode, Logger: logger, Now: r.now, ScriptTimeout: it.timeout / 2}
 	var lo *persona.Outcome
 	var loopErr error
 	safe := modelScope(scope)
@@ -172,6 +172,10 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 	actx, acancel := context.WithTimeout(context.WithoutCancel(ctx), it.timeout)
 	defer acancel()
 	out.Passed = true
+	if lo.ScriptError != nil {
+		out.Assertions = append(out.Assertions, assert.Result{Name: "script", Pass: false, Reason: lo.ScriptError.Error()})
+		out.Passed = false
+	}
 	for i, ca := range it.test.Assert {
 		a, err := Build(ca)
 		if err != nil {

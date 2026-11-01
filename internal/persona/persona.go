@@ -26,6 +26,7 @@ const (
 	StopHangUp    = "hang_up"    // the persona hung up
 	StopAgentDone = "agent_done" // the agent ended the session
 	StopMaxTurns  = "max_turns"  // the turn budget ran out
+	StopScript    = "script"     // a scripted step failed (Outcome.ScriptError)
 )
 
 // ErrNoSimulator is returned when the loop has no model to play the user.
@@ -43,6 +44,8 @@ type Loop struct {
 	Now func() time.Time
 	// OnTurn is called after every turn is appended (optional, for live output).
 	OnTurn func(assert.Turn)
+	// ScriptTimeout bounds each wait_for step (default 30 s).
+	ScriptTimeout time.Duration
 }
 
 // Outcome is what a finished conversation produced.
@@ -56,6 +59,9 @@ type Outcome struct {
 	FirstTokenMs []float64
 	TraceIDs     []string
 	StopReason   string
+	// ScriptError is set when a scripted step failed (a wait_for that was
+	// never heard); the conversation ends there and the run fails.
+	ScriptError *ScriptError
 }
 
 // Run plays the conversation on sess until a stop condition. A transport or
@@ -78,7 +84,21 @@ func (l *Loop) Run(ctx context.Context, sess target.Session) (*Outcome, error) {
 		maxTurns = DefaultMaxTurns
 	}
 	out := &Outcome{}
-	agentIndex := 0
+	if scriptSteps(l.Scenario) > 0 {
+		if err := l.runScript(ctx, sess, out, now); err != nil {
+			var se *ScriptError
+			if errors.As(err, &se) {
+				out.ScriptError = se
+				out.StopReason = StopScript
+				return out, nil
+			}
+			return out, err
+		}
+		if out.StopReason != "" {
+			return out, nil
+		}
+	}
+	agentIndex := len(out.AgentTurns)
 	for turn := 1; ; turn++ {
 		if turn > maxTurns {
 			out.StopReason = StopMaxTurns
