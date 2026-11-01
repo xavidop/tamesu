@@ -52,7 +52,7 @@ A greeting the agent sends before the first user turn is attached to the first r
 ## Audio mode
 
 `mode: audio` on the target, a test or `--mode audio` needs `speech.tts` and `speech.stt` in
-`tamesu.yaml` (see [AI](../ai)) and a full build (the lite build has no Opus). A turn then goes:
+`tamesu.yaml` (see [AI](/docs/ai/)) and a full build (the lite build has no Opus). A turn then goes:
 
 1. The simulator's text is spoken by the TTS model with the persona's `voice`, resampled to
    48 kHz, run through `behaviors.line_quality` when set, mixed with `behaviors.background_noise`

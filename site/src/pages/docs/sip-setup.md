@@ -5,7 +5,7 @@ title: SIP setup
 
 # SIP setup
 
-The [sip target](targets/sip) needs two things you bring: a **LiveKit server with the SIP
+The [sip target](/docs/targets/sip/) needs two things you bring: a **LiveKit server with the SIP
 service** and a **SIP trunk** with a number. tamesu does not run a carrier of its own.
 
 ## The LiveKit SIP service

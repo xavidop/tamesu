@@ -8,10 +8,10 @@ title: SIP target
 The `sip` target tests a phone agent by calling it (or being called by it) through a LiveKit
 SIP service and a trunk you bring: Twilio, Telnyx, Plivo, your own PBX. The call is bridged
 into a LiveKit room and tamesu talks to it from inside that room exactly like the
-[LiveKit target](livekit) in audio mode: TTS in, VAD and STT out, interruptions, pauses,
+[LiveKit target](/docs/targets/livekit/) in audio mode: TTS in, VAD and STT out, interruptions, pauses,
 background noise, a stereo WAV per run. The agent never knows it is being tested, whatever it
 was built with (Voiceflow, Vapi, Retell, a Twilio IVR, Agentforce, a human queue). This page
-adds what is specific to a phone call; [SIP setup](../sip-setup) covers the service and trunks.
+adds what is specific to a phone call; [SIP setup](/docs/sip-setup/) covers the service and trunks.
 
 ```yaml
 targets:
@@ -29,7 +29,7 @@ targets:
     # trigger: { command: "./scripts/dial.sh $TAMESU_INBOUND_NUMBER" }
 ```
 
-The project's `sip:` block ([configuration](../configuration)) holds `livekit_url`,
+The project's `sip:` block ([configuration](/docs/configuration/)) holds `livekit_url`,
 `outbound_trunk_id`, `inbound_number`, `inbound_room`, `allowed_numbers`,
 `max_concurrent_calls` and the `trunk` for `tamesu sip setup`. The LiveKit keys come from the
 secrets `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET`.
@@ -97,7 +97,7 @@ heard fails the test with a `script` assertion naming it.
 | `ring_ms` | ringing → answered |
 | `greeting_ms` | call active → the agent's first speech |
 | `call_duration_ms` | active → hangup |
-| the audio metrics | `time_to_first_audio_ms`, `interruption_stop_ms`, `talk_over_ratio`, `silence_gap_max_ms`, `turn_latency_ms`, as in [LiveKit audio mode](livekit) |
+| the audio metrics | `time_to_first_audio_ms`, `interruption_stop_ms`, `talk_over_ratio`, `silence_gap_max_ms`, `turn_latency_ms`, as in [LiveKit audio mode](/docs/targets/livekit/) |
 
 `dtmf_received: { equals: "1234#" }`, `call_ended_by: [agent, caller]` and
 `transferred_to: { matches: "^sip:billing@" }` read the call events; `result.json` keeps the

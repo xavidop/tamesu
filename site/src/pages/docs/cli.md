@@ -185,7 +185,7 @@ the trunk's auth secrets through mamori, prints what it created or reused, and e
 `sip:` block (`outbound_trunk_id`, `inbound_trunk_id`, `dispatch_rule_id`) to paste into
 `tamesu.yaml`. Running it again changes nothing. `--outbound` or `--inbound` limit it to one
 side. Exit `2` when `sip.livekit_url` or `sip.trunk` is missing, `3` when the LiveKit API
-fails. See [SIP setup](sip-setup).
+fails. See [SIP setup](/docs/sip-setup/).
 
 ## tamesu version
 
