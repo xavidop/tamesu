@@ -1,0 +1,38 @@
+package cli
+
+import (
+	"fmt"
+	"path/filepath"
+
+	"github.com/spf13/cobra"
+
+	"github.com/xavidop/tamesu/report"
+)
+
+func (a *app) newReportCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "report <run-dir>",
+		Short: "Rebuild report.html from a run directory",
+		Long: "Report reads summary.json from a run directory (.tamesu/runs/<timestamp>, or\n" +
+			"--out of a run) and writes report.html next to it: one self-contained page with\n" +
+			"every test's assertions and reasons, transcript, metrics, events, screenshots\n" +
+			"and audio, linking the run's artifacts. The html reporter writes the same file\n" +
+			"during tamesu run.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			dir := args[0]
+			s, err := report.LoadSummary(dir)
+			if err != nil {
+				return configError(err)
+			}
+			if err := report.WriteHTML(dir, s); err != nil {
+				return infraError(fmt.Errorf("write report: %w", err))
+			}
+			passed, failed, errored := s.Counts()
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s: %d passed, %d failed, %d errors\n", filepath.Join(dir, report.HTMLFile), passed, failed, errored)
+			return nil
+		},
+	}
+	return cmd
+}
+

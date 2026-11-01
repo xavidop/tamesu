@@ -116,3 +116,22 @@ tests:
 	assert.Equal(t, cli.ExitConfig, code, errOut.String())
 	assert.Contains(t, errOut.String(), "would dial +34910000000, which is not in sip.allowed_numbers")
 }
+
+func TestReportCommand(t *testing.T) {
+	dir := t.TempDir()
+	run := filepath.Join(dir, "run")
+	require.NoError(t, os.MkdirAll(run, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(run, "summary.json"), []byte(`{"started_at":"2026-11-02T10:00:00Z","finished_at":"2026-11-02T10:00:05Z","out_dir":"","tests":[{"suite":"s","name":"t","target":"api","type":"rest","repeat":1,"pass_threshold":1,"passed":true,"runs":[{"index":1,"passed":true,"assertions":[],"metrics":{"turns":2},"transcript":[{"role":"user","text":"hi"},{"role":"agent","text":"hello","index":1}],"dir":""}]}],"usage":{"calls":1,"input_tokens":10,"output_tokens":5,"cost_usd":0.001}}`), 0o644))
+	var out, errOut bytes.Buffer
+	root := cli.NewRoot(cli.BuildInfo{}, cli.Streams{Out: &out, Err: &errOut}, cli.Deps{})
+	assert.Equal(t, 0, cli.Execute(context.Background(), root, []string{"report", run}), errOut.String())
+	assert.Contains(t, out.String(), "report.html: 1 passed, 0 failed, 0 errors")
+	html, err := os.ReadFile(filepath.Join(run, "report.html"))
+	require.NoError(t, err)
+	assert.Contains(t, string(html), "hello")
+
+	errOut.Reset()
+	root = cli.NewRoot(cli.BuildInfo{}, cli.Streams{Out: &out, Err: &errOut}, cli.Deps{})
+	assert.Equal(t, cli.ExitConfig, cli.Execute(context.Background(), root, []string{"report", dir}))
+	assert.Contains(t, errOut.String(), "has no summary.json")
+}

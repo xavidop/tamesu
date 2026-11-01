@@ -73,9 +73,8 @@ func pluginForCredential(name string) string {
 // TargetFactory builds a target of one type.
 type TargetFactory func(ctx context.Context, spec runner.TargetSpec) (target.Target, error)
 
-// supportedReporters are the reporters this build has; html arrives with the
-// action cache.
-var supportedReporters = []string{"console", "json", "junit"}
+// supportedReporters are the reporters this build has.
+var supportedReporters = []string{"console", "json", "junit", "html"}
 
 func (a *app) newRunCmd() *cobra.Command {
 	var (
@@ -153,7 +152,7 @@ func (a *app) newRunCmd() *cobra.Command {
 				case "junit":
 					reps = append(reps, report.NewJUnit(out))
 				case "html":
-					a.logger().Warn("the html reporter is not available in this build; skipped")
+					reps = append(reps, report.NewHTML(out))
 				default:
 					return usageError(fmt.Errorf("--reporter: unknown reporter %q (have %s)", r, strings.Join(supportedReporters, ", ")))
 				}
@@ -241,7 +240,7 @@ func (a *app) newRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&mode, "mode", "", "voice tests: text or audio (default from the suite)")
 	cmd.Flags().BoolVar(&headed, "headed", false, "browser tests: show the browser window instead of running headless")
 	cmd.Flags().StringVar(&out, "out", "", "run output directory (default .tamesu/runs/<timestamp>)")
-	cmd.Flags().StringSliceVar(&reporters, "reporter", nil, "reporters: console, json, junit (default from tamesu.yaml)")
+	cmd.Flags().StringSliceVar(&reporters, "reporter", nil, "reporters: console, json, junit, html (default from tamesu.yaml)")
 	cmd.Flags().Float64Var(&maxCostUSD, "max-cost-usd", 0, "stop the run once tamesu's own model spend exceeds this (default budgets.max_cost_usd)")
 	return cmd
 }

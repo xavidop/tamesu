@@ -1,6 +1,6 @@
 ---
 name: tamesu
-description: Use when working with tamesu (試す), the Go agentic testing framework and CLI for web apps and AI agents, when writing or fixing a tamesu suite in YAML (targets of type browser, rest, livekit or sip; personas, scenarios, steps, assertions such as judge, contains, not_contains, regex, json_path, status, tool_called, tool_not_called, dtmf_received, call_ended_by, transferred_to, evaluator, metric, turns, custom, on_turn), configuring tamesu.yaml (genkit plugins, models, speech, sip, defaults, budgets, reporters, secrets via mamori refs such as env: aws-sm:// vault:// op://), running `tamesu init`, `tamesu validate`, `tamesu list`, `tamesu run` (filter, tags, target, parallel, repeat, mode, headed, out, reporter, max-cost-usd), `tamesu doctor`, `tamesu sip` / `tamesu sip setup` (LiveKit SIP trunks and dispatch rule for the phone target) or `tamesu version`, reading its exit codes (0 passed, 1 failed, 2 config error, 3 infrastructure error, 4 budget exceeded), running it in CI, reading its reports and run directories, debugging a failing validation or an unresolved secret, or answering what the tamesu CLI can do. Covers github.com/xavidop/tamesu.
+description: Use when working with tamesu (試す), the Go agentic testing framework and CLI for web apps and AI agents, when writing or fixing a tamesu suite in YAML (targets of type browser, rest, livekit or sip; personas, scenarios, steps, assertions such as judge, contains, not_contains, regex, json_path, status, tool_called, tool_not_called, dtmf_received, call_ended_by, transferred_to, evaluator, metric, turns, custom, on_turn), configuring tamesu.yaml (genkit plugins, models, speech, sip, defaults, budgets, reporters, secrets via mamori refs such as env: aws-sm:// vault:// op://), running `tamesu init`, `tamesu validate`, `tamesu list`, `tamesu run` (filter, tags, target, parallel, repeat, mode, headed, out, reporter, max-cost-usd), `tamesu doctor`, `tamesu report` (rebuild the HTML report of a run directory), `tamesu sip` / `tamesu sip setup` (LiveKit SIP trunks and dispatch rule for the phone target) or `tamesu version`, reading its exit codes (0 passed, 1 failed, 2 config error, 3 infrastructure error, 4 budget exceeded), running it in CI, reading its reports and run directories, debugging a failing validation or an unresolved secret, or answering what the tamesu CLI can do. Covers github.com/xavidop/tamesu.
 ---
 
 # tamesu: put your web apps and AI agents to the test
@@ -14,8 +14,8 @@ LLM **judges**; every run leaves a transcript, metrics and reports. Module:
 
 What the CLI has today: `tamesu init`, `tamesu validate`, `tamesu list`, `tamesu run`,
 `tamesu doctor` and `tamesu version`, with the `rest` and `livekit` (text mode) targets runnable
-and the suite schema for all four target types. Planned, not shipped: `tamesu report` (planned HTML
-report), `tamesu record` (planned), `tamesu generate` (planned). All four targets run: browser
+and the suite schema for all four target types. Planned, not shipped: `tamesu record` (planned)
+and `tamesu generate` (planned). All four targets run: browser
 (Chromium, the browser agent on `models.browser_agent`), rest, livekit (text and audio) and sip.
 
 ## The model in one minute
@@ -141,8 +141,9 @@ tamesu init [dir] [--force]                 scaffold tamesu.yaml and examples/
 tamesu validate [paths...] [--strict]       check tamesu.yaml and the suites; exit 2 on errors
 tamesu list [paths...] [--json] [--filter re] [--tags a,b] [--target name]
 tamesu run [paths...] [--filter re] [--tags a,b] [--target name] [--parallel N] [--repeat N]
-           [--mode text|audio] [--headed] [--out dir] [--reporter console,json,junit] [--max-cost-usd X]
+           [--mode text|audio] [--headed] [--out dir] [--reporter console,json,junit,html] [--max-cost-usd X]
 tamesu doctor [paths...]                    config, suites, every secret (which chain link answered), models, speech, Chromium, LiveKit, SIP
+tamesu report <run-dir>                     rebuild report.html (self-contained: transcripts, assertions, metrics, screenshots, audio) from a run
 tamesu sip setup [--outbound] [--inbound]   create or reuse the LiveKit SIP trunks and the inbound dispatch rule from sip.trunk; prints the ids
 tamesu version
 ```

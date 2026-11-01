@@ -1,6 +1,6 @@
 // Package report holds the outcome of a run (tests, repeats, assertions,
-// metrics, transcripts) and the reporters that render it: console, JSON and
-// JUnit. The HTML report lands with the action cache.
+// metrics, transcripts) and the reporters that render it: console, JSON,
+// JUnit and the self-contained HTML report.
 package report
 
 import (

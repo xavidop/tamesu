@@ -27,6 +27,7 @@ tamesu --help                   # every command
 | [`tamesu list`](#tamesu-list) | List the tests of the suites |
 | [`tamesu run`](#tamesu-run) | Run the suites and write the reports |
 | [`tamesu doctor`](#tamesu-doctor) | Check the config, suites, secrets, models, speech, Chromium, LiveKit and SIP |
+| [`tamesu report`](#tamesu-report) | Rebuild `report.html` from a run directory |
 | [`tamesu sip setup`](#tamesu-sip-setup) | Create or reuse the LiveKit SIP trunks and the inbound dispatch rule |
 | [`tamesu version`](#tamesu-version) | Print the version, commit and build date |
 
@@ -104,7 +105,7 @@ reported on stderr and makes the command exit `2`; warnings are not printed.
 ## tamesu run
 
 ```text
-tamesu run [paths...] [--filter <regex>] [--tags a,b] [--target <name>] [--parallel N] [--repeat N] [--mode text|audio] [--headed] [--out <dir>] [--reporter console,json,junit] [--max-cost-usd X]
+tamesu run [paths...] [--filter <regex>] [--tags a,b] [--target <name>] [--parallel N] [--repeat N] [--mode text|audio] [--headed] [--out <dir>] [--reporter console,json,junit,html] [--max-cost-usd X]
 ```
 
 Runs the selected tests. `tamesu.yaml` and the suites are loaded with `${VAR}` required; the
@@ -125,7 +126,7 @@ versions); the reporters write `summary.json`, `junit.xml` and the console outpu
 | `--mode text\|audio` | Voice tests: override the mode (livekit and sip). |
 | `--headed` | Browser tests: show the browser window instead of running headless. |
 | `--out <dir>` | Run directory (default `.tamesu/runs/<timestamp>`). |
-| `--reporter console,json,junit` | Reporters to run (default `reporters:` of `tamesu.yaml`; `json` is always on). |
+| `--reporter console,json,junit,html` | Reporters to run (default `reporters:` of `tamesu.yaml`; `json` is always on). |
 | `--max-cost-usd X` | Stop the run once tamesu's own model spend exceeds X (default `budgets.max_cost_usd`). |
 
 Exit `0` when every test passed, `1` when a test failed (including a timeout), `2` on a config
@@ -162,6 +163,19 @@ Checks the setup and prints one line per check, `ok`, `warn`, `fail` or `skip`:
 
 Exit `0` when nothing failed, `2` when a configuration check failed, `3` when a provider or
 service was unreachable. `--var` and `--env-file` apply.
+
+## tamesu report
+
+```text
+tamesu report <run-dir>
+```
+
+Reads `summary.json` from a run directory and writes `report.html` next to it: one
+self-contained page with every test's assertions and reasons, transcript, metrics, event
+timeline, step screenshots and an audio player with turn markers, linking the run's artifacts
+relative to itself. The `html` reporter writes the same file during `tamesu run`
+(`reporters: [console, junit, html]`, or `--reporter html`). Exit `2` when the directory has no
+`summary.json`. See [Reports](/docs/reports/).
 
 ## tamesu sip
 

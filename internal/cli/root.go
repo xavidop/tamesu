@@ -121,6 +121,7 @@ func NewRoot(info BuildInfo, streams Streams, deps Deps) *cobra.Command {
 		a.newListCmd(),
 		a.newRunCmd(),
 		a.newDoctorCmd(),
+		a.newReportCmd(),
 		a.newSIPCmd(),
 	)
 	apps.Store(root, a)

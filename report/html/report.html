@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tamesu report · {{.Passed}} passed, {{.Failed}} failed, {{.Errored}} errors</title>
+<style>
+:root{--ink:#1E2A5A;--accent:#E5482F;--paper:#F7F3EA;--ok:#2E7D4F;--warn:#B26A00;--line:#D9D3C4;--mute:#6B6F85;--card:#fff}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);background:var(--paper)}
+header{background:var(--ink);color:#fff;padding:1.2rem 1.5rem}
+header h1{margin:0;font-size:1.3rem;font-weight:600}
+header .meta{color:#cfd3e6;font-size:.9rem;margin-top:.3rem}
+main{max-width:1100px;margin:0 auto;padding:1.5rem}
+.totals{display:flex;gap:1rem;flex-wrap:wrap;margin:0 0 1.5rem}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:.8rem 1.1rem;min-width:9rem}
+.tile b{display:block;font-size:1.5rem}
+.tile.ok b{color:var(--ok)}.tile.fail b{color:var(--accent)}.tile.err b{color:var(--warn)}
+details.test{background:var(--card);border:1px solid var(--line);border-radius:8px;margin:0 0 .8rem}
+details.test>summary{cursor:pointer;padding:.7rem 1rem;display:flex;gap:.8rem;align-items:center;list-style:none}
+details.test>summary::-webkit-details-marker{display:none}
+.badge{font-size:.75rem;font-weight:700;letter-spacing:.04em;padding:.15rem .5rem;border-radius:999px;color:#fff;background:var(--mute)}
+.badge.pass{background:var(--ok)}.badge.fail{background:var(--accent)}.badge.error{background:var(--warn)}
+.name{font-weight:600}.suite,.dur,.tags{color:var(--mute);font-size:.85rem}
+.body{padding:0 1rem 1rem;border-top:1px solid var(--line)}
+h3{font-size:.95rem;margin:1rem 0 .4rem;text-transform:uppercase;letter-spacing:.04em;color:var(--mute)}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+td,th{text-align:left;padding:.3rem .5rem;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--mute);font-weight:600}
+.reason{color:var(--mute)}
+.x{color:var(--accent);font-weight:700}.v{color:var(--ok);font-weight:700}
+.turns{margin:0;padding:0;list-style:none}
+.turns li{padding:.3rem 0;border-bottom:1px dashed var(--line)}
+.turns .role{display:inline-block;min-width:4.5rem;font-weight:600;color:var(--mute);font-size:.8rem;text-transform:uppercase}
+.turns .user .role{color:var(--accent)}
+.shots{display:flex;gap:.6rem;overflow-x:auto;padding:.3rem 0}
+.shots figure{margin:0;flex:0 0 220px}
+.shots img{width:220px;border:1px solid var(--line);border-radius:4px;background:#fff}
+.shots figcaption{font-size:.78rem;color:var(--mute);margin-top:.2rem}
+.markers button{font:inherit;font-size:.8rem;margin:.15rem .3rem .15rem 0;padding:.15rem .5rem;border:1px solid var(--line);background:#fff;border-radius:999px;cursor:pointer;color:var(--ink)}
+.markers button.user{border-color:var(--accent);color:var(--accent)}
+audio{width:100%;margin:.4rem 0}
+code,pre{font:.85rem/1.4 ui-monospace,SFMono-Regular,Menlo,monospace}
+pre{background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:.6rem;overflow:auto;max-height:18rem}
+.events{columns:2;font-size:.85rem}
+.events li{break-inside:avoid}
+.error{background:#fdecea;border:1px solid #f5c2bd;border-radius:6px;padding:.6rem .8rem;margin:.6rem 0}
+footer{color:var(--mute);font-size:.8rem;text-align:center;padding:2rem 0}
+a{color:var(--ink)}
+@media (prefers-color-scheme: dark){:root{--paper:#15182a;--card:#1d2238;--ink:#e8eaf6;--line:#343a5c;--mute:#9aa0c3}a{color:#aeb7ff}pre{background:#10131f}.error{background:#3a1f1c;border-color:#6b2f29}}
+</style>
+</head>
+<body>
+<header>
+  <h1>tamesu report</h1>
+  <div class="meta">{{.Summary.OutDir}} · started {{fmtTime .Summary.StartedAt}} · {{fmtDur .Summary.Duration}}{{if .Summary.Version}} · tamesu {{.Summary.Version}}{{end}}</div>
+</header>
+<main>
+<div class="totals">
+  <div class="tile ok"><b>{{.Passed}}</b>passed</div>
+  <div class="tile fail"><b>{{.Failed}}</b>failed</div>
+  <div class="tile err"><b>{{.Errored}}</b>errors</div>
+  <div class="tile"><b>{{.Summary.Usage.Calls}}</b>model calls</div>
+  <div class="tile"><b>${{printf "%.4f" .Summary.Usage.CostUSD}}</b>{{.Summary.Usage.Total}} tokens{{if .Summary.BudgetExceeded}} · budget exceeded{{end}}</div>
+</div>
+{{range .Tests}}
+<details class="test"{{if not .Passed}} open{{end}}>
+  <summary>
+    <span class="badge {{.Status}}">{{.Status}}</span>
+    <span class="name">{{.T.Name}}</span>
+    <span class="suite">{{.T.Suite}} · {{.T.Target}} ({{.T.Type}})</span>
+    {{if gt .T.Repeat 1}}<span class="dur">{{.PassedRuns}}/{{len .T.Runs}} runs, threshold {{printf "%.0f" (mul .T.PassThreshold 100)}}%</span>{{end}}
+    <span class="dur">{{fmtDur .Duration}}</span>
+    {{if .T.Tags}}<span class="tags">{{join .T.Tags ", "}}</span>{{end}}
+  </summary>
+  <div class="body">
+  {{range .Runs}}{{$run := .}}
+    {{if gt .T.Repeat 1}}<h3>Run {{.R.Index}}{{if gt .R.Attempts 1}} (attempt {{.R.Attempt}} of {{.R.Attempts}}){{end}}</h3>{{end}}
+    {{if .R.Error}}<div class="error"><b>{{.R.ErrorKind}}:</b> {{.R.Error}}</div>{{end}}
+    {{if .R.Assertions}}
+    <h3>Assertions</h3>
+    <table>{{range .R.Assertions}}<tr><td>{{if .Pass}}<span class="v">✓</span>{{else}}<span class="x">✗</span>{{end}}</td><td>{{.Name}}</td><td class="reason">{{.Reason}}{{if .Evidence}}<br><em>{{join .Evidence " · "}}</em>{{end}}{{if .TraceID}}<br><code>trace {{.TraceID}}</code>{{end}}</td></tr>{{end}}</table>
+    {{end}}
+    {{if .Audio}}
+    <h3>Audio (left: caller, right: agent)</h3>
+    <audio id="{{.ID}}-audio" controls preload="metadata" src="{{.Audio}}"></audio>
+    {{if .Markers}}<div class="markers">{{range .Markers}}<button type="button" class="{{.Class}}" onclick="seek('{{$run.ID}}', {{.Seconds}})">{{.Label}} {{printf "%.1f" .Seconds}}s</button>{{end}}</div>{{end}}
+    {{end}}
+    {{if .R.Steps}}
+    <h3>Steps</h3>
+    <table>{{range .R.Steps}}<tr><td>{{.Index}}</td><td>{{if .Success}}<span class="v">✓</span>{{else}}<span class="x">✗</span>{{end}} {{.Kind}}</td><td>{{.Text}}</td><td class="reason">{{.Reason}}{{if .Steps}} · {{.Steps}} actions{{end}}</td></tr>{{end}}</table>
+    {{end}}
+    {{if .Screenshots}}
+    <div class="shots">{{range .Screenshots}}<figure><a href="{{.Href}}"><img src="{{.Href}}" alt="{{.Label}}" loading="lazy"></a><figcaption>{{.Label}}</figcaption></figure>{{end}}</div>
+    {{end}}
+    {{if .R.Transcript}}
+    <h3>Transcript{{if .R.StopReason}} <span class="reason">(stopped: {{.R.StopReason}})</span>{{end}}</h3>
+    <ul class="turns">{{range .R.Transcript}}<li class="{{.Role}}"><span class="role">{{.Role}}</span>{{.Text}}</li>{{end}}</ul>
+    {{end}}
+    {{if .R.ToolCalls}}
+    <h3>Tool calls</h3>
+    <pre>{{json .R.ToolCalls}}</pre>
+    {{end}}
+    {{if .Metrics}}
+    <h3>Metrics</h3>
+    <table>{{range .Metrics}}<tr><td>{{.Name}}</td><td>{{.Value}}</td></tr>{{end}}</table>
+    {{end}}
+    {{if .R.Events}}
+    <h3>Events</h3>
+    <ul class="events">{{range .Events}}<li><code>{{.Offset}}</code> {{.Kind}}{{if .Detail}}: {{.Detail}}{{end}}</li>{{end}}</ul>
+    {{end}}
+    {{if .Files}}
+    <h3>Artifacts</h3>
+    <p>{{range .Files}}<a href="{{.Href}}">{{.Name}}</a> {{end}}{{if .R.TraceIDs}}· traces: {{range .R.TraceIDs}}<code>{{.}}</code> {{end}}{{end}}</p>
+    {{end}}
+  {{end}}
+  </div>
+</details>
+{{end}}
+</main>
+<footer>Generated by tamesu. Artifacts are linked relative to this file.</footer>
+<script>
+function seek(id, s){var a=document.getElementById(id+'-audio');if(!a)return;a.currentTime=s;a.play();}
+</script>
+</body>
+</html>

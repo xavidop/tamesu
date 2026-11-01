@@ -112,15 +112,15 @@ tamesu validate [paths...]       schema-validate suites without running them (--
 tamesu list [paths...]           list tests (--json, --filter, --tags, --target)
 tamesu run [paths...]            run suites (--filter, --tags, --target, --parallel, --repeat, --mode, --headed, --out, --reporter, --max-cost-usd)
 tamesu doctor [paths...]         check config, suites and secrets (via mamori), models, speech, Chromium, LiveKit and SIP
+tamesu report <run-dir>          rebuild report.html from a run directory
 tamesu sip setup                 create or reuse the LiveKit SIP trunks and dispatch rule (--outbound, --inbound)
 tamesu version                   print the version, commit and build date
 ```
 
 Every command takes `--config`, `--verbose`, `--var KEY=VAL` and `--env-file`. `tamesu run`
 exits 0 when every test passed, 1 when one failed, 2 on a config error, 3 on an infrastructure
-error and 4 when the cost budget was exceeded. Planned, not in the CLI yet: `tamesu report`
-(the HTML report), `tamesu record` (planned browser recorder) and `tamesu generate` (planned
-scenario generator); see the
+error and 4 when the cost budget was exceeded. Planned, not in the CLI yet: `tamesu record`
+(planned browser recorder) and `tamesu generate` (planned scenario generator); see the
 [roadmap](https://xavidop.github.io/tamesu/docs/roadmap/).
 
 ## Features

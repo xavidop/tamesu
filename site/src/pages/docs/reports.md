@@ -6,7 +6,7 @@ title: Reports
 # Reports
 
 Every `tamesu run` writes a run directory and feeds the reporters named in `reporters:` (or
-`--reporter`): `console`, `json` and `junit`. The HTML report is planned.
+`--reporter`): `console`, `json`, `junit` and `html`.
 
 ## The run directory
 
@@ -14,12 +14,15 @@ Every `tamesu run` writes a run directory and feeds the reporters named in `repo
 .tamesu/runs/2026-10-31T14-20-00/
   summary.json
   junit.xml
+  report.html          (html reporter, or tamesu report <run-dir>)
   tests/<test-slug>/run-<n>/
     transcript.json      the turns, the tool calls and why the conversation stopped
-    result.json          everything about the run: assertions with reasons, metrics, trace ids
-    audio.wav            (voice audio mode)
-    screenshots/*.png    (browser)
+    result.json          everything about the run: assertions with reasons, metrics, trace ids, events, steps
+    audio.wav            (voice audio mode and sip: left the caller, right the agent)
+    steps.json           (browser: each step with its outcome, actions and screenshot)
+    screenshots/*.png    (browser: one per step, plus screenshot actions)
     trace.har            (browser)
+    console.log          (browser: console errors and exceptions)
 ```
 
 `--out` picks another directory. The slug is the test name lowercased with punctuation as
@@ -90,3 +93,13 @@ read one file.
 | `2` | config or schema error |
 | `3` | an infrastructure error on any test |
 | `4` | the cost budget stopped the run |
+
+## html
+
+`report.html` is one self-contained file (no external assets): the totals, then every test
+with its runs: the assertions and their reasons and evidence, the transcript (or the browser
+steps), the metrics, the event timeline, a strip of step screenshots, an audio player for
+`audio.wav` with a button per caller and agent utterance (and DTMF) that seeks to that moment,
+the artifacts and the Genkit trace ids. Artifacts are linked relative to the file, so the run
+directory can be zipped and shared. `tamesu report <run-dir>` rebuilds it from `summary.json`
+(for example on a CI artifact).
