@@ -12,15 +12,11 @@ simulator and judge flows, evaluators, cost accounting and the fake provider for
 target; `tamesu run` with console, JSON and JUnit reporters; the Go API; the `livekit` target in
 text and audio mode with its example agent, the `synthesize` and `transcribe` flows, the
 `deepgram` and `elevenlabs` Genkit plugins and the audio pipeline (VAD, noise, line simulation,
-Opus, stereo WAV). This page is what comes next, in order.
+Opus, stereo WAV); the `sip` target with `tamesu sip setup`, outbound and inbound calls, DTMF,
+`wait_for`/`say` scripts, call events and metrics, and the Asterisk-based example. This page is
+what comes next, in order.
 
 ## Planned
-
-### The SIP target
-
-- `tamesu sip setup`, outbound dialing and inbound answering with triggers, DTMF, `wait_for` and
-  `say` scripts, line simulation (G.711, jitter, loss), transfers, hangup reasons, the call
-  timeline, `allowed_numbers` and concurrency guards, with Asterisk as the carrier in CI.
 
 ### The browser target
 

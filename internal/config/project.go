@@ -58,11 +58,26 @@ type VADConfig struct {
 
 // SIPConfig configures phone calls through a LiveKit SIP service.
 type SIPConfig struct {
-	LiveKitURL         string   `yaml:"livekit_url,omitempty" json:"livekit_url,omitempty"`
-	OutboundTrunkID    string   `yaml:"outbound_trunk_id,omitempty" json:"outbound_trunk_id,omitempty"`
-	InboundNumber      string   `yaml:"inbound_number,omitempty" json:"inbound_number,omitempty"`
-	MaxConcurrentCalls int      `yaml:"max_concurrent_calls,omitempty" json:"max_concurrent_calls,omitempty"`
-	AllowedNumbers     []string `yaml:"allowed_numbers,omitempty" json:"allowed_numbers,omitempty" jsonschema:"description=E.164 patterns tamesu may dial such as +1800555*."`
+	LiveKitURL         string    `yaml:"livekit_url,omitempty" json:"livekit_url,omitempty" jsonschema:"description=LiveKit server with the SIP service (ws:// or wss://)."`
+	OutboundTrunkID    string    `yaml:"outbound_trunk_id,omitempty" json:"outbound_trunk_id,omitempty" jsonschema:"description=The LiveKit outbound trunk tamesu dials through (tamesu sip setup prints it)."`
+	InboundTrunkID     string    `yaml:"inbound_trunk_id,omitempty" json:"inbound_trunk_id,omitempty" jsonschema:"description=The LiveKit inbound trunk for calls to inbound_number (informational; tamesu sip setup prints it)."`
+	DispatchRuleID     string    `yaml:"dispatch_rule_id,omitempty" json:"dispatch_rule_id,omitempty" jsonschema:"description=The dispatch rule that routes inbound calls into inbound_room (informational)."`
+	InboundNumber      string    `yaml:"inbound_number,omitempty" json:"inbound_number,omitempty" jsonschema:"description=The number your trunk routes to tamesu, for inbound tests ({{sip.inbound_number}})."`
+	InboundRoom        string    `yaml:"inbound_room,omitempty" json:"inbound_room,omitempty" jsonschema:"description=The room the dispatch rule routes inbound calls into; default tamesu-sip-inbound."`
+	MaxConcurrentCalls int       `yaml:"max_concurrent_calls,omitempty" json:"max_concurrent_calls,omitempty"`
+	AllowedNumbers     []string  `yaml:"allowed_numbers,omitempty" json:"allowed_numbers,omitempty" jsonschema:"description=E.164 patterns tamesu may dial such as +1800555*; required when a target's to is a template."`
+	Trunk              *SIPTrunk `yaml:"trunk,omitempty" json:"trunk,omitempty"`
+}
+
+// SIPTrunk is the trunk you bring, for `tamesu sip setup`.
+type SIPTrunk struct {
+	Address          string   `yaml:"address" json:"address" jsonschema:"required,description=The provider's SIP host such as sip.twilio.com or pbx.example.com:5060."`
+	Numbers          []string `yaml:"numbers,omitempty" json:"numbers,omitempty" jsonschema:"description=The trunk's numbers in E.164: caller IDs for outbound calls and the numbers of the inbound trunk."`
+	InboundNumbers   []string `yaml:"inbound_numbers,omitempty" json:"inbound_numbers,omitempty" jsonschema:"description=Overrides numbers for the inbound trunk."`
+	AuthUsername     string   `yaml:"auth_username,omitempty" json:"auth_username,omitempty" jsonschema:"description=Outbound authentication; use {{secrets.NAME}}."`
+	AuthPassword     string   `yaml:"auth_password,omitempty" json:"auth_password,omitempty" jsonschema:"description=Outbound authentication; use {{secrets.NAME}}."`
+	Transport        string   `yaml:"transport,omitempty" json:"transport,omitempty" jsonschema:"enum=auto,enum=udp,enum=tcp,enum=tls"`
+	AllowedAddresses []string `yaml:"allowed_addresses,omitempty" json:"allowed_addresses,omitempty" jsonschema:"description=IPs, CIDRs or hostnames the inbound trunk accepts calls from."`
 }
 
 // Defaults apply to every test unless the suite or the test overrides them.

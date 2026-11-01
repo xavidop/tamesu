@@ -1,0 +1,27 @@
+# Project configuration for the sip example in CI: the fake model provider
+# and fake speech models (a tamesu binary built with -tags llmfake), the
+# compose stack's dev keys, and the trunk `tamesu sip setup` creates on it.
+# TAMESU_SIP_TRUNK is the outbound trunk id setup printed.
+version: 1
+suites: ["suite.yaml"]
+genkit:
+  plugins: [fake]
+models:
+  default: fake/text
+  simulator: fake/simulator
+  judge: fake/judge
+speech:
+  tts: { model: fake/tts }
+  stt: { model: fake/stt }
+sip:
+  livekit_url: ${LIVEKIT_URL:-ws://localhost:7880}
+  outbound_trunk_id: ${TAMESU_SIP_TRUNK:-}
+  inbound_number: "+15550002"
+  allowed_numbers: ["+1555000*"]
+  max_concurrent_calls: 1
+  trunk:
+    address: asterisk:5060                   # the Asterisk "carrier" inside the compose network
+    numbers: ["+15550002"]
+    transport: udp
+defaults: { timeout: 2m, repeat: 1 }
+reporters: [console, junit]

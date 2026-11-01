@@ -26,7 +26,8 @@ tamesu --help                   # every command
 | [`tamesu validate`](#tamesu-validate) | Check `tamesu.yaml` and the suites without running them |
 | [`tamesu list`](#tamesu-list) | List the tests of the suites |
 | [`tamesu run`](#tamesu-run) | Run the suites and write the reports |
-| [`tamesu doctor`](#tamesu-doctor) | Check the config, suites, secrets, models, Chromium and LiveKit |
+| [`tamesu doctor`](#tamesu-doctor) | Check the config, suites, secrets, models, speech, Chromium, LiveKit and SIP |
+| [`tamesu sip setup`](#tamesu-sip-setup) | Create or reuse the LiveKit SIP trunks and the inbound dispatch rule |
 | [`tamesu version`](#tamesu-version) | Print the version, commit and build date |
 
 `tamesu completion` prints a shell completion script, and `tamesu help` shows help for any
@@ -152,11 +153,39 @@ Checks the setup and prints one line per check, `ok`, `warn`, `fail` or `skip`:
   printed. A chain with no value is `fail` (exit `2`); a provider that failed is `fail` with the
   kind (`unavailable`, `permission_denied`, ...) and exit `3`. A value shorter than three bytes
   is `warn`: it cannot be redacted.
-- **models, chromium, livekit**: provided by the modules that know how to reach them; `skip`
-  when this build does not include them.
+- **models, speech, chromium, livekit, sip**: provided by the modules that know how to reach
+  them; `skip` when this build does not include them. `speech` reports the TTS and STT models,
+  their credentials, the VAD this build can run and whether libopus is linked; `sip` checks that
+  `sip.livekit_url`, the trunk id, `inbound_number` and the LiveKit keys are there for the sip
+  targets the suites declare.
 
 Exit `0` when nothing failed, `2` when a configuration check failed, `3` when a provider or
 service was unreachable. `--var` and `--env-file` apply.
+
+## tamesu sip
+
+```text
+tamesu sip <command>
+```
+
+The phone target's helpers. `tamesu sip` alone prints them; today there is one, `tamesu sip
+setup`.
+
+## tamesu sip setup
+
+```text
+tamesu sip setup [--outbound] [--inbound]
+```
+
+Creates, or reuses by name, what the phone target needs on the LiveKit SIP service: the
+outbound trunk `tamesu-outbound` from `sip.trunk` (address, numbers, auth), the inbound trunk
+`tamesu-inbound` for the trunk's numbers and the dispatch rule `tamesu-inbound` that routes
+inbound calls into `sip.inbound_room`. It resolves `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` and
+the trunk's auth secrets through mamori, prints what it created or reused, and ends with the
+`sip:` block (`outbound_trunk_id`, `inbound_trunk_id`, `dispatch_rule_id`) to paste into
+`tamesu.yaml`. Running it again changes nothing. `--outbound` or `--inbound` limit it to one
+side. Exit `2` when `sip.livekit_url` or `sip.trunk` is missing, `3` when the LiveKit API
+fails. See [SIP setup](sip-setup).
 
 ## tamesu version
 

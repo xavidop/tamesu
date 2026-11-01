@@ -111,15 +111,16 @@ tamesu init [dir]                scaffold tamesu.yaml and examples/ (--force ove
 tamesu validate [paths...]       schema-validate suites without running them (--strict)
 tamesu list [paths...]           list tests (--json, --filter, --tags, --target)
 tamesu run [paths...]            run suites (--filter, --tags, --target, --parallel, --repeat, --mode, --out, --reporter, --max-cost-usd)
-tamesu doctor [paths...]         check config, suites and secrets (via mamori), models, Chromium and LiveKit
+tamesu doctor [paths...]         check config, suites and secrets (via mamori), models, speech, Chromium, LiveKit and SIP
+tamesu sip setup                 create or reuse the LiveKit SIP trunks and dispatch rule (--outbound, --inbound)
 tamesu version                   print the version, commit and build date
 ```
 
 Every command takes `--config`, `--verbose`, `--var KEY=VAL` and `--env-file`. `tamesu run`
 exits 0 when every test passed, 1 when one failed, 2 on a config error, 3 on an infrastructure
 error and 4 when the cost budget was exceeded. Planned, not in the CLI yet: `tamesu report`
-(the HTML report), `tamesu record` (planned browser recorder), `tamesu generate` (planned
-scenario generator) and `tamesu sip setup` (planned); see the
+(the HTML report), `tamesu record` (planned browser recorder) and `tamesu generate` (planned
+scenario generator); see the
 [roadmap](https://xavidop.github.io/tamesu/docs/roadmap/).
 
 ## Features
@@ -155,11 +156,11 @@ scenario generator) and `tamesu sip setup` (planned); see the
 | `browser` | Chromium over CDP (chromedp) | agentic `goal` and `expect` steps, deterministic actions | `goal_steps`, `llm_cost_usd` | a bundled demo web app (runner planned) |
 | `rest` | HTTP, SSE | text | `turn_latency_ms`, `time_to_first_token_ms`, `turns` | [`examples/rest-agent`](examples/rest-agent/), a Genkit agent, in CI with the fake provider |
 | `livekit` | WebRTC room (LiveKit) | text and audio (TTS in, VAD and STT out, interruptions, noise, stereo WAV) | `turn_latency_ms`, `agent_join_ms`; audio adds `time_to_first_audio_ms`, `interruption_stop_ms`, `talk_over_ratio`, `silence_gap_max_ms` | [`examples/livekit-agent`](examples/livekit-agent/) on `livekit-server --dev`, in CI with the fake provider and fake speech models |
-| `sip` | phone call through a LiveKit SIP service and your trunk | audio | `call_setup_ms`, `ring_ms`, `greeting_ms`, `call_duration_ms` | Asterisk as the carrier (runner planned) |
+| `sip` | phone call through a LiveKit SIP service and your trunk (outbound or inbound, DTMF, `wait_for`/`say` scripts, line simulation) | audio | the audio metrics plus `call_setup_ms`, `ring_ms`, `greeting_ms`, `call_duration_ms`; `dtmf_received`, `call_ended_by`, `transferred_to` | [`examples/sip-ivr`](examples/sip-ivr/) through Asterisk as the carrier and IVR (`examples/compose.yaml`) |
 
 All four target types are part of the suite schema, so suites can be written, validated and
-listed; `rest` and `livekit` (text and audio) run today, and phone and browser land phase
-by phase (see the [roadmap](https://xavidop.github.io/tamesu/docs/roadmap/)).
+listed; `rest`, `livekit` (text and audio) and `sip` run today, and browser lands next (see the
+[roadmap](https://xavidop.github.io/tamesu/docs/roadmap/)).
 
 ## CI
 

@@ -1,6 +1,6 @@
 ---
 name: tamesu
-description: Use when working with tamesu (試す), the Go agentic testing framework and CLI for web apps and AI agents, when writing or fixing a tamesu suite in YAML (targets of type browser, rest, livekit or sip; personas, scenarios, steps, assertions such as judge, contains, not_contains, regex, json_path, status, tool_called, tool_not_called, dtmf_received, call_ended_by, transferred_to, evaluator, metric, turns, custom, on_turn), configuring tamesu.yaml (genkit plugins, models, speech, sip, defaults, budgets, reporters, secrets via mamori refs such as env: aws-sm:// vault:// op://), running `tamesu init`, `tamesu validate`, `tamesu list`, `tamesu run` (filter, tags, target, parallel, repeat, mode, out, reporter, max-cost-usd), `tamesu doctor` or `tamesu version`, reading its exit codes (0 passed, 1 failed, 2 config error, 3 infrastructure error, 4 budget exceeded), running it in CI, reading its reports and run directories, debugging a failing validation or an unresolved secret, or answering what the tamesu CLI can do. Covers github.com/xavidop/tamesu.
+description: Use when working with tamesu (試す), the Go agentic testing framework and CLI for web apps and AI agents, when writing or fixing a tamesu suite in YAML (targets of type browser, rest, livekit or sip; personas, scenarios, steps, assertions such as judge, contains, not_contains, regex, json_path, status, tool_called, tool_not_called, dtmf_received, call_ended_by, transferred_to, evaluator, metric, turns, custom, on_turn), configuring tamesu.yaml (genkit plugins, models, speech, sip, defaults, budgets, reporters, secrets via mamori refs such as env: aws-sm:// vault:// op://), running `tamesu init`, `tamesu validate`, `tamesu list`, `tamesu run` (filter, tags, target, parallel, repeat, mode, out, reporter, max-cost-usd), `tamesu doctor`, `tamesu sip` / `tamesu sip setup` (LiveKit SIP trunks and dispatch rule for the phone target) or `tamesu version`, reading its exit codes (0 passed, 1 failed, 2 config error, 3 infrastructure error, 4 budget exceeded), running it in CI, reading its reports and run directories, debugging a failing validation or an unresolved secret, or answering what the tamesu CLI can do. Covers github.com/xavidop/tamesu.
 ---
 
 # tamesu: put your web apps and AI agents to the test
@@ -15,8 +15,8 @@ LLM **judges**; every run leaves a transcript, metrics and reports. Module:
 What the CLI has today: `tamesu init`, `tamesu validate`, `tamesu list`, `tamesu run`,
 `tamesu doctor` and `tamesu version`, with the `rest` and `livekit` (text mode) targets runnable
 and the suite schema for all four target types. Planned, not shipped: `tamesu report` (planned HTML
-report), `tamesu record` (planned), `tamesu generate` (planned) and `tamesu sip setup` (planned);
-sip and browser targets validate but do not run yet (planned); livekit runs in text and audio mode.
+report), `tamesu record` (planned), `tamesu generate` (planned); the browser target validates but
+does not run yet (planned); livekit runs in text and audio mode and sip places real calls.
 
 ## The model in one minute
 
@@ -28,9 +28,12 @@ sip and browser targets validate but do not run yet (planned); livekit runs in t
   URL, `api_key`/`api_secret` from secrets, `room`, `dispatch.agent_name`,
   `agent_identity_prefix`, `mode: text|audio`, `data_topic`, `join_timeout`; text mode sends
   user turns on `lk.chat` and reads replies on `lk.transcription`, ending a turn on the agent's
-  `lk.agent.state` or after 1.5 s idle) or `sip` (`direction:
-  outbound|inbound`, `to`, `from`, `trunk_id`, `ring_timeout`, `max_call_duration`, an inbound
-  `trigger`).
+  `lk.agent.state` or after 1.5 s idle; audio mode speaks with the TTS model and listens with
+  the VAD and STT, `transcript_source: auto|agent|stt`) or `sip` (`direction: outbound|inbound`,
+  `to`, `from`, `trunk_id`, `ring_timeout`, `max_call_duration`, an inbound `trigger` with
+  `http` or `command`; the project's `sip:` block has `livekit_url`, `outbound_trunk_id`,
+  `inbound_number`, `allowed_numbers` (required when `to` is a template) and `trunk` for
+  `tamesu sip setup`).
 - A **test** names a target. Browser tests have `steps` (`goal:` agentic, `expect:` agentic
   assertion, `action:` one of `navigate click fill press wait screenshot eval_js assert_url
   assert_text`). Conversational tests have a `persona` and a `scenario` with a `goal`,
@@ -137,7 +140,8 @@ tamesu validate [paths...] [--strict]       check tamesu.yaml and the suites; ex
 tamesu list [paths...] [--json] [--filter re] [--tags a,b] [--target name]
 tamesu run [paths...] [--filter re] [--tags a,b] [--target name] [--parallel N] [--repeat N]
            [--mode text|audio] [--out dir] [--reporter console,json,junit] [--max-cost-usd X]
-tamesu doctor [paths...]                    config, suites, every secret (which chain link answered), models, Chromium, LiveKit
+tamesu doctor [paths...]                    config, suites, every secret (which chain link answered), models, speech, Chromium, LiveKit, SIP
+tamesu sip setup [--outbound] [--inbound]   create or reuse the LiveKit SIP trunks and the inbound dispatch rule from sip.trunk; prints the ids
 tamesu version
 ```
 

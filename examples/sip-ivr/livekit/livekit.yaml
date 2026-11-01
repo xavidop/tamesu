@@ -1,0 +1,14 @@
+# livekit-server for the sip example: dev keys, Redis (the SIP service needs
+# it) and a small UDP range. Not for production.
+port: 7880
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 50020
+  use_external_ip: false
+redis:
+  address: redis:6379
+keys:
+  devkey: secret
+logging:
+  level: info

@@ -96,13 +96,28 @@
     "SIPConfig": {
       "properties": {
         "livekit_url": {
-          "type": "string"
+          "type": "string",
+          "description": "LiveKit server with the SIP service (ws:// or wss://)."
         },
         "outbound_trunk_id": {
-          "type": "string"
+          "type": "string",
+          "description": "The LiveKit outbound trunk tamesu dials through (tamesu sip setup prints it)."
+        },
+        "inbound_trunk_id": {
+          "type": "string",
+          "description": "The LiveKit inbound trunk for calls to inbound_number (informational; tamesu sip setup prints it)."
+        },
+        "dispatch_rule_id": {
+          "type": "string",
+          "description": "The dispatch rule that routes inbound calls into inbound_room (informational)."
         },
         "inbound_number": {
-          "type": "string"
+          "type": "string",
+          "description": "The number your trunk routes to tamesu"
+        },
+        "inbound_room": {
+          "type": "string",
+          "description": "The room the dispatch rule routes inbound calls into; default tamesu-sip-inbound."
         },
         "max_concurrent_calls": {
           "type": "integer"
@@ -112,11 +127,65 @@
             "type": "string"
           },
           "type": "array",
-          "description": "E.164 patterns tamesu may dial such as +1800555*."
+          "description": "E.164 patterns tamesu may dial such as +1800555*; required when a target's to is a template."
+        },
+        "trunk": {
+          "$ref": "#/$defs/SIPTrunk"
         }
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "SIPTrunk": {
+      "properties": {
+        "address": {
+          "type": "string",
+          "description": "The provider's SIP host such as sip.twilio.com or pbx.example.com:5060."
+        },
+        "numbers": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "The trunk's numbers in E.164: caller IDs for outbound calls and the numbers of the inbound trunk."
+        },
+        "inbound_numbers": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Overrides numbers for the inbound trunk."
+        },
+        "auth_username": {
+          "type": "string",
+          "description": "Outbound authentication; use {{secrets.NAME}}."
+        },
+        "auth_password": {
+          "type": "string",
+          "description": "Outbound authentication; use {{secrets.NAME}}."
+        },
+        "transport": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "udp",
+            "tcp",
+            "tls"
+          ]
+        },
+        "allowed_addresses": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "IPs"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "address"
+      ]
     },
     "Speech": {
       "properties": {

@@ -1,0 +1,72 @@
+# The phone example: tamesu calls an Asterisk IVR through a LiveKit SIP
+# service (examples/compose.yaml), navigates its menu with wait_for/dtmf and
+# checks the digits the IVR sends back and who hung up. The inbound test makes
+# Asterisk call tamesu instead. Run with `make integration-sip` or, after
+# `docker compose -f examples/compose.yaml up -d` and `tamesu sip setup`:
+#   tamesu run --config examples/sip-ivr/tamesu.llmfake.yaml
+suite: sip-ivr
+tags: [example, voice, phone]
+
+secrets:
+  LIVEKIT_API_KEY: env:LIVEKIT_API_KEY
+  LIVEKIT_API_SECRET: env:LIVEKIT_API_SECRET
+
+targets:
+  ivr:
+    type: sip
+    direction: outbound
+    to: "+15550001"                            # the IVR's number on the Asterisk "carrier"
+    from: "+15550002"                          # tamesu's number on the trunk
+    ring_timeout: 20s
+    max_call_duration: 2m
+  callback:
+    type: sip
+    direction: inbound
+    ring_timeout: 20s
+    max_call_duration: 2m
+    trigger:
+      command: >-
+        docker compose -f examples/compose.yaml exec -T asterisk
+        asterisk -rx "channel originate PJSIP/{{sip.inbound_number}}@livekit-sip extension s@tamesu-callback"
+
+tests:
+  - name: the IVR routes 2 to billing
+    target: ivr
+    seed: 1
+    persona:
+      name: Marta
+      style: calm
+      language: en
+      voice: en-US-female
+    scenario:
+      goal: "Reach the billing department and ask about a double charge"
+      max_turns: 3
+      script:
+        - wait_for: "press 2 for billing"
+        - dtmf: "2"
+        - wait_for: "billing department"
+    assert:
+      - dtmf_received: { equals: "9" }
+      - call_ended_by: [agent, caller]
+      - metric: { name: call_setup_ms, lt: 15000 }
+      - metric: { name: greeting_ms, lt: 8000 }
+      - turns: { lte: 6 }
+
+  - name: the agent calls back and reaches the menu
+    target: callback
+    seed: 2
+    persona:
+      name: Jordi
+      style: calm
+      language: en
+      voice: en-US-male
+    scenario:
+      goal: "Answer the callback and reach billing"
+      max_turns: 3
+      script:
+        - wait_for: "press 2 for billing"
+        - dtmf: "2"
+    assert:
+      - dtmf_received: { equals: "9" }
+      - call_ended_by: [agent, caller]
+      - metric: { name: call_setup_ms, lt: 20000 }

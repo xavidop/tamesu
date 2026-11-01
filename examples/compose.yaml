@@ -1,0 +1,42 @@
+# The voice stack for the sip example, with no carrier: livekit-server, Redis,
+# the LiveKit SIP service and Asterisk standing in as both the carrier and the
+# IVR under test. `make integration-sip` (and the CI job) brings it up, runs
+# `tamesu sip setup` against it and the suite in examples/sip-ivr.
+#
+#   docker compose -f examples/compose.yaml up -d
+#   docker compose -f examples/compose.yaml down -v
+services:
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  livekit:
+    image: livekit/livekit-server:v1.9
+    command: --config /etc/livekit.yaml --bind 0.0.0.0
+    volumes:
+      - ./sip-ivr/livekit/livekit.yaml:/etc/livekit.yaml:ro
+    ports:
+      - "7880:7880"          # signalling (ws) and the API
+      - "7881:7881"          # WebRTC over TCP
+      - "50000-50020:50000-50020/udp"
+    depends_on: [redis]
+
+  sip:
+    image: livekit/sip:v1.10
+    command: --config /etc/sip.yaml
+    volumes:
+      - ./sip-ivr/livekit/sip.yaml:/etc/sip.yaml:ro
+    ports:
+      - "5060:5060/udp"
+      - "10000-10100:10000-10100/udp"
+    depends_on: [livekit, redis]
+
+  asterisk:
+    image: andrius/asterisk:latest
+    volumes:
+      - ./sip-ivr/asterisk/pjsip.conf:/etc/asterisk/pjsip.conf:ro
+      - ./sip-ivr/asterisk/extensions.conf:/etc/asterisk/extensions.conf:ro
+    ports:
+      - "5070:5060/udp"
+      - "20000-20100:20000-20100/udp"
+    depends_on: [sip]

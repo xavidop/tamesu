@@ -167,7 +167,9 @@ func (t *Target) Start(ctx context.Context, run *target.RunContext) (target.Sess
 		if cfg.To == "" {
 			return nil, fmt.Errorf("sip %s: to is required for an outbound call", t.name)
 		}
-		if !target.NumberAllowed(cfg.To, cfg.AllowedNumbers) {
+		// A number written in the suite is what the author meant; one that came
+		// from a variable or secret must match allowed_numbers.
+		if (target.Templated(t.cfg.To) || len(cfg.AllowedNumbers) > 0) && !target.NumberAllowed(cfg.To, cfg.AllowedNumbers) {
 			return nil, fmt.Errorf("sip %s: %s: %w", t.name, cfg.To, ErrNumberNotAllowed)
 		}
 		if cfg.TrunkID == "" {

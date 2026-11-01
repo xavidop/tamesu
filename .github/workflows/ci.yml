@@ -190,19 +190,42 @@ jobs:
           # The scaffold declares env secrets; give them values so doctor passes.
           GEMINI_API_KEY=ci SUPPORT_API_TOKEN=ci LIVEKIT_API_KEY=ci LIVEKIT_API_SECRET=ci "$RUNNER_TEMP/tamesu" doctor
 
-  # Starts livekit-server --dev, livekit/sip, Redis, Asterisk, headless Chromium
-  # and the example agents (examples/compose.yaml) and runs the example suites
-  # with the fake model provider, so CI needs no API keys. Until the compose
-  # file exists the target reports so and passes.
+  # The example suites end to end with the fake model provider and fake speech
+  # models, so CI needs no API keys: the rest agent, and the LiveKit agent in
+  # text and audio mode against livekit-server --dev (the Docker image).
   integration:
-    name: Integration (compose + llmfake)
+    name: Integration (rest, livekit text and audio)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+      - name: Install libopus
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libopus-dev pkg-config
       - run: make integration
+
+  # The phone example: examples/compose.yaml (livekit-server, Redis, livekit/sip,
+  # Asterisk as carrier and IVR), `tamesu sip setup` against it, then outbound
+  # and inbound calls, all without a carrier.
+  integration-sip:
+    name: Integration (sip through Asterisk)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Install libopus
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libopus-dev pkg-config
+      - run: make integration-sip
+      - name: Upload the compose logs and reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: integration-sip
+          path: .tamesu/integration-sip
+          retention-days: 7
 
   # govulncheck is call-graph aware, so an advisory in a module we require but
   # never call does not fail the build. One job loops every module so a single

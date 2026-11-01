@@ -63,6 +63,8 @@ const ORDER = [
   "/docs/configuration",
   "/docs/targets/rest",
   "/docs/targets/livekit",
+  "/docs/targets/sip",
+  "/docs/sip-setup",
   "/docs/cli",
   "/docs/reports",
   "/docs/ci",

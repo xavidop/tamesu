@@ -49,6 +49,9 @@ type Deps struct {
 	// Targets are the target factories by type (rest, livekit, sip, browser)
 	// this build links.
 	Targets map[string]TargetFactory
+	// SIPSetup runs `tamesu sip setup` (the sip module); nil means the
+	// command reports that this build has no sip support.
+	SIPSetup func(ctx context.Context, req SIPSetupRequest) (SIPSetupResult, error)
 }
 
 type app struct {
@@ -118,6 +121,7 @@ func NewRoot(info BuildInfo, streams Streams, deps Deps) *cobra.Command {
 		a.newListCmd(),
 		a.newRunCmd(),
 		a.newDoctorCmd(),
+		a.newSIPCmd(),
 	)
 	apps.Store(root, a)
 	return root

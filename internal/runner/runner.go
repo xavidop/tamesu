@@ -27,9 +27,10 @@ import (
 
 // TargetSpec is what a TargetFactory gets to build a target for one test.
 type TargetSpec struct {
-	Name   string
-	Config config.Target
-	Suite  *config.Suite
+	Name    string
+	Config  config.Target
+	Suite   *config.Suite
+	Project config.Project
 	// Mode is the effective voice mode (text or audio) for livekit and sip.
 	Mode string
 }

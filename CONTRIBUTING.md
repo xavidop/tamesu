@@ -56,20 +56,27 @@ This is a multi-module repository tied together by a `go.work` file:
   use them.
 - `targets/rest`: the REST target (HTTP, SSE), its own module; it passes the `targettest`
   conformance suite of the root module.
-- `targets/livekit`: the LiveKit target (text mode today), its own module on the LiveKit Go SDK
-  and pion; the SDK sits behind a small room interface with a fake for the unit tests.
+- `targets/livekit`: the LiveKit target (text and audio mode), its own module on the LiveKit Go
+  SDK and pion; the SDK sits behind a small room interface with a fake for the unit tests, and the
+  call hooks (`CallControl`, SIP call status, DTMF) the sip target plugs into.
+- `targets/sip`: the phone target, its own module: it wraps a livekit audio session with call
+  control through the LiveKit SIP API (outbound `CreateSIPParticipant`, inbound triggers, hangup),
+  the allowed-numbers guard and `tamesu sip setup`; the API sits behind an interface with a fake.
 - `audio`: the audio pipeline, its own module: PCM buffers and resampling, WAV, the energy VAD
   (and Silero behind `-tags onnx` on onnxruntime), noise presets, G.711 and line simulation in
   pure Go; `audio/opus` is a cgo binding to libopus that compiles to a stub under `-tags lite`.
 - `examples/rest-agent`: a tiny Genkit REST agent with the suite that tests it; `make integration`
   runs it with the fake model provider.
-- `examples/livekit-agent`: a text-mode LiveKit agent (LiveKit Go SDK plus a Genkit reply flow)
-  and its suite; `make integration` runs it against `livekit-server --dev` when available.
+- `examples/livekit-agent`: a LiveKit agent (LiveKit Go SDK plus a Genkit reply flow) that also
+  speaks and listens with `--audio`, and its text and audio suites; `make integration` runs them
+  against `livekit-server --dev` when available.
+- `examples/sip-ivr`: the phone example: `examples/compose.yaml` runs livekit-server, Redis, the
+  LiveKit SIP service and Asterisk as carrier and IVR, and the suite calls the IVR, navigates its
+  menu with `wait_for`/`dtmf` and checks `dtmf_received` and `call_ended_by` (Docker; CI only).
 - `skills/tamesu`: the agent skill.
 - `site/`: the Astro documentation site.
 
-The modules for the other targets (`targets/sip`, `targets/browser`) and their examples are
-added phase by phase; each gets its own `go.mod`, a `go.work`
+The module for the browser target (`targets/browser`) and its example are added with its phase; each gets its own `go.mod`, a `go.work`
 entry and a dependabot entry.
 
 ## Adding a target

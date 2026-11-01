@@ -17,6 +17,7 @@ require (
 	github.com/xavidop/tamesu/llm v0.0.0
 	github.com/xavidop/tamesu/targets/livekit v0.0.0
 	github.com/xavidop/tamesu/targets/rest v0.0.0
+	github.com/xavidop/tamesu/targets/sip v0.0.0
 )
 
 require (
@@ -294,5 +295,7 @@ replace github.com/xavidop/tamesu/llm/plugins/elevenlabs => ../../llm/plugins/el
 replace github.com/xavidop/tamesu/targets/rest => ../../targets/rest
 
 replace github.com/xavidop/tamesu/targets/livekit => ../../targets/livekit
+
+replace github.com/xavidop/tamesu/targets/sip => ../../targets/sip
 
 replace github.com/xavidop/mamori/providers/httpcore => github.com/xavidop/mamori/providers/httpcore v0.0.0-20261025123623-b7a7aaf2c85a

@@ -51,7 +51,7 @@ type DoctorCheck func(ctx context.Context, env DoctorEnv) []DoctorResult
 
 // externalChecks are the checks other modules provide; doctor prints a skip
 // line for each one no DoctorCheck reported on.
-var externalChecks = []string{"models", "speech", "chromium", "livekit"}
+var externalChecks = []string{"models", "speech", "chromium", "livekit", "sip"}
 
 func (a *app) newDoctorCmd() *cobra.Command {
 	cmd := &cobra.Command{

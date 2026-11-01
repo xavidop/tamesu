@@ -185,6 +185,9 @@ func (a *app) newRunCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if err := checkAllowedNumbers(p, suites, filter, sel.tags, sel.target, flagVars, a.env()); err != nil {
+				return configError(err)
+			}
 			for k, v := range flagVars {
 				refVars[k] = v
 			}

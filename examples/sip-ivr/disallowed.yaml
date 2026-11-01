@@ -1,0 +1,21 @@
+# A number from a variable outside sip.allowed_numbers: `tamesu run` refuses
+# the suite with exit 2 before dialing anything.
+suite: sip-ivr-disallowed
+secrets:
+  LIVEKIT_API_KEY: env:LIVEKIT_API_KEY
+  LIVEKIT_API_SECRET: env:LIVEKIT_API_SECRET
+vars:
+  agent_number: "+15550001"
+targets:
+  stranger:
+    type: sip
+    direction: outbound
+    to: "{{vars.agent_number}}"
+    from: "+15550002"
+tests:
+  - name: must not be dialed
+    target: stranger
+    persona: { name: Nobody }
+    scenario: { goal: "nothing", max_turns: 1 }
+    assert:
+      - call_ended_by: [caller]

@@ -29,9 +29,15 @@ speech:                                     # audio mode and sip; still Genkit m
   vad: { provider: energy }                 # energy (default) or silero (needs a build with -tags onnx)
 sip:
   livekit_url: ${LIVEKIT_URL}               # LiveKit server with the SIP service enabled
-  outbound_trunk_id: ST_xxxxxxxx
+  outbound_trunk_id: ST_xxxxxxxx            # printed by tamesu sip setup
   inbound_number: "+34910000000"            # number your trunk routes to tamesu (for testing outbound agents)
+  allowed_numbers: ["+1800555*"]            # what tamesu may dial; required when a target's to is a template
   max_concurrent_calls: 2
+  trunk:                                    # the trunk you bring, for tamesu sip setup
+    address: sip.twilio.com
+    numbers: ["+34910000000"]
+    auth_username: "{{secrets.SIP_USER}}"
+    auth_password: "{{secrets.SIP_PASSWORD}}"
   allowed_numbers: ["+1800555*", "+3491*"]  # E.164 patterns tamesu may dial
 defaults:
   timeout: 3m
@@ -61,7 +67,7 @@ secrets:                                    # resolved with mamori, see below
 | `genkit.dev_ui` | `false` | Export traces to the Genkit Developer UI. |
 | `models.*` | `default: googleai/gemini-2.5-flash` | The model for each job: `default`, `judge`, `browser_agent`, `simulator`, `scenario_generator`. `models.credentials` maps a plugin to `{{secrets.X}}` when the secret is not named conventionally. |
 | `speech.stt`, `speech.tts`, `speech.vad` | `vad: energy` | Speech models (Genkit references, with `language` and `voice` defaults) and the voice activity detector, for audio mode and sip. See [AI](ai) for the speech models. |
-| `sip.*` | `max_concurrent_calls: 2` | The LiveKit SIP service, trunk and number, concurrency and the numbers tamesu may dial. |
+| `sip.*` | `max_concurrent_calls: 2`, `inbound_room: tamesu-sip-inbound` | The LiveKit SIP service, trunk ids and number, concurrency, the numbers tamesu may dial and the `trunk` block `tamesu sip setup` creates trunks from. See [SIP](targets/sip) and [SIP setup](sip-setup). |
 | `defaults.*` | `timeout: 3m`, `repeat: 1`, `retries: 0`, `pass_threshold: 1.0` | Per-test defaults; a suite's `defaults:` and a test's own keys override them. |
 | `budgets.*` | `max_cost_usd: 5`, `max_tokens: 2_000_000` | Caps on tamesu's own model spend per run (exit code 4 when exceeded). |
 | `livekit.max_concurrent_rooms` | `4` | How many LiveKit tests run at once. |

@@ -35,6 +35,12 @@ updates:
     schedule: { interval: weekly }
     labels: [dependencies, go, target]
 
+  # SIP target (own go.mod; LiveKit Go SDK, on top of targets/livekit)
+  - package-ecosystem: gomod
+    directory: "/targets/sip"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, target]
+
   # Deepgram STT Genkit plugin (own go.mod; Genkit only)
   - package-ecosystem: gomod
     directory: "/llm/plugins/deepgram"

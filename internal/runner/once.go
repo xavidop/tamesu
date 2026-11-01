@@ -87,7 +87,7 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 	if r.o.Targets == nil {
 		return fail(report.KindInfra, errors.New("no target factory is available in this build"))
 	}
-	tgt, err := r.o.Targets(tctx, TargetSpec{Name: it.test.Target, Config: it.target, Suite: it.suite, Mode: it.mode})
+	tgt, err := r.o.Targets(tctx, TargetSpec{Name: it.test.Target, Config: it.target, Suite: it.suite, Project: r.o.Project, Mode: it.mode})
 	if err != nil {
 		return fail(r.classify(tctx, err), fmt.Errorf("target %s: %w", it.test.Target, err))
 	}

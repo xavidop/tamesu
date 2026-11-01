@@ -54,7 +54,8 @@ func main() {
 			Now:         time.Now,
 			NewProvider: newProvider,
 			Targets:     targetFactories,
-			Checks:      []cli.DoctorCheck{checkModels, checkSpeech, checkLiveKit},
+			Checks:      []cli.DoctorCheck{checkModels, checkSpeech, checkLiveKit, checkSIP},
+			SIPSetup:    sipSetup,
 		},
 	)
 	code := cli.Execute(ctx, root, os.Args[1:])

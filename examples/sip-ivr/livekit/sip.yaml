@@ -1,0 +1,12 @@
+# The LiveKit SIP service for the sip example: same keys and Redis as the
+# server, SIP on 5060/udp, RTP on 10000-10100.
+api_key: devkey
+api_secret: secret
+ws_url: ws://livekit:7880
+redis:
+  address: redis:6379
+sip_port: 5060
+rtp_port: 10000-10100
+use_external_ip: false
+logging:
+  level: info

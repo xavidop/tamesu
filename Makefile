@@ -13,7 +13,7 @@ MODULES := $(shell find . -name go.mod \
 GO ?= go
 export GOWORK = off
 
-.PHONY: all build test race vet lint lint-integration fmt tidy work-sync check-deps check-claims schema schema-check test-llmfake vet-llmfake lint-llmfake integration genkit-ui site-dev site-build site-linkcheck demo clean help
+.PHONY: all build test race vet lint lint-integration fmt tidy work-sync check-deps check-claims schema schema-check test-llmfake vet-llmfake lint-llmfake integration integration-sip genkit-ui site-dev site-build site-linkcheck demo clean help
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -92,8 +92,11 @@ lint-llmfake: ## golangci-lint -tags llmfake for the fake-provider suites
 	@for p in $(LLMFAKE); do d=$${p%%:*}; pkgs=$${p#*:}; echo "==> lint -tags llmfake $$d $$pkgs"; \
 		(cd $$d && golangci-lint run --build-tags llmfake $$pkgs) || exit 1; done
 
-integration: ## Run the example suites end to end with the fake model provider (scripts/integration.sh); docker compose services join as the voice targets land
+integration: ## Run the example suites end to end with the fake model provider (scripts/integration.sh): rest, livekit text and audio
 	@bash scripts/integration.sh
+
+integration-sip: ## Run the phone example through Docker (livekit-server, livekit/sip, Asterisk): tamesu sip setup, outbound and inbound calls
+	@bash scripts/integration-sip.sh
 
 genkit-ui: ## Run an example suite under `genkit start` to inspect traces in the Genkit Developer UI
 	@command -v genkit >/dev/null || { echo "genkit CLI is not installed: npm i -g genkit-cli"; exit 1; }

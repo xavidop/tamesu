@@ -1,6 +1,8 @@
 package config
 
 import (
+	"github.com/xavidop/tamesu/target"
+
 	"fmt"
 	"regexp"
 	"slices"
@@ -32,6 +34,8 @@ var (
 	ReporterNames     = []string{"console", "junit", "json", "html"}
 	GenkitPlugins     = []string{"googlegenai", "anthropic", "openai", "ollama", "deepgram", "elevenlabs", "evaluators"}
 	ScriptStepKinds   = []string{"wait_for", "dtmf", "say"}
+	// SIPTransports are the sip.trunk.transport values.
+	SIPTransports = []string{"auto", "udp", "tcp", "tls"}
 )
 
 // targetFieldTypes maps each type-specific target field to the type it
@@ -203,10 +207,17 @@ func (v *validator) target(name string, t Target) {
 		case "":
 			v.errorf(tp, "sip target needs direction (outbound: tamesu calls the agent, inbound: the agent calls tamesu)")
 		case "outbound":
-			if t.To == "" {
+			switch {
+			case t.To == "":
 				v.errorf(tp, "outbound sip target needs to (the agent's number)")
-			} else if !strings.Contains(t.To, "{{") && !e164Re.MatchString(t.To) {
+			case target.Templated(t.To):
+				if len(v.p.SIP.AllowedNumbers) == 0 {
+					v.errorf(with(tp, "to"), "to is a template, so sip.allowed_numbers must list the numbers tamesu may dial (a typo must not call a stranger)")
+				}
+			case !e164Re.MatchString(t.To):
 				v.errorf(with(tp, "to"), "to must be an E.164 number such as +18005550100")
+			case len(v.p.SIP.AllowedNumbers) > 0 && !target.NumberAllowed(t.To, v.p.SIP.AllowedNumbers):
+				v.errorf(with(tp, "to"), "%s is not in sip.allowed_numbers (%s); tamesu refuses to dial it", t.To, strings.Join(v.p.SIP.AllowedNumbers, ", "))
 			}
 		case "inbound":
 			if t.Trigger == nil || (t.Trigger.HTTP == nil && t.Trigger.Command == "") {
@@ -572,6 +583,22 @@ func ValidateProject(p Project, file string, root *yaml.Node) Errors {
 		if !e164PatRe.MatchString(pat) {
 			v.errorf(at("sip", "allowed_numbers", idx(i)), "allowed_numbers are E.164 patterns such as +1800555* (digits and * after the +)")
 		}
+	}
+	if tr := p.SIP.Trunk; tr != nil {
+		if tr.Address == "" {
+			v.errorf(at("sip", "trunk", "address"), "sip.trunk.address is required (the provider's SIP host)")
+		}
+		if tr.Transport != "" && !slices.Contains(SIPTransports, tr.Transport) {
+			v.errorf(at("sip", "trunk", "transport"), "transport must be one of %s", strings.Join(SIPTransports, ", "))
+		}
+		for i, n := range append(append([]string(nil), tr.Numbers...), tr.InboundNumbers...) {
+			if !e164Re.MatchString(n) {
+				v.errorf(at("sip", "trunk", "numbers", idx(i)), "trunk numbers are E.164 such as +34910000000")
+			}
+		}
+	}
+	if p.SIP.InboundNumber != "" && !e164Re.MatchString(p.SIP.InboundNumber) {
+		v.errorf(at("sip", "inbound_number"), "inbound_number must be an E.164 number such as +34910000000")
 	}
 	if p.LiveKit.MaxConcurrentRooms < 1 {
 		v.errorf(at("livekit", "max_concurrent_rooms"), "max_concurrent_rooms must be 1 or more")

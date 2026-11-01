@@ -1,0 +1,11 @@
+{
+  "simulator": [
+    {"say": "Hi, I was charged twice for my last order and I would like a refund of the duplicate.", "stop": false, "reason": "state the problem"},
+    {"say": "Thank you, goodbye.", "stop": true, "hang_up": true, "reason": "done"}
+  ],
+  "stt": [
+    "Welcome to Mochi Shoes. Press 1 for orders, press 2 for billing.",
+    "Thank you. Billing department, how can I help you today?",
+    "Goodbye."
+  ]
+}
