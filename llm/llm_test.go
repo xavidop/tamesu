@@ -26,6 +26,7 @@ func client(t *testing.T) *Client {
 		c, err := New(context.Background(), Config{
 			Plugins: []string{"fake", "evaluators"},
 			Models:  Models{Default: "fake/text", Simulator: "fake/simulator", Judge: "fake/judge"},
+			Speech:  SpeechConfig{TTS: SpeechModel{Model: "fake/tts"}, STT: SpeechModel{Model: "fake/stt"}},
 			Budget:  Budget{MaxCostUSD: 1},
 		})
 		require.NoError(t, err)
@@ -105,10 +106,10 @@ func TestPromptOverrides(t *testing.T) {
 
 func TestPricing(t *testing.T) {
 	p := loadPricing()
-	assert.InDelta(t, 0.30+2.50, p.cost("googleai/gemini-2.5-flash", 1_000_000, 1_000_000), 1e-9)
-	assert.InDelta(t, 0.0, p.cost("ollama/llama3", 1000, 1000), 1e-9)
-	assert.InDelta(t, p.cost("googleai/gemini-2.5-flash", 10, 10), p.cost("googleai/gemini-2.5-flash-preview-tts", 10, 10), 1e-12, "longest prefix")
-	assert.Equal(t, 0.0, p.cost("unknown/model", 10, 10))
+	assert.InDelta(t, 0.30+2.50, p.costOf("googleai/gemini-2.5-flash", 1_000_000, 1_000_000, 0, 0), 1e-9)
+	assert.InDelta(t, 0.0, p.costOf("ollama/llama3", 1000, 1000, 0, 0), 1e-9)
+	assert.InDelta(t, p.costOf("googleai/gemini-2.5-flash-lite", 10, 10, 0, 0), p.costOf("googleai/gemini-2.5-flash-lite-preview-06-17", 10, 10, 0, 0), 1e-12, "longest prefix")
+	assert.Equal(t, 0.0, p.costOf("unknown/model", 10, 10, 0, 0))
 }
 
 func TestUnknownPlugin(t *testing.T) {

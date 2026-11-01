@@ -26,6 +26,8 @@ const (
 func (c *Client) defineFlows() {
 	c.simFlow = genkit.DefineFlow(c.g, FlowSimulateUserTurn, c.simulate)
 	c.judgeFlow = genkit.DefineFlow(c.g, FlowJudgeRun, c.judge)
+	c.ttsFlow = genkit.DefineFlow(c.g, FlowSynthesize, c.synthesize)
+	c.sttFlow = genkit.DefineFlow(c.g, FlowTranscribe, c.transcribe)
 	c.defineJudgeEvaluator()
 }
 

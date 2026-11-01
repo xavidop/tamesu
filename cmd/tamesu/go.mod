@@ -13,6 +13,7 @@ require (
 	github.com/xavidop/mamori/providers/sops v0.0.0-20261025123623-b7a7aaf2c85a
 	github.com/xavidop/mamori/providers/vault v0.0.0-20261025123623-b7a7aaf2c85a
 	github.com/xavidop/tamesu v0.0.0
+	github.com/xavidop/tamesu/audio v0.0.0
 	github.com/xavidop/tamesu/llm v0.0.0
 	github.com/xavidop/tamesu/targets/livekit v0.0.0
 	github.com/xavidop/tamesu/targets/rest v0.0.0
@@ -222,9 +223,12 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xavidop/mamori v1.13.0 // indirect
 	github.com/xavidop/mamori/providers/httpcore v0.0.0-00010101000000-000000000000 // indirect
+	github.com/xavidop/tamesu/llm/plugins/deepgram v0.0.0 // indirect
+	github.com/xavidop/tamesu/llm/plugins/elevenlabs v0.0.0 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
+	github.com/yalue/onnxruntime_go v1.38.0 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	github.com/zeebo/xxh3 v1.1.0 // indirect
 	go.mongodb.org/mongo-driver v1.17.10 // indirect
@@ -280,6 +284,12 @@ require (
 replace github.com/xavidop/tamesu => ../..
 
 replace github.com/xavidop/tamesu/llm => ../../llm
+
+replace github.com/xavidop/tamesu/audio => ../../audio
+
+replace github.com/xavidop/tamesu/llm/plugins/deepgram => ../../llm/plugins/deepgram
+
+replace github.com/xavidop/tamesu/llm/plugins/elevenlabs => ../../llm/plugins/elevenlabs
 
 replace github.com/xavidop/tamesu/targets/rest => ../../targets/rest
 

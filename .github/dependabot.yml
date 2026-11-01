@@ -35,6 +35,18 @@ updates:
     schedule: { interval: weekly }
     labels: [dependencies, go, target]
 
+  # Deepgram STT Genkit plugin (own go.mod; Genkit only)
+  - package-ecosystem: gomod
+    directory: "/llm/plugins/deepgram"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, ai]
+
+  # ElevenLabs TTS Genkit plugin (own go.mod; Genkit only)
+  - package-ecosystem: gomod
+    directory: "/llm/plugins/elevenlabs"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, ai]
+
   # Audio pipeline (own go.mod; onnxruntime_go behind -tags onnx, libopus via cgo)
   - package-ecosystem: gomod
     directory: "/audio"

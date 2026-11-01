@@ -1,6 +1,6 @@
 // Package llm is the only place tamesu calls a model. Every call goes through
 // Genkit: the simulated user (simulateUserTurn), the judges (judgeRun),
-// Genkit evaluators and, later, speech. Prompts are dotprompt files embedded
+// Genkit evaluators and speech (synthesize, transcribe). Prompts are dotprompt files embedded
 // from llm/prompts and overridable from .tamesu/prompts; every model is a
 // Genkit reference such as googleai/gemini-2.5-flash, so switching provider
 // is a config change. Usage and cost are counted on every response.
@@ -60,6 +60,8 @@ type Config struct {
 	// DevUI exports traces to the Genkit Developer UI (GENKIT_ENV=dev).
 	DevUI  bool
 	Budget Budget
+	// Speech selects the TTS and STT models of audio mode.
+	Speech SpeechConfig
 	Logger *slog.Logger
 }
 
@@ -84,6 +86,8 @@ type Client struct {
 
 	simFlow   flowFunc[model.SimInput, model.SimOutput]
 	judgeFlow flowFunc[assert.JudgeRequest, assert.JudgeVerdict]
+	ttsFlow   flowFunc[synthInput, synthOutput]
+	sttFlow   flowFunc[sttInput, sttOutput]
 }
 
 type flowFunc[In, Out any] interface {
@@ -167,11 +171,20 @@ func (c *Client) record(modelName string, resp *ai.ModelResponse) error {
 	if resp == nil {
 		return nil
 	}
-	in, out := 0, 0
-	if resp.Usage != nil {
-		in, out = resp.Usage.InputTokens, resp.Usage.OutputTokens
+	in, out, chars, seconds := 0, 0, 0, 0.0
+	if u := resp.Usage; u != nil {
+		in, out = u.InputTokens, u.OutputTokens
+		// Genkit fills InputCharacters for every call, so characters are
+		// billed only to models that answered with audio (TTS) and audio
+		// seconds only to models that heard some (STT).
+		if u.OutputAudioFiles > 0 {
+			chars = u.InputCharacters
+		}
+		if u.InputAudioFiles > 0 {
+			seconds = u.Custom["audio_seconds"]
+		}
 	}
-	cost := c.pricing.cost(modelName, in, out)
+	cost := c.pricing.costOf(modelName, in, out, chars, seconds)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.usage.Calls++

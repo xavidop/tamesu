@@ -53,7 +53,7 @@ type SpeechModel struct {
 
 // VADConfig selects the voice activity detector.
 type VADConfig struct {
-	Provider string `yaml:"provider,omitempty" json:"provider,omitempty" jsonschema:"enum=silero,description=silero (onnxruntime)."`
+	Provider string `yaml:"provider,omitempty" json:"provider,omitempty" jsonschema:"enum=energy,enum=silero,description=energy (RMS with a noise floor; the default) or silero (neural; needs a build with onnxruntime)."`
 }
 
 // SIPConfig configures phone calls through a LiveKit SIP service.

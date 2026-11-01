@@ -1,5 +1,6 @@
-# Prices in USD per million tokens, used to estimate tamesu's own spend and
-# enforce budgets. Keys are Genkit model references; a model not listed is
+# Prices in USD per million tokens (input/output), per character spoken
+# (per_character, TTS) and per minute heard (per_minute, STT), used to estimate
+# tamesu's own spend and enforce budgets. Keys are Genkit model references; a model not listed is
 # priced by its longest listed prefix, and an unknown model costs 0 (the token
 # counts are still reported). Update when providers change their list prices.
 models:
@@ -17,5 +18,14 @@ models:
   openai/gpt-4o: { input: 2.50, output: 10.00 }
   openai/gpt-4o-mini: { input: 0.15, output: 0.60 }
   openai/o4-mini: { input: 1.10, output: 4.40 }
+  googleai/gemini-2.5-flash-preview-tts: { input: 0.50, output: 10.00 }
+  googleai/gemini-2.5-pro-preview-tts: { input: 1.00, output: 20.00 }
+  elevenlabs/eleven_flash: { per_character: 0.00015 }
+  elevenlabs/eleven_turbo: { per_character: 0.00015 }
+  elevenlabs/: { per_character: 0.00030 }
+  deepgram/nova-3: { per_minute: 0.0077 }
+  deepgram/: { per_minute: 0.0058 }
   ollama/: { input: 0, output: 0 }
+  fake/tts: { per_character: 0.0001 }
+  fake/stt: { per_minute: 0.01 }
   fake/: { input: 1.00, output: 2.00 }

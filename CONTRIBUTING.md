@@ -49,7 +49,11 @@ This is a multi-module repository tied together by a `go.work` file:
   `k8s-secret://`, `op://`, `doppler://`, `infisical://`, `sops://`).
 - `llm`: the only place a model is called, its own module built on [Genkit](https://genkit.dev):
   the simulated user and judge flows, the dotprompt files under `llm/prompts/`, cost accounting,
-  Genkit evaluators and, behind `-tags llmfake`, the fake provider CI runs with.
+  Genkit evaluators, the `synthesize`/`transcribe` speech flows and, behind `-tags llmfake`, the
+  fake provider CI runs with.
+- `llm/plugins/deepgram` and `llm/plugins/elevenlabs`: Genkit model plugins for Deepgram speech to
+  text and ElevenLabs text to speech, each its own module on Genkit alone, so any Genkit Go app can
+  use them.
 - `targets/rest`: the REST target (HTTP, SSE), its own module; it passes the `targettest`
   conformance suite of the root module.
 - `targets/livekit`: the LiveKit target (text mode today), its own module on the LiveKit Go SDK

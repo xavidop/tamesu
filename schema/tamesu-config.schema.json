@@ -154,9 +154,10 @@
         "provider": {
           "type": "string",
           "enum": [
+            "energy",
             "silero"
           ],
-          "description": "silero (onnxruntime)."
+          "description": "energy (RMS with a noise floor; the default) or silero (neural; needs a build with onnxruntime)."
         }
       },
       "additionalProperties": false,
