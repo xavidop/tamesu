@@ -68,8 +68,14 @@ type Options struct {
 	// MaxCostUSD overrides the project budget when > 0.
 	MaxCostUSD float64
 	// Headed shows the browser window for browser tests (--headed).
-	Headed  bool
-	Targets TargetFactory
+	Headed bool
+	// Replay runs browser goals from the action cache only (no agent):
+	// a miss or a failed replay fails the step. UpdateCache ignores the
+	// cache and refreshes it. CacheDir holds the plans (default .tamesu/cache).
+	Replay      bool
+	UpdateCache bool
+	CacheDir    string
+	Targets     TargetFactory
 	// Provider is the AI layer; nil fails conversational tests with an
 	// infrastructure error.
 	Provider model.Provider

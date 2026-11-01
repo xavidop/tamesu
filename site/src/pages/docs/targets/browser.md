@@ -59,6 +59,22 @@ told the allowed domains and the page refuses any navigation outside them (a `na
 event). `expect` runs the `checkExpect` flow over the same observation and answers `{ pass,
 reason }`.
 
+## The action cache
+
+Every goal the agent achieves is saved as a **plan**: its actions with the element each one
+acted on (`button "Log in"`), under `.tamesu/cache/actions/<key>.json` (`cache.dir` in
+`tamesu.yaml`). The key is the goal text, the URL path and a fingerprint of the page's
+interactive elements, so the same goal on a changed page plans again. On the next run the plan
+is replayed first, matching each element on the fresh page by role and name; the agent runs
+only on a miss or when a replay fails (and the plan is refreshed). That is what keeps CI fast
+and cheap: a stable app replays with no model calls for its goals.
+
+- `tamesu run --replay` is strict: cached plans only, a miss or a failed replay fails the step.
+- `tamesu run --update-cache` ignores the cache, plans again and refreshes it.
+- `cache_hits` and `cache_misses` are metrics of every browser run; `cache_hit`, `cache_miss`,
+  `cache_replay_failed` and `cache_saved` are events in `result.json`. Commit the cache
+  directory to replay in CI, or keep it as a CI cache keyed on the suite.
+
 ## Deterministic actions
 
 | Action | Argument | Does |

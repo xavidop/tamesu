@@ -73,10 +73,29 @@ for _ in $(seq 1 50); do
 	if (echo >"/dev/tcp/127.0.0.1/$web_port") 2>/dev/null; then break; fi
 	sleep 0.2
 done
+export TAMESU_CACHE_DIR="$PWD/$out/cache"
 WEBAPP_URL="http://127.0.0.1:$web_port" TEST_PASSWORD=correct-horse TAMESU_LLMFAKE_SCRIPT="$PWD/examples/browser-shop/llmfake-script.json" \
 	./bin/tamesu-llmfake run --config examples/browser-shop/tamesu.llmfake.yaml --out "$out/browser"
 test -f "$out"/browser/tests/*/run-1/screenshots/step-01.png || { echo "no step screenshot was written" >&2; exit 1; }
 test -f "$out"/browser/tests/*/run-1/trace.har || { echo "no HAR was written" >&2; exit 1; }
+test -f "$out"/browser/report.html || { echo "no report.html was written" >&2; exit 1; }
+
+echo "==> browser again with --replay: every goal must come from the action cache, no agent call"
+WEBAPP_URL="http://127.0.0.1:$web_port" TEST_PASSWORD=correct-horse TAMESU_LLMFAKE_SCRIPT="$PWD/examples/browser-shop/llmfake-script.json" \
+	./bin/tamesu-llmfake run --config examples/browser-shop/tamesu.llmfake.yaml --replay --out "$out/browser-replay"
+python3 - "$out" <<'PY'
+import json, glob, sys
+out = sys.argv[1]
+first = json.load(open(glob.glob(out + "/browser/tests/*/run-1/result.json")[0]))
+second = json.load(open(glob.glob(out + "/browser-replay/tests/*/run-1/result.json")[0]))
+m1, m2 = first["metrics"], second["metrics"]
+assert m1.get("cache_misses") == 2 and m1.get("cache_hits") == 0, m1
+assert m2.get("cache_hits") == 2 and m2.get("cache_misses") == 0, m2
+assert second["passed"], second.get("assertions")
+goal_calls = [s for s in json.load(open(glob.glob(out + "/browser-replay/tests/*/run-1/steps.json")[0])) if s["kind"] == "goal"]
+assert all("replayed" in s.get("reason", "") for s in goal_calls), goal_calls
+print("replay: %d goals replayed, %.2fs vs %.2fs" % (len(goal_calls), second["duration"] / 1e9, first["duration"] / 1e9))
+PY
 stop_agent "$web"
 
 # LiveKit text mode: livekit-server --dev (the binary on the PATH, or the

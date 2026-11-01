@@ -14,6 +14,16 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "CacheConfig": {
+      "properties": {
+        "dir": {
+          "type": "string",
+          "description": "Directory of the browser action cache; default .tamesu/cache."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "Defaults": {
       "properties": {
         "timeout": {
@@ -260,6 +270,9 @@
     },
     "speech": {
       "$ref": "#/$defs/Speech"
+    },
+    "cache": {
+      "$ref": "#/$defs/CacheConfig"
     },
     "sip": {
       "$ref": "#/$defs/SIPConfig"

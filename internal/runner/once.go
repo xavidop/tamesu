@@ -285,6 +285,9 @@ func (r *run) writeResult(out *report.RunOutcome) {
 	if out.Dir == "" {
 		return
 	}
+	if out.Duration == 0 && !out.StartedAt.IsZero() {
+		out.Duration = r.now().Sub(out.StartedAt)
+	}
 	b, err := json.MarshalIndent(out, "", "  ")
 	if err == nil {
 		err = os.WriteFile(filepath.Join(out.Dir, "result.json"), append(b, '\n'), 0o644)

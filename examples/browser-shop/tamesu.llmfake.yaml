@@ -10,4 +10,5 @@ models:
   judge: fake/judge
   browser_agent: fake/browser
 defaults: { timeout: 2m, repeat: 1, max_goal_steps: 8 }
-reporters: [console, junit]
+cache: { dir: "${TAMESU_CACHE_DIR:-.tamesu/cache}" }
+reporters: [console, junit, html]

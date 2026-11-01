@@ -35,4 +35,3 @@ func (a *app) newReportCmd() *cobra.Command {
 	}
 	return cmd
 }
-

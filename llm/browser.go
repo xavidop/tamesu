@@ -35,6 +35,9 @@ type goalState struct {
 	actions []target.Action
 	done    *model.GoalResult
 	steps   int
+	// tree is the last observation's element list, to name the element a
+	// ref points at (so plans can be replayed on a fresh page).
+	tree string
 }
 
 type goalKey struct{}
@@ -149,6 +152,11 @@ func (c *Client) act(ctx *ai.ToolContext, name string, args map[string]any, do f
 		return "", err
 	}
 	st.steps++
+	if ref, ok := args["ref"].(int); ok {
+		if el := elementLine(st.tree, ref); el != "" {
+			args["element"] = el
+		}
+	}
 	st.actions = append(st.actions, target.Action{Name: name, Args: args})
 	if err := do(st); err != nil {
 		// The model hears about the failure and may try another way.
@@ -156,6 +164,7 @@ func (c *Client) act(ctx *ai.ToolContext, name string, args map[string]any, do f
 		if oerr != nil {
 			return fmt.Sprintf("%s failed: %v", name, err), nil
 		}
+		st.tree = obs.Tree
 		return fmt.Sprintf("%s failed: %v\n\nCurrent page:\n%s", name, err, formatObservation(obs)), nil
 	}
 	_ = st.page.Wait(ctx, DefaultStepPause)
@@ -163,6 +172,7 @@ func (c *Client) act(ctx *ai.ToolContext, name string, args map[string]any, do f
 	if err != nil {
 		return "", err
 	}
+	st.tree = obs.Tree
 	return "Done. Current page:\n" + formatObservation(obs), nil
 }
 
@@ -200,6 +210,7 @@ func (c *Client) browserStep(ctx context.Context, in goalInput) (goalOutput, err
 	if err != nil {
 		return goalOutput{}, fmt.Errorf("llm: %s: observe: %w", FlowBrowserStep, err)
 	}
+	st.tree = obs.Tree
 	input := map[string]any{
 		"goal": in.Goal, "max_steps": maxSteps, "observation": formatObservation(obs),
 		"allowed_domains": strings.Join(in.AllowedDomains, ", "), "open": "{{", "close": "}}",
@@ -277,6 +288,31 @@ func (c *Client) checkExpect(ctx context.Context, in expectInput) (expectOutput,
 		return out, budgetErr
 	}
 	return out, nil
+}
+
+// elementLine returns the `role "name"` of a ref's line in the tree.
+func elementLine(tree string, ref int) string {
+	prefix := fmt.Sprintf("[%d] ", ref)
+	for _, line := range strings.Split(tree, "\n") {
+		t := strings.TrimSpace(line)
+		if !strings.HasPrefix(t, prefix) {
+			continue
+		}
+		rest := strings.TrimSpace(t[len(prefix):])
+		if i := strings.Index(rest, `" value=`); i >= 0 {
+			rest = rest[:i+1]
+		}
+		if i := strings.Index(rest, `" (`); i >= 0 {
+			rest = rest[:i+1]
+		}
+		if !strings.Contains(rest, `"`) {
+			if i := strings.Index(rest, " ("); i >= 0 {
+				rest = rest[:i]
+			}
+		}
+		return rest
+	}
+	return ""
 }
 
 // formatObservation renders an observation for a prompt.

@@ -27,7 +27,8 @@ func (r *run) runBrowser(ctx context.Context, it *item, bs target.BrowserSession
 	lo := &persona.Outcome{}
 	var fails []assert.Result
 	agent, _ := r.o.Provider.(model.BrowserAgent)
-	goalSteps := 0
+	cache := NewActionCache(r.o.CacheDir)
+	goalSteps, hits, misses := 0, 0, 0
 	for i, st := range it.test.Steps {
 		rec := report.StepRecord{Index: i + 1, Kind: st.Kind(), StartedAt: r.now()}
 		var text string
@@ -47,16 +48,18 @@ func (r *run) runBrowser(ctx context.Context, it *item, bs target.BrowserSession
 		case "goal":
 			var goal string
 			if goal, err = renderForModel(st.Goal); err == nil {
-				if agent == nil {
-					err = ErrNoBrowserAgent
+				var res model.GoalResult
+				var hit bool
+				res, hit, err = r.runGoal(ctx, it, page, agent, cache, goal, out)
+				if hit {
+					hits++
 				} else {
-					var res model.GoalResult
-					res, err = agent.RunGoal(ctx, model.GoalRequest{Goal: goal, Page: page, MaxSteps: maxSteps(it), AllowedDomains: it.target.AllowedDomains, Screenshots: false})
-					rec.Success, rec.Reason, rec.Steps, rec.Actions = res.Success, res.Reason, res.Steps, res.Actions
-					goalSteps += res.Steps
-					if res.TraceID != "" {
-						lo.TraceIDs = append(lo.TraceIDs, res.TraceID)
-					}
+					misses++
+				}
+				rec.Success, rec.Reason, rec.Steps, rec.Actions = res.Success, res.Reason, res.Steps, res.Actions
+				goalSteps += res.Steps
+				if res.TraceID != "" {
+					lo.TraceIDs = append(lo.TraceIDs, res.TraceID)
 				}
 			}
 		case "expect":
@@ -116,8 +119,62 @@ func (r *run) runBrowser(ctx context.Context, it *item, bs target.BrowserSession
 		lo.StopReason = "steps_done"
 	}
 	out.Metrics[metrics.GoalSteps] = float64(goalSteps)
+	out.Metrics["cache_hits"] = float64(hits)
+	out.Metrics["cache_misses"] = float64(misses)
 	writeSteps(dir, out.Steps)
 	return lo, fails, nil
+}
+
+// runGoal plays one goal: a cached plan first (unless --update-cache), the
+// agent on a miss or a failed replay (unless --replay, which fails the step
+// instead), and the cache is refreshed after a successful agent run. hit
+// reports whether a cached plan was replayed.
+func (r *run) runGoal(ctx context.Context, it *item, page target.Page, agent model.BrowserAgent, cache *ActionCache, goal string, out *report.RunOutcome) (res model.GoalResult, hit bool, err error) {
+	obs, oerr := page.Observe(ctx, false)
+	if oerr != nil {
+		return res, false, fmt.Errorf("observe: %w", oerr)
+	}
+	key := Key(goal, obs)
+	event := func(kind, detail string) {
+		out.Events = append(out.Events, target.Event{At: r.now(), Kind: kind, Detail: detail})
+	}
+	if !r.o.UpdateCache {
+		plan, lerr := cache.Load(key)
+		if lerr != nil {
+			r.logger.Warn("action cache", "error", lerr)
+		}
+		if plan != nil {
+			n, rerr := Replay(ctx, page, plan)
+			if rerr == nil {
+				plan.Hits++
+				_ = cache.Save(plan)
+				event("cache_hit", key)
+				return model.GoalResult{Success: true, Reason: fmt.Sprintf("replayed %d cached actions (plan %s)", n, key), Steps: n, Actions: plan.Actions}, true, nil
+			}
+			event("cache_replay_failed", rerr.Error())
+			if r.o.Replay {
+				return model.GoalResult{Success: false, Reason: "--replay: " + rerr.Error(), Steps: n, Actions: plan.Actions[:n]}, true, nil
+			}
+			_ = cache.Delete(key)
+		} else if r.o.Replay {
+			event("cache_miss", key)
+			return model.GoalResult{Success: false, Reason: fmt.Sprintf("--replay: no cached plan for this goal on this page (key %s); run once without --replay", key)}, false, nil
+		} else {
+			event("cache_miss", key)
+		}
+	}
+	if agent == nil {
+		return res, false, ErrNoBrowserAgent
+	}
+	res, err = agent.RunGoal(ctx, model.GoalRequest{Goal: goal, Page: page, MaxSteps: maxSteps(it), AllowedDomains: it.target.AllowedDomains})
+	if err == nil && res.Success && len(res.Actions) > 0 {
+		if serr := cache.Save(&Plan{Goal: goal, URLPath: obs.URL, Key: key, Actions: res.Actions, Reason: res.Reason}); serr != nil {
+			r.logger.Warn("action cache", "error", serr)
+		} else {
+			event("cache_saved", key)
+		}
+	}
+	return res, false, err
 }
 
 func maxSteps(it *item) int { return it.maxGoalSteps }

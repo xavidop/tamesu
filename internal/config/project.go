@@ -10,6 +10,7 @@ type Project struct {
 	Genkit    Genkit            `yaml:"genkit,omitempty" json:"genkit,omitempty"`
 	Models    Models            `yaml:"models,omitempty" json:"models,omitempty"`
 	Speech    Speech            `yaml:"speech,omitempty" json:"speech,omitempty"`
+	Cache     CacheConfig       `yaml:"cache,omitempty" json:"cache,omitempty"`
 	SIP       SIPConfig         `yaml:"sip,omitempty" json:"sip,omitempty"`
 	Defaults  Defaults          `yaml:"defaults,omitempty" json:"defaults,omitempty"`
 	Budgets   Budgets           `yaml:"budgets,omitempty" json:"budgets,omitempty"`
@@ -34,6 +35,11 @@ type Models struct {
 	Simulator         string            `yaml:"simulator,omitempty" json:"simulator,omitempty"`
 	ScenarioGenerator string            `yaml:"scenario_generator,omitempty" json:"scenario_generator,omitempty"`
 	Credentials       map[string]string `yaml:"credentials,omitempty" json:"credentials,omitempty" jsonschema:"description=Plugin name to {{secrets.NAME}} when the secret is not named conventionally."`
+}
+
+// CacheConfig locates the action cache of browser goals.
+type CacheConfig struct {
+	Dir string `yaml:"dir,omitempty" json:"dir,omitempty" jsonschema:"description=Directory of the browser action cache; default .tamesu/cache."`
 }
 
 // Speech configures speech-to-text, text-to-speech and voice activity

@@ -37,8 +37,8 @@ func htmlSampleSummary(dir string) *Summary {
 					{At: start.Add(3200 * time.Millisecond), Kind: "agent_speech_start"},
 					{At: start.Add(4 * time.Second), Kind: "dtmf_received", Detail: "9"},
 				},
-				Artifacts: map[string]string{"audio.wav": "audio.wav"},
-				TraceIDs:  []string{"trace-sim", "trace-judge"},
+				Artifacts:  map[string]string{"audio.wav": "audio.wav"},
+				TraceIDs:   []string{"trace-sim", "trace-judge"},
 				StopReason: "simulator: done",
 			}}},
 			{Suite: "web", Name: "checkout", Target: "web", Type: "browser", Repeat: 2, PassThreshold: 0.5, Passed: true, Runs: []*RunOutcome{{

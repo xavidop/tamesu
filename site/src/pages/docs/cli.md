@@ -105,7 +105,7 @@ reported on stderr and makes the command exit `2`; warnings are not printed.
 ## tamesu run
 
 ```text
-tamesu run [paths...] [--filter <regex>] [--tags a,b] [--target <name>] [--parallel N] [--repeat N] [--mode text|audio] [--headed] [--out <dir>] [--reporter console,json,junit,html] [--max-cost-usd X]
+tamesu run [paths...] [--filter <regex>] [--tags a,b] [--target <name>] [--parallel N] [--repeat N] [--mode text|audio] [--headed] [--replay | --update-cache] [--out <dir>] [--reporter console,json,junit,html] [--max-cost-usd X]
 ```
 
 Runs the selected tests. `tamesu.yaml` and the suites are loaded with `${VAR}` required; the
@@ -125,6 +125,8 @@ versions); the reporters write `summary.json`, `junit.xml` and the console outpu
 | `--repeat N` | Override every test's repeat count. |
 | `--mode text\|audio` | Voice tests: override the mode (livekit and sip). |
 | `--headed` | Browser tests: show the browser window instead of running headless. |
+| `--replay` | Browser goals: replay the cached action plans only, no model; a miss or a failed replay fails the step. |
+| `--update-cache` | Browser goals: ignore the action cache, plan again and refresh it. |
 | `--out <dir>` | Run directory (default `.tamesu/runs/<timestamp>`). |
 | `--reporter console,json,junit,html` | Reporters to run (default `reporters:` of `tamesu.yaml`; `json` is always on). |
 | `--max-cost-usd X` | Stop the run once tamesu's own model spend exceeds X (default `budgets.max_cost_usd`). |
