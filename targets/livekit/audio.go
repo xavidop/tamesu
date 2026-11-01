@@ -47,6 +47,11 @@ type audioRoom interface {
 	PublishAudio(ctx context.Context) (audioPublisher, error)
 }
 
+// dtmfRoom is a room that can send SIP DTMF digits (RFC 4733 data packets).
+type dtmfRoom interface {
+	SendDTMF(ctx context.Context, digits string) error
+}
+
 // timeline is one channel of the run's audio, indexed in samples from the
 // session start; gaps in what arrives are padded with silence so positions
 // stay aligned with the clock.
@@ -275,6 +280,7 @@ func (s *session) feedVAD(from int, now time.Time) {
 		case vad.SpeechStart:
 			a.agentOpen = &segment{from: at}
 			s.eventLocked("agent_speech_start", "")
+			s.greetingLocked(now)
 			if c := s.cur; c != nil {
 				c.spoke = true
 				if c.agentStart < 0 {
@@ -349,6 +355,12 @@ func (s *session) sendAudio(ctx context.Context, ut target.UserTurn, cur *turn) 
 	if ut.DTMF != "" {
 		pcm = audio.DTMF(ut.DTMF, AudioRate)
 		s.event("dtmf_sent", ut.DTMF)
+		if dr, ok := s.room.(dtmfRoom); ok && s.call != nil {
+			// A SIP leg wants RFC 4733 digits, not only the tones.
+			if err := dr.SendDTMF(ctx, ut.DTMF); err != nil {
+				s.event("dtmf_error", err.Error())
+			}
+		}
 	}
 	if ut.Text != "" {
 		spoken, err := a.speech.Synthesize(ctx, target.SynthesizeRequest{Text: ut.Text, Voice: a.voice.Hint, Language: a.voice.Language})

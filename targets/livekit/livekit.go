@@ -91,6 +91,9 @@ type Config struct {
 	TurnTimeout time.Duration
 	// Identity is the simulated caller's identity; empty means tamesu-sim-<uuid>.
 	Identity string
+	// Call places and ends a phone call once tamesu is in the room (the sip
+	// target); nil for a plain room.
+	Call CallControl
 
 	// connect overrides the SDK connection (tests).
 	connect connector
@@ -138,6 +141,7 @@ func (t *Target) Name() string { return t.name }
 type participant struct {
 	Identity   string
 	IsAgent    bool
+	IsSIP      bool
 	Attributes map[string]string
 }
 
@@ -159,6 +163,8 @@ type events struct {
 	onDisconnected      func()
 	// onAudio delivers a participant's decoded audio (48 kHz mono PCM).
 	onAudio func(identity string, pcm []int16)
+	// onDTMF delivers a SIP DTMF digit a participant sent.
+	onDTMF func(identity, digit string)
 }
 
 // connectConfig is what a connector needs.
@@ -200,7 +206,10 @@ func (t *Target) Start(ctx context.Context, run *target.RunContext) (target.Sess
 	if cc.Identity == "" {
 		cc.Identity = "tamesu-sim-" + uuid.NewString()
 	}
-	s := &session{t: t, run: run, identity: cc.Identity, roomName: cc.Room, changed: make(chan struct{}, 1), agentJoined: make(chan struct{}), agentLeft: make(chan struct{}), startedAt: time.Now()}
+	s := &session{t: t, run: run, identity: cc.Identity, roomName: cc.Room, changed: make(chan struct{}, 1), agentJoined: make(chan struct{}), agentLeft: make(chan struct{}), startedAt: time.Now(), metrics: map[string]float64{}}
+	if t.cfg.Call != nil {
+		s.call = &callState{ctl: t.cfg.Call, info: RoomInfo{URL: cc.URL, APIKey: cc.APIKey, APISecret: cc.APISecret, Room: cc.Room, Identity: cc.Identity}}
+	}
 	ev := events{
 		onParticipantJoined: s.participantJoined,
 		onParticipantLeft:   s.participantLeft,
@@ -209,6 +218,7 @@ func (t *Target) Start(ctx context.Context, run *target.RunContext) (target.Sess
 		onAttributes:        s.attributes,
 		onDisconnected:      s.disconnected,
 		onAudio:             s.agentAudio,
+		onDTMF:              s.dtmf,
 	}
 	r, err := t.cfg.connect(ctx, cc, ev)
 	if err != nil {
@@ -216,6 +226,17 @@ func (t *Target) Start(ctx context.Context, run *target.RunContext) (target.Sess
 	}
 	s.room = r
 	s.event("joined", cc.Room)
+	if s.call != nil {
+		if err := s.placeCall(ctx); err != nil {
+			// The call is on record (call_ended=busy|no_answer|error) and the
+			// run goes on to its assertions; the session is dead.
+			s.deadCall()
+			if run.Logger != nil {
+				run.Logger.Warn("call failed", "room", cc.Room, "error", err)
+			}
+			return s, nil
+		}
+	}
 	for _, p := range r.Participants() {
 		s.participantJoined(p)
 	}
@@ -223,7 +244,16 @@ func (t *Target) Start(ctx context.Context, run *target.RunContext) (target.Sess
 	defer cancel()
 	select {
 	case <-s.agentJoined:
+	case <-s.agentLeft:
+		// The call ended before anyone joined (a hangup during setup).
+		s.deadCall()
+		return s, nil
 	case <-jctx.Done():
+		if s.call != nil {
+			s.endCall(EndedByNoAnswer, fmt.Sprintf("no SIP participant within %s", t.cfg.JoinTimeout))
+			s.deadCall()
+			return s, nil
+		}
 		r.Disconnect()
 		return nil, fmt.Errorf("livekit %s: no agent joined room %s within %s (agent_identity_prefix=%q, dispatch=%q); is the agent running and dispatched to this room?", t.name, cc.Room, t.cfg.JoinTimeout, t.cfg.AgentIdentityPrefix, t.cfg.AgentName)
 	}
@@ -280,11 +310,16 @@ type session struct {
 	startedAt   time.Time
 	closed      bool
 	audio       *audioState // audio mode only
+	call        *callState  // with Config.Call only
+	dead        bool        // the call never connected
 }
 
 func (s *session) isAgent(p participant) bool {
 	if p.Identity == s.identity {
 		return false
+	}
+	if s.call != nil {
+		return s.isCallParticipant(p)
 	}
 	if s.t.cfg.AgentIdentityPrefix != "" {
 		return strings.HasPrefix(p.Identity, s.t.cfg.AgentIdentityPrefix)
@@ -312,6 +347,9 @@ func (s *session) participantJoined(p participant) {
 		s.agentState = st
 	}
 	s.eventLocked("agent_joined", p.Identity)
+	if st, ok := p.Attributes[AttrSIPCallStatus]; ok {
+		s.callStatusLocked(st)
+	}
 	s.joinedOnce.Do(func() { close(s.agentJoined) })
 	s.signal()
 }
@@ -323,8 +361,18 @@ func (s *session) participantLeft(identity string) {
 		return
 	}
 	s.eventLocked("agent_left", identity)
+	if s.call != nil {
+		s.callStatusLocked(CallHangup)
+	}
 	s.leftOnce.Do(func() { close(s.agentLeft) })
 	s.signal()
+}
+
+// dtmf is events.onDTMF.
+func (s *session) dtmf(identity, digit string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.dtmfReceivedLocked(identity, digit)
 }
 
 func (s *session) disconnected() {
@@ -373,7 +421,14 @@ func (s *session) text(identity, topic, text string, attrs map[string]string) {
 func (s *session) data(identity, topic string, payload []byte) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if identity != s.agentID || s.cur == nil || topic != ToolCallsTopic {
+	if identity != s.agentID {
+		return
+	}
+	if topic == TransferTopic {
+		s.transferLocked(string(payload))
+		return
+	}
+	if s.cur == nil || topic != ToolCallsTopic {
 		return
 	}
 	s.cur.tools = append(s.cur.tools, parseToolCalls(payload)...)
@@ -386,8 +441,20 @@ func (s *session) attributes(identity string, changed map[string]string) {
 	if identity != s.agentID {
 		return
 	}
+	if s.call != nil {
+		if st, ok := changed[AttrSIPCallStatus]; ok {
+			s.callStatusLocked(st)
+		}
+		for k, v := range changed {
+			lk := strings.ToLower(k)
+			if strings.Contains(lk, "refer") || strings.Contains(lk, "transfer") {
+				s.transferLocked(v)
+			}
+		}
+	}
 	st, ok := changed[AttrAgentState]
 	if !ok {
+		s.signal()
 		return
 	}
 	s.agentState = st
@@ -427,6 +494,11 @@ func (s *session) Send(ctx context.Context, ut target.UserTurn) error {
 		s.mu.Unlock()
 		return errors.New("livekit: session is closed")
 	}
+	if s.dead {
+		s.cur = &turn{sentAt: time.Now(), userStart: -1, userEnd: -1, agentStart: -1, agentEnd: -1}
+		s.mu.Unlock()
+		return nil
+	}
 	cur := &turn{sentAt: time.Now(), userStart: -1, userEnd: -1, agentStart: -1, agentEnd: -1}
 	if s.audio != nil {
 		cur.audioFrom = s.audio.agent.pos()
@@ -458,6 +530,12 @@ func (s *session) Receive(ctx context.Context) (target.AgentTurn, error) {
 	s.mu.Unlock()
 	if cur == nil {
 		return target.AgentTurn{}, errors.New("livekit: Receive without a pending Send")
+	}
+	s.mu.Lock()
+	dead := s.dead
+	s.mu.Unlock()
+	if dead {
+		return s.finish(cur, true), nil
 	}
 	if s.audio != nil {
 		return s.receiveAudio(ctx, cur)
@@ -525,8 +603,8 @@ func (s *session) finish(cur *turn, agentLeft bool) target.AgentTurn {
 	return at
 }
 
-// Close leaves the room.
-func (s *session) Close(context.Context) (target.Artifacts, error) {
+// Close hangs up (with a call), leaves the room and returns what was captured.
+func (s *session) Close(ctx context.Context) (target.Artifacts, error) {
 	s.mu.Lock()
 	already := s.closed
 	s.closed = true
@@ -534,6 +612,9 @@ func (s *session) Close(context.Context) (target.Artifacts, error) {
 	var files map[string]string
 	if s.audio != nil && !already {
 		files = s.closeAudio(s.run.Dir)
+	}
+	if s.call != nil && !already {
+		s.hangup(ctx)
 	}
 	if !already && s.room != nil {
 		s.room.Disconnect()

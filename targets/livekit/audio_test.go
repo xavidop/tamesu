@@ -70,6 +70,7 @@ type fakeAudioRoom struct {
 	published    bool
 	closedPub    bool
 	level        float64
+	dtmfOut      string
 }
 
 func (r *fakeAudioRoom) connect(ctx context.Context, cfg connectConfig, ev events) (room, error) {

@@ -23,8 +23,13 @@ func sdkConnect(ctx context.Context, cfg connectConfig, ev events) (room, error)
 	cb.OnParticipantDisconnected = func(rp *lksdk.RemoteParticipant) { ev.onParticipantLeft(rp.Identity()) }
 	cb.OnDisconnected = func() { ev.onDisconnected() }
 	cb.OnDataPacket = func(data lksdk.DataPacket, params lksdk.DataReceiveParams) {
-		if ud, ok := data.(*lksdk.UserDataPacket); ok {
-			ev.onData(params.SenderIdentity, ud.Topic, ud.Payload)
+		switch d := data.(type) {
+		case *lksdk.UserDataPacket:
+			ev.onData(params.SenderIdentity, d.Topic, d.Payload)
+		case *livekit.SipDTMF:
+			if ev.onDTMF != nil {
+				ev.onDTMF(params.SenderIdentity, d.Digit)
+			}
 		}
 	}
 	cb.OnAttributesChanged = func(changed map[string]string, p lksdk.Participant) {
@@ -114,5 +119,32 @@ func (s *sdkRoom) Participants() []participant {
 func (s *sdkRoom) Disconnect() { s.r.Disconnect() }
 
 func toParticipant(rp *lksdk.RemoteParticipant) participant {
-	return participant{Identity: rp.Identity(), IsAgent: rp.Kind() == lksdk.ParticipantAgent, Attributes: rp.Attributes()}
+	return participant{Identity: rp.Identity(), IsAgent: rp.Kind() == lksdk.ParticipantAgent, IsSIP: rp.Kind() == lksdk.ParticipantSIP, Attributes: rp.Attributes()}
+}
+
+// SendDTMF sends each digit as a SIP DTMF data packet (RFC 4733 on the SIP leg).
+func (s *sdkRoom) SendDTMF(ctx context.Context, digits string) error {
+	if s.r.LocalParticipant == nil {
+		return fmt.Errorf("livekit: not connected")
+	}
+	for _, d := range digits {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		code, ok := dtmfCodes[d]
+		if !ok {
+			continue
+		}
+		if err := s.r.LocalParticipant.PublishDTMF(code, string(d)); err != nil {
+			return err
+		}
+		time.Sleep(160 * time.Millisecond)
+	}
+	return nil
+}
+
+// dtmfCodes are the RFC 4733 event codes.
+var dtmfCodes = map[rune]uint32{
+	'0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9,
+	'*': 10, '#': 11, 'A': 12, 'B': 13, 'C': 14, 'D': 15,
 }
