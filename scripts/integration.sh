@@ -61,6 +61,24 @@ if [ "$code" -ne 1 ]; then
 fi
 grep -q "fake judge: the rubric asks for a failure" "$out/fail/junit.xml" || { echo "junit.xml lacks the judge reason" >&2; exit 1; }
 
+# Browser: the demo web shop and the fake browser agent's scripted actions
+# against the real Chromium (found locally, or downloaded by tamesu).
+echo "==> browser: the shop suite must pass against the demo web app"
+(cd examples/webapp && go build -o ../../bin/webapp .)
+web_port="${WEBAPP_PORT:-18090}"
+./bin/webapp --addr "127.0.0.1:$web_port" >"$out/webapp.log" 2>&1 &
+web=$!
+trap 'stop_agent $web' EXIT
+for _ in $(seq 1 50); do
+	if (echo >"/dev/tcp/127.0.0.1/$web_port") 2>/dev/null; then break; fi
+	sleep 0.2
+done
+WEBAPP_URL="http://127.0.0.1:$web_port" TEST_PASSWORD=correct-horse TAMESU_LLMFAKE_SCRIPT="$PWD/examples/browser-shop/llmfake-script.json" \
+	./bin/tamesu-llmfake run --config examples/browser-shop/tamesu.llmfake.yaml --out "$out/browser"
+test -f "$out"/browser/tests/*/run-1/screenshots/step-01.png || { echo "no step screenshot was written" >&2; exit 1; }
+test -f "$out"/browser/tests/*/run-1/trace.har || { echo "no HAR was written" >&2; exit 1; }
+stop_agent "$web"
+
 # LiveKit text mode: livekit-server --dev (the binary on the PATH, or the
 # Docker image) with the example agent. Skipped, loudly, when neither exists.
 lk_port="${LIVEKIT_PORT:-7880}"

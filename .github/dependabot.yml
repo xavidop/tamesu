@@ -35,6 +35,17 @@ updates:
     schedule: { interval: weekly }
     labels: [dependencies, go, target]
 
+  # Browser target (own go.mod; chromedp pinned to the v0.16 line: v0.17 rewrote
+  # the API around generics and the driver targets the classic one)
+  - package-ecosystem: gomod
+    directory: "/targets/browser"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, target]
+    ignore:
+      - dependency-name: github.com/chromedp/chromedp
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: github.com/chromedp/cdproto
+
   # SIP target (own go.mod; LiveKit Go SDK, on top of targets/livekit)
   - package-ecosystem: gomod
     directory: "/targets/sip"
@@ -58,6 +69,12 @@ updates:
     directory: "/audio"
     schedule: { interval: weekly }
     labels: [dependencies, go, audio]
+
+  # Example web shop for the browser suite (own go.mod; standard library only)
+  - package-ecosystem: gomod
+    directory: "/examples/webapp"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, examples]
 
   # Example LiveKit agent (own go.mod; LiveKit Go SDK and Genkit)
   - package-ecosystem: gomod

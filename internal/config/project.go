@@ -86,6 +86,7 @@ type Defaults struct {
 	Repeat        int      `yaml:"repeat,omitempty" json:"repeat,omitempty" jsonschema:"description=Times each test runs."`
 	Retries       int      `yaml:"retries,omitempty" json:"retries,omitempty"`
 	PassThreshold float64  `yaml:"pass_threshold,omitempty" json:"pass_threshold,omitempty" jsonschema:"description=Fraction of repeats that must pass (0 to 1]."`
+	MaxGoalSteps  int      `yaml:"max_goal_steps,omitempty" json:"max_goal_steps,omitempty" jsonschema:"description=Browser: the most actions the agent may take per goal step; default 15."`
 }
 
 // Budgets cap what a run may spend on tamesu's own model calls.
@@ -130,6 +131,9 @@ func (d Defaults) Merge(o *Defaults) Defaults {
 	}
 	if o.PassThreshold != 0 {
 		d.PassThreshold = o.PassThreshold
+	}
+	if o.MaxGoalSteps != 0 {
+		d.MaxGoalSteps = o.MaxGoalSteps
 	}
 	return d
 }

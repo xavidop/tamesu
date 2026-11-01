@@ -1,0 +1,37 @@
+# The browser example: the browser agent logs in to Mochi Shoes
+# (examples/webapp), searches for a product and adds it to the cart; expect
+# steps check the page agentically and deterministic actions pin the URL and
+# text. Run with `tamesu run --config examples/browser-shop/tamesu.llmfake.yaml`
+# after `go run ./examples/webapp` (or `make integration`).
+suite: browser-shop
+tags: [example, browser]
+
+secrets:
+  TEST_PASSWORD: env:TEST_PASSWORD
+
+vars:
+  user: marta
+
+targets:
+  web:
+    type: browser
+    url: ${WEBAPP_URL:-http://127.0.0.1:18090}/
+    browser: { engine: chromium, viewport: 1280x800, locale: en-US }
+    allowed_domains: ["127.0.0.1", "localhost"]
+
+tests:
+  - name: log in, search and add to cart
+    target: web
+    steps:
+      - action: { navigate: "${WEBAPP_URL:-http://127.0.0.1:18090}/login" }
+      - goal: "Log in as {{vars.user}} with the password {{secrets.TEST_PASSWORD}}"
+      - expect: "The page shows that marta is signed in"
+      - goal: "Search for 'laptop' and add the first result to the cart"
+      - expect: "The cart badge shows 1 item"
+      - action: { navigate: "${WEBAPP_URL:-http://127.0.0.1:18090}/cart" }
+      - action: { assert_text: "1 item(s) in your cart" }
+      - action: { assert_url: { contains: "/cart" } }
+    assert:
+      - judge: "The steps show the user logging in, finding a product and reaching a cart with one item"
+      - contains: "1 item(s) in your cart"
+      - metric: { name: goal_steps, lte: 12 }

@@ -39,7 +39,7 @@ var globalFlags = map[string]bool{"--config": true, "--verbose": true, "--var": 
 // shippedTargets lists the target types that have a runner. A README targets
 // row for any other type must say "planned". The targets modules extend this
 // list as they land.
-var shippedTargets = []string{"rest", "livekit", "sip"}
+var shippedTargets = []string{"rest", "livekit", "sip", "browser"}
 
 // mdSection returns the body of the "## <name>" section of text.
 func mdSection(t *testing.T, file, text, name string) string {

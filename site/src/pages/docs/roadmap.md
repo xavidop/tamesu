@@ -13,15 +13,11 @@ target; `tamesu run` with console, JSON and JUnit reporters; the Go API; the `li
 text and audio mode with its example agent, the `synthesize` and `transcribe` flows, the
 `deepgram` and `elevenlabs` Genkit plugins and the audio pipeline (VAD, noise, line simulation,
 Opus, stereo WAV); the `sip` target with `tamesu sip setup`, outbound and inbound calls, DTMF,
-`wait_for`/`say` scripts, call events and metrics, and the Asterisk-based example. This page is
-what comes next, in order.
+`wait_for`/`say` scripts, call events and metrics, and the Asterisk-based example; the `browser`
+target on chromedp with the browser agent, `expect` checks, deterministic actions, screenshots
+and HAR, and the demo shop example. This page is what comes next, in order.
 
 ## Planned
-
-### The browser target
-
-- chromedp, observation (accessibility tree and screenshot), the `browserStep` flow with the
-  browser actions as Genkit tools, deterministic actions, `expect` checks and artifacts.
 
 ### Action cache, replay, recorder, generator and the HTML report (v1.0)
 

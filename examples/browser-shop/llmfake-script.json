@@ -1,0 +1,13 @@
+{
+  "browser": [
+    {"tool": "type", "input": {"find": "textbox \"Username\"", "text": "marta"}},
+    {"tool": "type", "input": {"find": "textbox \"Password\"", "text": "{{secrets.TEST_PASSWORD}}"}},
+    {"tool": "click", "input": {"find": "button \"Log in\""}},
+    {"tool": "done", "input": {"success": true, "reason": "fake agent: the page shows Signed in as marta"}},
+    {"tool": "type", "input": {"find": "textbox \"Search products\"", "text": "laptop"}},
+    {"tool": "click", "input": {"find": "button \"Search\""}},
+    {"tool": "click", "input": {"find": "button \"Add Laptop sleeve sneakers to cart\""}},
+    {"tool": "done", "input": {"success": true, "reason": "fake agent: the cart page lists one item"}}
+  ],
+  "judge": {"pass": true, "score": 1, "reason": "fake judge: the steps match the rubric", "evidence": ["(fake)"]}
+}

@@ -68,7 +68,7 @@ secrets:                                    # resolved with mamori, see below
 | `models.*` | `default: googleai/gemini-2.5-flash` | The model for each job: `default`, `judge`, `browser_agent`, `simulator`, `scenario_generator`. `models.credentials` maps a plugin to `{{secrets.X}}` when the secret is not named conventionally. |
 | `speech.stt`, `speech.tts`, `speech.vad` | `vad: energy` | Speech models (Genkit references, with `language` and `voice` defaults) and the voice activity detector, for audio mode and sip. See [AI](/docs/ai/) for the speech models. |
 | `sip.*` | `max_concurrent_calls: 2`, `inbound_room: tamesu-sip-inbound` | The LiveKit SIP service, trunk ids and number, concurrency, the numbers tamesu may dial and the `trunk` block `tamesu sip setup` creates trunks from. See [SIP](/docs/targets/sip/) and [SIP setup](/docs/sip-setup/). |
-| `defaults.*` | `timeout: 3m`, `repeat: 1`, `retries: 0`, `pass_threshold: 1.0` | Per-test defaults; a suite's `defaults:` and a test's own keys override them. |
+| `defaults.*` | `timeout: 3m`, `repeat: 1`, `retries: 0`, `pass_threshold: 1.0`, `max_goal_steps: 15` | Per-test defaults; a suite's `defaults:` and a test's own keys override them. `max_goal_steps` caps the browser agent's actions per goal step. |
 | `budgets.*` | `max_cost_usd: 5`, `max_tokens: 2_000_000` | Caps on tamesu's own model spend per run (exit code 4 when exceeded). |
 | `livekit.max_concurrent_rooms` | `4` | How many LiveKit tests run at once. |
 | `reporters` | `[console, junit, html]` | Reporters to run: `console`, `junit`, `json`, `html`. |

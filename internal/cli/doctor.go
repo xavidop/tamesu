@@ -56,7 +56,7 @@ var externalChecks = []string{"models", "speech", "chromium", "livekit", "sip"}
 func (a *app) newDoctorCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "doctor [paths...]",
-		Short: "Check the config, suites, secrets, models, Chromium and LiveKit",
+		Short: "Check the config, suites, secrets, models, speech, Chromium, LiveKit and SIP",
 		Long: "Doctor validates tamesu.yaml and the suites, resolves every declared secret\n" +
 			"through mamori and reports which link of each chain answered (never the value),\n" +
 			"then runs the checks the linked modules provide. Exit 2 when a check fails on\n" +

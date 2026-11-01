@@ -41,6 +41,17 @@ type Script struct {
 	Text []string `json:"text"`
 	// STT transcripts are replayed in a cycle, one per fake/stt call.
 	STT []string `json:"stt"`
+	// Browser is the tool calls fake/browser makes for a goal, in order, then
+	// it answers with text. An input "find" picks the ref of the first element
+	// line of the latest page that contains the text, so scripts need no
+	// ref numbers. The script restarts for every goal.
+	Browser []BrowserAction `json:"browser"`
+}
+
+// BrowserAction is one scripted tool call of fake/browser.
+type BrowserAction struct {
+	Tool  string         `json:"tool"`
+	Input map[string]any `json:"input"`
 }
 
 // SpeechConfig is the config fake/tts and fake/stt accept.
@@ -55,18 +66,20 @@ var DefaultScript = Script{
 		{"say": "Hi, I bought a pair of shoes 40 days ago. Can I still return them?", "stop": false, "reason": "opening"},
 		{"say": "Alright, thanks for the clear answer. Bye.", "stop": true, "reason": "the agent answered the question"},
 	},
-	Judge: map[string]any{"pass": true, "score": 1, "reason": "fake judge: the rubric is satisfied", "evidence": []string{"(fake)"}},
-	Text:  []string{"Our return window is 30 days from delivery, so a return after 40 days is not possible. I am sorry about that."},
-	STT:   []string{"Our return window is 30 days from delivery, so a return after 40 days is not possible."},
+	Judge:   map[string]any{"pass": true, "score": 1, "reason": "fake judge: the rubric is satisfied", "evidence": []string{"(fake)"}},
+	Text:    []string{"Our return window is 30 days from delivery, so a return after 40 days is not possible. I am sorry about that."},
+	STT:     []string{"Our return window is 30 days from delivery, so a return after 40 days is not possible."},
+	Browser: []BrowserAction{{Tool: "done", Input: map[string]any{"success": true, "reason": "fake browser agent: goal assumed met"}}},
 }
 
 // Plugin is the fake provider.
 type Plugin struct {
-	script Script
-	mu     sync.Mutex
-	simIdx int
-	txtIdx int
-	sttIdx int
+	script     Script
+	mu         sync.Mutex
+	simIdx     int
+	txtIdx     int
+	sttIdx     int
+	browserIdx int
 }
 
 // New returns the plugin with the script from ScriptEnv or the default.
@@ -88,6 +101,9 @@ func New() *Plugin {
 				if len(s.STT) > 0 {
 					p.script.STT = s.STT
 				}
+				if len(s.Browser) > 0 {
+					p.script.Browser = s.Browser
+				}
 			}
 		}
 	}
@@ -96,6 +112,29 @@ func New() *Plugin {
 
 // WithScript returns a plugin replaying s (tests).
 func WithScript(s Script) *Plugin { return &Plugin{script: s} }
+
+// SetScript replaces the script and restarts every cycle (tests).
+func (p *Plugin) SetScript(s Script) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.script = s
+	p.simIdx, p.txtIdx, p.sttIdx, p.browserIdx = 0, 0, 0, 0
+	if len(p.script.Simulator) == 0 {
+		p.script.Simulator = DefaultScript.Simulator
+	}
+	if p.script.Judge == nil {
+		p.script.Judge = DefaultScript.Judge
+	}
+	if len(p.script.Text) == 0 {
+		p.script.Text = DefaultScript.Text
+	}
+	if len(p.script.STT) == 0 {
+		p.script.STT = DefaultScript.STT
+	}
+	if len(p.script.Browser) == 0 {
+		p.script.Browser = DefaultScript.Browser
+	}
+}
 
 // Name implements api.Plugin.
 func (p *Plugin) Name() string { return Name }
@@ -109,7 +148,113 @@ func (p *Plugin) Init(context.Context) []api.Action {
 		ai.NewModelAction[any](Name+"/text", &ai.ModelOptions{Label: "fake text", Supports: supports}, p.text),
 		ai.NewModelAction(Name+"/tts", &ai.ModelOptions{Label: "fake tts", Supports: &ai.ModelSupports{Output: []string{"media"}}}, p.tts),
 		ai.NewModelAction(Name+"/stt", &ai.ModelOptions{Label: "fake stt", Supports: &ai.ModelSupports{Media: true, Output: []string{"text"}}}, p.stt),
+		ai.NewModelAction[any](Name+"/browser", &ai.ModelOptions{Label: "fake browser agent", Supports: &ai.ModelSupports{Multiturn: true, SystemRole: true, Tools: true, Media: true, Output: []string{"text"}}}, p.browser),
+		ai.NewModelAction[any](Name+"/expect", &ai.ModelOptions{Label: "fake expect", Supports: &ai.ModelSupports{Multiturn: true, SystemRole: true, Output: []string{"json", "text"}}}, p.expect),
 	}
+}
+
+// browser replays the scripted tool calls: one per model call, in order,
+// across every goal of the run (the script is the whole test's plan). After
+// a done call, or when the script is spent, it answers with text, which ends
+// the agent loop. An expect prompt (the same model serves checkExpect) gets a
+// verdict instead.
+func (p *Plugin) browser(ctx context.Context, req *ai.ModelRequest, cfg any, cb ai.ModelStreamCallback) (*ai.ModelResponse, error) {
+	if strings.Contains(promptText(req), "Expectation:") {
+		return p.expect(ctx, req, cfg, cb)
+	}
+	if lastToolResponse(req) == "done" {
+		return &ai.ModelResponse{Request: req, FinishReason: ai.FinishReasonStop, Message: ai.NewModelTextMessage("fake browser agent: finished"), Usage: usage(req, "finished")}, nil
+	}
+	p.mu.Lock()
+	i := p.browserIdx
+	if i < len(p.script.Browser) {
+		p.browserIdx++
+	}
+	script := p.script.Browser
+	p.mu.Unlock()
+	if i >= len(script) {
+		return &ai.ModelResponse{Request: req, FinishReason: ai.FinishReasonStop, Message: ai.NewModelTextMessage("fake browser agent: the script is over"), Usage: usage(req, "over")}, nil
+	}
+	a := script[i]
+	input := map[string]any{}
+	for k, v := range a.Input {
+		input[k] = v
+	}
+	if find, ok := input["find"].(string); ok {
+		delete(input, "find")
+		ref, found := findRef(latestPage(req), find)
+		if !found {
+			return &ai.ModelResponse{Request: req, FinishReason: ai.FinishReasonStop, Message: ai.NewModelTextMessage(fmt.Sprintf("fake browser agent: no element matching %q on this page", find)), Usage: usage(req, find)}, nil
+		}
+		input["ref"] = ref
+	}
+	return &ai.ModelResponse{
+		Request:      req,
+		FinishReason: ai.FinishReasonStop,
+		Message:      ai.NewModelMessage(ai.NewToolRequestPart(&ai.ToolRequest{Name: a.Tool, Input: input, Ref: fmt.Sprintf("fake-%d", i)})),
+		Usage:        usage(req, a.Tool),
+	}, nil
+}
+
+// lastToolResponse names the tool whose response is the latest message.
+func lastToolResponse(req *ai.ModelRequest) string {
+	for i := len(req.Messages) - 1; i >= 0; i-- {
+		for _, part := range req.Messages[i].Content {
+			if part.IsToolResponse() && part.ToolResponse != nil {
+				return part.ToolResponse.Name
+			}
+		}
+		if len(req.Messages[i].Content) > 0 {
+			return ""
+		}
+	}
+	return ""
+}
+
+// latestPage is the most recent page text the model was shown.
+func latestPage(req *ai.ModelRequest) string {
+	for i := len(req.Messages) - 1; i >= 0; i-- {
+		for _, part := range req.Messages[i].Content {
+			switch {
+			case part.IsToolResponse() && part.ToolResponse != nil:
+				if s, ok := part.ToolResponse.Output.(string); ok && strings.Contains(s, "[") {
+					return s
+				}
+			case part.IsText() && strings.Contains(part.Text, "Elements:"):
+				return part.Text
+			}
+		}
+	}
+	return ""
+}
+
+// findRef returns the ref of the first `[ref] ...` line containing text.
+func findRef(page, text string) (int, bool) {
+	for _, line := range strings.Split(page, "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "[") || !strings.Contains(line, text) {
+			continue
+		}
+		end := strings.Index(line, "]")
+		if end < 0 {
+			continue
+		}
+		var ref int
+		if _, err := fmt.Sscanf(line[1:end], "%d", &ref); err == nil {
+			return ref, true
+		}
+	}
+	return 0, false
+}
+
+// expect passes unless the expectation mentions FAIL.
+func (p *Plugin) expect(_ context.Context, req *ai.ModelRequest, _ any, _ ai.ModelStreamCallback) (*ai.ModelResponse, error) {
+	text := promptText(req)
+	out := map[string]any{"pass": true, "reason": "fake expect: the page satisfies the expectation"}
+	if strings.Contains(text, "FAIL") {
+		out = map[string]any{"pass": false, "reason": "fake expect: the expectation asks for a failure"}
+	}
+	return respond(req, out)
 }
 
 // tts speaks the text as a tone: 220 Hz for a female voice, 110 Hz for a

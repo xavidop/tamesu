@@ -62,6 +62,10 @@ This is a multi-module repository tied together by a `go.work` file:
 - `targets/sip`: the phone target, its own module: it wraps a livekit audio session with call
   control through the LiveKit SIP API (outbound `CreateSIPParticipant`, inbound triggers, hangup),
   the allowed-numbers guard and `tamesu sip setup`; the API sits behind an interface with a fake.
+- `targets/browser`: the browser target, its own module on chromedp (pinned to the v0.16 line,
+  the last with the classic action API): Chromium discovery and download, the accessibility-tree
+  observation with stable refs, the page actions the browser agent's tools call, the
+  deterministic step actions, screenshots, the HAR and the console log.
 - `audio`: the audio pipeline, its own module: PCM buffers and resampling, WAV, the energy VAD
   (and Silero behind `-tags onnx` on onnxruntime), noise presets, G.711 and line simulation in
   pure Go; `audio/opus` is a cgo binding to libopus that compiles to a stub under `-tags lite`.
@@ -70,14 +74,16 @@ This is a multi-module repository tied together by a `go.work` file:
 - `examples/livekit-agent`: a LiveKit agent (LiveKit Go SDK plus a Genkit reply flow) that also
   speaks and listens with `--audio`, and its text and audio suites; `make integration` runs them
   against `livekit-server --dev` when available.
+- `examples/webapp`: Mochi Shoes, a tiny Go web shop (login, search, cart) the browser example
+  tests; `examples/browser-shop` is that suite, run headless by `make integration` with the fake
+  browser agent's scripted actions.
 - `examples/sip-ivr`: the phone example: `examples/compose.yaml` runs livekit-server, Redis, the
   LiveKit SIP service and Asterisk as carrier and IVR, and the suite calls the IVR, navigates its
   menu with `wait_for`/`dtmf` and checks `dtmf_received` and `call_ended_by` (Docker; CI only).
 - `skills/tamesu`: the agent skill.
 - `site/`: the Astro documentation site.
 
-The module for the browser target (`targets/browser`) and its example are added with its phase; each gets its own `go.mod`, a `go.work`
-entry and a dependabot entry.
+Every module has its own `go.mod`, a `go.work` entry and a dependabot entry.
 
 ## Adding a target
 

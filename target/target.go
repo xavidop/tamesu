@@ -23,16 +23,11 @@ type Session interface {
 }
 
 // BrowserSession is one browser session: the browser target exposes a Page
-// instead of Send/Receive.
+// instead of Send/Receive (its Session methods report that there are no
+// turns). See browser.go for Page.
 type BrowserSession interface {
 	Page() Page
 	Close(ctx context.Context) (Artifacts, error)
-}
-
-// Page is the browser page a session drives. The browser target grows it
-// with observation and action methods; this is the contract the core needs.
-type Page interface {
-	URL(ctx context.Context) (string, error)
 }
 
 // RunContext is what the runner hands a target for one run.

@@ -33,6 +33,8 @@ type TargetSpec struct {
 	Project config.Project
 	// Mode is the effective voice mode (text or audio) for livekit and sip.
 	Mode string
+	// Headed shows the browser window (browser targets).
+	Headed bool
 }
 
 // TargetFactory builds the target for a spec. It returns an error when the
@@ -65,7 +67,9 @@ type Options struct {
 	Mode string
 	// MaxCostUSD overrides the project budget when > 0.
 	MaxCostUSD float64
-	Targets    TargetFactory
+	// Headed shows the browser window for browser tests (--headed).
+	Headed  bool
+	Targets TargetFactory
 	// Provider is the AI layer; nil fails conversational tests with an
 	// infrastructure error.
 	Provider model.Provider
@@ -96,7 +100,9 @@ type item struct {
 	timeout   time.Duration
 	mode      string
 	seed      int64
-	dir       string
+	// maxGoalSteps caps the browser agent's actions per goal (0: default).
+	maxGoalSteps int
+	dir          string
 }
 
 type run struct {
@@ -247,6 +253,7 @@ func (r *run) collect() ([]*item, error) {
 				it.threshold = 1
 			}
 			it.retries = defaults.Retries
+			it.maxGoalSteps = defaults.MaxGoalSteps
 			if t.Retries != nil {
 				it.retries = *t.Retries
 			}

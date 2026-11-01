@@ -6,9 +6,11 @@ use (
 	./cmd/tamesu
 	./examples/livekit-agent
 	./examples/rest-agent
+	./examples/webapp
 	./llm
 	./llm/plugins/deepgram
 	./llm/plugins/elevenlabs
+	./targets/browser
 	./targets/livekit
 	./targets/rest
 	./targets/sip

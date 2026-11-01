@@ -110,7 +110,7 @@ The commands:
 tamesu init [dir]                scaffold tamesu.yaml and examples/ (--force overwrites)
 tamesu validate [paths...]       schema-validate suites without running them (--strict)
 tamesu list [paths...]           list tests (--json, --filter, --tags, --target)
-tamesu run [paths...]            run suites (--filter, --tags, --target, --parallel, --repeat, --mode, --out, --reporter, --max-cost-usd)
+tamesu run [paths...]            run suites (--filter, --tags, --target, --parallel, --repeat, --mode, --headed, --out, --reporter, --max-cost-usd)
 tamesu doctor [paths...]         check config, suites and secrets (via mamori), models, speech, Chromium, LiveKit and SIP
 tamesu sip setup                 create or reuse the LiveKit SIP trunks and dispatch rule (--outbound, --inbound)
 tamesu version                   print the version, commit and build date
@@ -153,14 +153,14 @@ scenario generator); see the
 
 | Target | Transport | Modes | Metrics | Tested against |
 |---|---|---|---|---|
-| `browser` | Chromium over CDP (chromedp) | agentic `goal` and `expect` steps, deterministic actions | `goal_steps`, `llm_cost_usd` | a bundled demo web app (runner planned) |
+| `browser` | Chromium over CDP (chromedp) | agentic `goal` and `expect` steps, deterministic actions (`navigate click fill press wait screenshot eval_js assert_url assert_text`), a screenshot per step, HAR and console log | `goal_steps`, `llm_cost_usd` | [`examples/browser-shop`](examples/browser-shop/) against the bundled demo shop [`examples/webapp`](examples/webapp/), in CI with the fake browser agent |
 | `rest` | HTTP, SSE | text | `turn_latency_ms`, `time_to_first_token_ms`, `turns` | [`examples/rest-agent`](examples/rest-agent/), a Genkit agent, in CI with the fake provider |
 | `livekit` | WebRTC room (LiveKit) | text and audio (TTS in, VAD and STT out, interruptions, noise, stereo WAV) | `turn_latency_ms`, `agent_join_ms`; audio adds `time_to_first_audio_ms`, `interruption_stop_ms`, `talk_over_ratio`, `silence_gap_max_ms` | [`examples/livekit-agent`](examples/livekit-agent/) on `livekit-server --dev`, in CI with the fake provider and fake speech models |
 | `sip` | phone call through a LiveKit SIP service and your trunk (outbound or inbound, DTMF, `wait_for`/`say` scripts, line simulation) | audio | the audio metrics plus `call_setup_ms`, `ring_ms`, `greeting_ms`, `call_duration_ms`; `dtmf_received`, `call_ended_by`, `transferred_to` | [`examples/sip-ivr`](examples/sip-ivr/) through Asterisk as the carrier and IVR (`examples/compose.yaml`) |
 
 All four target types are part of the suite schema, so suites can be written, validated and
-listed; `rest`, `livekit` (text and audio) and `sip` run today, and browser lands next (see the
-[roadmap](https://xavidop.github.io/tamesu/docs/roadmap/)).
+listed and all four run today; the action cache, the recorder, the generator and the HTML report
+come next (see the [roadmap](https://xavidop.github.io/tamesu/docs/roadmap/)).
 
 ## CI
 

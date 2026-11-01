@@ -37,6 +37,7 @@ func client(t *testing.T) *Client {
 
 func TestSimulate(t *testing.T) {
 	c := client(t)
+	before := c.Usage()
 	in := model.SimInput{Persona: config.Persona{Name: "Marta", Style: "polite"}, Scenario: config.Scenario{Goal: "ask about returns", MaxTurns: 8}, Turn: 1, MaxTurns: 8}
 	out, err := c.Simulate(context.Background(), in)
 	require.NoError(t, err)
@@ -50,9 +51,9 @@ func TestSimulate(t *testing.T) {
 	assert.True(t, out.Stop)
 	assert.Equal(t, "the agent answered the question", out.Reason)
 	u := c.Usage()
-	assert.Equal(t, 2, u.Calls)
-	assert.Greater(t, u.InputTokens, 0)
-	assert.Greater(t, u.CostUSD, 0.0, "fake/ is priced so budgets can be tested")
+	assert.Equal(t, before.Calls+2, u.Calls)
+	assert.Greater(t, u.InputTokens, before.InputTokens)
+	assert.Greater(t, u.CostUSD, before.CostUSD, "fake/ is priced so budgets can be tested")
 }
 
 func TestJudge(t *testing.T) {

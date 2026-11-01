@@ -87,7 +87,7 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 	if r.o.Targets == nil {
 		return fail(report.KindInfra, errors.New("no target factory is available in this build"))
 	}
-	tgt, err := r.o.Targets(tctx, TargetSpec{Name: it.test.Target, Config: it.target, Suite: it.suite, Project: r.o.Project, Mode: it.mode})
+	tgt, err := r.o.Targets(tctx, TargetSpec{Name: it.test.Target, Config: it.target, Suite: it.suite, Project: r.o.Project, Mode: it.mode, Headed: r.o.Headed})
 	if err != nil {
 		return fail(r.classify(tctx, err), fmt.Errorf("target %s: %w", it.test.Target, err))
 	}
@@ -107,9 +107,12 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 	loop := &persona.Loop{Sim: r.simulator(), Seed: it.seed, Mode: it.mode, Logger: logger, Now: r.now, ScriptTimeout: it.timeout / 2}
 	var lo *persona.Outcome
 	var loopErr error
+	var stepFails []assert.Result
 	safe := modelScope(scope)
 	renderForModel := func(s string) (string, error) { return config.Render(s, safe) }
-	if p, err := renderPersona(it.test.Persona, renderForModel); err != nil {
+	if bs, ok := sess.(target.BrowserSession); ok {
+		lo, stepFails, loopErr = r.runBrowser(tctx, it, bs, dir, out, renderForModel)
+	} else if p, err := renderPersona(it.test.Persona, renderForModel); err != nil {
 		lo, loopErr = &persona.Outcome{}, err
 	} else if sc, err := renderScenario(it.test.Scenario, renderForModel); err != nil {
 		lo, loopErr = &persona.Outcome{}, err
@@ -126,10 +129,15 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 	}
 
 	out.Transcript = lo.Transcript
-	out.TraceIDs = lo.TraceIDs
+	out.TraceIDs = append(out.TraceIDs, lo.TraceIDs...)
 	out.StopReason = lo.StopReason
 	out.Events = arts.Events
-	out.Artifacts = arts.Files
+	for k, v := range arts.Files {
+		if out.Artifacts == nil {
+			out.Artifacts = map[string]string{}
+		}
+		out.Artifacts[k] = v
+	}
 	var responses []any
 	var statuses []int
 	for _, a := range lo.AgentTurns {
@@ -174,6 +182,10 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 	out.Passed = true
 	if lo.ScriptError != nil {
 		out.Assertions = append(out.Assertions, assert.Result{Name: "script", Pass: false, Reason: lo.ScriptError.Error()})
+		out.Passed = false
+	}
+	if len(stepFails) > 0 {
+		out.Assertions = append(out.Assertions, stepFails...)
 		out.Passed = false
 	}
 	for i, ca := range it.test.Assert {

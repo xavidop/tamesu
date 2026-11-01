@@ -15,6 +15,7 @@ require (
 	github.com/xavidop/tamesu v0.0.0
 	github.com/xavidop/tamesu/audio v0.0.0
 	github.com/xavidop/tamesu/llm v0.0.0
+	github.com/xavidop/tamesu/targets/browser v0.0.0
 	github.com/xavidop/tamesu/targets/livekit v0.0.0
 	github.com/xavidop/tamesu/targets/rest v0.0.0
 	github.com/xavidop/tamesu/targets/sip v0.0.0
@@ -85,6 +86,9 @@ require (
 	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/chromedp/cdproto v0.0.0-20260714215040-dc233986426f // indirect
+	github.com/chromedp/chromedp v0.16.0 // indirect
+	github.com/chromedp/sysutil v1.1.0 // indirect
 	github.com/cloudflare/circl v1.6.4 // indirect
 	github.com/cncf/xds/go v0.0.0-20260202195803-dba9d589def2 // indirect
 	github.com/coder/websocket v1.8.14 // indirect
@@ -105,6 +109,7 @@ require (
 	github.com/getsops/gopgagent v0.0.0-20241224165529-7044f28e491e // indirect
 	github.com/getsops/sops/v3 v3.13.3 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
+	github.com/go-json-experiment/json v0.0.0-20260623181947-01eb4420fa68 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v1.0.1 // indirect
@@ -125,6 +130,9 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.30.5 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
+	github.com/gobwas/httphead v0.1.0 // indirect
+	github.com/gobwas/pool v0.2.1 // indirect
+	github.com/gobwas/ws v1.4.0 // indirect
 	github.com/goccy/go-yaml v1.19.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/google/cel-go v0.29.0 // indirect
@@ -297,5 +305,7 @@ replace github.com/xavidop/tamesu/targets/rest => ../../targets/rest
 replace github.com/xavidop/tamesu/targets/livekit => ../../targets/livekit
 
 replace github.com/xavidop/tamesu/targets/sip => ../../targets/sip
+
+replace github.com/xavidop/tamesu/targets/browser => ../../targets/browser
 
 replace github.com/xavidop/mamori/providers/httpcore => github.com/xavidop/mamori/providers/httpcore v0.0.0-20261025123623-b7a7aaf2c85a

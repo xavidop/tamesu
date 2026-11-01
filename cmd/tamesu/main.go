@@ -54,7 +54,7 @@ func main() {
 			Now:         time.Now,
 			NewProvider: newProvider,
 			Targets:     targetFactories,
-			Checks:      []cli.DoctorCheck{checkModels, checkSpeech, checkLiveKit, checkSIP},
+			Checks:      []cli.DoctorCheck{checkModels, checkSpeech, checkChromium, checkLiveKit, checkSIP},
 			SIPSetup:    sipSetup,
 		},
 	)

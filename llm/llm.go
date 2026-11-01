@@ -1,6 +1,7 @@
 // Package llm is the only place tamesu calls a model. Every call goes through
 // Genkit: the simulated user (simulateUserTurn), the judges (judgeRun),
-// Genkit evaluators and speech (synthesize, transcribe). Prompts are dotprompt files embedded
+// Genkit evaluators, speech (synthesize, transcribe) and the browser agent
+// (browserStep, checkExpect). Prompts are dotprompt files embedded
 // from llm/prompts and overridable from .tamesu/prompts; every model is a
 // Genkit reference such as googleai/gemini-2.5-flash, so switching provider
 // is a config change. Usage and cost are counted on every response.
@@ -84,10 +85,13 @@ type Client struct {
 	mu    sync.Mutex
 	usage model.Usage
 
-	simFlow   flowFunc[model.SimInput, model.SimOutput]
-	judgeFlow flowFunc[assert.JudgeRequest, assert.JudgeVerdict]
-	ttsFlow   flowFunc[synthInput, synthOutput]
-	sttFlow   flowFunc[sttInput, sttOutput]
+	simFlow    flowFunc[model.SimInput, model.SimOutput]
+	judgeFlow  flowFunc[assert.JudgeRequest, assert.JudgeVerdict]
+	ttsFlow    flowFunc[synthInput, synthOutput]
+	sttFlow    flowFunc[sttInput, sttOutput]
+	goalFlow   flowFunc[goalInput, goalOutput]
+	expectFlow flowFunc[expectInput, expectOutput]
+	tools      []ai.ToolRef
 }
 
 type flowFunc[In, Out any] interface {

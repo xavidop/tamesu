@@ -1,0 +1,13 @@
+# Project configuration for CI: the fake browser agent replays the tool calls
+# in llmfake-script.json (TAMESU_LLMFAKE_SCRIPT) against the real Chromium and
+# the demo shop, so the browser pipeline runs without keys.
+version: 1
+suites: ["suite.yaml"]
+genkit:
+  plugins: [fake]
+models:
+  default: fake/text
+  judge: fake/judge
+  browser_agent: fake/browser
+defaults: { timeout: 2m, repeat: 1, max_goal_steps: 8 }
+reporters: [console, junit]

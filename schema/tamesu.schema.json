@@ -168,6 +168,10 @@
         "pass_threshold": {
           "type": "number",
           "description": "Fraction of repeats that must pass (0 to 1]."
+        },
+        "max_goal_steps": {
+          "type": "integer",
+          "description": "Browser: the most actions the agent may take per goal step; default 15."
         }
       },
       "additionalProperties": false,

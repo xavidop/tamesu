@@ -28,6 +28,7 @@ func (c *Client) defineFlows() {
 	c.judgeFlow = genkit.DefineFlow(c.g, FlowJudgeRun, c.judge)
 	c.ttsFlow = genkit.DefineFlow(c.g, FlowSynthesize, c.synthesize)
 	c.sttFlow = genkit.DefineFlow(c.g, FlowTranscribe, c.transcribe)
+	c.defineBrowser()
 	c.defineJudgeEvaluator()
 }
 

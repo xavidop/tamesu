@@ -88,14 +88,32 @@ type RunOutcome struct {
 	Transcript []assert.Turn      `json:"transcript"`
 	ToolCalls  []target.ToolCall  `json:"tool_calls,omitempty"`
 	Events     []target.Event     `json:"events,omitempty"`
-	Artifacts  map[string]string  `json:"artifacts,omitempty"`
-	TraceIDs   []string           `json:"trace_ids,omitempty"`
-	StopReason string             `json:"stop_reason,omitempty"`
+	// Steps are a browser test's steps, in order, with their outcome.
+	Steps      []StepRecord      `json:"steps,omitempty"`
+	Artifacts  map[string]string `json:"artifacts,omitempty"`
+	TraceIDs   []string          `json:"trace_ids,omitempty"`
+	StopReason string            `json:"stop_reason,omitempty"`
 	// Usage is tamesu's own model spend during this run. It is measured as
 	// the change of the provider's meter, so it is exact when runs do not
 	// overlap and approximate under --parallel.
 	Usage model.Usage `json:"usage"`
 	Dir   string      `json:"dir"`
+}
+
+// StepRecord is one browser step as it ran.
+type StepRecord struct {
+	Index int `json:"index"`
+	// Kind is goal, expect or action.
+	Kind    string `json:"kind"`
+	Text    string `json:"text"`
+	Success bool   `json:"success"`
+	Reason  string `json:"reason,omitempty"`
+	// Steps is the number of agent actions a goal took; Actions lists them.
+	Steps      int             `json:"steps,omitempty"`
+	Actions    []target.Action `json:"actions,omitempty"`
+	Screenshot string          `json:"screenshot,omitempty"`
+	StartedAt  time.Time       `json:"started_at"`
+	EndedAt    time.Time       `json:"ended_at"`
 }
 
 // FailedAssertions lists the assertions that did not pass.

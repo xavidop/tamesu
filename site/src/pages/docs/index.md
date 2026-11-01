@@ -52,8 +52,8 @@ The [Quick start](/docs/quickstart/) walks through a first project.
 | `sip` | A phone agent reached through a LiveKit SIP service and your trunk | SIP / PSTN |
 
 All four share the suite schema, the assertion model, the persona and scenario definitions, the
-metrics and the report format. `rest`, `livekit` (text and audio) and `sip` run today; the
-browser target lands next (see the [roadmap](/docs/roadmap/)).
+metrics and the report format. All four run today; the action cache, the recorder, the generator
+and the HTML report come next (see the [roadmap](/docs/roadmap/)).
 
 ## All AI through Genkit, all secrets through mamori
 

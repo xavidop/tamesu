@@ -83,6 +83,7 @@ func (a *app) newRunCmd() *cobra.Command {
 		parallel   int
 		repeat     int
 		mode       string
+		headed     bool
 		out        string
 		reporters  []string
 		maxCostUSD float64
@@ -218,7 +219,7 @@ func (a *app) newRunCmd() *cobra.Command {
 
 			summary, err := runner.Run(ctx, runner.Options{
 				Project: p, Suites: suites, Select: selection, OutDir: out, Parallel: parallel, Repeat: repeat, Mode: mode,
-				MaxCostUSD: budget, Targets: a.targetFactory(), Provider: provider, Secrets: store, Vars: flagVars, Env: a.env(),
+				MaxCostUSD: budget, Headed: headed, Targets: a.targetFactory(), Provider: provider, Secrets: store, Vars: flagVars, Env: a.env(),
 				Limits:   map[string]int{config.TargetLiveKit: p.LiveKit.MaxConcurrentRooms, config.TargetSIP: p.SIP.MaxConcurrentCalls},
 				Reporter: reps, Logger: logger, Now: a.deps.Now, Version: a.info.Version,
 			})
@@ -238,6 +239,7 @@ func (a *app) newRunCmd() *cobra.Command {
 	cmd.Flags().IntVar(&parallel, "parallel", 0, "concurrent runs (default: the number of CPUs)")
 	cmd.Flags().IntVar(&repeat, "repeat", 0, "override every test's repeat count")
 	cmd.Flags().StringVar(&mode, "mode", "", "voice tests: text or audio (default from the suite)")
+	cmd.Flags().BoolVar(&headed, "headed", false, "browser tests: show the browser window instead of running headless")
 	cmd.Flags().StringVar(&out, "out", "", "run output directory (default .tamesu/runs/<timestamp>)")
 	cmd.Flags().StringSliceVar(&reporters, "reporter", nil, "reporters: console, json, junit (default from tamesu.yaml)")
 	cmd.Flags().Float64Var(&maxCostUSD, "max-cost-usd", 0, "stop the run once tamesu's own model spend exceeds this (default budgets.max_cost_usd)")

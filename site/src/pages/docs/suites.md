@@ -294,6 +294,7 @@ One of: string, list of string.
 | `repeat` | integer |  | Times each test runs. |
 | `retries` | integer |  |  |
 | `pass_threshold` | number |  | Fraction of repeats that must pass (0 to 1]. |
+| `max_goal_steps` | integer |  | Browser: the most actions the agent may take per goal step; default 15. |
 
 ## Models
 
