@@ -11,4 +11,5 @@ use (
 	./llm/plugins/elevenlabs
 	./targets/livekit
 	./targets/rest
+	./targets/sip
 )

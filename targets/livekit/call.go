@@ -21,6 +21,8 @@ type RoomInfo struct {
 	Room                   string
 	// Identity is the simulated caller's identity in the room.
 	Identity string
+	// AgentIdentity is the far end's identity, known by the time Hangup runs.
+	AgentIdentity string
 }
 
 // CallInfo is what placing a call returned.
@@ -216,7 +218,11 @@ func (s *session) hangup(ctx context.Context) {
 	if ended {
 		return
 	}
-	if err := c.ctl.Hangup(ctx, c.info); err != nil {
+	info := c.info
+	s.mu.Lock()
+	info.AgentIdentity = s.agentID
+	s.mu.Unlock()
+	if err := c.ctl.Hangup(ctx, info); err != nil {
 		s.event("hangup_error", err.Error())
 	}
 	s.endCall(EndedByCaller, "")
