@@ -54,6 +54,9 @@ This is a multi-module repository tied together by a `go.work` file:
   conformance suite of the root module.
 - `targets/livekit`: the LiveKit target (text mode today), its own module on the LiveKit Go SDK
   and pion; the SDK sits behind a small room interface with a fake for the unit tests.
+- `audio`: the audio pipeline, its own module: PCM buffers and resampling, WAV, the energy VAD
+  (and Silero behind `-tags onnx` on onnxruntime), noise presets, G.711 and line simulation in
+  pure Go; `audio/opus` is a cgo binding to libopus that compiles to a stub under `-tags lite`.
 - `examples/rest-agent`: a tiny Genkit REST agent with the suite that tests it; `make integration`
   runs it with the fake model provider.
 - `examples/livekit-agent`: a text-mode LiveKit agent (LiveKit Go SDK plus a Genkit reply flow)
@@ -61,8 +64,8 @@ This is a multi-module repository tied together by a `go.work` file:
 - `skills/tamesu`: the agent skill.
 - `site/`: the Astro documentation site.
 
-The modules for the other targets (`targets/sip`, `targets/browser`), the audio pipeline
-(`audio`) and the examples are added phase by phase; each gets its own `go.mod`, a `go.work`
+The modules for the other targets (`targets/sip`, `targets/browser`) and their examples are
+added phase by phase; each gets its own `go.mod`, a `go.work`
 entry and a dependabot entry.
 
 ## Adding a target

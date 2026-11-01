@@ -35,6 +35,12 @@ updates:
     schedule: { interval: weekly }
     labels: [dependencies, go, target]
 
+  # Audio pipeline (own go.mod; onnxruntime_go behind -tags onnx, libopus via cgo)
+  - package-ecosystem: gomod
+    directory: "/audio"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, audio]
+
   # Example LiveKit agent (own go.mod; LiveKit Go SDK and Genkit)
   - package-ecosystem: gomod
     directory: "/examples/livekit-agent"
