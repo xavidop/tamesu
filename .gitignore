@@ -53,3 +53,4 @@ site/.astro/
 # Example binaries built in place
 /examples/livekit-agent/livekit-agent
 /examples/rest-agent/rest-agent
+/examples/webapp/webapp
