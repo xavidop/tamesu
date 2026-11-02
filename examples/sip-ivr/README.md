@@ -4,7 +4,8 @@ A phone agent under test with no carrier, number or trunk account: `examples/com
 runs **livekit-server**, **Redis**, the **LiveKit SIP service** and **Asterisk**, which plays
 both the carrier the SIP service trunks into and the IVR tamesu calls. The dialplan
 (`asterisk/extensions.conf`) answers, plays a greeting, reads one digit, and on `2` sends a
-DTMF `9` back, thanks the caller and hangs up.
+DTMF `9` back, thanks the caller and hangs up. The prompts are the 8 kHz WAV files in
+`asterisk/sounds/` (the stock Asterisk image ships none), mounted as its English sound set.
 
 `suite.yaml` has two tests:
 

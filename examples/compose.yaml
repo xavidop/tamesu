@@ -36,6 +36,7 @@ services:
     volumes:
       - ./sip-ivr/asterisk/pjsip.conf:/etc/asterisk/pjsip.conf:ro
       - ./sip-ivr/asterisk/extensions.conf:/etc/asterisk/extensions.conf:ro
+      - ./sip-ivr/asterisk/sounds:/var/lib/asterisk/sounds/en:ro   # the image ships no sounds
     ports:
       - "5070:5060/udp"
       - "20000-20100:20000-20100/udp"
