@@ -54,7 +54,8 @@ The [Quick start](/docs/quickstart/) walks through a first project.
 
 All five share the suite schema, the assertion model, the persona and scenario definitions, the
 metrics and the report format. All five run today, with the action cache for browser goals, the
-recorder, the generator and the HTML report (v1.0); what comes next is on the
+recorder, the generator and the HTML report (v1.0), the [red-team packs](/docs/red-team/), load
+mode and the [MCP server](/docs/mcp/) for coding agents (v1.1); what comes next is on the
 [roadmap](/docs/roadmap/).
 
 ## All AI through Genkit, all secrets through mamori

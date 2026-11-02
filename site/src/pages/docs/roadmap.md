@@ -17,11 +17,23 @@ Opus, stereo WAV); the `sip` target with `tamesu sip setup`, outbound and inboun
 target on chromedp with the browser agent, `expect` checks, deterministic actions, screenshots
 and HAR, and the demo shop example; and, for v1.0, the action cache with `--replay` and
 `--update-cache`, `tamesu record browser`, `tamesu generate` and the HTML report with
-`tamesu report`. That is v1.0. This page is what comes next, in order.
+`tamesu report`. That was v1.0.
+
+Since then (v1.1): `streaming: websocket` on the `rest` target (one connection per session,
+`request.open`, `response.turn_done`, `response.idle`); the `realtime` target for agents speaking
+the OpenAI Realtime protocol, in text and audio; `tamesu mcp`, the tamesu tools served to coding
+agents over the Model Context Protocol on Genkit's MCP server; the red-team packs
+(`prompt_injection`, `pii_leakage`, `system_prompt_leakage`, and suite-defined packs) with the
+`not_regex` assertion; and load mode (`--load`, `--load-duration`) with a load profile per test in
+the summary. This page is what comes next, in order.
 
 ## Planned
 
-### After v1.0
+### Ideas, not yet scheduled
 
-- WebSocket and OpenAI Realtime targets, an MCP server mode so coding agents can run and author
-  tests, red-team packs as reusable assertion sets, and a load mode for concurrent calls.
+- Realtime target: answer the agent's function calls from a suite-defined table
+  (`function_call_output`), interruptions and barge-in in audio mode, G.711 output formats.
+- `tamesu mcp` over HTTP for remote agents, and MCP resources for the run directories.
+- More transports as they are asked for (Pipecat, WhatsApp, a generic gRPC turn API); the
+  [contributing guide](/docs/contributing/) has the checklist for a new target.
+- Load mode in the HTML report as a latency histogram per test.

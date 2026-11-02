@@ -49,8 +49,8 @@ This is a multi-module repository tied together by a `go.work` file:
   `k8s-secret://`, `op://`, `doppler://`, `infisical://`, `sops://`).
 - `llm`: the only place a model is called, its own module built on [Genkit](https://genkit.dev):
   the simulated user and judge flows, the dotprompt files under `llm/prompts/`, cost accounting,
-  Genkit evaluators, the `synthesize`/`transcribe` speech flows and, behind `-tags llmfake`, the
-  fake provider CI runs with.
+  Genkit evaluators, the `synthesize`/`transcribe` speech flows, the `tamesu mcp` tools on
+  Genkit's MCP server and, behind `-tags llmfake`, the fake provider CI runs with.
 - `llm/plugins/deepgram` and `llm/plugins/elevenlabs`: Genkit model plugins for Deepgram speech to
   text and ElevenLabs text to speech, each its own module on Genkit alone, so any Genkit Go app can
   use them.

@@ -123,7 +123,7 @@ tamesu version                   print the version, commit and build date
 
 Every command takes `--config`, `--verbose`, `--var KEY=VAL` and `--env-file`. `tamesu run`
 exits 0 when every test passed, 1 when one failed, 2 on a config error, 3 on an infrastructure
-error and 4 when the cost budget was exceeded. What comes after v1.0 is on the
+error and 4 when the cost budget was exceeded. What comes next is on the
 [roadmap](https://xavidop.github.io/tamesu/docs/roadmap/).
 
 ## Features
@@ -147,7 +147,11 @@ error and 4 when the cost budget was exceeded. What comes after v1.0 is on the
   reports which link of each chain answered, without printing a value.
 - **A runner built for CI.** Repeats with a `pass_threshold`, retries on infrastructure errors,
   timeouts, parallel runs, a cost budget that stops the run (exit 4), and a run directory with
-  `transcript.json` and `result.json` per run plus `summary.json` and `junit.xml`.
+  `transcript.json` and `result.json` per run plus `summary.json` and `junit.xml`. `--load N`
+  runs every test with N virtual users and adds a latency profile per test.
+- **Coding agents.** `tamesu mcp` serves tamesu over the Model Context Protocol, so Claude Code,
+  Cursor or Codex can validate, run and draft suites and read the schema; the agent skill teaches
+  the same model to agents without MCP.
 - **All AI through Genkit.** The simulated user and the judges are Genkit flows with dotprompt
   files you can override; every model is a Genkit reference; usage is priced on every call; a
   fake provider (`-tags llmfake`) runs the whole pipeline in CI without keys.
@@ -166,8 +170,8 @@ error and 4 when the cost budget was exceeded. What comes after v1.0 is on the
 
 All five target types are part of the suite schema, so suites can be written, validated and
 listed and all five run today, with the action cache for browser goals (`--replay`), `tamesu record
-browser`, `tamesu generate` and the HTML report; what comes after v1.0 is on the
-[roadmap](https://xavidop.github.io/tamesu/docs/roadmap/).
+browser`, `tamesu generate`, the HTML report, the red-team packs, load mode and `tamesu mcp`; what
+comes next is on the [roadmap](https://xavidop.github.io/tamesu/docs/roadmap/).
 
 ## CI
 
@@ -218,6 +222,14 @@ suites with the [agent skill](skills/tamesu/). It covers every command, assertio
 
 ```bash
 npx skills add xavidop/tamesu
+```
+
+Or give the agent the tools themselves: `tamesu mcp` is an MCP server with `tamesu_schema`,
+`tamesu_validate`, `tamesu_list`, `tamesu_run`, `tamesu_generate`, `tamesu_doctor` and
+`tamesu_init` (see the [MCP server](https://xavidop.github.io/tamesu/docs/mcp/) page).
+
+```bash
+claude mcp add tamesu -- tamesu mcp --cwd /path/to/project
 ```
 
 ## Documentation
