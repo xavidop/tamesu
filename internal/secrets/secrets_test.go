@@ -173,6 +173,27 @@ func TestCollectAndDeclared(t *testing.T) {
 	assert.Equal(t, map[string]string{"A": "env:SUITE_A", "B": "env:B", "C": "env:C", "GEMINI_API_KEY": "env:GEMINI_API_KEY", "OLLAMA_KEY": "env:OLLAMA_KEY"}, got)
 }
 
+func TestCollectSIPCredentials(t *testing.T) {
+	p := config.Project{Secrets: map[string]string{"LIVEKIT_API_KEY": "env:LIVEKIT_API_KEY", "UNUSED": "env:UNUSED"}}
+	s := &config.Suite{
+		Suite:   "phone",
+		Secrets: map[string]string{"LIVEKIT_API_SECRET": "env:LIVEKIT_API_SECRET"},
+		Targets: map[string]config.Target{
+			"ivr": {Type: config.TargetSIP, Direction: "outbound", To: "+15550001"},
+			"api": {Type: config.TargetREST, URL: "http://x"},
+		},
+		Tests: []config.Test{
+			{Name: "calls the ivr", Target: "ivr", Scenario: &config.Scenario{Goal: "g"}},
+			{Name: "uses api", Target: "api", Scenario: &config.Scenario{Goal: "g"}},
+		},
+	}
+	got := Collect(p, s, []config.Test{s.Tests[0]})
+	assert.Equal(t, map[string]string{"LIVEKIT_API_KEY": "env:LIVEKIT_API_KEY", "LIVEKIT_API_SECRET": "env:LIVEKIT_API_SECRET"}, got,
+		"a sip test keeps the LiveKit credentials although its config never references them")
+	got = Collect(p, s, []config.Test{s.Tests[1]})
+	assert.Empty(t, got, "a rest test does not fetch the LiveKit credentials")
+}
+
 func TestNewStore(t *testing.T) {
 	store := NewStore(nil)
 	_, err := store.Reveal("X")

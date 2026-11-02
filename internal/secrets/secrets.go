@@ -27,6 +27,11 @@ var ModelCredentialNames = []string{
 	"DEEPGRAM_API_KEY", "ELEVENLABS_API_KEY",
 }
 
+// SIPCredentialNames are the secret names the sip target reads by convention
+// to talk to the LiveKit SIP service: its config carries no {{secrets.*}}
+// reference, so a selected sip test keeps them when declared.
+var SIPCredentialNames = []string{"LIVEKIT_API_KEY", "LIVEKIT_API_SECRET"}
+
 // DefaultTimeout bounds one provider call.
 const DefaultTimeout = 30 * time.Second
 
@@ -136,9 +141,10 @@ func Declared(p config.Project, s *config.Suite) map[string]string {
 }
 
 // Collect returns the declared refs of the secrets the selected tests (and
-// their targets) use, plus the model credentials: models.credentials and the
-// conventional names of ModelCredentialNames when declared. Unreferenced
-// secrets are left out so they are never fetched.
+// their targets) use, plus the conventional credentials when declared: the
+// model credentials (models.credentials and ModelCredentialNames) and, for a
+// sip test, SIPCredentialNames. Unreferenced secrets are left out so they
+// are never fetched.
 func Collect(p config.Project, s *config.Suite, tests []config.Test) map[string]string {
 	declared := Declared(p, s)
 	out := map[string]string{}
@@ -150,6 +156,11 @@ func Collect(p config.Project, s *config.Suite, tests []config.Test) map[string]
 	for _, t := range tests {
 		for _, name := range config.SecretsUsedBy(s, t) {
 			keep(name)
+		}
+		if s != nil && s.Targets[t.Target].Type == config.TargetSIP {
+			for _, name := range SIPCredentialNames {
+				keep(name)
+			}
 		}
 	}
 	models := p.Models
