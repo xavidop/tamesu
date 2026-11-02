@@ -9,6 +9,12 @@ updates:
       go-dependencies:
         patterns: ["*"]
     labels: [dependencies, go]
+    # The workspace makes this entry reach every module; chromedp 0.17+ is a
+    # new API the browser target has to be ported to on purpose.
+    ignore:
+      - dependency-name: github.com/chromedp/chromedp
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: github.com/chromedp/cdproto
 
   # CLI module (own go.mod; the only module that pulls everything, including
   # the mamori cloud secret providers)
@@ -16,6 +22,10 @@ updates:
     directory: "/cmd/tamesu"
     schedule: { interval: weekly }
     labels: [dependencies, go, cli]
+    ignore:
+      - dependency-name: github.com/chromedp/chromedp
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: github.com/chromedp/cdproto
 
   # AI layer (own go.mod; Genkit and the model provider plugins)
   - package-ecosystem: gomod
