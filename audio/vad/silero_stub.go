@@ -8,6 +8,12 @@ func SileroAvailable() bool { return false }
 // Silero is unavailable in this build.
 type Silero struct{}
 
+// LibraryEnv names the onnxruntime shared library in a build that can load it.
+const LibraryEnv = "TAMESU_ONNXRUNTIME"
+
+// Probe returns ErrSileroUnavailable: this build cannot load onnxruntime.
+func Probe(string) (string, error) { return "", ErrSileroUnavailable }
+
 // NewSilero returns ErrSileroUnavailable.
 func NewSilero(o SileroOptions) (*Silero, error) { return nil, ErrSileroUnavailable }
 

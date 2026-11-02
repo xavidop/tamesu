@@ -32,6 +32,8 @@ builds:
       - GOWORK=off
     goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
+    flags:
+      - -tags=onnx # the Silero VAD loads onnxruntime at run time when vad: silero is configured
     ldflags:
       - -s -w
       - -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}

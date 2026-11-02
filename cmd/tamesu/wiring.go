@@ -149,9 +149,14 @@ func checkSpeech(_ context.Context, env cli.DoctorEnv) []cli.DoctorResult {
 	case v == "" || v == "energy":
 		details = append(details, "vad=energy")
 	case v == "silero" && vad.SileroAvailable():
-		details = append(details, "vad=silero (onnx build)")
+		if lib, err := vad.Probe(""); err != nil {
+			details = append(details, fmt.Sprintf("vad=silero (%v)", err))
+			status = cli.StatusFail
+		} else {
+			details = append(details, "vad=silero (onnxruntime: "+lib+")")
+		}
 	case v == "silero":
-		details = append(details, "vad=silero (this build has no onnxruntime support: rebuild with -tags onnx, or use energy)")
+		details = append(details, "vad=silero (this build cannot load onnxruntime: use the full tamesu build or `go build -tags onnx`, or vad: energy)")
 		status = cli.StatusFail
 	default:
 		details = append(details, fmt.Sprintf("vad=%s (unknown; have %s)", v, strings.Join(vad.Names, ", ")))

@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"fmt"
 	"os"
+	"runtime"
 	"sync"
 
 	ort "github.com/yalue/onnxruntime_go"
@@ -19,20 +20,69 @@ var sileroModel []byte
 // SileroAvailable reports whether this build can run the Silero VAD.
 func SileroAvailable() bool { return true }
 
-var ortOnce sync.Once
-var ortErr error
+var (
+	ortOnce sync.Once
+	ortErr  error
+	ortLib  string
+)
+
+// LibraryEnv names the onnxruntime shared library when it is not in one of
+// the usual places.
+const LibraryEnv = "TAMESU_ONNXRUNTIME"
+
+// libraryCandidates are where a packaged onnxruntime lands: Homebrew on
+// macOS, the distribution or /usr/local on Linux. Windows loads
+// onnxruntime.dll from the PATH.
+func libraryCandidates() []string {
+	switch runtime.GOOS {
+	case "darwin":
+		return []string{"/opt/homebrew/lib/libonnxruntime.dylib", "/usr/local/lib/libonnxruntime.dylib", "/opt/homebrew/opt/onnxruntime/lib/libonnxruntime.dylib"}
+	case "linux":
+		return []string{"/usr/lib/libonnxruntime.so", "/usr/local/lib/libonnxruntime.so", "/usr/lib/x86_64-linux-gnu/libonnxruntime.so", "/usr/lib/aarch64-linux-gnu/libonnxruntime.so", "/usr/lib64/libonnxruntime.so"}
+	}
+	return nil
+}
+
+// findLibrary picks the shared library: the explicit path, then LibraryEnv,
+// then the first candidate that exists; "" leaves the binding's default.
+func findLibrary(libraryPath string) string {
+	if libraryPath != "" {
+		return libraryPath
+	}
+	if env := os.Getenv(LibraryEnv); env != "" {
+		return env
+	}
+	for _, c := range libraryCandidates() {
+		if _, err := os.Stat(c); err == nil {
+			return c
+		}
+	}
+	return ""
+}
 
 func initORT(libraryPath string) error {
 	ortOnce.Do(func() {
-		if libraryPath == "" {
-			libraryPath = os.Getenv("TAMESU_ONNXRUNTIME")
-		}
-		if libraryPath != "" {
-			ort.SetSharedLibraryPath(libraryPath)
+		ortLib = findLibrary(libraryPath)
+		if ortLib != "" {
+			ort.SetSharedLibraryPath(ortLib)
 		}
 		ortErr = ort.InitializeEnvironment()
+		if ortErr != nil {
+			ortErr = fmt.Errorf("%w; install onnxruntime (brew install onnxruntime, or a release from github.com/microsoft/onnxruntime) or set %s to the shared library", ortErr, LibraryEnv)
+		} else if ortLib == "" {
+			ortLib = "default library"
+		}
 	})
 	return ortErr
+}
+
+// Probe loads onnxruntime without creating a detector and reports which
+// shared library answered, for `tamesu doctor`.
+func Probe(libraryPath string) (string, error) {
+	if err := initORT(libraryPath); err != nil {
+		return "", err
+	}
+	return ortLib, nil
 }
 
 // Silero runs the Silero neural VAD on 32 ms frames (512 samples at 16 kHz,
@@ -64,7 +114,7 @@ func NewSilero(o SileroOptions) (*Silero, error) {
 		o.Threshold = 0.5
 	}
 	if err := initORT(o.LibraryPath); err != nil {
-		return nil, fmt.Errorf("vad: onnxruntime: %w (set TAMESU_ONNXRUNTIME to the shared library)", err)
+		return nil, fmt.Errorf("vad: onnxruntime: %w", err)
 	}
 	frame, context := 512, 64
 	if o.Rate == 8000 {

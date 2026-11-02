@@ -23,7 +23,7 @@ all: fmt vet check-deps check-claims schema-check test lint lint-integration tes
 
 build: ## go build every module (the binary is cmd/tamesu/tamesu)
 	@for m in $(MODULES); do echo "==> build $$m"; (cd $$m && $(GO) build ./...) || exit 1; done
-	@(cd cmd/tamesu && $(GO) build -o tamesu .)
+	@(cd cmd/tamesu && $(GO) build -tags onnx -o tamesu .)
 
 test: ## go test every module
 	@for m in $(MODULES); do echo "==> test $$m"; (cd $$m && $(GO) test ./...) || exit 1; done
@@ -33,6 +33,7 @@ race: ## go test -race every module
 
 vet: ## go vet every module (default and integration build tags)
 	@for m in $(MODULES); do echo "==> vet $$m"; (cd $$m && $(GO) vet ./... && $(GO) vet -tags integration ./...) || exit 1; done
+	@echo "==> vet -tags onnx audio"; (cd audio && $(GO) vet -tags onnx ./...)
 
 lint: ## golangci-lint every module (requires golangci-lint)
 	@for m in $(MODULES); do echo "==> lint $$m"; (cd $$m && golangci-lint run) || exit 1; done
