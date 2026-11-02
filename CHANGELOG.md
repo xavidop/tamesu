@@ -2,6 +2,14 @@
 
 All notable changes to tamesu are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/). Each new release is added at the top, with notes generated from the commit messages.
 
+## [1.0.1](https://github.com/xavidop/tamesu/compare/v1.0.0...v1.0.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* close websockets once, x/net 0.60 in the livekit example, completions hook through bash ([938743c](https://github.com/xavidop/tamesu/commit/938743c75a8d7825339e717b31fc2dc56bc65e5d))
+* **deps:** go-jose 4.1.6 for the JWK and JSON parsing advisories ([c9f6a14](https://github.com/xavidop/tamesu/commit/c9f6a1491dcfeebb0eed9b2ebcc731e56c8b1944))
+
 # 1.0.0 (2026-11-02)
 
 
