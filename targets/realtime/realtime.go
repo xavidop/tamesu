@@ -465,7 +465,7 @@ func (s *session) readTurn(ctx context.Context, started time.Time, spoken *spoke
 					}
 					return agent, calls, errors.New(msg)
 				}
-				if status != "" && status != "completed" && !(agent.Interrupted && status == "cancelled") {
+				if status != "" && status != "completed" && (!agent.Interrupted || status != "cancelled") {
 					s.event("response_"+status, "")
 				}
 				if plan != nil && !plan.cancelledAt.IsZero() {
