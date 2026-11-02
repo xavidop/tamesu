@@ -27,10 +27,11 @@ func repoFile(t *testing.T, rel string) string {
 	return string(b)
 }
 
-// readmeSections are the "## " headings of the README, in order (design.md §12.6).
+// readmeSections are the "## " headings of the README, in order. The README
+// is the front door: the pitch lives above the first heading and the detail
+// in the docs site.
 var readmeSections = []string{
-	"Why", "Install", "Quick start", "Features", "Targets", "CI", "Go API",
-	"Agent skill", "Documentation", "Contributing", "License",
+	"Install", "Quick start", "Targets", "Agent skill", "Documentation", "Contributing", "License",
 }
 
 // globalFlags are the persistent flags every command accepts.
