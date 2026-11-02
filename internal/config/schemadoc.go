@@ -65,7 +65,7 @@ tests:
   turn_done: "$.done"                                    # websocket: the message that ends a turn
   idle: 2s`,
 	"RESTSession": `session: { id: "{{uuid}}" }`,
-	"Dispatch": `dispatch: { agent_name: support-agent }`,
+	"Dispatch":    `dispatch: { agent_name: support-agent }`,
 	"Trigger": `trigger:
   http: { url: "https://agent.example.com/callbacks", method: POST, body: { number: "{{sip.inbound_number}}" } }`,
 	"HTTPTrigger": `http: { url: "https://agent.example.com/dial", method: POST, headers: { Authorization: "Bearer {{secrets.AGENT_TOKEN}}" } }`,
@@ -132,17 +132,17 @@ tests:
   - golden: { file: golden/refund.json, mode: similar, min: 0.8 }
   - pack: pii_leakage
   - { contains: "goodbye", on_turn: last }`,
-	"Judge": `judge: { rubric: "The agent apologises before explaining the policy", scale: "1-5", min: 4, model: anthropic/claude-sonnet-4-6 }`,
-	"ToolCall": `tool_called: { name: lookup_policy, args: { topic: returns } }`,
-	"ToolSequence": `tool_sequence: { calls: [lookup_policy, issue_refund], exact: false }`,
-	"Evaluator": `evaluator: { name: genkitEval/faithfulness, min: 0.8 }`,
+	"Judge":             `judge: { rubric: "The agent apologises before explaining the policy", scale: "1-5", min: 4, model: anthropic/claude-sonnet-4-6 }`,
+	"ToolCall":          `tool_called: { name: lookup_policy, args: { topic: returns } }`,
+	"ToolSequence":      `tool_sequence: { calls: [lookup_policy, issue_refund], exact: false }`,
+	"Evaluator":         `evaluator: { name: genkitEval/faithfulness, min: 0.8 }`,
 	"JSONPathAssertion": `json_path: { path: "$.status", equals: ok }`,
-	"DTMFAssertion": `dtmf_received: { equals: "9" }`,
-	"Matches": `transferred_to: { matches: "^sip:billing@" }`,
-	"MetricAssertion": `metric: { name: time_to_first_audio_ms_p95, lt: 1500 }`,
-	"IntCompare": `turns: { lte: 6 }`,
+	"DTMFAssertion":     `dtmf_received: { equals: "9" }`,
+	"Matches":           `transferred_to: { matches: "^sip:billing@" }`,
+	"MetricAssertion":   `metric: { name: time_to_first_audio_ms_p95, lt: 1500 }`,
+	"IntCompare":        `turns: { lte: 6 }`,
 	"CapturedAssertion": `captured: { name: order_id, matches: "^ORD-[0-9]+$" }`,
-	"GoldenAssertion": `golden: { file: golden/refund.json, mode: judge }`,
+	"GoldenAssertion":   `golden: { file: golden/refund.json, mode: judge }`,
 	"OnTurn": `- { contains: "goodbye", on_turn: last }
 - { json_path: { path: "$.end_session", equals: true }, on_turn: 3 }`,
 	"StringList": `call_ended_by: [agent, caller]`,
@@ -166,7 +166,7 @@ tests:
   default: googleai/gemini-2.5-flash
   judge: anthropic/claude-sonnet-4-6
   simulator: openai/gpt-4.1-mini`,
-	"Budgets": `budgets: { max_cost_usd: 2, max_tokens: 500000 }`,
+	"Budgets":  `budgets: { max_cost_usd: 2, max_tokens: 500000 }`,
 	"Duration": `timeout: 90s`,
 }
 
