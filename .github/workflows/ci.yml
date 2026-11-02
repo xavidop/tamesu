@@ -187,8 +187,18 @@ jobs:
           "$RUNNER_TEMP/tamesu" init
           "$RUNNER_TEMP/tamesu" validate --strict
           "$RUNNER_TEMP/tamesu" list
-          # The scaffold declares env secrets; give them values so doctor passes.
-          GEMINI_API_KEY=ci SUPPORT_API_TOKEN=ci LIVEKIT_API_KEY=ci LIVEKIT_API_SECRET=ci "$RUNNER_TEMP/tamesu" doctor
+          # The scaffold declares env secrets; give them values. Its voice
+          # target points at a LiveKit server this job does not run, so doctor
+          # exits 3 with exactly one failing line, the livekit one; anything
+          # else failing is a regression.
+          set +e
+          out=$(GEMINI_API_KEY=ci SUPPORT_API_TOKEN=ci LIVEKIT_API_KEY=ci LIVEKIT_API_SECRET=ci "$RUNNER_TEMP/tamesu" doctor 2>&1)
+          code=$?
+          set -e
+          printf '%s\n' "$out"
+          test "$code" -eq 3
+          test "$(grep -c '^fail' <<<"$out")" -eq 1
+          grep -q '^fail livekit: ws://localhost:7880 unreachable' <<<"$out"
 
   # The example suites end to end with the fake model provider and fake speech
   # models, so CI needs no API keys: the rest agent, and the LiveKit agent in
@@ -239,6 +249,10 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+      # audio/opus is a cgo binding; govulncheck builds every module to walk
+      # the call graph, so the modules that reach it need libopus.
+      - name: Install libopus
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libopus-dev pkg-config
       - name: Install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@latest
       - name: Scan every module

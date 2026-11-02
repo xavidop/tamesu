@@ -93,7 +93,7 @@ jobs:
 
       - name: Smoke-test the snapshot binary
         run: |
-          bin=$(find dist -type f -name tamesu | head -n 1)
+          bin=$(find "$PWD/dist" -type f -name tamesu | head -n 1)
           test -n "$bin"
           "$bin" version
           d=$(mktemp -d) && cd "$d" && "$bin" init && "$bin" validate --strict
