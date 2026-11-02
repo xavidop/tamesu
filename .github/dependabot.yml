@@ -46,6 +46,12 @@ updates:
         update-types: ["version-update:semver-minor", "version-update:semver-major"]
       - dependency-name: github.com/chromedp/cdproto
 
+  # Realtime target (own go.mod; coder/websocket for the OpenAI Realtime protocol)
+  - package-ecosystem: gomod
+    directory: "/targets/realtime"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, target]
+
   # SIP target (own go.mod; LiveKit Go SDK, on top of targets/livekit)
   - package-ecosystem: gomod
     directory: "/targets/sip"

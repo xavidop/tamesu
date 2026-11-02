@@ -1,0 +1,14 @@
+suite: realtime-bad
+targets:
+  rt:
+    type: realtime
+    url: https://api.openai.com/v1/realtime
+    protocol: v2
+    streaming: websocket
+tests:
+  - name: t
+    target: rt
+    persona: { name: A }
+    scenario: { goal: say hi }
+    assert:
+      - contains: hi

@@ -42,7 +42,7 @@ The [Quick start](/docs/quickstart/) walks through a first project.
 | Drive tests from `go test` | [Go API](/docs/go-api/) |
 | Run tamesu in GitHub Actions, GitLab CI or Docker | [CI](/docs/ci/) |
 
-## Four targets, one model
+## Five targets, one model
 
 | Target | What it is | Transport |
 |---|---|---|
@@ -50,9 +50,10 @@ The [Quick start](/docs/quickstart/) walks through a first project.
 | `rest` | An HTTP agent that answers one user turn per request | HTTP, SSE or WebSocket |
 | `livekit` | A realtime voice agent in a LiveKit room, in text or audio | WebRTC |
 | `sip` | A phone agent reached through a LiveKit SIP service and your trunk | SIP / PSTN |
+| `realtime` | An agent speaking the OpenAI Realtime protocol, in text or audio | WebSocket |
 
-All four share the suite schema, the assertion model, the persona and scenario definitions, the
-metrics and the report format. All four run today, with the action cache for browser goals, the
+All five share the suite schema, the assertion model, the persona and scenario definitions, the
+metrics and the report format. All five run today, with the action cache for browser goals, the
 recorder, the generator and the HTML report (v1.0); what comes next is on the
 [roadmap](/docs/roadmap/).
 

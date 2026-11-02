@@ -554,12 +554,13 @@
             "browser",
             "rest",
             "livekit",
-            "sip"
+            "sip",
+            "realtime"
           ]
         },
         "url": {
           "type": "string",
-          "description": "The page (browser) or endpoint (rest) or LiveKit server (livekit)."
+          "description": "The page (browser) or endpoint (rest and realtime) or LiveKit server (livekit)."
         },
         "browser": {
           "$ref": "#/$defs/BrowserOptions"
@@ -582,7 +583,8 @@
           "additionalProperties": {
             "type": "string"
           },
-          "type": "object"
+          "type": "object",
+          "description": "Request (rest) or handshake (realtime) headers; put credentials here as {{secrets.NAME}}."
         },
         "request": {
           "$ref": "#/$defs/RESTRequest"
@@ -625,7 +627,8 @@
           "enum": [
             "text",
             "audio"
-          ]
+          ],
+          "description": "livekit and realtime: text (default) or audio."
         },
         "data_topic": {
           "type": "string",
@@ -670,6 +673,30 @@
         },
         "trigger": {
           "$ref": "#/$defs/Trigger"
+        },
+        "model": {
+          "type": "string",
+          "description": "realtime: added as ?model= to the url (such as gpt-realtime)."
+        },
+        "session_update": {
+          "type": "object",
+          "description": "realtime: merged into the session.update event (instructions / tools / voice / output modalities)."
+        },
+        "protocol": {
+          "type": "string",
+          "enum": [
+            "ga",
+            "beta"
+          ],
+          "description": "realtime: the event dialect; ga (default) or beta (modalities and the OpenAI-Beta header)."
+        },
+        "done_tool": {
+          "type": "string",
+          "description": "realtime: a function call with this name ends the session; default end_session."
+        },
+        "turn_timeout": {
+          "$ref": "#/$defs/Duration",
+          "description": "realtime: how long to wait for response.done; default 60s."
         }
       },
       "additionalProperties": false,

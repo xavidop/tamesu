@@ -5,7 +5,7 @@ title: Personas and scenarios
 
 # Personas and scenarios
 
-A conversational test (rest, livekit, sip) is driven by a simulated user: a **persona** (who is
+A conversational test (rest, livekit, sip, realtime) is driven by a simulated user: a **persona** (who is
 talking) with a **scenario** (what they want and when to stop). The simulator is a Genkit flow,
 `simulateUserTurn`, that reads the persona, the scenario and the conversation so far and
 produces the next user turn, or decides to stop.

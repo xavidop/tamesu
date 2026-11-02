@@ -11,9 +11,9 @@ frames, the SIP events), never from a model. They appear in `result.json`, in th
 
 | Metric | Targets | Definition |
 |---|---|---|
-| `turn_latency_ms` (`_p50`, `_p95`, `_max`) | rest, livekit, sip | user turn sent → agent turn complete |
-| `time_to_first_token_ms` | rest (sse) | user turn sent → first delta |
-| `time_to_first_audio_ms` | livekit audio, sip | user speech end (VAD) → agent speech start (VAD) |
+| `turn_latency_ms` (`_p50`, `_p95`, `_max`) | rest, livekit, sip, realtime | user turn sent → agent turn complete |
+| `time_to_first_token_ms` | rest (sse, websocket), realtime | user turn sent → first delta |
+| `time_to_first_audio_ms` | livekit audio, sip, realtime audio | user speech end (VAD, or the audio commit) → agent speech start |
 | `interruption_stop_ms` | livekit audio, sip | user starts talking over the agent → agent audio stops |
 | `talk_over_ratio` | livekit audio, sip | overlapping speech time / total agent speech time |
 | `silence_gap_max_ms` | livekit audio, sip | longest dead air while a reply was expected |

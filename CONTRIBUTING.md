@@ -62,6 +62,10 @@ This is a multi-module repository tied together by a `go.work` file:
 - `targets/sip`: the phone target, its own module: it wraps a livekit audio session with call
   control through the LiveKit SIP API (outbound `CreateSIPParticipant`, inbound triggers, hangup),
   the allowed-numbers guard and `tamesu sip setup`; the API sits behind an interface with a fake.
+- `targets/realtime`: the target for agents speaking the OpenAI Realtime protocol (the API itself
+  or a server fronting your agent with its events), its own module on `coder/websocket`: text mode
+  (conversation items and text deltas) and audio mode (PCM16 in, audio and transcript deltas out,
+  a stereo WAV), function calls recorded and a done tool that ends the session.
 - `targets/browser`: the browser target, its own module on chromedp (pinned to the v0.16 line,
   the last with the classic action API): Chromium discovery and download, the accessibility-tree
   observation with stable refs, the page actions the browser agent's tools call, the

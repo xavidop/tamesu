@@ -40,8 +40,9 @@ user; the **target** is whatever your agent runs on; **assertions** mix determin
 (`contains`, `regex`, `tool_called`, `json_path`, `metric`) with structured **LLM judges**; and
 every run leaves a transcript, metrics and a JUnit report behind.
 
-- **One binary, four targets.** `browser`, `rest`, `livekit` (WebRTC) and `sip` (real phone
-  calls through a LiveKit SIP service) share one schema, one assertion model and one report.
+- **One binary, five targets.** `browser`, `rest`, `livekit` (WebRTC), `sip` (real phone calls
+  through a LiveKit SIP service) and `realtime` (the OpenAI Realtime protocol) share one schema,
+  one assertion model and one report.
 - **Framework agnostic.** Voice tests join a LiveKit room as a simulated caller, whatever the agent
   was built with (LiveKit Agents, Voiceflow, Pipecat, a Twilio IVR).
 - **All AI through Genkit.** The simulated user, the judges and speech go through
@@ -158,9 +159,10 @@ error and 4 when the cost budget was exceeded. What comes after v1.0 is on the
 | `rest` | HTTP, SSE, WebSocket | text | `turn_latency_ms`, `time_to_first_token_ms`, `turns` | [`examples/rest-agent`](examples/rest-agent/), a Genkit agent, in CI with the fake provider |
 | `livekit` | WebRTC room (LiveKit) | text and audio (TTS in, VAD and STT out, interruptions, noise, stereo WAV) | `turn_latency_ms`, `agent_join_ms`; audio adds `time_to_first_audio_ms`, `interruption_stop_ms`, `talk_over_ratio`, `silence_gap_max_ms` | [`examples/livekit-agent`](examples/livekit-agent/) on `livekit-server --dev`, in CI with the fake provider and fake speech models |
 | `sip` | phone call through a LiveKit SIP service and your trunk (outbound or inbound, DTMF, `wait_for`/`say` scripts, line simulation) | audio | the audio metrics plus `call_setup_ms`, `ring_ms`, `greeting_ms`, `call_duration_ms`; `dtmf_received`, `call_ended_by`, `transferred_to` | [`examples/sip-ivr`](examples/sip-ivr/) through Asterisk as the carrier and IVR (`examples/compose.yaml`) |
+| `realtime` | the OpenAI Realtime protocol over a websocket (the API itself, or a server fronting your agent with its events) | text and audio (PCM16 in, audio and transcript deltas out, stereo WAV) | `turn_latency_ms`, `time_to_first_token_ms`, `agent_input_tokens`, `agent_output_tokens`; audio adds `time_to_first_audio_ms` | a fake Realtime server in the module's tests (GA and beta event names) |
 
-All four target types are part of the suite schema, so suites can be written, validated and
-listed and all four run today, with the action cache for browser goals (`--replay`), `tamesu record
+All five target types are part of the suite schema, so suites can be written, validated and
+listed and all five run today, with the action cache for browser goals (`--replay`), `tamesu record
 browser`, `tamesu generate` and the HTML report; what comes after v1.0 is on the
 [roadmap](https://xavidop.github.io/tamesu/docs/roadmap/).
 

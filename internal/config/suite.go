@@ -2,14 +2,17 @@ package config
 
 // Target types (design.md §2).
 const (
-	TargetBrowser = "browser"
-	TargetREST    = "rest"
-	TargetLiveKit = "livekit"
-	TargetSIP     = "sip"
+	TargetBrowser  = "browser"
+	TargetREST     = "rest"
+	TargetLiveKit  = "livekit"
+	TargetSIP      = "sip"
+	TargetRealtime = "realtime"
 )
 
 // TargetTypes lists the target types a suite may declare, in documentation order.
-func TargetTypes() []string { return []string{TargetBrowser, TargetREST, TargetLiveKit, TargetSIP} }
+func TargetTypes() []string {
+	return []string{TargetBrowser, TargetREST, TargetLiveKit, TargetSIP, TargetRealtime}
+}
 
 // IsConversational reports whether a target type talks in turns (everything
 // but the browser).
@@ -43,17 +46,17 @@ type Suite struct {
 
 // Target is a system under test. Type selects which of the other fields apply.
 type Target struct {
-	Type string `yaml:"type" json:"type" jsonschema:"required,enum=browser,enum=rest,enum=livekit,enum=sip"`
-	URL  string `yaml:"url,omitempty" json:"url,omitempty" jsonschema:"description=The page (browser) or endpoint (rest) or LiveKit server (livekit)."`
+	Type string `yaml:"type" json:"type" jsonschema:"required,enum=browser,enum=rest,enum=livekit,enum=sip,enum=realtime"`
+	URL  string `yaml:"url,omitempty" json:"url,omitempty" jsonschema:"description=The page (browser) or endpoint (rest and realtime) or LiveKit server (livekit)."`
 
 	// browser
 	Browser        *BrowserOptions `yaml:"browser,omitempty" json:"browser,omitempty"`
 	Auth           *BrowserAuth    `yaml:"auth,omitempty" json:"auth,omitempty"`
 	AllowedDomains []string        `yaml:"allowed_domains,omitempty" json:"allowed_domains,omitempty" jsonschema:"description=Domains the browser agent may navigate to; defaults to the url's domain."`
 
-	// rest
+	// rest (headers also realtime)
 	Method    string            `yaml:"method,omitempty" json:"method,omitempty" jsonschema:"description=HTTP method; defaults to POST."`
-	Headers   map[string]string `yaml:"headers,omitempty" json:"headers,omitempty"`
+	Headers   map[string]string `yaml:"headers,omitempty" json:"headers,omitempty" jsonschema:"description=Request (rest) or handshake (realtime) headers; put credentials here as {{secrets.NAME}}."`
 	Request   *RESTRequest      `yaml:"request,omitempty" json:"request,omitempty"`
 	Response  *RESTResponse     `yaml:"response,omitempty" json:"response,omitempty"`
 	Streaming string            `yaml:"streaming,omitempty" json:"streaming,omitempty" jsonschema:"enum=none,enum=sse,enum=websocket"`
@@ -65,7 +68,7 @@ type Target struct {
 	Room                string    `yaml:"room,omitempty" json:"room,omitempty" jsonschema:"description=Room name template; defaults to tamesu-{{uuid}}."`
 	Dispatch            *Dispatch `yaml:"dispatch,omitempty" json:"dispatch,omitempty"`
 	AgentIdentityPrefix string    `yaml:"agent_identity_prefix,omitempty" json:"agent_identity_prefix,omitempty" jsonschema:"description=How to recognise the agent participant; defaults to kind=agent."`
-	Mode                string    `yaml:"mode,omitempty" json:"mode,omitempty" jsonschema:"enum=text,enum=audio"`
+	Mode                string    `yaml:"mode,omitempty" json:"mode,omitempty" jsonschema:"enum=text,enum=audio,description=livekit and realtime: text (default) or audio."`
 	DataTopic           string    `yaml:"data_topic,omitempty" json:"data_topic,omitempty" jsonschema:"description=Text-mode transport topic; defaults to lk.chat."`
 	JoinTimeout         Duration  `yaml:"join_timeout,omitempty" json:"join_timeout,omitempty"`
 	TranscriptSource    string    `yaml:"transcript_source,omitempty" json:"transcript_source,omitempty" jsonschema:"enum=auto,enum=agent,enum=stt,description=Audio mode: where the agent's words come from; auto (default) takes the agent's own transcription when it publishes one and transcribes its audio otherwise."`
@@ -78,6 +81,13 @@ type Target struct {
 	RingTimeout     Duration `yaml:"ring_timeout,omitempty" json:"ring_timeout,omitempty"`
 	MaxCallDuration Duration `yaml:"max_call_duration,omitempty" json:"max_call_duration,omitempty"`
 	Trigger         *Trigger `yaml:"trigger,omitempty" json:"trigger,omitempty"`
+
+	// realtime (the OpenAI Realtime protocol over a websocket; url, headers and mode apply too)
+	Model         string         `yaml:"model,omitempty" json:"model,omitempty" jsonschema:"description=realtime: added as ?model= to the url (such as gpt-realtime)."`
+	SessionUpdate map[string]any `yaml:"session_update,omitempty" json:"session_update,omitempty" jsonschema:"description=realtime: merged into the session.update event (instructions / tools / voice / output modalities)."`
+	Protocol      string         `yaml:"protocol,omitempty" json:"protocol,omitempty" jsonschema:"enum=ga,enum=beta,description=realtime: the event dialect; ga (default) or beta (modalities and the OpenAI-Beta header)."`
+	DoneTool      string         `yaml:"done_tool,omitempty" json:"done_tool,omitempty" jsonschema:"description=realtime: a function call with this name ends the session; default end_session."`
+	TurnTimeout   Duration       `yaml:"turn_timeout,omitempty" json:"turn_timeout,omitempty" jsonschema:"description=realtime: how long to wait for response.done; default 60s."`
 }
 
 // BrowserOptions configures the browser.

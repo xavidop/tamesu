@@ -1,6 +1,6 @@
 ---
 name: tamesu
-description: Use when working with tamesu (試す), the Go agentic testing framework and CLI for web apps and AI agents, when writing or fixing a tamesu suite in YAML (targets of type browser, rest, livekit or sip; personas, scenarios, steps, assertions such as judge, contains, not_contains, regex, json_path, status, tool_called, tool_not_called, dtmf_received, call_ended_by, transferred_to, evaluator, metric, turns, custom, on_turn), configuring tamesu.yaml (genkit plugins, models, speech, sip, defaults, budgets, reporters, secrets via mamori refs such as env: aws-sm:// vault:// op://), running `tamesu init`, `tamesu validate`, `tamesu list`, `tamesu run` (filter, tags, target, parallel, repeat, mode, headed, replay, update-cache, out, reporter, max-cost-usd), `tamesu doctor`, `tamesu report` (rebuild the HTML report of a run directory), `tamesu record` / `tamesu record browser` (record a browser session as steps), `tamesu generate` (draft tests from a PRD or system prompt with --from, --target, --type, --count, --out), `tamesu sip` / `tamesu sip setup` (LiveKit SIP trunks and dispatch rule for the phone target) or `tamesu version`, reading its exit codes (0 passed, 1 failed, 2 config error, 3 infrastructure error, 4 budget exceeded), running it in CI, reading its reports and run directories, debugging a failing validation or an unresolved secret, or answering what the tamesu CLI can do. Covers github.com/xavidop/tamesu.
+description: Use when working with tamesu (試す), the Go agentic testing framework and CLI for web apps and AI agents, when writing or fixing a tamesu suite in YAML (targets of type browser, rest, livekit, sip or realtime; personas, scenarios, steps, assertions such as judge, contains, not_contains, regex, json_path, status, tool_called, tool_not_called, dtmf_received, call_ended_by, transferred_to, evaluator, metric, turns, custom, on_turn), configuring tamesu.yaml (genkit plugins, models, speech, sip, defaults, budgets, reporters, secrets via mamori refs such as env: aws-sm:// vault:// op://), running `tamesu init`, `tamesu validate`, `tamesu list`, `tamesu run` (filter, tags, target, parallel, repeat, mode, headed, replay, update-cache, out, reporter, max-cost-usd), `tamesu doctor`, `tamesu report` (rebuild the HTML report of a run directory), `tamesu record` / `tamesu record browser` (record a browser session as steps), `tamesu generate` (draft tests from a PRD or system prompt with --from, --target, --type, --count, --out), `tamesu sip` / `tamesu sip setup` (LiveKit SIP trunks and dispatch rule for the phone target) or `tamesu version`, reading its exit codes (0 passed, 1 failed, 2 config error, 3 infrastructure error, 4 budget exceeded), running it in CI, reading its reports and run directories, debugging a failing validation or an unresolved secret, or answering what the tamesu CLI can do. Covers github.com/xavidop/tamesu.
 ---
 
 # tamesu: put your web apps and AI agents to the test
@@ -14,8 +14,9 @@ LLM **judges**; every run leaves a transcript, metrics and reports. Module:
 
 What the CLI has today: `tamesu init`, `tamesu validate`, `tamesu list`, `tamesu run`,
 `tamesu doctor` and `tamesu version`, with the `rest` and `livekit` (text mode) targets runnable
-and the suite schema for all four target types. All four targets run: browser
-(Chromium, the browser agent on `models.browser_agent`), rest, livekit (text and audio) and sip.
+and the suite schema for all five target types. All five targets run: browser
+(Chromium, the browser agent on `models.browser_agent`), rest (HTTP, SSE, websocket), livekit
+(text and audio), sip and realtime (the OpenAI Realtime protocol, text and audio).
 
 ## The model in one minute
 
@@ -98,7 +99,7 @@ Rules the validator enforces (each error is `file:line: path: message`):
 - an assertion is exactly one kind; `metric` and `turns` take exactly one comparator;
   `json_path`/`status` are rest only; `call_ended_by`/`transferred_to` are sip only;
 - `repeat` is 1 or more, `pass_threshold` is in (0, 1], `mode` is `text` or `audio` and only on
-  livekit or sip tests;
+  livekit, sip or realtime tests;
 - every `{{secrets.X}}` must be declared; a `${VAR}` in a secret field is a warning;
 - an unset `${VAR}` is a warning for `validate` (so CI without the variables can check suites)
   and an error for `doctor` (and the runner).

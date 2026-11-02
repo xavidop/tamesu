@@ -59,6 +59,19 @@ func TestLoadSuiteSpecExample(t *testing.T) {
 	assert.Equal(t, "wss://lk.example.com", s.Targets["voice"].URL)
 }
 
+func TestLoadSuiteRealtime(t *testing.T) {
+	path := filepath.Join("testdata", "valid", "realtime-agent.yaml")
+	s, errs, err := LoadSuite(path, LoadOptions{Env: noEnv})
+	require.NoError(t, err)
+	require.NotNil(t, s)
+	require.Empty(t, errs, "a realtime suite with its headers, model, session_update and an audio test is clean:\n%s", errs)
+	rt := s.Targets["rt"]
+	assert.Equal(t, TargetRealtime, rt.Type)
+	assert.Equal(t, "gpt-realtime", rt.Model)
+	assert.Equal(t, "You are the support agent of Mochi Shoes.", rt.SessionUpdate["instructions"])
+	assert.Equal(t, 45*time.Second, rt.TurnTimeout.Std())
+}
+
 func TestLoadSuiteEnvUnsetIsWarningUnlessStrict(t *testing.T) {
 	path := filepath.Join("testdata", "valid", "env-unset.yaml")
 	s, errs, err := LoadSuite(path, LoadOptions{Env: noEnv})

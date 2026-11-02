@@ -1,0 +1,24 @@
+suite: realtime-agent
+secrets:
+  OPENAI_API_KEY: env:OPENAI_API_KEY
+targets:
+  rt:
+    type: realtime
+    url: wss://api.openai.com/v1/realtime
+    model: gpt-realtime
+    headers: { Authorization: "Bearer {{secrets.OPENAI_API_KEY}}" }
+    session_update:
+      instructions: "You are the support agent of Mochi Shoes."
+    mode: text
+    done_tool: end_session
+    turn_timeout: 45s
+tests:
+  - name: refund policy
+    target: rt
+    mode: audio
+    persona: { name: Marta, style: polite, language: en }
+    scenario: { goal: "Find out if you can return shoes bought 40 days ago", max_turns: 6 }
+    assert:
+      - judge: "The agent states the 30-day return policy"
+      - tool_called: lookup_policy
+      - metric: { name: time_to_first_audio_ms_p95, lt: 2500 }

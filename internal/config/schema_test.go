@@ -50,7 +50,7 @@ func TestSuitesMarkdownCoversEveryDefinition(t *testing.T) {
 	}
 	assert.Contains(t, md, "| `judge` | [Judge](#judge) |")
 	assert.Contains(t, md, "| `targets` | map of string to [Target](#target) | yes |")
-	assert.Contains(t, md, "| `type` | one of `browser`, `rest`, `livekit`, `sip` | yes |")
+	assert.Contains(t, md, "| `type` | one of `browser`, `rest`, `livekit`, `sip`, `realtime` | yes |")
 	assert.Contains(t, md, "Either a string (The rubric; the judge model and a binary scale are the defaults), or an object with:")
 }
 

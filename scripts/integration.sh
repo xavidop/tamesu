@@ -52,6 +52,8 @@ echo "==> generate: a draft suite from the PRD must validate"
 ./bin/tamesu-llmfake validate --config examples/rest-agent/tamesu.llmfake.yaml "$out/generated.yaml"
 ./bin/tamesu-llmfake generate --config examples/rest-agent/tamesu.llmfake.yaml --from examples/rest-agent/PRD.md --target web --type browser --out "$out/generated-browser.yaml"
 ./bin/tamesu-llmfake validate --config examples/rest-agent/tamesu.llmfake.yaml "$out/generated-browser.yaml"
+./bin/tamesu-llmfake generate --config examples/rest-agent/tamesu.llmfake.yaml --from examples/rest-agent/PRD.md --target rt --type realtime --out "$out/generated-realtime.yaml"
+./bin/tamesu-llmfake validate --config examples/rest-agent/tamesu.llmfake.yaml "$out/generated-realtime.yaml"
 
 echo "==> broken agent: the judge must fail it"
 ./bin/rest-agent --scripted --broken --addr "127.0.0.1:$port" &

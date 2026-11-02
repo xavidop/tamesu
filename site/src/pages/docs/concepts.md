@@ -48,7 +48,7 @@ The full key list is in [Suites](/docs/suites/).
 
 ## Personas and scenarios
 
-A conversational test (rest, livekit, sip) is driven by a **persona** and a **scenario**:
+A conversational test (rest, livekit, sip, realtime) is driven by a **persona** and a **scenario**:
 
 ```yaml
 persona:
@@ -98,7 +98,7 @@ Every assertion is one key under `assert:`; a test may have any number, and `on_
 | `regex` | all | `regex: "order #\\d{6}"` |
 | `json_path` | rest | `{ path: $.status, equals: ok }` |
 | `status` | rest | HTTP status of every turn |
-| `tool_called` / `tool_not_called` | rest, livekit | `tool_called: { name: reschedule_booking, args: { day: saturday } }` |
+| `tool_called` / `tool_not_called` | rest, livekit, realtime | `tool_called: { name: reschedule_booking, args: { day: saturday } }` |
 | `dtmf_received` | sip, livekit audio | `{ equals: "1234#" }` |
 | `call_ended_by` | sip | `[agent, caller]`, also `timeout`, `error`, `no_answer`, `busy` |
 | `transferred_to` | sip | `{ matches: "^sip:billing@" }` |
@@ -115,9 +115,9 @@ result so judge drift is traceable.
 
 | Metric | Targets | Definition |
 |---|---|---|
-| `turn_latency_ms` (`_p50`, `_p95`, `_max`) | rest, livekit, sip | user turn sent → agent turn complete |
-| `time_to_first_token_ms` | rest (sse, websocket) | user turn sent → first delta |
-| `time_to_first_audio_ms` | livekit audio, sip | user speech end (VAD) → agent speech start (VAD) |
+| `turn_latency_ms` (`_p50`, `_p95`, `_max`) | rest, livekit, sip, realtime | user turn sent → agent turn complete |
+| `time_to_first_token_ms` | rest (sse, websocket), realtime | user turn sent → first delta |
+| `time_to_first_audio_ms` | livekit audio, sip, realtime audio | user speech end (VAD, or the audio commit) → agent speech start |
 | `interruption_stop_ms` | livekit audio, sip | user starts talking over the agent → agent audio stops |
 | `talk_over_ratio` | livekit audio, sip | overlapping speech time / total agent speech time |
 | `silence_gap_max_ms` | livekit audio, sip | longest dead air while a reply was expected |

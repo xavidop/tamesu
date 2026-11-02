@@ -17,8 +17,10 @@ import (
 var (
 	viewportRe = regexp.MustCompile(`^\d+x\d+$`)
 	e164Re     = regexp.MustCompile(`^\+[1-9]\d{6,14}$`)
-	e164PatRe  = regexp.MustCompile(`^\+[0-9*]+$`)
-	dtmfRe     = regexp.MustCompile(`^[0-9A-Da-d*#]+$`)
+	// realtimeURLRe accepts the schemes a websocket handshake can use.
+	realtimeURLRe = regexp.MustCompile(`^(wss?|https?)://`)
+	e164PatRe     = regexp.MustCompile(`^\+[0-9*]+$`)
+	dtmfRe        = regexp.MustCompile(`^[0-9A-Da-d*#]+$`)
 )
 
 // Enumerations the validator checks.
@@ -40,15 +42,19 @@ var (
 
 // targetFieldTypes maps each type-specific target field to the type it
 // belongs to, so a field on the wrong kind of target earns a warning.
-var targetFieldTypes = map[string]string{
-	"browser": TargetBrowser, "auth": TargetBrowser, "allowed_domains": TargetBrowser,
-	"method": TargetREST, "headers": TargetREST, "request": TargetREST, "response": TargetREST, "streaming": TargetREST, "session": TargetREST,
-	"api_key": TargetLiveKit, "api_secret": TargetLiveKit, "room": TargetLiveKit, "dispatch": TargetLiveKit,
-	"agent_identity_prefix": TargetLiveKit, "mode": TargetLiveKit, "data_topic": TargetLiveKit, "join_timeout": TargetLiveKit,
-	"transcript_source": TargetLiveKit,
-	"direction":         TargetSIP, "to": TargetSIP, "from": TargetSIP, "trunk_id": TargetSIP, "ring_timeout": TargetSIP,
-	"max_call_duration": TargetSIP, "trigger": TargetSIP,
+var targetFieldTypes = map[string][]string{
+	"browser": {TargetBrowser}, "auth": {TargetBrowser}, "allowed_domains": {TargetBrowser},
+	"method": {TargetREST}, "headers": {TargetREST, TargetRealtime}, "request": {TargetREST}, "response": {TargetREST}, "streaming": {TargetREST}, "session": {TargetREST},
+	"api_key": {TargetLiveKit}, "api_secret": {TargetLiveKit}, "room": {TargetLiveKit}, "dispatch": {TargetLiveKit},
+	"agent_identity_prefix": {TargetLiveKit}, "mode": {TargetLiveKit, TargetRealtime}, "data_topic": {TargetLiveKit}, "join_timeout": {TargetLiveKit},
+	"transcript_source": {TargetLiveKit},
+	"direction":         {TargetSIP}, "to": {TargetSIP}, "from": {TargetSIP}, "trunk_id": {TargetSIP}, "ring_timeout": {TargetSIP},
+	"max_call_duration": {TargetSIP}, "trigger": {TargetSIP},
+	"model": {TargetRealtime}, "session_update": {TargetRealtime}, "protocol": {TargetRealtime}, "done_tool": {TargetRealtime}, "turn_timeout": {TargetRealtime},
 }
+
+// RealtimeProtocols are the event dialects of the realtime target.
+var RealtimeProtocols = []string{"ga", "beta"}
 
 type validator struct {
 	file string
@@ -214,6 +220,19 @@ func (v *validator) target(name string, t Target) {
 		if t.TranscriptSource != "" && !slices.Contains(TranscriptSources, t.TranscriptSource) {
 			v.errorf(with(tp, "transcript_source"), "transcript_source must be one of %s", strings.Join(TranscriptSources, ", "))
 		}
+	case TargetRealtime:
+		if t.Mode != "" && !slices.Contains(VoiceModes, t.Mode) {
+			v.errorf(with(tp, "mode"), "mode must be text or audio")
+		}
+		if t.Protocol != "" && !slices.Contains(RealtimeProtocols, t.Protocol) {
+			v.errorf(with(tp, "protocol"), "protocol must be one of %s", strings.Join(RealtimeProtocols, ", "))
+		}
+		if t.URL != "" && !strings.Contains(t.URL, "{{") && !strings.Contains(t.URL, "${") && !realtimeURLRe.MatchString(t.URL) {
+			v.errorf(with(tp, "url"), "realtime url must be a websocket URL (ws://, wss://, http:// or https://)")
+		}
+		if _, ok := t.Headers["Authorization"]; !ok && (t.URL == "" || strings.Contains(t.URL, "api.openai.com")) {
+			v.warnf(tp, "the OpenAI Realtime API needs headers.Authorization: \"Bearer {{secrets.OPENAI_API_KEY}}\"")
+		}
 	case TargetSIP:
 		switch t.Direction {
 		case "":
@@ -253,8 +272,8 @@ func (v *validator) target(name string, t Target) {
 	}
 	for i := 0; i+1 < len(n.Content); i += 2 {
 		key := n.Content[i].Value
-		if want, ok := targetFieldTypes[key]; ok && want != t.Type {
-			v.warnf(with(tp, key), "%s applies to %s targets only; this target is %s", key, want, t.Type)
+		if want, ok := targetFieldTypes[key]; ok && !slices.Contains(want, t.Type) {
+			v.warnf(with(tp, key), "%s applies to %s targets only; this target is %s", key, strings.Join(want, " and "), t.Type)
 		}
 		if key == "url" && t.Type == TargetSIP {
 			v.warnf(with(tp, key), "url applies to browser, rest and livekit targets; sip uses sip.livekit_url")
@@ -295,8 +314,8 @@ func (v *validator) test(i int, t Test) {
 		mode = "audio"
 	}
 	if t.Mode != "" {
-		if ok && ttype != TargetLiveKit && ttype != TargetSIP {
-			v.errorf(with(tp, "mode"), "mode applies to livekit and sip tests only; %q is a %s target", t.Target, ttype)
+		if ok && ttype != TargetLiveKit && ttype != TargetSIP && ttype != TargetRealtime {
+			v.errorf(with(tp, "mode"), "mode applies to livekit, sip and realtime tests only; %q is a %s target", t.Target, ttype)
 		}
 		if !slices.Contains(VoiceModes, t.Mode) {
 			v.errorf(with(tp, "mode"), "mode must be text or audio")
@@ -308,10 +327,10 @@ func (v *validator) test(i int, t Test) {
 			v.errorf(tp, "browser tests need steps")
 		}
 		if t.Persona != nil {
-			v.errorf(with(tp, "persona"), "persona applies to conversational targets (rest, livekit, sip); %q is a browser target", t.Target)
+			v.errorf(with(tp, "persona"), "persona applies to conversational targets (rest, livekit, sip, realtime); %q is a browser target", t.Target)
 		}
 		if t.Scenario != nil {
-			v.errorf(with(tp, "scenario"), "scenario applies to conversational targets (rest, livekit, sip); %q is a browser target", t.Target)
+			v.errorf(with(tp, "scenario"), "scenario applies to conversational targets (rest, livekit, sip, realtime); %q is a browser target", t.Target)
 		}
 	case ok:
 		if t.Scenario == nil || strings.TrimSpace(t.Scenario.Goal) == "" {

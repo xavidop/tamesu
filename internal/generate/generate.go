@@ -59,6 +59,8 @@ func Suite(d model.Draft, o Options) ([]byte, error) {
 		secrets.Content = append(secrets.Content, key("TEST_PASSWORD"), scalar("env:TEST_PASSWORD"))
 	case config.TargetLiveKit:
 		secrets.Content = append(secrets.Content, key("LIVEKIT_API_KEY"), scalar("env:LIVEKIT_API_KEY"), key("LIVEKIT_API_SECRET"), scalar("env:LIVEKIT_API_SECRET"))
+	case config.TargetRealtime:
+		secrets.Content = append(secrets.Content, key("OPENAI_API_KEY"), scalar("env:OPENAI_API_KEY"))
 	}
 	if len(secrets.Content) > 0 {
 		root.Content = append(root.Content, key("secrets"), secrets)
@@ -102,6 +104,15 @@ func targetStub(typ string) *yaml.Node {
 			key("api_key"), scalar("{{secrets.LIVEKIT_API_KEY}}"),
 			key("api_secret"), scalar("{{secrets.LIVEKIT_API_SECRET}}"),
 			key("room"), scalar("tamesu-{{uuid}}"),
+			key("mode"), scalar("text"),
+		)
+	case config.TargetRealtime:
+		return mapping(
+			key("type"), scalar("realtime"),
+			key("url"), scalar("wss://api.openai.com/v1/realtime"),
+			key("model"), scalar("gpt-realtime"),
+			key("headers"), mapping(key("Authorization"), scalar("Bearer {{secrets.OPENAI_API_KEY}}")),
+			key("session_update"), mapping(key("instructions"), scalar("You are the agent under test.")),
 			key("mode"), scalar("text"),
 		)
 	case config.TargetSIP:
