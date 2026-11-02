@@ -54,15 +54,15 @@ with the same seed pauses and interrupts at the same points.
 
 | Key | Meaning |
 |---|---|
-| `goal` | What the persona is trying to achieve, in the second person: "Find out if you can return shoes bought 40 days ago". |
+| `goal` | What the persona is trying to achieve, in the second person: "Find out if you can return shoes bought 40 days ago". Optional when the scenario is only a `script`: the steps play and the conversation stops. |
 | `max_turns` | The turn budget (default 10). The simulator knows it and wraps up before running out. |
 | `stop_when` | A plain-language stop condition the simulator checks after every agent turn: "the agent has given a clear yes/no answer". |
-| `script` | Sip and livekit audio: deterministic steps (`wait_for`, `dtmf`, `say`) mixed with free conversation, for IVR menus. |
+| `script` | Deterministic steps played before the persona takes over: `say` sends exact text on any conversational target (a recorded conversation, a fixed opening); `wait_for` and `dtmf` are for sip and livekit, for IVR menus. |
 
 The conversation stops when the simulator says the goal or the stop condition is met (or that
 the agent cannot help), when the persona hangs up, when the agent ends the session
-(`response.done` for rest), or when `max_turns` is reached. `result.json` records which
-(`stop_reason`).
+(`response.done` for rest), when `max_turns` is reached, or when a script with no goal has played
+out. `result.json` records which (`stop_reason`).
 
 ## Templates
 

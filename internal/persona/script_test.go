@@ -83,6 +83,24 @@ func TestScriptNavigatesAnIVR(t *testing.T) {
 	assert.Len(t, out.LatenciesMs, 4)
 }
 
+func TestScriptOnlyScenarioStopsWithoutASimulator(t *testing.T) {
+	clock := &fakeClock{t: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}
+	sess := &ivrSession{clock: clock}
+	loop := &Loop{Now: clock.Now, Scenario: config.Scenario{Script: []config.ScriptStep{
+		{Say: "Where is my refund?"},
+		{Say: "Order 1234"},
+	}}}
+	out, err := loop.Run(context.Background(), sess)
+	require.NoError(t, err, "no goal, no simulator needed")
+	assert.Nil(t, out.ScriptError)
+	assert.Equal(t, StopScriptEnd, out.StopReason)
+	assert.Len(t, out.AgentTurns, 2)
+	assert.Equal(t, "Noted: Order 1234", out.Transcript[len(out.Transcript)-1].Text)
+
+	_, err = (&Loop{Scenario: config.Scenario{Goal: "ask for a refund"}}).Run(context.Background(), sess)
+	assert.ErrorIs(t, err, ErrNoSimulator, "a goal still needs the simulator")
+}
+
 func TestScriptWaitForTimesOutAsAFailure(t *testing.T) {
 	clock := &fakeClock{t: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}
 	sess := &ivrSession{clock: clock, silent: true}

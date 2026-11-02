@@ -399,10 +399,10 @@ behaviors:
 
 | Key | Type | Required | Description |
 |---|---|---|---|
-| `goal` | string | yes |  |
+| `goal` | string |  | What the user wants; the simulated user pursues it after the script. A scenario with a script and no goal plays the script and stops. |
 | `max_turns` | integer |  |  |
 | `stop_when` | string |  | A plain-language stop condition judged after each agent turn. |
-| `script` | list of [ScriptStep](#scriptstep) |  | Deterministic steps mixed with free conversation (sip and livekit audio). |
+| `script` | list of [ScriptStep](#scriptstep) |  | Deterministic steps played before the simulated user takes over: say on any conversational target; wait_for and dtmf on sip and livekit. |
 
 Example:
 

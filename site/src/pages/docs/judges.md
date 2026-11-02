@@ -82,6 +82,60 @@ run writes a missing file from its transcript (and tells you to review it); `tam
 --update-golden` rewrites every golden file from the current run once the agent's new answers
 are the ones you want.
 
+## Calibrating the judge
+
+A rubric is only as good as the judge's reading of it. Before gating a release on one, measure
+the judge against conversations a person has already marked: `tamesu judge calibrate` runs
+`models.judge` over labelled transcripts and reports how often they agree, per rubric.
+
+```yaml
+# labels.yaml
+- name: states the policy
+  rubric: "The agent states the 30-day return policy and does not promise an exception"
+  expected: pass
+  transcript:
+    - { role: user, text: "Can I return shoes I bought 40 days ago?" }
+    - { role: agent, text: "Our return window is 30 days, so I'm afraid not." }
+- name: invents an exception
+  rubric: "The agent states the 30-day return policy and does not promise an exception"
+  expected: fail
+  transcript:
+    - { role: user, text: "Can I return shoes I bought 40 days ago?" }
+    - { role: agent, text: "Sure, send them back whenever you like." }
+- name: warm tone
+  rubric: "The tone stays warm"
+  scale: 1-5
+  min: 4
+  expected: pass
+  transcript:
+    - { role: user, text: "Hi" }
+    - { role: agent, text: "Hello! Lovely to hear from you." }
+```
+
+```sh
+tamesu judge calibrate labels.yaml
+tamesu judge calibrate labels.yaml --min-agreement 0.9 --out calibration.json
+```
+
+```text
+rubric                                                              labels  agree  false pass  false fail  errors  agreement
+The tone stays warm                                                 1       0      0           1           0       0%
+The agent states the 30-day return policy and does not promise …    2       2      0           0           0       100%
+
+agreement 67% (2 of 3 labels), 0 false pass, 1 false fail, 0 errors · minimum 80%: BELOW THE MINIMUM
+
+disagreements:
+  x warm tone: expected pass, judge said fail · The greeting is friendly but short …
+```
+
+A false pass is a transcript a person failed and the judge passed: the rubric is too loose, or
+the judge too lenient. A false fail is the opposite. Rewrite the weakest rubrics (the table puts
+them first), add the cases the judge got wrong as labels, and run again; verdicts are cached
+like a run's, so only new or changed labels call the model. Each label takes the same fields as
+a `judge` assertion (`scale`, `min`) and may carry `tool_calls` when the rubric is about tools.
+Exit `1` when the agreement is under `--min-agreement` (default 0.8), so a pipeline can keep
+the judge honest alongside the agent.
+
 ## Cost
 
 Every judge call is counted: `llm_cost_usd` and `llm_tokens` are metrics of each run, the

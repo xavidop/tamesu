@@ -328,10 +328,10 @@ var NoisePresets = []string{"cafe", "office", "street", "white"}
 
 // Scenario is what the persona tries to achieve and when to stop.
 type Scenario struct {
-	Goal     string       `yaml:"goal" json:"goal" jsonschema:"required"`
+	Goal     string       `yaml:"goal,omitempty" json:"goal,omitempty" jsonschema:"description=What the user wants; the simulated user pursues it after the script. A scenario with a script and no goal plays the script and stops."`
 	MaxTurns int          `yaml:"max_turns,omitempty" json:"max_turns,omitempty"`
 	StopWhen string       `yaml:"stop_when,omitempty" json:"stop_when,omitempty" jsonschema:"description=A plain-language stop condition judged after each agent turn."`
-	Script   []ScriptStep `yaml:"script,omitempty" json:"script,omitempty" jsonschema:"description=Deterministic steps mixed with free conversation (sip and livekit audio)."`
+	Script   []ScriptStep `yaml:"script,omitempty" json:"script,omitempty" jsonschema:"description=Deterministic steps played before the simulated user takes over: say on any conversational target; wait_for and dtmf on sip and livekit."`
 }
 
 // ScriptStep is a deterministic step of a voice scenario.

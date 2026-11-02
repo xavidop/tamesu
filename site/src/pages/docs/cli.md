@@ -254,6 +254,46 @@ response mapping for `rest`) to review, then validates it the way `tamesu valida
 `0` when the draft validates, `1` when it does not (the file is kept for review), `2` on a
 usage or config error, `3` when the model failed. See [Generating tests](/docs/generate/).
 
+## tamesu import
+
+```text
+tamesu import <conversations.json|.jsonl|.csv> --target <name> [--type rest|grpc|livekit|sip|realtime|pipecat] [--out suite.yaml] [--golden-dir <dir>] [--golden-mode exact|similar|judge] [--tags a,b]
+```
+
+Turns recorded conversations into a suite that replays them: one test per conversation, whose
+scenario `script` says the user's lines in order and whose `golden` assertion holds the agent's
+recorded answers. The input is a JSON array of conversations (or of messages with a
+conversation id), JSON Lines, or a CSV with conversation, role and text columns. `--golden-dir`
+writes the answers to `<dir>/<test>.json` next to the suite (it needs `--out`); without it they
+are inline `turns`. `--golden-mode` is `similar` by default. `--tags` sets the tests' tags
+(`imported`). The target is a stub to point at your agent; the suite is validated as it is
+written. Exit `0` when it validates, `1` when it does not (the files are kept), `2` on a usage or
+config error. See [Importing conversations](/docs/import/).
+
+## tamesu judge
+
+```text
+tamesu judge <command>
+```
+
+The judge model's commands; `tamesu judge` alone lists them.
+
+## tamesu judge calibrate
+
+```text
+tamesu judge calibrate <labels.yaml> [--min-agreement 0.8] [--parallel N] [--out report.json] [--replay | --update-cache]
+```
+
+Measures the judge against transcripts a person has already marked. The labels file is a YAML
+or JSON list of `{name, rubric, scale, min, expected: pass|fail, transcript: [{role, text}],
+tool_calls}`; each is judged with `models.judge` exactly as a `judge` assertion would be. The
+output is a table per rubric (labels, agreements, false passes, false fails), the overall
+agreement and every disagreement with the judge's reason; `--out` writes the same as JSON.
+Verdicts go through the llm cache like a run (`--replay`, `--update-cache`). `--parallel`
+labels are judged at a time (default 4). Exit `0` when the agreement reaches `--min-agreement`
+(default 0.8), `1` when it does not, `2` on a usage or config error, `3` when the judge model
+failed on every label. See [Calibrating the judge](/docs/judges#calibrating-the-judge).
+
 ## tamesu sip
 
 ```text

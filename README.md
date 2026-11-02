@@ -118,6 +118,8 @@ tamesu baseline save <run-dir>   keep a run as the baseline (--dir)
 tamesu compare <base> <run>      compare a run with a baseline; exit 1 on a regression
 tamesu record browser <url>      record a browser session into deterministic steps (--out)
 tamesu generate                  draft tests from a PRD or system prompt (--from, --target, --type, --count, --out)
+tamesu import <file>             turn recorded conversations into a suite that replays them (--target, --type, --out, --golden-dir, --golden-mode, --tags)
+tamesu judge calibrate <labels>  measure the judge against labelled transcripts; exit 1 under --min-agreement
 tamesu sip setup                 create or reuse the LiveKit SIP trunks and dispatch rule (--outbound, --inbound)
 tamesu mcp                       serve tamesu to coding agents as an MCP server over stdio or HTTP (--cwd, --http)
 tamesu version                   print the version, commit and build date
@@ -134,6 +136,9 @@ error and 4 when the cost budget was exceeded.
   every problem with its file and line.
 - **Red-team packs.** `pack: prompt_injection`, `pii_leakage` or `system_prompt_leakage` expands
   into a judge and the regex checks for that attack; suites define their own packs too.
+- **Judges you can measure.** `tamesu judge calibrate` runs the judge over transcripts people
+  have already marked and reports the agreement per rubric, so a rubric earns its place in the
+  gate. `tamesu import` turns conversations the agent already had into tests that replay them.
 - **One assertion model.** `judge` (an LLM rubric with structured output), `contains`,
   `not_contains`, `regex`, `json_path`, `status`, `tool_called`, `tool_not_called`, `tool_sequence`,
   `dtmf_received`, `call_ended_by`, `transferred_to`, `evaluator` (any Genkit evaluator),

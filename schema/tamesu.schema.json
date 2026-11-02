@@ -722,7 +722,8 @@
     "Scenario": {
       "properties": {
         "goal": {
-          "type": "string"
+          "type": "string",
+          "description": "What the user wants; the simulated user pursues it after the script. A scenario with a script and no goal plays the script and stops."
         },
         "max_turns": {
           "type": "integer"
@@ -736,14 +737,11 @@
             "$ref": "#/$defs/ScriptStep"
           },
           "type": "array",
-          "description": "Deterministic steps mixed with free conversation (sip and livekit audio)."
+          "description": "Deterministic steps played before the simulated user takes over: say on any conversational target; wait_for and dtmf on sip and livekit."
         }
       },
       "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "goal"
-      ]
+      "type": "object"
     },
     "ScriptStep": {
       "properties": {

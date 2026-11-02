@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/xavidop/tamesu/assert"
@@ -27,6 +28,7 @@ const (
 	StopAgentDone = "agent_done" // the agent ended the session
 	StopMaxTurns  = "max_turns"  // the turn budget ran out
 	StopScript    = "script"     // a scripted step failed (Outcome.ScriptError)
+	StopScriptEnd = "script_end" // the script played out and the scenario has no goal
 )
 
 // ErrNoSimulator is returned when the loop has no model to play the user.
@@ -74,7 +76,8 @@ type Outcome struct {
 // simulator error ends the conversation and is returned with the partial
 // outcome.
 func (l *Loop) Run(ctx context.Context, sess target.Session) (*Outcome, error) {
-	if l.Sim == nil {
+	scriptOnly := strings.TrimSpace(l.Scenario.Goal) == "" && scriptSteps(l.Scenario) > 0
+	if l.Sim == nil && !scriptOnly {
 		return &Outcome{}, ErrNoSimulator
 	}
 	now := l.Now
@@ -101,6 +104,10 @@ func (l *Loop) Run(ctx context.Context, sess target.Session) (*Outcome, error) {
 			return out, err
 		}
 		if out.StopReason != "" {
+			return out, nil
+		}
+		if scriptOnly {
+			out.StopReason = StopScriptEnd
 			return out, nil
 		}
 	}

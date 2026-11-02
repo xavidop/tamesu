@@ -54,42 +54,9 @@ func (a *app) newGenerateCmd() *cobra.Command {
 			if perrs.HasErrors() {
 				return configError(perrs)
 			}
-			if a.deps.NewProvider == nil {
-				return configError(errors.New("no model provider in this build"))
-			}
-			// The model credentials among the project's secrets.
-			want := map[string]bool{}
-			for _, n := range secrets.ModelCredentialNames {
-				want[n] = true
-			}
-			for _, tmpl := range p.Models.Credentials {
-				for _, n := range config.SecretRefs(tmpl) {
-					want[n] = true
-				}
-			}
-			refs := map[string]string{}
-			for name, ref := range p.Secrets {
-				if want[name] {
-					refs[name] = ref
-				}
-			}
-			flagVars, err := a.refVars(nil)
+			provider, err := a.modelProvider(ctx, p)
 			if err != nil {
 				return err
-			}
-			store, err := secrets.Resolve(ctx, refs, secrets.Options{RefVars: flagVars, EnvFile: a.envFile, Providers: a.deps.Providers})
-			if err != nil {
-				return err
-			}
-			for _, name := range store.Names() {
-				if v, ok := store.Lookup(name); ok {
-					a.redactor.Add(name, v)
-				}
-			}
-			logger := a.logger()
-			provider, err := a.deps.NewProvider(ctx, ProviderConfig{Project: p, Models: p.Models, Secrets: store, Logger: logger, MaxCostUSD: p.Budgets.MaxCostUSD, MaxTokens: p.Budgets.MaxTokens})
-			if err != nil {
-				return infraError(fmt.Errorf("model provider: %w", err))
 			}
 			defer func() { _ = provider.Close(context.WithoutCancel(ctx)) }()
 			gen, ok := provider.(model.Generator)
@@ -124,6 +91,48 @@ func (a *app) newGenerateCmd() *cobra.Command {
 	cmd.Flags().IntVar(&count, "count", 5, "how many tests to draft")
 	cmd.Flags().StringVar(&out, "out", "", "write the suite here (default: print it)")
 	return cmd
+}
+
+// modelProvider builds the AI layer from the project alone (no suites): the
+// model credentials among the project's secrets are resolved first. The
+// error is already an exit error.
+func (a *app) modelProvider(ctx context.Context, p config.Project) (model.Provider, error) {
+	if a.deps.NewProvider == nil {
+		return nil, configError(errors.New("no model provider in this build"))
+	}
+	want := map[string]bool{}
+	for _, n := range secrets.ModelCredentialNames {
+		want[n] = true
+	}
+	for _, tmpl := range p.Models.Credentials {
+		for _, n := range config.SecretRefs(tmpl) {
+			want[n] = true
+		}
+	}
+	refs := map[string]string{}
+	for name, ref := range p.Secrets {
+		if want[name] {
+			refs[name] = ref
+		}
+	}
+	flagVars, err := a.refVars(nil)
+	if err != nil {
+		return nil, err
+	}
+	store, err := secrets.Resolve(ctx, refs, secrets.Options{RefVars: flagVars, EnvFile: a.envFile, Providers: a.deps.Providers})
+	if err != nil {
+		return nil, err
+	}
+	for _, name := range store.Names() {
+		if v, ok := store.Lookup(name); ok {
+			a.redactor.Add(name, v)
+		}
+	}
+	provider, err := a.deps.NewProvider(ctx, ProviderConfig{Project: p, Models: p.Models, Secrets: store, Logger: a.logger(), MaxCostUSD: p.Budgets.MaxCostUSD, MaxTokens: p.Budgets.MaxTokens})
+	if err != nil {
+		return nil, infraError(fmt.Errorf("model provider: %w", err))
+	}
+	return provider, nil
 }
 
 // validateDraft loads the generated suite the way tamesu validate would and

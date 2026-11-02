@@ -58,6 +58,7 @@ const ORDER = [
   "/docs/suites",
   "/docs/personas-and-scenarios",
   "/docs/generate",
+  "/docs/import",
   "/docs/assertions",
   "/docs/judges",
   "/docs/metrics",

@@ -402,8 +402,8 @@ func (v *validator) test(i int, t Test) {
 			v.errorf(with(tp, "scenario"), "scenario applies to conversational targets (rest, grpc, livekit, sip, realtime, pipecat); %q is a browser target", t.Target)
 		}
 	case ok:
-		if t.Scenario == nil || strings.TrimSpace(t.Scenario.Goal) == "" {
-			v.errorf(tp, "conversational tests need scenario.goal")
+		if t.Scenario == nil || (strings.TrimSpace(t.Scenario.Goal) == "" && len(t.Scenario.Script) == 0) {
+			v.errorf(tp, "conversational tests need scenario.goal (or a scenario.script to play)")
 		}
 		if len(t.Steps) > 0 {
 			v.errorf(with(tp, "steps"), "steps apply to browser tests; %q is a %s target", t.Target, ttype)
@@ -446,14 +446,16 @@ func (v *validator) scenario(sp []string, sc Scenario, ttype string) {
 	if sc.MaxTurns < 0 {
 		v.errorf(with(sp, "max_turns"), "max_turns cannot be negative")
 	}
-	if len(sc.Script) > 0 && ttype != "" && ttype != TargetSIP && ttype != TargetLiveKit {
-		v.warnf(with(sp, "script"), "script steps apply to sip and livekit tests; this target is %s", ttype)
-	}
+	voice := ttype == "" || ttype == TargetSIP || ttype == TargetLiveKit
 	for i, st := range sc.Script {
 		p := with(sp, "script", idx(i))
-		if st.Kind() == "" {
+		kind := st.Kind()
+		if kind == "" {
 			v.errorf(p, "a script step is exactly one of %s", strings.Join(ScriptStepKinds, ", "))
 			continue
+		}
+		if kind != "say" && !voice {
+			v.warnf(p, "%s steps apply to sip and livekit tests; this target is %s", kind, ttype)
 		}
 		if st.DTMF != "" && !dtmfRe.MatchString(st.DTMF) {
 			v.errorf(with(p, "dtmf"), "dtmf must be digits, A-D, * or #")

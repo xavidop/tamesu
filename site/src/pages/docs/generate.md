@@ -15,6 +15,9 @@ tamesu generate --from prompts/system.md --target voice --type livekit --count 8
 tamesu generate --from docs/shop.md --target web --type browser
 ```
 
+To build tests from conversations the agent already had instead, see
+[Importing conversations](/docs/import/).
+
 ## What you get
 
 For a conversational target (`rest`, `livekit`, `sip`), each draft test has a persona (name,
