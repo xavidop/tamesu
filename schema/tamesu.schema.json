@@ -18,6 +18,10 @@
           "type": "string",
           "description": "A regular expression the agent transcript matches."
         },
+        "not_regex": {
+          "type": "string",
+          "description": "A regular expression no agent turn matches."
+        },
         "json_path": {
           "$ref": "#/$defs/JSONPathAssertion",
           "description": "rest only."
@@ -57,6 +61,10 @@
         "custom": {
           "type": "string",
           "description": "A Go-registered assertion by name."
+        },
+        "pack": {
+          "type": "string",
+          "description": "A reusable assertion set: a built-in red-team pack (prompt_injection / pii_leakage / system_prompt_leakage) or one of the suite's packs; it expands into its assertions when the suite loads."
         },
         "on_turn": {
           "$ref": "#/$defs/OnTurn"
@@ -852,6 +860,16 @@
       },
       "type": "object",
       "description": "The systems under test by name."
+    },
+    "packs": {
+      "additionalProperties": {
+        "items": {
+          "$ref": "#/$defs/Assertion"
+        },
+        "type": "array"
+      },
+      "type": "object",
+      "description": "Reusable assertion sets by name for assert entries of the form pack: name; a name also used by a built-in pack (prompt_injection / pii_leakage / system_prompt_leakage) replaces it."
     },
     "tests": {
       "items": {

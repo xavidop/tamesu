@@ -1,6 +1,6 @@
 ---
 name: tamesu
-description: Use when working with tamesu (試す), the Go agentic testing framework and CLI for web apps and AI agents, when writing or fixing a tamesu suite in YAML (targets of type browser, rest, livekit, sip or realtime; personas, scenarios, steps, assertions such as judge, contains, not_contains, regex, json_path, status, tool_called, tool_not_called, dtmf_received, call_ended_by, transferred_to, evaluator, metric, turns, custom, on_turn), configuring tamesu.yaml (genkit plugins, models, speech, sip, defaults, budgets, reporters, secrets via mamori refs such as env: aws-sm:// vault:// op://), running `tamesu init`, `tamesu validate`, `tamesu list`, `tamesu run` (filter, tags, target, parallel, repeat, mode, headed, replay, update-cache, out, reporter, max-cost-usd), `tamesu doctor`, `tamesu report` (rebuild the HTML report of a run directory), `tamesu record` / `tamesu record browser` (record a browser session as steps), `tamesu generate` (draft tests from a PRD or system prompt with --from, --target, --type, --count, --out), `tamesu sip` / `tamesu sip setup` (LiveKit SIP trunks and dispatch rule for the phone target), `tamesu mcp` (serve tamesu to coding agents over the Model Context Protocol with --cwd) or `tamesu version`, reading its exit codes (0 passed, 1 failed, 2 config error, 3 infrastructure error, 4 budget exceeded), running it in CI, reading its reports and run directories, debugging a failing validation or an unresolved secret, or answering what the tamesu CLI can do. Covers github.com/xavidop/tamesu.
+description: Use when working with tamesu (試す), the Go agentic testing framework and CLI for web apps and AI agents, when writing or fixing a tamesu suite in YAML (targets of type browser, rest, livekit, sip or realtime; personas, scenarios, steps, assertions such as judge, contains, not_contains, regex, not_regex, json_path, status, tool_called, tool_not_called, dtmf_received, call_ended_by, transferred_to, evaluator, metric, turns, custom, on_turn, and the red-team packs pack: prompt_injection / pii_leakage / system_prompt_leakage or suite-defined packs), configuring tamesu.yaml (genkit plugins, models, speech, sip, defaults, budgets, reporters, secrets via mamori refs such as env: aws-sm:// vault:// op://), running `tamesu init`, `tamesu validate`, `tamesu list`, `tamesu run` (filter, tags, target, parallel, repeat, mode, headed, replay, update-cache, out, reporter, max-cost-usd), `tamesu doctor`, `tamesu report` (rebuild the HTML report of a run directory), `tamesu record` / `tamesu record browser` (record a browser session as steps), `tamesu generate` (draft tests from a PRD or system prompt with --from, --target, --type, --count, --out), `tamesu sip` / `tamesu sip setup` (LiveKit SIP trunks and dispatch rule for the phone target), `tamesu mcp` (serve tamesu to coding agents over the Model Context Protocol with --cwd) or `tamesu version`, reading its exit codes (0 passed, 1 failed, 2 config error, 3 infrastructure error, 4 budget exceeded), running it in CI, reading its reports and run directories, debugging a failing validation or an unresolved secret, or answering what the tamesu CLI can do. Covers github.com/xavidop/tamesu.
 ---
 
 # tamesu: put your web apps and AI agents to the test
@@ -41,7 +41,7 @@ and the suite schema for all five target types. All five targets run: browser
   assert_text`). Conversational tests have a `persona` and a `scenario` with a `goal`,
   `max_turns`, `stop_when` and, for voice, a `script` of `wait_for` / `dtmf` / `say` steps.
 - **Assertions** go under `assert:`. Exactly one kind per entry: `judge` (a rubric string, or
-  `{ rubric, model, scale: binary|1-5, min }`), `contains`, `not_contains`, `regex`,
+  `{ rubric, model, scale: binary|1-5, min }`), `contains`, `not_contains`, `regex`, `not_regex`,
   `json_path` (`{ path, equals }`, rest only), `status` (rest only), `tool_called` /
   `tool_not_called` (a name, or `{ name, args }`), `dtmf_received` (`{ equals }`, sip and
   livekit audio), `call_ended_by` (sip: `agent caller timeout error no_answer busy`),
@@ -96,7 +96,10 @@ Rules the validator enforces (each error is `file:line: path: message`):
 - a test's `target` must be a key of `targets`; browser tests need `steps` and no
   `persona`/`scenario`; conversational tests need `scenario.goal` and no `steps`;
 - a step is exactly one of `goal`, `expect`, `action`; an action is exactly one known action;
-- an assertion is exactly one kind; `metric` and `turns` take exactly one comparator;
+- an assertion is exactly one kind; `metric` and `turns` take exactly one comparator; a `pack`
+  entry (`pack: prompt_injection`, `pii_leakage`, `system_prompt_leakage`, or a name under the
+  suite's `packs:`) expands into that set when the suite loads and its results read
+  `<pack>/<assertion>`; packs cannot nest;
   `json_path`/`status` are rest only; `call_ended_by`/`transferred_to` are sip only;
 - `repeat` is 1 or more, `pass_threshold` is in (0, 1], `mode` is `text` or `audio` and only on
   livekit, sip or realtime tests;

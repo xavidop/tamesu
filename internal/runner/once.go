@@ -199,6 +199,9 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 		if res.TraceID != "" {
 			out.TraceIDs = append(out.TraceIDs, res.TraceID)
 		}
+		if ca.From != "" {
+			res.Name = ca.From + "/" + res.Name
+		}
 		out.Assertions = append(out.Assertions, res)
 		if !res.Pass {
 			out.Passed = false

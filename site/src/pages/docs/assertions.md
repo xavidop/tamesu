@@ -18,6 +18,7 @@ and `result.json` show, so a failure reads like a code review comment.
 | `contains: text` | some agent turn contains `text` (case-sensitive). |
 | `not_contains: text` | no agent turn contains `text`. |
 | `regex: pattern` | some agent turn matches the Go regular expression. |
+| `not_regex: pattern` | no agent turn matches the Go regular expression (the matched text is the evidence when one does). |
 | `turns: { lte: 6 }` | the number of agent turns satisfies the one comparator (`lt`, `lte`, `gt`, `gte`, `eq`). |
 
 ## Responses (rest)
@@ -69,6 +70,12 @@ These read the session timeline the sip target records; the sip runner is planne
 
 `custom: name` runs an assertion registered from Go with `assert.Register`; the Go API takes
 `assert.Assertion` values directly. See [Go API](/docs/go-api/).
+
+## Packs
+
+| Assertion | Passes when |
+|---|---|
+| `pack: name` | every assertion of the pack passes; the entry expands when the suite loads and each result reads `name/<assertion>`. Built-in: `prompt_injection`, `pii_leakage`, `system_prompt_leakage`; a suite defines or overrides packs under `packs:`. See [Red-team packs](/docs/red-team/). |
 
 ## One turn only
 

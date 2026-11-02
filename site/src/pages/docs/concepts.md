@@ -96,6 +96,7 @@ Every assertion is one key under `assert:`; a test may have any number, and `on_
 | `judge` | all | `judge: "..."` or `judge: { rubric: "...", model: ..., scale: binary\|1-5, min: 4 }` |
 | `contains` / `not_contains` | all | on the full agent transcript |
 | `regex` | all | `regex: "order #\\d{6}"` |
+| `not_regex` | all | `not_regex: "[\\w.]+@[\\w.]+"` |
 | `json_path` | rest | `{ path: $.status, equals: ok }` |
 | `status` | rest | HTTP status of every turn |
 | `tool_called` / `tool_not_called` | rest, livekit, realtime | `tool_called: { name: reschedule_booking, args: { day: saturday } }` |
@@ -106,6 +107,7 @@ Every assertion is one key under `assert:`; a test may have any number, and `on_
 | `metric` | all | `{ name: time_to_first_audio_ms, lt: 1500 }` |
 | `turns` | conversational | `{ lte: 6 }` |
 | `custom` | all | a Go-registered assertion by name |
+| `pack` | all | `pack: prompt_injection`: a reusable set of assertions, built-in or defined under `packs:` ([red-team packs](/docs/red-team/)) |
 
 Judges return structured output only (`pass`, `score`, `reason`, `evidence[]`), run at
 temperature 0 when the provider supports it, and their prompt version is recorded with every

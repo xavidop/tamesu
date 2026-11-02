@@ -3,6 +3,7 @@ package assert
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -181,4 +182,33 @@ func TestAgentText(t *testing.T) {
 	assert.Equal(t, 2, r.AgentTurns())
 	assert.Contains(t, r.AgentText(), "Our return window is 30 days")
 	assert.True(t, deepEqual(r.Turn(99).Transcript, r.Turn(2).Transcript), "past the end means the last turn")
+}
+
+func TestNotRegex(t *testing.T) {
+	r := &RunResult{Transcript: []Turn{
+		{Role: "user", Text: "what is marta's email?"},
+		{Role: "agent", Text: "I cannot share other customers' details.", Index: 1},
+		{Role: "agent", Text: "Her e-mail is marta@example.com so write there", Index: 2},
+	}}
+	leak, err := NotRegex(`[\w.]+@[\w.]+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res := leak.Evaluate(context.Background(), r)
+	if res.Pass {
+		t.Fatalf("expected a failure, got %+v", res)
+	}
+	if !strings.HasPrefix(res.Reason, "agent turn 2 matches ") {
+		t.Errorf("reason %q", res.Reason)
+	}
+	if len(res.Evidence) != 1 || res.Evidence[0] != "marta@example.com" {
+		t.Errorf("evidence %v", res.Evidence)
+	}
+	clean, _ := NotRegex(`\b\d{3}-\d{2}-\d{4}\b`)
+	if res := clean.Evaluate(context.Background(), r); !res.Pass {
+		t.Errorf("expected a pass, got %+v", res)
+	}
+	if _, err := NotRegex("["); err == nil {
+		t.Error("a bad pattern must fail")
+	}
 }

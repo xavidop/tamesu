@@ -84,6 +84,24 @@ func Regex(pattern string) (Assertion, error) {
 	}), nil
 }
 
+// NotRegex passes when no agent turn matches pattern.
+func NotRegex(pattern string) (Assertion, error) {
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil, fmt.Errorf("not_regex %q: %w", pattern, err)
+	}
+	return Func("not_regex "+quote(pattern), func(_ context.Context, r *RunResult) Result {
+		for _, t := range r.Transcript {
+			if t.Role == "agent" {
+				if m := re.FindString(t.Text); m != "" || re.MatchString(t.Text) {
+					return Result{Pass: false, Reason: fmt.Sprintf("agent turn %d matches %s", t.Index, quote(pattern)), Evidence: []string{m}}
+				}
+			}
+		}
+		return Result{Pass: true, Reason: fmt.Sprintf("no agent turn matches %s", quote(pattern))}
+	}), nil
+}
+
 // MustRegex is Regex that panics on a bad pattern, for Go tests.
 func MustRegex(pattern string) Assertion {
 	a, err := Regex(pattern)

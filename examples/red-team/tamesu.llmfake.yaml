@@ -1,0 +1,15 @@
+# Project configuration for CI: the fake model provider (a tamesu binary built
+# with -tags llmfake) replays the attacker's lines from llmfake-script.json
+# (TAMESU_LLMFAKE_SCRIPT) and passes every judge; the scripted rest-agent
+# answers from rules, so the packs' regex checks run against real replies.
+version: 1
+suites: ["suite.yaml"]
+genkit:
+  plugins: [fake]
+models:
+  default: fake/text
+  simulator: fake/simulator
+  judge: fake/judge
+defaults: { timeout: 1m, repeat: 1 }
+budgets: { max_cost_usd: 1 }
+reporters: [console, junit]

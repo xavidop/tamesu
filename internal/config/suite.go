@@ -23,22 +23,23 @@ var ActionNames = []string{"navigate", "click", "fill", "press", "wait", "screen
 
 // AssertionKinds lists every assertion key, in documentation order.
 var AssertionKinds = []string{
-	"judge", "contains", "not_contains", "regex", "json_path", "status",
+	"judge", "contains", "not_contains", "regex", "not_regex", "json_path", "status",
 	"tool_called", "tool_not_called", "dtmf_received", "call_ended_by", "transferred_to",
-	"evaluator", "metric", "turns", "custom",
+	"evaluator", "metric", "turns", "custom", "pack",
 }
 
 // Suite is one YAML suite file (design.md §5): targets, defaults and tests.
 type Suite struct {
-	Suite    string            `yaml:"suite" json:"suite" jsonschema:"required,description=Suite name."`
-	Tags     []string          `yaml:"tags,omitempty" json:"tags,omitempty" jsonschema:"description=Tags every test of the suite carries."`
-	Vars     map[string]string `yaml:"vars,omitempty" json:"vars,omitempty" jsonschema:"description=Values for {{vars.x}} and for ${VAR} expansion in secret refs."`
-	Secrets  map[string]string `yaml:"secrets,omitempty" json:"secrets,omitempty" jsonschema:"description=Secret name to mamori ref; overrides the project entry of the same name."`
-	Defaults *Defaults         `yaml:"defaults,omitempty" json:"defaults,omitempty"`
-	Models   *Models           `yaml:"models,omitempty" json:"models,omitempty"`
-	Budgets  *Budgets          `yaml:"budgets,omitempty" json:"budgets,omitempty"`
-	Targets  map[string]Target `yaml:"targets" json:"targets" jsonschema:"required,description=The systems under test by name."`
-	Tests    []Test            `yaml:"tests" json:"tests" jsonschema:"required"`
+	Suite    string                 `yaml:"suite" json:"suite" jsonschema:"required,description=Suite name."`
+	Tags     []string               `yaml:"tags,omitempty" json:"tags,omitempty" jsonschema:"description=Tags every test of the suite carries."`
+	Vars     map[string]string      `yaml:"vars,omitempty" json:"vars,omitempty" jsonschema:"description=Values for {{vars.x}} and for ${VAR} expansion in secret refs."`
+	Secrets  map[string]string      `yaml:"secrets,omitempty" json:"secrets,omitempty" jsonschema:"description=Secret name to mamori ref; overrides the project entry of the same name."`
+	Defaults *Defaults              `yaml:"defaults,omitempty" json:"defaults,omitempty"`
+	Models   *Models                `yaml:"models,omitempty" json:"models,omitempty"`
+	Budgets  *Budgets               `yaml:"budgets,omitempty" json:"budgets,omitempty"`
+	Targets  map[string]Target      `yaml:"targets" json:"targets" jsonschema:"required,description=The systems under test by name."`
+	Packs    map[string][]Assertion `yaml:"packs,omitempty" json:"packs,omitempty" jsonschema:"description=Reusable assertion sets by name for assert entries of the form pack: name; a name also used by a built-in pack (prompt_injection / pii_leakage / system_prompt_leakage) replaces it."`
+	Tests    []Test                 `yaml:"tests" json:"tests" jsonschema:"required"`
 
 	// Path is the file the suite was loaded from. It is not part of the format.
 	Path string `yaml:"-" json:"-"`
@@ -251,6 +252,7 @@ type Assertion struct {
 	Contains      *string            `yaml:"contains,omitempty" json:"contains,omitempty" jsonschema:"description=The agent transcript contains this text."`
 	NotContains   *string            `yaml:"not_contains,omitempty" json:"not_contains,omitempty"`
 	Regex         *string            `yaml:"regex,omitempty" json:"regex,omitempty" jsonschema:"description=A regular expression the agent transcript matches."`
+	NotRegex      *string            `yaml:"not_regex,omitempty" json:"not_regex,omitempty" jsonschema:"description=A regular expression no agent turn matches."`
 	JSONPath      *JSONPathAssertion `yaml:"json_path,omitempty" json:"json_path,omitempty" jsonschema:"description=rest only."`
 	Status        *int               `yaml:"status,omitempty" json:"status,omitempty" jsonschema:"description=rest only: the HTTP status of every turn."`
 	ToolCalled    *ToolCall          `yaml:"tool_called,omitempty" json:"tool_called,omitempty"`
@@ -262,7 +264,12 @@ type Assertion struct {
 	Metric        *MetricAssertion   `yaml:"metric,omitempty" json:"metric,omitempty"`
 	Turns         *IntCompare        `yaml:"turns,omitempty" json:"turns,omitempty" jsonschema:"description=Number of agent turns."`
 	Custom        *string            `yaml:"custom,omitempty" json:"custom,omitempty" jsonschema:"description=A Go-registered assertion by name."`
+	Pack          *string            `yaml:"pack,omitempty" json:"pack,omitempty" jsonschema:"description=A reusable assertion set: a built-in red-team pack (prompt_injection / pii_leakage / system_prompt_leakage) or one of the suite's packs; it expands into its assertions when the suite loads."`
 	OnTurn        OnTurn             `yaml:"on_turn,omitempty" json:"on_turn,omitempty"`
+
+	// From is the pack this assertion came from, set when a pack expands;
+	// results are reported as <pack>/<assertion>. Not part of the format.
+	From string `yaml:"-" json:"-"`
 }
 
 // Kinds lists the assertion keys that are set, in AssertionKinds order.
@@ -272,6 +279,7 @@ func (a Assertion) Kinds() []string {
 		"contains":        a.Contains != nil,
 		"not_contains":    a.NotContains != nil,
 		"regex":           a.Regex != nil,
+		"not_regex":       a.NotRegex != nil,
 		"json_path":       a.JSONPath != nil,
 		"status":          a.Status != nil,
 		"tool_called":     a.ToolCalled != nil,
@@ -283,6 +291,7 @@ func (a Assertion) Kinds() []string {
 		"metric":          a.Metric != nil,
 		"turns":           a.Turns != nil,
 		"custom":          a.Custom != nil,
+		"pack":            a.Pack != nil,
 	}
 	var k []string
 	for _, name := range AssertionKinds {

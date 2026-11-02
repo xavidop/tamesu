@@ -94,6 +94,9 @@ func LoadSuiteWithProject(path string, p Project, o LoadOptions) (*Suite, Errors
 	if err := root.Decode(s); err != nil {
 		return nil, append(errs, decodeErrors(path, err)...).Sorted(), nil
 	}
+	if perrs := ExpandPacks(s, root, path); len(perrs) > 0 {
+		return nil, append(errs, perrs...).Sorted(), nil
+	}
 	errs = append(errs, Validate(s, p, root)...)
 	return s, errs.Sorted(), nil
 }

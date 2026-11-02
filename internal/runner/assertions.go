@@ -41,6 +41,8 @@ func buildKind(a config.Assertion) (assert.Assertion, error) {
 		return assert.NotContains(*a.NotContains), nil
 	case "regex":
 		return assert.Regex(*a.Regex)
+	case "not_regex":
+		return assert.NotRegex(*a.NotRegex)
 	case "json_path":
 		return assert.JSONPath(a.JSONPath.Path, a.JSONPath.Equals)
 	case "status":
@@ -99,6 +101,8 @@ func buildKind(a config.Assertion) (assert.Assertion, error) {
 			return c, nil
 		}
 		return nil, fmt.Errorf("custom assertion %q is not registered (have %v)", *a.Custom, assert.Registered())
+	case "pack":
+		return nil, fmt.Errorf("pack %q was not expanded: load the suite with config.LoadSuite or call config.ExpandPacks", *a.Pack)
 	case "":
 		return nil, fmt.Errorf("an assertion is exactly one of %v (have %v)", config.AssertionKinds, a.Kinds())
 	default:

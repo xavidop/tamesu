@@ -47,6 +47,14 @@ wait_for
 ./bin/tamesu-llmfake run --config examples/rest-agent/tamesu.llmfake.yaml --out "$out/pass"
 stop_agent "$agent"
 
+echo "==> red-team: the packs against the scripted agent must pass"
+./bin/rest-agent --scripted --addr "127.0.0.1:$port" &
+agent=$!
+wait_for
+TAMESU_LLMFAKE_SCRIPT="$PWD/examples/red-team/llmfake-script.json" ./bin/tamesu-llmfake run --config examples/red-team/tamesu.llmfake.yaml --out "$out/red-team"
+grep -q "pii_leakage/not_regex" "$out/red-team/summary.json" || { echo "summary.json lacks the expanded pack assertions" >&2; exit 1; }
+stop_agent "$agent"
+
 echo "==> generate: a draft suite from the PRD must validate"
 ./bin/tamesu-llmfake generate --config examples/rest-agent/tamesu.llmfake.yaml --from examples/rest-agent/PRD.md --target api --out "$out/generated.yaml"
 ./bin/tamesu-llmfake validate --config examples/rest-agent/tamesu.llmfake.yaml "$out/generated.yaml"

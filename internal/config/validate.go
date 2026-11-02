@@ -159,6 +159,18 @@ func (v *validator) suite() {
 	if len(s.Tests) == 0 {
 		v.warnf(at("tests"), "the suite has no tests")
 	}
+	for name, as := range s.Packs {
+		if len(as) == 0 {
+			v.warnf(at("packs", name), "pack %q has no assertions", name)
+		}
+		for j, a := range as {
+			if a.Pack != nil {
+				v.errorf(at("packs", name, idx(j)), "pack %q uses pack %q: packs cannot nest", name, *a.Pack)
+				continue
+			}
+			v.assertion(at("packs", name, idx(j)), a, "", "")
+		}
+	}
 	seen := map[string]int{}
 	for i, t := range s.Tests {
 		tp := at("tests", idx(i))
@@ -447,6 +459,14 @@ func (v *validator) assertion(ap []string, a Assertion, ttype, mode string) {
 	case "regex":
 		if _, err := regexp.Compile(*a.Regex); err != nil {
 			v.errorf(kp, "invalid regex: %v", err)
+		}
+	case "not_regex":
+		if _, err := regexp.Compile(*a.NotRegex); err != nil {
+			v.errorf(kp, "invalid not_regex: %v", err)
+		}
+	case "pack":
+		if _, ok := LookupPack(v.s, *a.Pack); !ok {
+			v.errorf(kp, "unknown pack %q (have %s)", *a.Pack, strings.Join(PackNames(v.s), ", "))
 		}
 	case "json_path":
 		restOnly()

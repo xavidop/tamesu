@@ -131,6 +131,8 @@ error and 4 when the cost budget was exceeded. What comes after v1.0 is on the
 - **Suites in YAML, with a schema.** Targets, personas, scenarios, steps and assertions in one
   file; `schema/tamesu.schema.json` gives editors autocompletion, and `tamesu validate` reports
   every problem with its file and line.
+- **Red-team packs.** `pack: prompt_injection`, `pii_leakage` or `system_prompt_leakage` expands
+  into a judge and the regex checks for that attack; suites define their own packs too.
 - **One assertion model.** `judge` (an LLM rubric with structured output), `contains`,
   `not_contains`, `regex`, `json_path`, `status`, `tool_called`, `tool_not_called`,
   `dtmf_received`, `call_ended_by`, `transferred_to`, `evaluator` (any Genkit evaluator),

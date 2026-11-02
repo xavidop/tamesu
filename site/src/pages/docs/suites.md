@@ -33,6 +33,7 @@ The top level of the file.
 | `models` | [Models](#models) |  |  |
 | `budgets` | [Budgets](#budgets) |  |  |
 | `targets` | map of string to [Target](#target) | yes | The systems under test by name. |
+| `packs` | map of string to list of [Assertion](#assertion) |  | Reusable assertion sets by name for assert entries of the form pack: name; a name also used by a built-in pack (prompt_injection / pii_leakage / system_prompt_leakage) replaces it. |
 | `tests` | list of [Test](#test) | yes |  |
 
 ## Target
@@ -202,6 +203,7 @@ The top level of the file.
 | `contains` | string |  | The agent transcript contains this text. |
 | `not_contains` | string |  |  |
 | `regex` | string |  | A regular expression the agent transcript matches. |
+| `not_regex` | string |  | A regular expression no agent turn matches. |
 | `json_path` | [JSONPathAssertion](#jsonpathassertion) |  | rest only. |
 | `status` | integer |  | rest only: the HTTP status of every turn. |
 | `tool_called` | [ToolCall](#toolcall) |  |  |
@@ -213,6 +215,7 @@ The top level of the file.
 | `metric` | [MetricAssertion](#metricassertion) |  |  |
 | `turns` | [IntCompare](#intcompare) |  | Number of agent turns. |
 | `custom` | string |  | A Go-registered assertion by name. |
+| `pack` | string |  | A reusable assertion set: a built-in red-team pack (prompt_injection / pii_leakage / system_prompt_leakage) or one of the suite's packs; it expands into its assertions when the suite loads. |
 | `on_turn` | [OnTurn](#onturn) |  |  |
 
 ## Judge
