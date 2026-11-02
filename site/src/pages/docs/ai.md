@@ -19,7 +19,7 @@ genkit:
   plugins: [googlegenai, anthropic, openai, ollama, evaluators]   # only these are initialised
 models:                                     # every value is a Genkit model reference
   default: googleai/gemini-2.5-flash
-  judge: anthropic/claude-sonnet-4-5
+  judge: anthropic/claude-sonnet-4-6
   simulator: openai/gpt-4.1-mini
 secrets:
   GEMINI_API_KEY: env:GEMINI_API_KEY
@@ -30,7 +30,7 @@ secrets:
 | Plugin | Model references | Credential |
 |---|---|---|
 | `googlegenai` | `googleai/gemini-2.5-flash`, `googleai/gemini-2.5-pro`, ... | `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) |
-| `anthropic` | `anthropic/claude-sonnet-4-5`, ... | `ANTHROPIC_API_KEY` |
+| `anthropic` | `anthropic/claude-sonnet-4-6`, ... | `ANTHROPIC_API_KEY` |
 | `openai` | `openai/gpt-4.1-mini`, ... | `OPENAI_API_KEY` |
 | `ollama` | `ollama/llama3.1`, any local model | none (`OLLAMA_URL` for a remote server) |
 | `deepgram` | `deepgram/nova-3`, `deepgram/nova-2` (speech to text) | `DEEPGRAM_API_KEY` |
@@ -45,6 +45,12 @@ credential resolved.
 
 The jobs: `models.simulator` plays the user, `models.judge` grades, `models.default` is the
 fallback for both (and `browser_agent` and `scenario_generator` as those land).
+
+Every flow asks for JSON with the schema of its prompt. OpenAI models receive that schema in
+the API's strict mode, which the `llm` module prepares for them (every object closed to
+extra properties, every property required, optional ones nullable); the other providers get
+it as written. The verified combinations are Gemini, OpenAI and Anthropic models in every
+role, including `tamesu generate`.
 
 ## Flows
 

@@ -21,7 +21,7 @@ assert:
       rubric: "The agent confirmed the new date and did not invent availability"
       scale: 1-5
       min: 4
-      model: anthropic/claude-sonnet-4-5
+      model: anthropic/claude-sonnet-4-6
 ```
 
 - Say what the agent must do and must not do, in one or two sentences, as you would brief a

@@ -62,7 +62,7 @@ mode and the [MCP server](/docs/mcp/) for coding agents (v1.1); what comes next 
 
 - Every model call (the simulated user, the judges, scenario generation, speech) is a
   [Genkit](https://genkit.dev) flow. Models are Genkit references such as
-  `googleai/gemini-2.5-flash` or `anthropic/claude-sonnet-4-5`, so switching provider is a
+  `googleai/gemini-2.5-flash` or `anthropic/claude-sonnet-4-6`, so switching provider is a
   one-line change, and every run is traceable in the Genkit Developer UI.
 - Every secret is a [mamori](https://github.com/xavidop/mamori) ref (`env:`, `aws-sm://`,
   `vault://`, `op://`, ...), resolved once per run, revealed only at the moment of use and

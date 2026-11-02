@@ -19,7 +19,7 @@ genkit:
   dev_ui: false                             # true: export traces to the Genkit Developer UI
 models:                                     # every value is a Genkit model reference
   default: googleai/gemini-2.5-flash
-  judge: anthropic/claude-sonnet-4-5
+  judge: anthropic/claude-sonnet-4-6
   browser_agent: googleai/gemini-2.5-pro
   simulator: openai/gpt-4.1-mini
   scenario_generator: googleai/gemini-2.5-pro
