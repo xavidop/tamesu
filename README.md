@@ -4,7 +4,7 @@
 
 # 試す &nbsp;tamesu
 
-### Put your web apps and AI agents to the test.
+### Test your agents the way your users will.
 
 *An open-source, agentic testing framework and CLI written in Go: write tests in YAML or Go and
 run them against web apps and AI agents (REST, realtime voice, phone) with one runner, one
@@ -18,7 +18,7 @@ assertion model and one report format.*
 
 ---
 
-`tamesu` (試す, Japanese for *to try / to put to the test*) describes a test the way you would
+`tamesu` (試す, Japanese for *to try, to test*) describes a test the way you would
 brief a colleague: a persona, a goal, and what a good outcome looks like. A simulated user then
 talks to your agent or drives your web app, and deterministic checks and LLM judges grade the
 result, with the same YAML, assertions and reports for a REST chatbot, a LiveKit voice agent, a

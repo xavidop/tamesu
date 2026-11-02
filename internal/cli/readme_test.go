@@ -102,7 +102,7 @@ func TestReadmeShape(t *testing.T) {
 	}{
 		{"logo", regexp.MustCompile(`^<img src="site/public/favicon\.svg"`)},
 		{"title", regexp.MustCompile(`^# 試す (&nbsp;)?tamesu$`)},
-		{"tagline", regexp.MustCompile(`^### Put your web apps and AI agents to the test\.$`)},
+		{"tagline", regexp.MustCompile(`^### Test your agents the way your users will\.$`)},
 		{"italic one-liner", regexp.MustCompile(`^\*[^*].*$`)},
 		{"Go Reference badge", regexp.MustCompile(`^\[!\[Go Reference\]`)},
 		{"CI badge", regexp.MustCompile(`^\[!\[CI\]`)},
