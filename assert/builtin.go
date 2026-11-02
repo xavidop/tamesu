@@ -198,6 +198,29 @@ func ToolNotCalled(name string, args map[string]any) Assertion {
 	})
 }
 
+// SLO passes when the metric is at most max, or was not measured in this
+// run (an audio metric on a text test), so one SLO applies to every test.
+func SLO(metric string, max float64) Assertion {
+	return Func(fmt.Sprintf("slo/%s <= %s", metric, formatNumber(max)), func(_ context.Context, r *RunResult) Result {
+		v, ok := r.Metrics[metric]
+		if !ok {
+			return Result{Pass: true, Reason: fmt.Sprintf("%s was not measured in this run", metric)}
+		}
+		if v > max {
+			return Result{Pass: false, Reason: fmt.Sprintf("%s = %s, over the limit of %s", metric, formatNumber(v), formatNumber(max))}
+		}
+		return Result{Pass: true, Reason: fmt.Sprintf("%s = %s, within %s", metric, formatNumber(v), formatNumber(max))}
+	})
+}
+
+// formatNumber prints a metric value without trailing noise.
+func formatNumber(v float64) string {
+	if v == float64(int64(v)) {
+		return fmt.Sprintf("%d", int64(v))
+	}
+	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.4f", v), "0"), ".")
+}
+
 // Captured passes when the run captured name and, when given, the value
 // equals or matches the expectation.
 func Captured(name string, equals, matches *string) (Assertion, error) {

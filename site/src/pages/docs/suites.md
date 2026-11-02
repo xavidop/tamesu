@@ -319,6 +319,8 @@ One of: string, list of string.
 | `retries` | integer |  |  |
 | `pass_threshold` | number |  | Fraction of repeats that must pass (0 to 1]. |
 | `max_goal_steps` | integer |  | Browser: the most actions the agent may take per goal step; default 15. |
+| `assert` | list of [Assertion](#assertion) |  | Assertions every test must pass (results named defaults/<name>); a suite's entries run after the project's. Packs apply. |
+| `slo` | map of string to number |  | Maximum per metric on every test such as turn_latency_ms_p95: 3000 or llm_cost_usd: 0.05 (results named slo/<metric>); a metric a test does not measure passes. |
 
 ## Models
 

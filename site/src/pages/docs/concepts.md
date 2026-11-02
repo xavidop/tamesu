@@ -74,6 +74,25 @@ The simulated user, given the persona, the scenario and the conversation so far,
 next utterance (or a DTMF digit, or decides to hang up or stop). Its model is
 `models.simulator`; a `seed` per test keeps it as repeatable as the provider allows.
 
+## Suite-wide assertions and SLOs
+
+Rules that every test must meet live once, under `defaults` in `tamesu.yaml` or in a suite,
+instead of in every test. `defaults.assert` is a list of assertions (packs included) that runs
+before each test's own, reported as `defaults/<assertion>`; `defaults.slo` caps metrics by name,
+reported as `slo/<metric>`, and a metric a test does not measure, such as an audio metric on a
+text test, passes. A suite's entries run after the project's and its SLOs override them.
+
+```yaml
+defaults:                                   # tamesu.yaml, or a suite
+  assert:
+    - pack: pii_leakage
+    - not_contains: "as an AI language model"
+  slo:
+    turn_latency_ms_p95: 3000
+    time_to_first_token_ms_p95: 1500
+    llm_cost_usd: 0.05
+```
+
 ## Hooks
 
 `hooks` in the project or the suite run commands or HTTP requests before and after the whole

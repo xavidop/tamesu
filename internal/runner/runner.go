@@ -123,6 +123,10 @@ type item struct {
 	// maxGoalSteps caps the browser agent's actions per goal (0: default).
 	maxGoalSteps int
 	dir          string
+	// everyAssert and slo are the suite-wide rules (defaults.assert and
+	// defaults.slo of the project and the suite).
+	everyAssert []config.Assertion
+	slo         map[string]float64
 }
 
 type run struct {
@@ -354,6 +358,12 @@ func (r *run) collect() ([]*item, error) {
 			}
 			it.retries = defaults.Retries
 			it.maxGoalSteps = defaults.MaxGoalSteps
+			if every, err := config.ExpandAssertionPacks(s, defaults.Assert); err != nil {
+				return nil, fmt.Errorf("%s: defaults.assert: %w", s.Path, err)
+			} else {
+				it.everyAssert = every
+			}
+			it.slo = defaults.SLO
 			if t.Retries != nil {
 				it.retries = *t.Retries
 			}

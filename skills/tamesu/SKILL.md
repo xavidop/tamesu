@@ -105,7 +105,9 @@ Rules the validator enforces (each error is `file:line: path: message`):
   livekit, sip or realtime tests; `vars` (per-test {{vars.x}}), `cases` / `cases_file`
   (parameterised: one test per case, named `<name> [<case>]`, tagged case:<name>); `hooks`
   (`before_all` / `after_all` / `before_each` / `after_each`, each `command` or `http`, on the
-  suite or in tamesu.yaml); `capture` (`{ name, regex | json_path }`: values from the agent's turns
+  suite or in tamesu.yaml); `defaults.assert` (assertions every test must pass, packs included,
+  reported as defaults/<name>) and `defaults.slo` (metric maximums such as turn_latency_ms_p95: 3000,
+  reported as slo/<metric>; unmeasured metrics pass); `capture` (`{ name, regex | json_path }`: values from the agent's turns
   as `{{captured.<name>}}` in later script say steps, tool_results, hooks and assertions);
 - every `{{secrets.X}}` must be declared; a `${VAR}` in a secret field is a warning;
 - an unset `${VAR}` is a warning for `validate` (so CI without the variables can check suites)

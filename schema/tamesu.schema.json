@@ -307,6 +307,20 @@
         "max_goal_steps": {
           "type": "integer",
           "description": "Browser: the most actions the agent may take per goal step; default 15."
+        },
+        "assert": {
+          "items": {
+            "$ref": "#/$defs/Assertion"
+          },
+          "type": "array",
+          "description": "Assertions every test must pass (results named defaults/\u003cname\u003e); a suite's entries run after the project's. Packs apply."
+        },
+        "slo": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "type": "object",
+          "description": "Maximum per metric on every test such as turn_latency_ms_p95: 3000 or llm_cost_usd: 0.05 (results named slo/\u003cmetric\u003e); a metric a test does not measure passes."
         }
       },
       "additionalProperties": false,

@@ -190,6 +190,21 @@ func TestAgentText(t *testing.T) {
 	assert.True(t, deepEqual(r.Turn(99).Transcript, r.Turn(2).Transcript), "past the end means the last turn")
 }
 
+func TestSLO(t *testing.T) {
+	r := sampleRun() // turn_latency_ms_p95 = 1200
+	res := SLO("turn_latency_ms_p95", 3000).Evaluate(context.Background(), r)
+	assert.True(t, res.Pass)
+	assert.Equal(t, "slo/turn_latency_ms_p95 <= 3000", res.Name)
+	assert.Equal(t, "turn_latency_ms_p95 = 1200, within 3000", res.Reason)
+	res = SLO("turn_latency_ms_p95", 1000).Evaluate(context.Background(), r)
+	assert.False(t, res.Pass)
+	assert.Equal(t, "turn_latency_ms_p95 = 1200, over the limit of 1000", res.Reason)
+	res = SLO("time_to_first_audio_ms_p95", 1500).Evaluate(context.Background(), r)
+	assert.True(t, res.Pass, "a metric the run did not measure passes")
+	assert.Equal(t, "time_to_first_audio_ms_p95 was not measured in this run", res.Reason)
+	assert.Equal(t, "slo/llm_cost_usd <= 0.05", SLO("llm_cost_usd", 0.05).Name())
+}
+
 func TestCaptured(t *testing.T) {
 	r := &RunResult{Captures: map[string]string{"order_id": "ORD-123"}}
 	eq := "ORD-123"

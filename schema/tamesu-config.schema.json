@@ -2,6 +2,89 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://xavidop.github.io/tamesu/schema/tamesu-config.schema.json",
   "$defs": {
+    "Assertion": {
+      "properties": {
+        "judge": {
+          "$ref": "#/$defs/Judge"
+        },
+        "contains": {
+          "type": "string",
+          "description": "The agent transcript contains this text."
+        },
+        "not_contains": {
+          "type": "string"
+        },
+        "regex": {
+          "type": "string",
+          "description": "A regular expression the agent transcript matches."
+        },
+        "not_regex": {
+          "type": "string",
+          "description": "A regular expression no agent turn matches."
+        },
+        "json_path": {
+          "$ref": "#/$defs/JSONPathAssertion",
+          "description": "rest only."
+        },
+        "status": {
+          "type": "integer",
+          "description": "rest only: the HTTP status of every turn."
+        },
+        "tool_called": {
+          "$ref": "#/$defs/ToolCall"
+        },
+        "tool_not_called": {
+          "$ref": "#/$defs/ToolCall"
+        },
+        "tool_sequence": {
+          "$ref": "#/$defs/ToolSequence",
+          "description": "The agent called these tools in this order (a subsequence of its calls; exact for the whole list)."
+        },
+        "dtmf_received": {
+          "$ref": "#/$defs/DTMFAssertion",
+          "description": "sip and livekit audio: digits the agent sent."
+        },
+        "call_ended_by": {
+          "$ref": "#/$defs/StringList",
+          "description": "sip: agent caller timeout error no_answer busy."
+        },
+        "transferred_to": {
+          "$ref": "#/$defs/Matches",
+          "description": "sip: target of a SIP REFER."
+        },
+        "evaluator": {
+          "$ref": "#/$defs/Evaluator"
+        },
+        "metric": {
+          "$ref": "#/$defs/MetricAssertion"
+        },
+        "turns": {
+          "$ref": "#/$defs/IntCompare",
+          "description": "Number of agent turns."
+        },
+        "captured": {
+          "$ref": "#/$defs/CapturedAssertion",
+          "description": "A value captured during the run exists and equals or matches."
+        },
+        "golden": {
+          "$ref": "#/$defs/GoldenAssertion",
+          "description": "The agent's turns against reference turns: a file next to the suite or inline turns; exact / similar / judge."
+        },
+        "custom": {
+          "type": "string",
+          "description": "A Go-registered assertion by name."
+        },
+        "pack": {
+          "type": "string",
+          "description": "A reusable assertion set: a built-in red-team pack (prompt_injection / pii_leakage / system_prompt_leakage) or one of the suite's packs; it expands into its assertions when the suite loads."
+        },
+        "on_turn": {
+          "$ref": "#/$defs/OnTurn"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "BaselineConfig": {
       "properties": {
         "dir": {
@@ -50,6 +133,38 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "CapturedAssertion": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "equals": {
+          "type": "string"
+        },
+        "matches": {
+          "type": "string",
+          "description": "A regular expression the value must match."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name"
+      ]
+    },
+    "DTMFAssertion": {
+      "properties": {
+        "equals": {
+          "type": "string",
+          "description": "The exact digits such as 1234#."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "equals"
+      ]
+    },
     "Defaults": {
       "properties": {
         "timeout": {
@@ -69,6 +184,20 @@
         "max_goal_steps": {
           "type": "integer",
           "description": "Browser: the most actions the agent may take per goal step; default 15."
+        },
+        "assert": {
+          "items": {
+            "$ref": "#/$defs/Assertion"
+          },
+          "type": "array",
+          "description": "Assertions every test must pass (results named defaults/\u003cname\u003e); a suite's entries run after the project's. Packs apply."
+        },
+        "slo": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "type": "object",
+          "description": "Maximum per metric on every test such as turn_latency_ms_p95: 3000 or llm_cost_usd: 0.05 (results named slo/\u003cmetric\u003e); a metric a test does not measure passes."
         }
       },
       "additionalProperties": false,
@@ -78,6 +207,31 @@
       "type": "string",
       "pattern": "^(\\d+(\\.\\d+)?(ns|us|µs|ms|s|m|h))+$",
       "description": "A duration such as 30s, 3m or 1h30m."
+    },
+    "Evaluator": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "The evaluator name."
+        },
+        {
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Genkit evaluator name such as genkitEval/faithfulness."
+            },
+            "min": {
+              "type": "number",
+              "description": "Minimum score to pass (0 to 1)."
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "name"
+          ]
+        }
+      ]
     },
     "Genkit": {
       "properties": {
@@ -91,6 +245,36 @@
         "dev_ui": {
           "type": "boolean",
           "description": "Export traces to the Genkit Developer UI."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "GoldenAssertion": {
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "A JSON file next to the suite: an array of agent turns or a transcript.json; written by tamesu run --update-golden."
+        },
+        "turns": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Inline reference turns instead of a file."
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "exact",
+            "similar",
+            "judge"
+          ],
+          "description": "exact (normalised text) / similar (word overlap at least min; the default) / judge (the judge decides whether each turn means the same)."
+        },
+        "min": {
+          "type": "number",
+          "description": "similar: the minimum word overlap (0 to 1); default 0.8."
         }
       },
       "additionalProperties": false,
@@ -170,6 +354,80 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "IntCompare": {
+      "properties": {
+        "lt": {
+          "type": "integer"
+        },
+        "lte": {
+          "type": "integer"
+        },
+        "gt": {
+          "type": "integer"
+        },
+        "gte": {
+          "type": "integer"
+        },
+        "eq": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "JSONPathAssertion": {
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "JSONPath into the response body such as $.status."
+        },
+        "equals": {
+          "description": "The value the path must equal."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "path"
+      ]
+    },
+    "Judge": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "The rubric; the judge model and a binary scale are the defaults."
+        },
+        {
+          "properties": {
+            "rubric": {
+              "type": "string",
+              "description": "What the judge checks in plain language."
+            },
+            "model": {
+              "type": "string",
+              "description": "Genkit model reference; defaults to models.judge."
+            },
+            "scale": {
+              "type": "string",
+              "enum": [
+                "binary",
+                "1-5"
+              ],
+              "description": "binary (pass or fail) or 1-5 with min."
+            },
+            "min": {
+              "type": "number",
+              "description": "Minimum score to pass on the 1-5 scale."
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "rubric"
+          ]
+        }
+      ]
+    },
     "LiveKitConfig": {
       "properties": {
         "max_concurrent_rooms": {
@@ -178,6 +436,47 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "Matches": {
+      "properties": {
+        "matches": {
+          "type": "string",
+          "description": "A regular expression such as ^sip:billing@."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "matches"
+      ]
+    },
+    "MetricAssertion": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Metric name such as turn_latency_p95_ms."
+        },
+        "lt": {
+          "type": "number"
+        },
+        "lte": {
+          "type": "number"
+        },
+        "gt": {
+          "type": "number"
+        },
+        "gte": {
+          "type": "number"
+        },
+        "eq": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name"
+      ]
     },
     "Models": {
       "properties": {
@@ -206,6 +505,21 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "OnTurn": {
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 1
+        },
+        {
+          "type": "string",
+          "enum": [
+            "last"
+          ]
+        }
+      ],
+      "description": "Evaluate the assertion on one agent turn: a 1-based number or last."
     },
     "SIPConfig": {
       "properties": {
@@ -349,6 +663,64 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "StringList": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      ]
+    },
+    "ToolCall": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "The tool name."
+        },
+        {
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Tool name as the target reports it."
+            },
+            "args": {
+              "type": "object",
+              "description": "Argument values that must match (a subset of the call's arguments)."
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "name"
+          ]
+        }
+      ]
+    },
+    "ToolSequence": {
+      "properties": {
+        "calls": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Tool names in the order they must be called."
+        },
+        "exact": {
+          "type": "boolean",
+          "description": "The run's tool calls must be exactly this list; default a subsequence."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "calls"
+      ]
     },
     "VADConfig": {
       "properties": {

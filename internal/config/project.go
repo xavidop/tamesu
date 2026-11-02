@@ -127,6 +127,12 @@ type Defaults struct {
 	Retries       int      `yaml:"retries,omitempty" json:"retries,omitempty"`
 	PassThreshold float64  `yaml:"pass_threshold,omitempty" json:"pass_threshold,omitempty" jsonschema:"description=Fraction of repeats that must pass (0 to 1]."`
 	MaxGoalSteps  int      `yaml:"max_goal_steps,omitempty" json:"max_goal_steps,omitempty" jsonschema:"description=Browser: the most actions the agent may take per goal step; default 15."`
+	// Assert runs on every test, before the test's own assertions; results
+	// are named defaults/<assertion>. A suite's entries follow the project's.
+	Assert []Assertion `yaml:"assert,omitempty" json:"assert,omitempty" jsonschema:"description=Assertions every test must pass (results named defaults/<name>); a suite's entries run after the project's. Packs apply."`
+	// SLO caps metrics on every test: metric name to maximum, checked as
+	// slo/<metric>; a metric the run did not measure passes.
+	SLO map[string]float64 `yaml:"slo,omitempty" json:"slo,omitempty" jsonschema:"description=Maximum per metric on every test such as turn_latency_ms_p95: 3000 or llm_cost_usd: 0.05 (results named slo/<metric>); a metric a test does not measure passes."`
 }
 
 // Budgets cap what a run may spend on tamesu's own model calls.
@@ -174,6 +180,19 @@ func (d Defaults) Merge(o *Defaults) Defaults {
 	}
 	if o.MaxGoalSteps != 0 {
 		d.MaxGoalSteps = o.MaxGoalSteps
+	}
+	if len(o.Assert) > 0 {
+		d.Assert = append(append([]Assertion(nil), d.Assert...), o.Assert...)
+	}
+	if len(o.SLO) > 0 {
+		slo := make(map[string]float64, len(d.SLO)+len(o.SLO))
+		for k, v := range d.SLO {
+			slo[k] = v
+		}
+		for k, v := range o.SLO {
+			slo[k] = v
+		}
+		d.SLO = slo
 	}
 	return d
 }

@@ -103,36 +103,55 @@ func ExpandPacks(s *Suite, root *yaml.Node, file string) Errors {
 	var errs Errors
 	for i := range s.Tests {
 		t := &s.Tests[i]
-		var out []Assertion
-		changed := false
-		for j, a := range t.Assert {
-			if a.Pack == nil {
-				out = append(out, a)
-				continue
-			}
-			changed = true
-			path := []string{"tests", idx(i), "assert", idx(j), "pack"}
-			name := *a.Pack
-			as, ok := LookupPack(s, name)
-			if !ok {
-				errs = append(errs, &Error{File: file, Line: lineOf(root, path...), Path: describePath(s, path), Msg: fmt.Sprintf("unknown pack %q (have %s)", name, strings.Join(PackNames(s), ", "))})
-				continue
-			}
-			for _, pa := range as {
-				if pa.Pack != nil {
-					errs = append(errs, &Error{File: file, Line: lineOf(root, path...), Path: describePath(s, path), Msg: fmt.Sprintf("pack %q uses pack %q: packs cannot nest", name, *pa.Pack)})
-					continue
-				}
-				pa.From = name
-				if !pa.OnTurn.IsSet() {
-					pa.OnTurn = a.OnTurn
-				}
-				out = append(out, pa)
-			}
-		}
-		if changed {
-			t.Assert = out
-		}
+		out, perrs := expandAssertionPacks(s, t.Assert, func(j int) []string { return []string{"tests", idx(i), "assert", idx(j), "pack"} }, root, file)
+		errs = append(errs, perrs...)
+		t.Assert = out
+	}
+	if s.Defaults != nil && len(s.Defaults.Assert) > 0 {
+		out, perrs := expandAssertionPacks(s, s.Defaults.Assert, func(j int) []string { return []string{"defaults", "assert", idx(j), "pack"} }, root, file)
+		errs = append(errs, perrs...)
+		s.Defaults.Assert = out
 	}
 	return errs
+}
+
+// ExpandAssertionPacks expands the pack entries of a list of assertions
+// against the suite's packs (and the built-in ones); an unknown or nested
+// pack is an error naming the entry.
+func ExpandAssertionPacks(s *Suite, list []Assertion) ([]Assertion, error) {
+	out, errs := expandAssertionPacks(s, list, func(j int) []string { return []string{"assert", idx(j), "pack"} }, nil, "")
+	if len(errs) > 0 {
+		return nil, errs[0]
+	}
+	return out, nil
+}
+
+func expandAssertionPacks(s *Suite, list []Assertion, pathOf func(j int) []string, root *yaml.Node, file string) ([]Assertion, Errors) {
+	var errs Errors
+	var out []Assertion
+	for j, a := range list {
+		if a.Pack == nil {
+			out = append(out, a)
+			continue
+		}
+		path := pathOf(j)
+		name := *a.Pack
+		as, ok := LookupPack(s, name)
+		if !ok {
+			errs = append(errs, &Error{File: file, Line: lineOf(root, path...), Path: describePath(s, path), Msg: fmt.Sprintf("unknown pack %q (have %s)", name, strings.Join(PackNames(s), ", "))})
+			continue
+		}
+		for _, pa := range as {
+			if pa.Pack != nil {
+				errs = append(errs, &Error{File: file, Line: lineOf(root, path...), Path: describePath(s, path), Msg: fmt.Sprintf("pack %q uses pack %q: packs cannot nest", name, *pa.Pack)})
+				continue
+			}
+			pa.From = name
+			if !pa.OnTurn.IsSet() {
+				pa.OnTurn = a.OnTurn
+			}
+			out = append(out, pa)
+		}
+	}
+	return out, errs
 }

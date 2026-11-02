@@ -77,6 +77,10 @@ with the file and line.
 
 ## Running a red-team suite
 
+To hold every test to a pack, not only the attack scenarios, put it under `defaults.assert` in
+`tamesu.yaml` or the suite: `defaults: { assert: [ { pack: pii_leakage } ] }` runs the pack on
+each test and reports its checks as `defaults/pii_leakage/<assertion>`.
+
 Red-team tests are ordinary tests: tag them (`tags: [red-team]`) and run them with
 `tamesu run --tags red-team`, repeat them (`repeat: 5`, `pass_threshold: 1`) because an attack
 that works one time in five is an attack that works, and give the persona a seed when you need

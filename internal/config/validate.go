@@ -660,6 +660,17 @@ func (v *validator) defaults(dp []string, d Defaults) {
 	if d.Timeout < 0 {
 		v.errorf(with(dp, "timeout"), "timeout cannot be negative")
 	}
+	for j, a := range d.Assert {
+		v.assertion(with(dp, "assert", idx(j)), a, "", "")
+	}
+	for name, max := range d.SLO {
+		if strings.TrimSpace(name) == "" {
+			v.errorf(with(dp, "slo"), "an slo needs a metric name")
+		}
+		if max <= 0 {
+			v.errorf(with(dp, "slo", name), "the maximum must be above 0")
+		}
+	}
 }
 
 func (v *validator) budgets(bp []string, b Budgets) {

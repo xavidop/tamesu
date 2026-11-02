@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -213,7 +214,30 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 		out.Assertions = append(out.Assertions, stepFails...)
 		out.Passed = false
 	}
-	for i, ca := range it.test.Assert {
+	// Suite-wide rules first: the SLOs, then defaults.assert, then the test's own.
+	sloNames := make([]string, 0, len(it.slo))
+	for name := range it.slo {
+		sloNames = append(sloNames, name)
+	}
+	sort.Strings(sloNames)
+	for _, name := range sloNames {
+		res := assert.SLO(name, it.slo[name]).Evaluate(actx, rr)
+		out.Assertions = append(out.Assertions, res)
+		if !res.Pass {
+			out.Passed = false
+		}
+	}
+	all := make([]config.Assertion, 0, len(it.everyAssert)+len(it.test.Assert))
+	for _, ca := range it.everyAssert {
+		if ca.From == "" {
+			ca.From = "defaults"
+		} else {
+			ca.From = "defaults/" + ca.From
+		}
+		all = append(all, ca)
+	}
+	all = append(all, it.test.Assert...)
+	for i, ca := range all {
 		ca = renderAssertion(ca, renderForModel)
 		var a assert.Assertion
 		var err error
