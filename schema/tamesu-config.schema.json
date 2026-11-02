@@ -18,7 +18,11 @@
       "properties": {
         "dir": {
           "type": "string",
-          "description": "Directory of the browser action cache; default .tamesu/cache."
+          "description": "Directory of the caches (browser action plans and llm answers); default .tamesu/cache."
+        },
+        "llm": {
+          "type": "boolean",
+          "description": "Cache the simulator's turns and the judge's verdicts by request (default true); false calls the models every time."
         }
       },
       "additionalProperties": false,

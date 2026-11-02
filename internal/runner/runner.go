@@ -84,7 +84,10 @@ type Options struct {
 	CacheDir    string
 	// UpdateGolden rewrites every golden.file of a run from its transcript.
 	UpdateGolden bool
-	Targets      TargetFactory
+	// LLMCache reports the llm cache's counters at the end of the run (set
+	// by the CLI when the provider is wrapped in the replay cache).
+	LLMCache func() report.CacheStats
+	Targets  TargetFactory
 	// Provider is the AI layer; nil fails conversational tests with an
 	// infrastructure error.
 	Provider model.Provider
@@ -241,6 +244,10 @@ func Run(ctx context.Context, o Options) (*report.Summary, error) {
 
 	summary.FinishedAt = r.now()
 	summary.BudgetExceeded = r.budgetHit.Load()
+	if o.LLMCache != nil {
+		st := o.LLMCache()
+		summary.LLMCache = &st
+	}
 	if o.Provider != nil {
 		summary.Usage = usageDelta(r.usageStart, o.Provider.Usage())
 	}

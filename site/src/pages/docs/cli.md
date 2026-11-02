@@ -130,8 +130,8 @@ versions); the reporters write `summary.json`, `junit.xml` and the console outpu
 | `--load-duration D` | Load mode: each virtual user keeps looping runs for `D` (such as `2m`); without it every user runs once. |
 | `--mode text\|audio` | Voice tests: override the mode (livekit, sip and realtime). |
 | `--headed` | Browser tests: show the browser window instead of running headless. |
-| `--replay` | Browser goals: replay the cached action plans only, no model; a miss or a failed replay fails the step. |
-| `--update-cache` | Browser goals: ignore the action cache, plan again and refresh it. |
+| `--replay` | Replay from the caches: browser goals from their cached action plans and the simulated user's turns from cached answers, a miss failing the step or the run; judge verdicts come from the cache when present and from the model otherwise. See [Replay](/docs/ai/#replay-cached-turns-and-verdicts). |
+| `--update-cache` | Ignore the caches (action plans, simulator turns, judge verdicts), call the models and refresh them. |
 | `--update-golden` | Rewrite every `golden` file from this run's transcripts; see [Reference answers](/docs/judges/#reference-answers). |
 | `--out <dir>` | Run directory (default `.tamesu/runs/<timestamp>`). |
 | `--reporter console,json,junit,html` | Reporters to run (default `reporters:` of `tamesu.yaml`; `json` is always on). |

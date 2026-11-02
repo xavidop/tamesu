@@ -205,6 +205,15 @@ type Summary struct {
 	Usage          model.Usage    `json:"usage"`
 	BudgetExceeded bool           `json:"budget_exceeded"`
 	Version        string         `json:"tamesu_version,omitempty"`
+	// LLMCache counts the simulator turns and judge verdicts answered from
+	// the cache and the ones that called a model.
+	LLMCache *CacheStats `json:"llm_cache,omitempty"`
+}
+
+// CacheStats are hits and misses of a cache.
+type CacheStats struct {
+	Hits   int `json:"hits"`
+	Misses int `json:"misses"`
 }
 
 // Counts returns how many tests passed, failed and errored.

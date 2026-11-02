@@ -127,6 +127,9 @@ func (c *Console) Finish(_ context.Context, s *Summary) error {
 	if s.Usage.Calls > 0 {
 		line += fmt.Sprintf(" · %d model calls, %d tokens, $%.4f", s.Usage.Calls, s.Usage.Total(), s.Usage.CostUSD)
 	}
+	if c := s.LLMCache; c != nil && c.Hits+c.Misses > 0 {
+		line += fmt.Sprintf(" · llm cache: %d hits, %d misses", c.Hits, c.Misses)
+	}
 	if s.BudgetExceeded {
 		line += " · BUDGET EXCEEDED: the run was stopped"
 	}

@@ -40,8 +40,12 @@ type Models struct {
 
 // CacheConfig locates the action cache of browser goals.
 type CacheConfig struct {
-	Dir string `yaml:"dir,omitempty" json:"dir,omitempty" jsonschema:"description=Directory of the browser action cache; default .tamesu/cache."`
+	Dir string `yaml:"dir,omitempty" json:"dir,omitempty" jsonschema:"description=Directory of the caches (browser action plans and llm answers); default .tamesu/cache."`
+	LLM *bool  `yaml:"llm,omitempty" json:"llm,omitempty" jsonschema:"description=Cache the simulator's turns and the judge's verdicts by request (default true); false calls the models every time."`
 }
+
+// LLMCacheOn reports whether the llm cache is enabled (the default).
+func (c CacheConfig) LLMCacheOn() bool { return c.LLM == nil || *c.LLM }
 
 // Speech configures speech-to-text, text-to-speech and voice activity
 // detection for audio mode and sip.

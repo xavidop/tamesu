@@ -128,3 +128,11 @@ smoke-level tool: the simulator and the judges cost model calls per run, so set 
 
 `budgets.max_cost_usd` (or `--max-cost-usd`) caps what a pipeline run may spend on models and
 exits 4 when reached, so a looping agent cannot run up a bill overnight.
+
+## Running without model keys
+
+With the caches committed (`cache.dir`, default `.tamesu/cache`), `tamesu run --replay` plays the
+simulated user from cached turns and the browser agent from cached action plans, so a pull
+request pipeline needs no model key for the conversations that were recorded; see
+[Replay](/docs/ai/#replay-cached-turns-and-verdicts). Record on a trusted branch with the keys
+and refresh with `--update-cache` when the scenarios change.

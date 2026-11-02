@@ -14,6 +14,7 @@ import (
 
 	"github.com/xavidop/tamesu/internal/config"
 	"github.com/xavidop/tamesu/internal/model"
+	"github.com/xavidop/tamesu/internal/replay"
 	"github.com/xavidop/tamesu/internal/runner"
 	"github.com/xavidop/tamesu/internal/secrets"
 	"github.com/xavidop/tamesu/report"
@@ -84,7 +85,7 @@ func (a *app) newRunCmd() *cobra.Command {
 		repeat       int
 		mode         string
 		headed       bool
-		replay       bool
+		replayOnly   bool
 		updateGolden bool
 		updateCache  bool
 		out          string
@@ -230,11 +231,28 @@ func (a *app) newRunCmd() *cobra.Command {
 				}
 				defer func() { _ = provider.Close(context.WithoutCancel(ctx)) }()
 			}
+			var llmCache func() report.CacheStats
+			if provider != nil && p.Cache.LLMCacheOn() {
+				mode := replay.ModeAuto
+				switch {
+				case replayOnly:
+					mode = replay.ModeReplay
+				case updateCache:
+					mode = replay.ModeUpdate
+				}
+				cacheDir := p.Cache.Dir
+				if cacheDir == "" {
+					cacheDir = runner.DefaultCacheDir
+				}
+				rp := replay.New(provider, cacheDir, mode)
+				provider = rp
+				llmCache = func() report.CacheStats { s := rp.Stats(); return report.CacheStats{Hits: s.Hits, Misses: s.Misses} }
+			}
 
 			summary, err := runner.Run(ctx, runner.Options{
 				Project: p, Suites: suites, Select: selection, OutDir: out, Parallel: parallel, Repeat: repeat, Mode: mode,
 				Load: load, LoadDuration: loadFor,
-				MaxCostUSD: budget, Headed: headed, Replay: replay, UpdateCache: updateCache, CacheDir: p.Cache.Dir, UpdateGolden: updateGolden,
+				MaxCostUSD: budget, Headed: headed, Replay: replayOnly, UpdateCache: updateCache, CacheDir: p.Cache.Dir, UpdateGolden: updateGolden, LLMCache: llmCache,
 				Targets: a.targetFactory(), Provider: provider, Secrets: store, Vars: flagVars, Env: a.env(),
 				Limits:   map[string]int{config.TargetLiveKit: p.LiveKit.MaxConcurrentRooms, config.TargetSIP: p.SIP.MaxConcurrentCalls},
 				Reporter: reps, Logger: logger, Now: a.deps.Now, Version: a.info.Version,
@@ -258,8 +276,8 @@ func (a *app) newRunCmd() *cobra.Command {
 	cmd.Flags().DurationVar(&loadFor, "load-duration", 0, "load mode: each virtual user keeps looping runs for this long (default: one run each)")
 	cmd.Flags().StringVar(&mode, "mode", "", "voice tests: text or audio (default from the suite)")
 	cmd.Flags().BoolVar(&headed, "headed", false, "browser tests: show the browser window instead of running headless")
-	cmd.Flags().BoolVar(&replay, "replay", false, "browser goals: use cached action plans only (no model); a miss fails the step")
-	cmd.Flags().BoolVar(&updateCache, "update-cache", false, "browser goals: ignore the action cache, plan again and refresh it")
+	cmd.Flags().BoolVar(&replayOnly, "replay", false, "replay from the caches: browser goals from cached plans and simulator turns from cached answers (a miss fails); judge verdicts from the cache when present")
+	cmd.Flags().BoolVar(&updateCache, "update-cache", false, "ignore the caches (action plans, simulator turns, judge verdicts), call the models and refresh them")
 	cmd.MarkFlagsMutuallyExclusive("replay", "update-cache")
 	cmd.Flags().BoolVar(&updateGolden, "update-golden", false, "golden assertions: rewrite every golden file from this run's transcripts")
 	cmd.Flags().StringVar(&out, "out", "", "run output directory (default .tamesu/runs/<timestamp>)")

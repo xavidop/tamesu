@@ -101,6 +101,26 @@ front matter that is recorded with every result. To change one, copy it to `.tam
 edit it; the file with the same name replaces the built-in one. Keep the output schema, the
 runner depends on it.
 
+## Replay: cached turns and verdicts
+
+Every simulator turn and every judge verdict is cached under `cache.dir/llm`, keyed by the
+request itself: the persona, the scenario, the conversation so far and the turn number for the
+simulated user; the rubric, the scale, the model and the conversation for the judge. A repeated
+run of the same conversation therefore costs nothing and gives the same answers, and the console
+ends with `llm cache: N hits, M misses`. Timing metrics are not part of a key, and an agent that
+answers differently changes the conversation and so the key, so a regression is never hidden by
+the cache.
+
+- `tamesu run` uses the cache and records what it had to ask the models.
+- `tamesu run --replay` takes the simulated user's turns from the cache only, so a conversation
+  that was never recorded fails the run instead of calling a model; judge verdicts come from the
+  cache when present and from the model otherwise.
+- `tamesu run --update-cache` calls the models for everything and refreshes the cache.
+- `cache.llm: false` in `tamesu.yaml` turns the cache off.
+
+Commit the cache directory when you want a pull request pipeline that runs the conversational
+suites without model keys; the browser action cache lives next to it.
+
 ## The Developer UI
 
 ```sh

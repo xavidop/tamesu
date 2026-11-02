@@ -70,7 +70,8 @@ secrets:                                    # resolved with mamori, see below
 | `defaults.*` | `timeout: 3m`, `repeat: 1`, `retries: 0`, `pass_threshold: 1.0`, `max_goal_steps: 15` | Per-test defaults; a suite's `defaults:` and a test's own keys override them. `max_goal_steps` caps the browser agent's actions per goal step. |
 | `budgets.*` | `max_cost_usd: 5`, `max_tokens: 2_000_000` | Caps on tamesu's own model spend per run (exit code 4 when exceeded). |
 | `livekit.max_concurrent_rooms` | `4` | How many LiveKit tests run at once. |
-| `cache.dir` | `.tamesu/cache` | Where the browser action cache keeps its plans (see [Browser](/docs/targets/browser/)). |
+| `cache.dir` | `.tamesu/cache` | Where the caches live: browser action plans (see [Browser](/docs/targets/browser/)) and cached simulator turns and judge verdicts (see [Replay](/docs/ai/#replay-cached-turns-and-verdicts)). |
+| `cache.llm` | `true` | Answer the simulated user's turns and the judge's verdicts from the cache when the same conversation was seen before; `false` calls the models every time. |
 | `reporters` | `[console, junit, html]` | Reporters to run: `console`, `junit`, `json`, `html`. |
 | `secrets` | none | Secret name to mamori ref. |
 | `vars` | none | Project-wide values for `{{vars.x}}` and `${VAR}` in secret refs. |
