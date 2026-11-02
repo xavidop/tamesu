@@ -427,6 +427,9 @@
       "properties": {
         "body": {
           "description": "Request body template; {{message}} is the user turn and {{session}} the session id."
+        },
+        "open": {
+          "description": "streaming websocket: a message template sent once after connecting."
         }
       },
       "additionalProperties": false,
@@ -445,6 +448,14 @@
         "done": {
           "type": "string",
           "description": "JSONPath of a boolean that ends the session."
+        },
+        "turn_done": {
+          "type": "string",
+          "description": "streaming websocket: JSONPath of a boolean that ends the turn; otherwise the turn ends after idle."
+        },
+        "idle": {
+          "$ref": "#/$defs/Duration",
+          "description": "streaming websocket: silence that ends a turn when no message marks it; default 2s."
         }
       },
       "additionalProperties": false,

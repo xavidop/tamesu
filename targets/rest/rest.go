@@ -1,7 +1,9 @@
 // Package rest is the REST target: each user turn is one HTTP request built
 // from a body template, and the agent's turn is read back from the response
 // with JSONPaths (plain JSON, or server-sent events concatenated until the
-// stream ends). Timestamps come from the transport.
+// stream ends); over a websocket the turn is one message out and the messages
+// back until a done marker or an idle timeout. Timestamps come from the
+// transport.
 package rest
 
 import (
@@ -24,8 +26,9 @@ import (
 
 // Streaming modes.
 const (
-	StreamingNone = "none"
-	StreamingSSE  = "sse"
+	StreamingNone      = "none"
+	StreamingSSE       = "sse"
+	StreamingWebSocket = "websocket"
 )
 
 // Config describes a REST agent. String fields are templates rendered with
@@ -38,16 +41,25 @@ type Config struct {
 	// is the user turn and {{session}} the session id. nil sends
 	// {"message": ..., "session_id": ...}.
 	Body any
+	// Open is a message template sent once after a websocket connects
+	// (a session setup message); nil sends nothing.
+	Open any
 	// TextPath, ToolCallsPath and DonePath are JSONPaths into each response
-	// (each event, for SSE). An empty TextPath reads the whole body as text.
+	// (each event, for SSE; each message, for a websocket). An empty TextPath
+	// reads the whole body as text. DonePath marks the end of the session.
 	TextPath      string
 	ToolCallsPath string
 	DonePath      string
-	// Streaming is none or sse.
+	// TurnDonePath marks the end of a websocket turn; without it (and
+	// without DonePath firing) a turn ends after Idle without a message.
+	TurnDonePath string
+	// Streaming is none, sse or websocket.
 	Streaming string
+	// Idle is the websocket end-of-turn silence; zero means DefaultIdle.
+	Idle time.Duration
 	// SessionID is the session id template; empty means {{uuid}}.
 	SessionID string
-	// Timeout bounds one request; zero means 60s.
+	// Timeout bounds one request, or one websocket turn; zero means 60s.
 	Timeout time.Duration
 	// Client overrides the HTTP client.
 	Client *http.Client
@@ -67,6 +79,9 @@ func New(name string, cfg Config) target.Target {
 	if cfg.Timeout == 0 {
 		cfg.Timeout = 60 * time.Second
 	}
+	if cfg.Idle <= 0 {
+		cfg.Idle = DefaultIdle
+	}
 	if cfg.Client == nil {
 		cfg.Client = &http.Client{}
 	}
@@ -83,7 +98,7 @@ type Target struct {
 func (t *Target) Name() string { return t.name }
 
 // Start opens a session: it renders the session id and compiles the JSONPaths.
-func (t *Target) Start(_ context.Context, run *target.RunContext) (target.Session, error) {
+func (t *Target) Start(ctx context.Context, run *target.RunContext) (target.Session, error) {
 	s := &session{t: t, run: run}
 	var err error
 	if s.sessionID, err = run.Render(t.cfg.SessionID); err != nil {
@@ -92,7 +107,7 @@ func (t *Target) Start(_ context.Context, run *target.RunContext) (target.Sessio
 	for _, p := range []struct {
 		name, path string
 		dst        *jp.Expr
-	}{{"response.text", t.cfg.TextPath, &s.textPath}, {"response.tool_calls", t.cfg.ToolCallsPath, &s.toolsPath}, {"response.done", t.cfg.DonePath, &s.donePath}} {
+	}{{"response.text", t.cfg.TextPath, &s.textPath}, {"response.tool_calls", t.cfg.ToolCallsPath, &s.toolsPath}, {"response.done", t.cfg.DonePath, &s.donePath}, {"response.turn_done", t.cfg.TurnDonePath, &s.turnDonePath}} {
 		if p.path == "" {
 			continue
 		}
@@ -102,20 +117,59 @@ func (t *Target) Start(_ context.Context, run *target.RunContext) (target.Sessio
 		}
 		*p.dst = x
 	}
+	if t.cfg.Streaming == StreamingWebSocket {
+		if err := s.dialWS(ctx); err != nil {
+			return nil, err
+		}
+	}
 	return s, nil
 }
 
 type session struct {
-	t         *Target
-	run       *target.RunContext
-	sessionID string
-	textPath  jp.Expr
-	toolsPath jp.Expr
-	donePath  jp.Expr
-	pending   *target.AgentTurn
-	closed    bool
-	turns     int
-	statuses  []float64
+	t            *Target
+	run          *target.RunContext
+	sessionID    string
+	textPath     jp.Expr
+	toolsPath    jp.Expr
+	donePath     jp.Expr
+	turnDonePath jp.Expr
+	pending      *target.AgentTurn
+	closed       bool
+	turns        int
+	statuses     []float64
+	ws           *wsState
+}
+
+// render substitutes the turn's values ({{message}}, {{session}}, {{dtmf}})
+// and then the run's scope (vars, secrets, uuid...).
+func (s *session) render(str string, turn target.UserTurn) (string, error) {
+	values := map[string]string{"message": turn.Text, "session": s.sessionID, "dtmf": turn.DTMF}
+	for k, v := range values {
+		str = strings.ReplaceAll(str, "{{"+k+"}}", v)
+		str = strings.ReplaceAll(str, "{{ "+k+" }}", v)
+	}
+	return s.run.Render(str)
+}
+
+// body is the request body template, with the default when none is set.
+func (s *session) body() any {
+	if s.t.cfg.Body != nil {
+		return s.t.cfg.Body
+	}
+	return map[string]any{"message": "{{message}}", "session_id": "{{session}}"}
+}
+
+// payload renders a body template for a turn: a string as is, anything else
+// as JSON.
+func (s *session) payload(body any, turn target.UserTurn) ([]byte, error) {
+	rendered, err := renderValue(body, func(str string) (string, error) { return s.render(str, turn) })
+	if err != nil {
+		return nil, err
+	}
+	if str, ok := rendered.(string); ok {
+		return []byte(str), nil
+	}
+	return json.Marshal(rendered)
 }
 
 // Send performs the request for a user turn and keeps the agent's turn for
@@ -127,30 +181,14 @@ func (s *session) Send(ctx context.Context, turn target.UserTurn) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	values := map[string]string{"message": turn.Text, "session": s.sessionID, "dtmf": turn.DTMF}
-	render := func(str string) (string, error) {
-		// Run-time values first, then the run's scope (vars, secrets, uuid...).
-		for k, v := range values {
-			str = strings.ReplaceAll(str, "{{"+k+"}}", v)
-			str = strings.ReplaceAll(str, "{{ "+k+" }}", v)
-		}
-		return s.run.Render(str)
+	if s.t.cfg.Streaming == StreamingWebSocket {
+		return s.sendWS(ctx, turn)
 	}
-	body := s.t.cfg.Body
-	if body == nil {
-		body = map[string]any{"message": "{{message}}", "session_id": "{{session}}"}
-	}
-	rendered, err := renderValue(body, render)
+	payload, err := s.payload(s.body(), turn)
 	if err != nil {
 		return fmt.Errorf("rest: body: %w", err)
 	}
-	var payload []byte
-	if str, ok := rendered.(string); ok {
-		payload = []byte(str)
-	} else if payload, err = json.Marshal(rendered); err != nil {
-		return fmt.Errorf("rest: body: %w", err)
-	}
-	url, err := render(s.t.cfg.URL)
+	url, err := s.render(s.t.cfg.URL, turn)
 	if err != nil {
 		return fmt.Errorf("rest: url: %w", err)
 	}
@@ -163,7 +201,7 @@ func (s *session) Send(ctx context.Context, turn target.UserTurn) error {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json, text/event-stream")
 	for k, v := range s.t.cfg.Headers {
-		rv, err := render(v)
+		rv, err := s.render(v, turn)
 		if err != nil {
 			return fmt.Errorf("rest: header %s: %w", k, err)
 		}
@@ -316,11 +354,20 @@ func (s *session) Receive(ctx context.Context) (target.AgentTurn, error) {
 	return t, nil
 }
 
-// Close ends the session. There is nothing to tear down over HTTP; it returns
-// the per-session metrics.
+// Close ends the session: a websocket is closed; HTTP has nothing to tear
+// down. It returns the per-session metrics.
 func (s *session) Close(context.Context) (target.Artifacts, error) {
+	if s.closed {
+		return target.Artifacts{}, nil
+	}
 	s.closed = true
-	return target.Artifacts{Metrics: map[string]float64{"http_requests": float64(s.turns)}}, nil
+	metrics := map[string]float64{}
+	if s.t.cfg.Streaming == StreamingWebSocket {
+		s.closeWS(metrics)
+	} else {
+		metrics["http_requests"] = float64(s.turns)
+	}
+	return target.Artifacts{Metrics: metrics}, nil
 }
 
 // renderValue renders every string in a JSON-like value.

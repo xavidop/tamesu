@@ -86,6 +86,7 @@ The top level of the file.
 | Key | Type | Required | Description |
 |---|---|---|---|
 | `body` | any |  | Request body template; {{message}} is the user turn and {{session}} the session id. |
+| `open` | any |  | streaming websocket: a message template sent once after connecting. |
 
 ## RESTResponse
 
@@ -94,6 +95,8 @@ The top level of the file.
 | `text` | string |  | JSONPath of the agent's reply such as $.reply. |
 | `tool_calls` | string |  | JSONPath of the tool call names. |
 | `done` | string |  | JSONPath of a boolean that ends the session. |
+| `turn_done` | string |  | streaming websocket: JSONPath of a boolean that ends the turn; otherwise the turn ends after idle. |
+| `idle` | [Duration](#duration) |  | streaming websocket: silence that ends a turn when no message marks it; default 2s. |
 
 ## RESTSession
 

@@ -1,6 +1,8 @@
 // Command rest-agent is a tiny customer-support agent for an online shoe
 // store, built with Genkit, that tamesu's example suite tests. It answers
-// POST /chat {session_id, message} with {reply, tool_calls, end_session}.
+// POST /chat {session_id, message} with {reply, tool_calls, end_session}, and
+// the same conversation over a websocket at /ws, where each reply is streamed
+// in chunks ({delta}) and closed by {done, end_session, tool_calls}.
 //
 // With --scripted (or AGENT_SCRIPTED=1) it answers from a few rules instead
 // of calling a model, so the example runs in CI without keys. With --broken it
@@ -21,6 +23,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/coder/websocket"
 	"github.com/firebase/genkit/go/ai"
 	"github.com/firebase/genkit/go/genkit"
 	"github.com/firebase/genkit/go/plugins/googlegenai"
@@ -97,6 +100,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /chat", a.handleChat)
+	mux.HandleFunc("GET /ws", a.handleWS)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { _, _ = fmt.Fprintln(w, "ok") })
 	srv := &http.Server{Addr: *addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 	// genkit.Init installs its own signal handler, so handle SIGINT and
@@ -129,6 +133,60 @@ func (a *agent) handleChat(w http.ResponseWriter, r *http.Request) {
 	out.SessionID = in.SessionID
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(out)
+}
+
+// handleWS serves the conversation over a websocket: each {session_id,
+// message} gets the reply streamed word by word as {delta}, then a final
+// {done: true, end_session, tool_calls}. A {type: "open"} message is accepted
+// and ignored, so tamesu's request.open works too.
+func (a *agent) handleWS(w http.ResponseWriter, r *http.Request) {
+	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{InsecureSkipVerify: true})
+	if err != nil {
+		return
+	}
+	defer conn.CloseNow() //nolint:errcheck // the deferred close after a normal close is a no-op
+	ctx := r.Context()
+	write := func(v any) error {
+		b, err := json.Marshal(v)
+		if err != nil {
+			return err
+		}
+		return conn.Write(ctx, websocket.MessageText, b)
+	}
+	for {
+		_, data, err := conn.Read(ctx)
+		if err != nil {
+			return
+		}
+		var in struct {
+			request
+			Type string `json:"type"`
+		}
+		if err := json.Unmarshal(data, &in); err != nil {
+			_ = write(map[string]any{"error": "bad message: " + err.Error(), "done": true})
+			continue
+		}
+		if in.Type == "open" || in.Message == "" {
+			continue
+		}
+		out, err := a.flow.Run(ctx, in.request)
+		if err != nil {
+			_ = write(map[string]any{"error": err.Error(), "done": true})
+			continue
+		}
+		for _, word := range strings.SplitAfter(out.Reply, " ") {
+			if err := write(map[string]any{"delta": word}); err != nil {
+				return
+			}
+		}
+		if err := write(map[string]any{"done": true, "end_session": out.EndSession, "tool_calls": out.ToolCalls, "session_id": in.SessionID}); err != nil {
+			return
+		}
+		if out.EndSession {
+			_ = conn.Close(websocket.StatusNormalClosure, "session ended")
+			return
+		}
+	}
 }
 
 // rules is the scripted agent: enough to exercise every assertion of the suite.

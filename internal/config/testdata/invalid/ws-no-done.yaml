@@ -1,0 +1,15 @@
+suite: ws
+targets:
+  ws:
+    type: rest
+    url: ws://localhost:8080/ws
+    streaming: websocket
+    response:
+      text: $.delta
+tests:
+  - name: t
+    target: ws
+    persona: { name: A }
+    scenario: { goal: say hi }
+    assert:
+      - contains: hi

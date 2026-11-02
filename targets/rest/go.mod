@@ -3,6 +3,7 @@ module github.com/xavidop/tamesu/targets/rest
 go 1.27
 
 require (
+	github.com/coder/websocket v1.8.14
 	github.com/ohler55/ojg v1.28.9
 	github.com/stretchr/testify v1.12.1
 	github.com/xavidop/tamesu v0.0.0

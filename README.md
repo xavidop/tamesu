@@ -155,7 +155,7 @@ error and 4 when the cost budget was exceeded. What comes after v1.0 is on the
 | Target | Transport | Modes | Metrics | Tested against |
 |---|---|---|---|---|
 | `browser` | Chromium over CDP (chromedp) | agentic `goal` and `expect` steps, deterministic actions (`navigate click fill press wait screenshot eval_js assert_url assert_text`), a screenshot per step, HAR and console log | `goal_steps`, `llm_cost_usd` | [`examples/browser-shop`](examples/browser-shop/) against the bundled demo shop [`examples/webapp`](examples/webapp/), in CI with the fake browser agent |
-| `rest` | HTTP, SSE | text | `turn_latency_ms`, `time_to_first_token_ms`, `turns` | [`examples/rest-agent`](examples/rest-agent/), a Genkit agent, in CI with the fake provider |
+| `rest` | HTTP, SSE, WebSocket | text | `turn_latency_ms`, `time_to_first_token_ms`, `turns` | [`examples/rest-agent`](examples/rest-agent/), a Genkit agent, in CI with the fake provider |
 | `livekit` | WebRTC room (LiveKit) | text and audio (TTS in, VAD and STT out, interruptions, noise, stereo WAV) | `turn_latency_ms`, `agent_join_ms`; audio adds `time_to_first_audio_ms`, `interruption_stop_ms`, `talk_over_ratio`, `silence_gap_max_ms` | [`examples/livekit-agent`](examples/livekit-agent/) on `livekit-server --dev`, in CI with the fake provider and fake speech models |
 | `sip` | phone call through a LiveKit SIP service and your trunk (outbound or inbound, DTMF, `wait_for`/`say` scripts, line simulation) | audio | the audio metrics plus `call_setup_ms`, `ring_ms`, `greeting_ms`, `call_duration_ms`; `dtmf_received`, `call_ended_by`, `transferred_to` | [`examples/sip-ivr`](examples/sip-ivr/) through Asterisk as the carrier and IVR (`examples/compose.yaml`) |
 

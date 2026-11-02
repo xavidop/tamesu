@@ -95,13 +95,16 @@ type BrowserAuth struct {
 // RESTRequest templates how a user turn is sent.
 type RESTRequest struct {
 	Body any `yaml:"body,omitempty" json:"body,omitempty" jsonschema:"description=Request body template; {{message}} is the user turn and {{session}} the session id."`
+	Open any `yaml:"open,omitempty" json:"open,omitempty" jsonschema:"description=streaming websocket: a message template sent once after connecting."`
 }
 
 // RESTResponse says how the agent turn is read from the response.
 type RESTResponse struct {
-	Text      string `yaml:"text,omitempty" json:"text,omitempty" jsonschema:"description=JSONPath of the agent's reply such as $.reply."`
-	ToolCalls string `yaml:"tool_calls,omitempty" json:"tool_calls,omitempty" jsonschema:"description=JSONPath of the tool call names."`
-	Done      string `yaml:"done,omitempty" json:"done,omitempty" jsonschema:"description=JSONPath of a boolean that ends the session."`
+	Text      string   `yaml:"text,omitempty" json:"text,omitempty" jsonschema:"description=JSONPath of the agent's reply such as $.reply."`
+	ToolCalls string   `yaml:"tool_calls,omitempty" json:"tool_calls,omitempty" jsonschema:"description=JSONPath of the tool call names."`
+	Done      string   `yaml:"done,omitempty" json:"done,omitempty" jsonschema:"description=JSONPath of a boolean that ends the session."`
+	TurnDone  string   `yaml:"turn_done,omitempty" json:"turn_done,omitempty" jsonschema:"description=streaming websocket: JSONPath of a boolean that ends the turn; otherwise the turn ends after idle."`
+	Idle      Duration `yaml:"idle,omitempty" json:"idle,omitempty" jsonschema:"description=streaming websocket: silence that ends a turn when no message marks it; default 2s."`
 }
 
 // RESTSession configures the session id.

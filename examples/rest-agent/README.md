@@ -1,8 +1,10 @@
 # rest-agent: the example REST agent
 
 A tiny customer-support agent for an online shoe store, built with
-[Genkit](https://genkit.dev), that tamesu's example suite tests over HTTP. It answers
-`POST /chat {session_id, message}` with `{reply, tool_calls, end_session, session_id}`.
+[Genkit](https://genkit.dev), that tamesu's example suite tests over HTTP and over a websocket.
+It answers `POST /chat {session_id, message}` with `{reply, tool_calls, end_session, session_id}`,
+and the same conversation on `GET /ws`, where each reply is streamed as `{delta}` messages and
+closed by `{done: true, end_session, tool_calls}` (the suite's `ws` target, `streaming: websocket`).
 
 ```sh
 # With a model (needs GEMINI_API_KEY):

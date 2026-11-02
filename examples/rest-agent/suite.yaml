@@ -18,6 +18,19 @@ targets:
       done: $.end_session
     session: { id: "{{uuid}}" }
 
+  ws:                                             # the same agent over a websocket
+    type: rest
+    url: ${AGENT_WS_URL:-ws://localhost:8080/ws}
+    streaming: websocket
+    request:
+      body: { session_id: "{{session}}", message: "{{message}}" }
+    response:
+      text: $.delta                               # applied to every message, deltas concatenated
+      tool_calls: $.tool_calls[*]
+      turn_done: $.done                           # the message that ends a turn
+      done: $.end_session                         # ... and the one that ends the session
+      idle: 2s                                    # otherwise a turn ends after this silence
+
 tests:
   - name: refund policy question
     target: api
@@ -37,3 +50,20 @@ tests:
       - json_path: { path: $.session_id }
       - metric: { name: turn_latency_ms_p95, lt: 4000 }
       - turns: { lte: 6 }
+
+  - name: refund policy question over websocket
+    target: ws
+    tags: [websocket]
+    persona:
+      name: Ken
+      style: in a hurry
+      language: en
+    scenario:
+      goal: "Find out if you can return shoes bought 40 days ago"
+      max_turns: 4
+    assert:
+      - contains: "30 days"
+      - judge: "The agent states the 30-day return policy"
+      - tool_called: lookup_policy
+      - metric: { name: time_to_first_token_ms_p95, lt: 2000 }
+      - turns: { lte: 4 }

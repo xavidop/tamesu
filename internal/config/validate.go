@@ -192,6 +192,18 @@ func (v *validator) target(name string, t Target) {
 		if t.Response == nil || t.Response.Text == "" {
 			v.warnf(tp, "response.text is not set; the whole response body is read as the agent's reply")
 		}
+		if t.Streaming == "websocket" {
+			if t.Response == nil || (t.Response.TurnDone == "" && t.Response.Done == "") {
+				v.warnf(with(tp, "response"), "streaming websocket without response.turn_done or response.done: a turn ends only after response.idle (default 2s) without a message")
+			}
+		} else {
+			if t.Request != nil && t.Request.Open != nil {
+				v.warnf(with(tp, "request", "open"), "request.open applies to streaming websocket only")
+			}
+			if t.Response != nil && (t.Response.TurnDone != "" || t.Response.Idle != 0) {
+				v.warnf(with(tp, "response"), "response.turn_done and response.idle apply to streaming websocket only")
+			}
+		}
 	case TargetLiveKit:
 		if t.URL == "" {
 			v.errorf(tp, "livekit target needs url (the LiveKit server, wss://...)")

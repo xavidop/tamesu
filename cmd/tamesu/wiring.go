@@ -50,10 +50,11 @@ func newRESTTarget(_ context.Context, spec runner.TargetSpec) (target.Target, er
 	t := spec.Config
 	cfg := rest.Config{URL: t.URL, Method: t.Method, Headers: t.Headers, Streaming: t.Streaming}
 	if t.Request != nil {
-		cfg.Body = t.Request.Body
+		cfg.Body, cfg.Open = t.Request.Body, t.Request.Open
 	}
 	if t.Response != nil {
 		cfg.TextPath, cfg.ToolCallsPath, cfg.DonePath = t.Response.Text, t.Response.ToolCalls, t.Response.Done
+		cfg.TurnDonePath, cfg.Idle = t.Response.TurnDone, t.Response.Idle.Std()
 	}
 	if t.Session != nil {
 		cfg.SessionID = t.Session.ID

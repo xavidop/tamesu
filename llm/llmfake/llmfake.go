@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -349,13 +351,24 @@ func (p *Plugin) stt(_ context.Context, req *ai.ModelRequest, _ SpeechConfig, _ 
 	}, nil
 }
 
+// simulator replays the script by the conversation's turn number when the
+// prompt states it ("this is turn N"), so tests running in parallel each get
+// the script from its start; otherwise it cycles across calls.
 func (p *Plugin) simulator(_ context.Context, req *ai.ModelRequest, _ any, _ ai.ModelStreamCallback) (*ai.ModelResponse, error) {
 	p.mu.Lock()
-	out := p.script.Simulator[p.simIdx%len(p.script.Simulator)]
+	idx := p.simIdx
 	p.simIdx++
+	if m := turnRe.FindStringSubmatch(promptText(req)); m != nil {
+		n, _ := strconv.Atoi(m[1])
+		idx = max(n-1, 0)
+	}
+	out := p.script.Simulator[min(idx, len(p.script.Simulator)-1)]
 	p.mu.Unlock()
 	return respond(req, out)
 }
+
+// turnRe finds the turn number the simulator prompt states.
+var turnRe = regexp.MustCompile(`this is turn (\d+)`)
 
 func (p *Plugin) judge(_ context.Context, req *ai.ModelRequest, _ any, _ ai.ModelStreamCallback) (*ai.ModelResponse, error) {
 	out := map[string]any{}

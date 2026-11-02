@@ -16,6 +16,7 @@ echo "==> build rest-agent"
 
 port="${AGENT_PORT:-18080}"
 export AGENT_URL="http://127.0.0.1:$port/chat"
+export AGENT_WS_URL="ws://127.0.0.1:$port/ws"
 
 # wait_for polls the agent's port with bash's /dev/tcp (no curl needed).
 wait_for() {

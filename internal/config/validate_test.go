@@ -32,6 +32,7 @@ func TestValidateInvalidSuites(t *testing.T) {
 		{file: "not-a-suite.yaml", line: 1, msg: `not a tamesu suite (no "suite:" key)`},
 		{file: "undeclared-secret.yaml", line: 6, msg: "secret API_TOKEN is not declared", path: "targets.api.headers.Authorization"},
 		{file: "secret-via-env.yaml", line: 8, msg: "use {{secrets.NAME}} instead of ${LIVEKIT_API_KEY} for api_key", warning: true},
+		{file: "ws-no-done.yaml", line: 7, msg: "streaming websocket without response.turn_done or response.done", path: "targets.ws.response", warning: true},
 		{file: "browser-without-steps.yaml", line: 5, msg: "browser tests need steps"},
 		{file: "browser-without-steps.yaml", line: 7, msg: "persona applies to conversational targets"},
 		{file: "sip-inbound-no-trigger.yaml", line: 3, msg: "inbound sip target needs trigger.http or trigger.command"},
