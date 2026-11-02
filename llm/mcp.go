@@ -2,11 +2,14 @@ package llm
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/mark3labs/mcp-go/server"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -34,6 +37,10 @@ type MCPOptions struct {
 	// HTTPPath (default "/mcp") instead of stdio.
 	HTTPAddr string
 	HTTPPath string
+	// HTTPToken is the bearer token every HTTP request must carry; a
+	// non-loopback HTTPAddr without one is refused unless HTTPInsecure.
+	HTTPToken    string
+	HTTPInsecure bool
 	// RunsDir holds the run directories the resources expose and tamesu_run
 	// writes to by default; empty means DefaultRunsDir.
 	RunsDir string
@@ -63,22 +70,31 @@ func ServeMCP(ctx context.Context, o MCPOptions) error {
 	return serveHTTP(ctx, srv, o)
 }
 
-// serveHTTP serves the MCP server over streamable HTTP until ctx ends.
+// ErrTokenRequired is returned when the HTTP server would listen beyond
+// loopback without a token.
+var ErrTokenRequired = errors.New("llm: --http on a non-loopback address needs --http-token (or TAMESU_MCP_TOKEN); --http-insecure serves without one")
+
+// serveHTTP serves the MCP server over streamable HTTP until ctx ends,
+// behind a bearer token check when one is configured.
 func serveHTTP(ctx context.Context, srv *mcp.GenkitMCPServer, o MCPOptions) error {
 	path := o.HTTPPath
 	if path == "" {
 		path = "/mcp"
+	}
+	if o.HTTPToken == "" && !o.HTTPInsecure && !loopbackAddr(o.HTTPAddr) {
+		return ErrTokenRequired
 	}
 	base := srv.GetServer()
 	if base == nil {
 		return errors.New("llm: the MCP server could not be set up")
 	}
 	h := server.NewStreamableHTTPServer(base, server.WithEndpointPath(path))
+	hs := &http.Server{Addr: o.HTTPAddr, Handler: bearerAuth(o.HTTPToken, h), ReadHeaderTimeout: 10 * time.Second}
 	if o.Logger != nil {
-		o.Logger.Info("tamesu mcp: serving over HTTP", "addr", o.HTTPAddr, "path", path)
+		o.Logger.Info("tamesu mcp: serving over HTTP", "addr", o.HTTPAddr, "path", path, "token", o.HTTPToken != "")
 	}
 	errc := make(chan error, 1)
-	go func() { errc <- h.Start(o.HTTPAddr) }()
+	go func() { errc <- hs.ListenAndServe() }()
 	select {
 	case err := <-errc:
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -88,9 +104,46 @@ func serveHTTP(ctx context.Context, srv *mcp.GenkitMCPServer, o MCPOptions) erro
 	case <-ctx.Done():
 		sctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer cancel()
+		_ = hs.Shutdown(sctx)
 		_ = h.Shutdown(sctx)
 		return nil
 	}
+}
+
+// bearerAuth requires Authorization: Bearer <token> on every request when
+// token is set; the comparison takes constant time.
+func bearerAuth(token string, next http.Handler) http.Handler {
+	if token == "" {
+		return next
+	}
+	want := sha256.Sum256([]byte(token))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+		sum := sha256.Sum256([]byte(got))
+		if got == "" || subtle.ConstantTimeCompare(sum[:], want[:]) != 1 {
+			w.Header().Set("WWW-Authenticate", `Bearer realm="tamesu"`)
+			http.Error(w, "unauthorized: a bearer token is required", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// loopbackAddr reports whether addr binds loopback only (localhost,
+// 127.0.0.0/8, ::1); an empty host binds everything.
+func loopbackAddr(addr string) bool {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		host = addr
+	}
+	if host == "" {
+		return false
+	}
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 // Tool inputs. Descriptions avoid commas: the jsonschema tag splits on them.

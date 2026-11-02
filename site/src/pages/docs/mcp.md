@@ -86,9 +86,20 @@ tamesu mcp --http 127.0.0.1:8765 --http-path /tamesu  # another path
 { "mcpServers": { "tamesu": { "url": "http://host:8765/mcp" } } }
 ```
 
-The server runs until interrupted. It has no authentication of its own: bind it to localhost or
-put it behind the proxy or tunnel your agents already use, because its tools run commands and
-read run directories on that machine.
+The server runs until interrupted. Give it a token and every request must carry it:
+
+```sh
+tamesu mcp --http 0.0.0.0:8765 --http-token "$(openssl rand -hex 24)"   # or TAMESU_MCP_TOKEN
+```
+
+```json
+{ "mcpServers": { "tamesu": { "url": "http://host:8765/mcp", "headers": { "Authorization": "Bearer <token>" } } } }
+```
+
+A request without the right bearer token gets 401. Listening beyond localhost without a token
+is refused, since the tools run commands and read run directories on that machine;
+`--http-insecure` overrides that for a network you trust. Put TLS in front with the proxy or
+tunnel your agents already use.
 
 ## A session
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"github.com/firebase/genkit/go/genkit"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -297,4 +298,60 @@ func TestServeMCPOverHTTP(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("ServeMCP did not return after cancel")
 	}
+}
+
+func TestServeMCPOverHTTPWithToken(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	addr := l.Addr().String()
+	require.NoError(t, l.Close())
+	done := make(chan error, 1)
+	go func() {
+		done <- ServeMCP(ctx, MCPOptions{Exec: (&fakeExec{}).exec, Schema: func(string) (string, error) { return "{}", nil },
+			HTTPAddr: addr, HTTPToken: "s3cret", RunsDir: t.TempDir()})
+	}()
+	require.Eventually(t, func() bool {
+		c, err := net.DialTimeout("tcp", addr, 200*time.Millisecond)
+		if err != nil {
+			return false
+		}
+		_ = c.Close()
+		return true
+	}, 5*time.Second, 50*time.Millisecond)
+	body := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"t","version":"0"}}}`
+	post := func(token string) int {
+		req, _ := http.NewRequest(http.MethodPost, "http://"+addr+"/mcp", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json, text/event-stream")
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		_ = resp.Body.Close()
+		return resp.StatusCode
+	}
+	assert.Equal(t, http.StatusUnauthorized, post(""), "no token")
+	assert.Equal(t, http.StatusUnauthorized, post("wrong"), "wrong token")
+	assert.Equal(t, http.StatusOK, post("s3cret"), "the token opens the door")
+	cancel()
+	select {
+	case err := <-done:
+		assert.NoError(t, err)
+	case <-time.After(10 * time.Second):
+		t.Fatal("ServeMCP did not return")
+	}
+}
+
+func TestServeMCPRefusesOpenBind(t *testing.T) {
+	err := ServeMCP(context.Background(), MCPOptions{Exec: (&fakeExec{}).exec, Schema: func(string) (string, error) { return "{}", nil }, HTTPAddr: ":0", RunsDir: t.TempDir()})
+	assert.ErrorIs(t, err, ErrTokenRequired)
+	assert.True(t, loopbackAddr("127.0.0.1:8765"))
+	assert.True(t, loopbackAddr("localhost:8765"))
+	assert.True(t, loopbackAddr("[::1]:8765"))
+	assert.False(t, loopbackAddr(":8765"))
+	assert.False(t, loopbackAddr("0.0.0.0:8765"))
+	assert.False(t, loopbackAddr("10.0.0.5:8765"))
 }

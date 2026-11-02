@@ -25,16 +25,20 @@ type MCPRequest struct {
 	// ("config").
 	Schema func(which string) (string, error)
 	Logger *slog.Logger
-	// HTTPAddr and HTTPPath serve over HTTP instead of stdio when set.
-	HTTPAddr string
-	HTTPPath string
+	// HTTPAddr and HTTPPath serve over HTTP instead of stdio when set;
+	// HTTPToken guards it, HTTPInsecure allows a non-loopback bind without one.
+	HTTPAddr     string
+	HTTPPath     string
+	HTTPToken    string
+	HTTPInsecure bool
 	// RunsDir is where runs live (.tamesu/runs): the resources and the
 	// default output of tamesu_run.
 	RunsDir string
 }
 
 func (a *app) newMCPCmd() *cobra.Command {
-	var dir, httpAddr, httpPath string
+	var dir, httpAddr, httpPath, httpToken string
+	var httpInsecure bool
 	cmd := &cobra.Command{
 		Use:   "mcp",
 		Short: "Serve tamesu to coding agents as an MCP server over stdio or HTTP",
@@ -48,7 +52,9 @@ func (a *app) newMCPCmd() *cobra.Command {
 			"tamesu://runs lists them, tamesu://runs/<run>/summary.json and\n" +
 			"tamesu://runs/<run>/tests/<test>/run-<n>/result.json read them. Secrets are\n" +
 			"resolved per command and never returned. Over stdio the server stops when the\n" +
-			"client closes the connection; over HTTP it runs until interrupted.",
+			"client closes the connection; over HTTP it runs until interrupted and, with\n" +
+			"--http-token (or TAMESU_MCP_TOKEN), answers only requests carrying that bearer\n" +
+			"token; listening beyond localhost without one needs --http-insecure.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if a.deps.ServeMCP == nil {
@@ -61,7 +67,11 @@ func (a *app) newMCPCmd() *cobra.Command {
 			}
 			logger := a.logger()
 			slog.SetDefault(logger)
-			req := MCPRequest{Version: a.info.Version, Exec: a.exec, Schema: schemaJSON, Logger: logger, HTTPAddr: httpAddr, HTTPPath: httpPath, RunsDir: filepath.Join(".tamesu", "runs")}
+			if httpToken == "" {
+				httpToken, _ = a.deps.LookupEnv("TAMESU_MCP_TOKEN")
+			}
+			req := MCPRequest{Version: a.info.Version, Exec: a.exec, Schema: schemaJSON, Logger: logger, HTTPAddr: httpAddr, HTTPPath: httpPath,
+				HTTPToken: httpToken, HTTPInsecure: httpInsecure, RunsDir: filepath.Join(".tamesu", "runs")}
 			if err := a.deps.ServeMCP(cmd.Context(), req); err != nil {
 				return infraError(err)
 			}
@@ -71,6 +81,8 @@ func (a *app) newMCPCmd() *cobra.Command {
 	cmd.Flags().StringVar(&dir, "cwd", "", "project directory to run the commands in (default: the current directory)")
 	cmd.Flags().StringVar(&httpAddr, "http", "", "serve over streamable HTTP on this address (such as :8765) instead of stdio")
 	cmd.Flags().StringVar(&httpPath, "http-path", "/mcp", "the HTTP endpoint path, with --http")
+	cmd.Flags().StringVar(&httpToken, "http-token", "", "bearer token every HTTP request must carry (default TAMESU_MCP_TOKEN); required to listen beyond localhost")
+	cmd.Flags().BoolVar(&httpInsecure, "http-insecure", false, "serve over HTTP on a non-loopback address without a token")
 	return cmd
 }
 

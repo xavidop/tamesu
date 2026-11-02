@@ -280,7 +280,7 @@ fails. See [SIP setup](/docs/sip-setup/).
 ## tamesu mcp
 
 ```text
-tamesu mcp [--cwd dir] [--http addr] [--http-path /mcp]
+tamesu mcp [--cwd dir] [--http addr] [--http-path /mcp] [--http-token t] [--http-insecure]
 ```
 
 Serves the tamesu tools over the Model Context Protocol on standard input and output, for a
@@ -291,7 +291,9 @@ runs the matching command in the same process with the server's `--config`, `--v
 directories under `.tamesu/runs` are resources: `tamesu://runs` lists them and
 `tamesu://runs/<run>/summary.json` reads one. `--cwd` changes to the project directory first.
 `--http addr` (such as `:8765`) serves over streamable HTTP at `--http-path` (default `/mcp`)
-instead of stdio, for agents on another machine. Over stdio the server stops when the client
+instead of stdio, for agents on another machine; `--http-token` (or `TAMESU_MCP_TOKEN`) is the
+bearer token every request must carry, required to listen beyond localhost unless
+`--http-insecure`. Over stdio the server stops when the client
 disconnects; over HTTP it runs until interrupted. `-v` logs to standard error. See
 [MCP server](/docs/mcp/).
 
