@@ -31,6 +31,7 @@ tamesu --help                   # every command
 | [`tamesu record browser`](#tamesu-record-browser) | Record a browser session as deterministic steps |
 | [`tamesu generate`](#tamesu-generate) | Draft tests from a PRD, a system prompt or a knowledge base |
 | [`tamesu sip setup`](#tamesu-sip-setup) | Create or reuse the LiveKit SIP trunks and the inbound dispatch rule |
+| [`tamesu mcp`](#tamesu-mcp) | Serve tamesu to coding agents as an MCP server over stdio |
 | [`tamesu version`](#tamesu-version) | Print the version, commit and build date |
 
 `tamesu completion` prints a shell completion script, and `tamesu help` shows help for any
@@ -241,6 +242,20 @@ the trunk's auth secrets through mamori, prints what it created or reused, and e
 `tamesu.yaml`. Running it again changes nothing. `--outbound` or `--inbound` limit it to one
 side. Exit `2` when `sip.livekit_url` or `sip.trunk` is missing, `3` when the LiveKit API
 fails. See [SIP setup](/docs/sip-setup/).
+
+## tamesu mcp
+
+```text
+tamesu mcp [--cwd dir]
+```
+
+Serves the tamesu tools over the Model Context Protocol on standard input and output, for a
+coding agent (Claude Code, Cursor, Codex, ...): `tamesu_schema`, `tamesu_validate`,
+`tamesu_list`, `tamesu_run`, `tamesu_generate`, `tamesu_doctor` and `tamesu_init`. Each tool
+runs the matching command in the same process with the server's `--config`, `--var` and
+`--env-file`, and returns its output and exit code (a run returns its `summary.json`). `--cwd`
+changes to the project directory first. The server stops when the client disconnects; `-v` logs
+to standard error. See [MCP server](/docs/mcp/).
 
 ## tamesu version
 

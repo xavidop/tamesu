@@ -117,6 +117,7 @@ tamesu report <run-dir>          rebuild report.html from a run directory
 tamesu record browser <url>      record a browser session into deterministic steps (--out)
 tamesu generate                  draft tests from a PRD or system prompt (--from, --target, --type, --count, --out)
 tamesu sip setup                 create or reuse the LiveKit SIP trunks and dispatch rule (--outbound, --inbound)
+tamesu mcp                       serve tamesu to coding agents as an MCP server over stdio (--cwd)
 tamesu version                   print the version, commit and build date
 ```
 

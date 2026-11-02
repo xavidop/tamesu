@@ -119,6 +119,12 @@ client, err := llm.New(ctx, llm.Config{...}, llm.WithGenkit(g))
 tracing) instead of initialising one, so an app can test its own agent in-process and judge it
 with its own evaluators.
 
+## The MCP server
+
+`tamesu mcp` is Genkit too: the tamesu tools (`tamesu_run`, `tamesu_validate`, `tamesu_schema`
+and the rest) are Genkit tools on an instance of their own, served to coding agents over the
+Model Context Protocol with Genkit's MCP plugin. See [MCP server](/docs/mcp/).
+
 ## CI without keys
 
 A binary built with `-tags llmfake` registers the `fake` plugin: `fake/simulator` and

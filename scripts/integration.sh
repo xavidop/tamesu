@@ -55,6 +55,14 @@ echo "==> generate: a draft suite from the PRD must validate"
 ./bin/tamesu-llmfake generate --config examples/rest-agent/tamesu.llmfake.yaml --from examples/rest-agent/PRD.md --target rt --type realtime --out "$out/generated-realtime.yaml"
 ./bin/tamesu-llmfake validate --config examples/rest-agent/tamesu.llmfake.yaml "$out/generated-realtime.yaml"
 
+echo "==> mcp: the server must list its tools over stdio"
+printf '%s\n' \
+	'{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"integration","version":"0"}}}' \
+	'{"jsonrpc":"2.0","method":"notifications/initialized"}' \
+	'{"jsonrpc":"2.0","id":2,"method":"tools/list"}' |
+	./bin/tamesu-llmfake mcp --cwd examples/rest-agent >"$out/mcp.jsonl" 2>"$out/mcp.err"
+grep -q '"tamesu_run"' "$out/mcp.jsonl" || { echo "tamesu mcp did not list tamesu_run:" >&2; cat "$out/mcp.jsonl" "$out/mcp.err" >&2; exit 1; }
+
 echo "==> broken agent: the judge must fail it"
 ./bin/rest-agent --scripted --broken --addr "127.0.0.1:$port" &
 agent=$!

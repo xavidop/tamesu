@@ -57,6 +57,7 @@ func main() {
 			Checks:        []cli.DoctorCheck{checkModels, checkSpeech, checkChromium, checkLiveKit, checkSIP},
 			SIPSetup:      sipSetup,
 			RecordBrowser: recordBrowser,
+			ServeMCP:      serveMCP,
 		},
 	)
 	code := cli.Execute(ctx, root, os.Args[1:])

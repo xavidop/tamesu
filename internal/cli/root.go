@@ -54,6 +54,9 @@ type Deps struct {
 	SIPSetup func(ctx context.Context, req SIPSetupRequest) (SIPSetupResult, error)
 	// RecordBrowser runs `tamesu record browser` (the browser module).
 	RecordBrowser func(ctx context.Context, req RecordRequest) (RecordResult, error)
+	// ServeMCP runs `tamesu mcp` (the llm module, on Genkit's MCP server);
+	// nil means the command reports that this build has no MCP support.
+	ServeMCP func(ctx context.Context, req MCPRequest) error
 }
 
 type app struct {
@@ -127,6 +130,7 @@ func NewRoot(info BuildInfo, streams Streams, deps Deps) *cobra.Command {
 		a.newRecordCmd(),
 		a.newGenerateCmd(),
 		a.newSIPCmd(),
+		a.newMCPCmd(),
 	)
 	apps.Store(root, a)
 	return root
