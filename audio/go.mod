@@ -7,4 +7,4 @@ require (
 	github.com/yalue/onnxruntime_go v1.38.0
 )
 
-require go.yaml.in/yaml/v3 v3.0.5 // indirect
+require go.yaml.in/yaml/v3 v3.0.6 // indirect
