@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/firebase/genkit/go/ai"
 	"github.com/firebase/genkit/go/core/tracing"
-	"github.com/firebase/genkit/go/genkit"
 
 	"github.com/xavidop/tamesu/internal/model"
 )
@@ -42,10 +40,6 @@ func (c *Client) generateScenarios(ctx context.Context, in generateInput) (model
 		return model.Draft{}, fmt.Errorf("llm: %s: the document is empty", FlowGenerateScenarios)
 	}
 	modelName := c.modelFor("scenario_generator", in.Model)
-	prompt := genkit.LookupPrompt(c.g, "scenario_gen")
-	if prompt == nil {
-		return model.Draft{}, fmt.Errorf("llm: prompt scenario_gen is not loaded")
-	}
 	count := in.Count
 	if count <= 0 {
 		count = DefaultGenerateCount
@@ -62,7 +56,7 @@ func (c *Client) generateScenarios(ctx context.Context, in generateInput) (model
 		"source": source, "source_name": in.SourceName, "target": in.Target, "type": typ, "count": count,
 		"conversational": typ != "browser", "open": "{{", "close": "}}",
 	}
-	resp, err := prompt.Execute(ctx, ai.WithInput(input), ai.WithModelName(modelName))
+	resp, err := c.executePrompt(ctx, "scenario_gen", input, modelName)
 	budgetErr := c.record(modelName, resp)
 	if err != nil {
 		return model.Draft{}, fmt.Errorf("llm: %s with %s: %w", FlowGenerateScenarios, modelName, err)

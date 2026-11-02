@@ -266,15 +266,11 @@ func (c *Client) checkExpect(ctx context.Context, in expectInput) (expectOutput,
 		return expectOutput{}, err
 	}
 	modelName := c.modelFor("browser_agent", in.Model)
-	prompt := genkit.LookupPrompt(c.g, "expect")
-	if prompt == nil {
-		return expectOutput{}, fmt.Errorf("llm: prompt expect is not loaded")
-	}
 	obs, err := st.page.Observe(ctx, false)
 	if err != nil {
 		return expectOutput{}, fmt.Errorf("llm: %s: observe: %w", FlowCheckExpect, err)
 	}
-	resp, err := prompt.Execute(ctx, ai.WithInput(map[string]any{"expectation": in.Expectation, "observation": formatObservation(obs)}), ai.WithModelName(modelName))
+	resp, err := c.executePrompt(ctx, "expect", map[string]any{"expectation": in.Expectation, "observation": formatObservation(obs)}, modelName)
 	budgetErr := c.record(modelName, resp)
 	if err != nil {
 		return expectOutput{}, fmt.Errorf("llm: %s with %s: %w", FlowCheckExpect, modelName, err)

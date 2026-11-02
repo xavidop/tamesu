@@ -7,7 +7,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/firebase/genkit/go/ai"
 	"github.com/firebase/genkit/go/core/tracing"
 	"github.com/firebase/genkit/go/genkit"
 
@@ -44,10 +43,6 @@ func (c *Client) Simulate(ctx context.Context, in model.SimInput) (model.SimOutp
 
 func (c *Client) simulate(ctx context.Context, in model.SimInput) (model.SimOutput, error) {
 	modelName := c.modelFor("simulator", "")
-	prompt := genkit.LookupPrompt(c.g, "simulator")
-	if prompt == nil {
-		return model.SimOutput{}, fmt.Errorf("llm: prompt simulator is not loaded")
-	}
 	input := map[string]any{
 		"persona":   describePersona(in),
 		"goal":      in.Scenario.Goal,
@@ -58,7 +53,7 @@ func (c *Client) simulate(ctx context.Context, in model.SimInput) (model.SimOutp
 		"history":   formatHistory(in.History),
 		"seed":      in.Seed,
 	}
-	resp, err := prompt.Execute(ctx, ai.WithInput(input), ai.WithModelName(modelName))
+	resp, err := c.executePrompt(ctx, "simulator", input, modelName)
 	budgetErr := c.record(modelName, resp)
 	if err != nil {
 		return model.SimOutput{}, fmt.Errorf("llm: %s with %s: %w", FlowSimulateUserTurn, modelName, err)
@@ -84,10 +79,6 @@ func (c *Client) Judge(ctx context.Context, req assert.JudgeRequest) (assert.Jud
 
 func (c *Client) judge(ctx context.Context, req assert.JudgeRequest) (assert.JudgeVerdict, error) {
 	modelName := c.modelFor("judge", req.Model)
-	prompt := genkit.LookupPrompt(c.g, "judge")
-	if prompt == nil {
-		return assert.JudgeVerdict{}, fmt.Errorf("llm: prompt judge is not loaded")
-	}
 	scale := req.Scale
 	if scale == "" {
 		scale = "binary"
@@ -100,7 +91,7 @@ func (c *Client) judge(ctx context.Context, req assert.JudgeRequest) (assert.Jud
 		"tool_calls": formatToolCalls(req),
 		"metrics":    formatMetrics(req.Metrics),
 	}
-	resp, err := prompt.Execute(ctx, ai.WithInput(input), ai.WithModelName(modelName))
+	resp, err := c.executePrompt(ctx, "judge", input, modelName)
 	budgetErr := c.record(modelName, resp)
 	if err != nil {
 		return assert.JudgeVerdict{}, fmt.Errorf("llm: %s with %s: %w", FlowJudgeRun, modelName, err)
