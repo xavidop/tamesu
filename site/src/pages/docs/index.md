@@ -37,12 +37,13 @@ The [Quick start](/docs/quickstart/) walks through a first project.
 | Check the whole setup, secrets included, without printing a value | [`tamesu doctor`](/docs/cli/#tamesu-doctor) |
 | Run the suites and read the reports | [`tamesu run`](/docs/cli/#tamesu-run), [Reports](/docs/reports/) |
 | Test a REST agent | [REST target](/docs/targets/rest/) |
+| Test an agent over gRPC | [gRPC target](/docs/targets/grpc/) |
 | Test a LiveKit voice agent, in text or audio | [LiveKit target](/docs/targets/livekit/) |
 | Pick models, override prompts, see traces, count cost | [AI (Genkit)](/docs/ai/) |
 | Drive tests from `go test` | [Go API](/docs/go-api/) |
 | Run tamesu in GitHub Actions, GitLab CI or Docker | [CI](/docs/ci/) |
 
-## Five targets, one model
+## Six targets, one model
 
 | Target | What it is | Transport |
 |---|---|---|
@@ -51,9 +52,10 @@ The [Quick start](/docs/quickstart/) walks through a first project.
 | `livekit` | A realtime voice agent in a LiveKit room, in text or audio | WebRTC |
 | `sip` | A phone agent reached through a LiveKit SIP service and your trunk | SIP / PSTN |
 | `realtime` | An agent speaking the OpenAI Realtime protocol, in text or audio | WebSocket |
+| `grpc` | An agent behind tamesu's turn API, a small gRPC service you implement | gRPC |
 
-All five share the suite schema, the assertion model, the persona and scenario definitions, the
-metrics and the report format, and all five work with the action cache for browser goals, the
+All six share the suite schema, the assertion model, the persona and scenario definitions, the
+metrics and the report format, and all six work with the action cache for browser goals, the
 recorder, the generator, the HTML report, the [red-team packs](/docs/red-team/), load mode and the
 [MCP server](/docs/mcp/) for coding agents.
 

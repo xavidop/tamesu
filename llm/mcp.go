@@ -142,7 +142,7 @@ type mcpGenerateInput struct {
 	Source string `json:"source,omitempty" jsonschema:"description=The PRD or system prompt or knowledge base text to draft tests from"`
 	File   string `json:"file,omitempty" jsonschema:"description=A file with that text instead of source"`
 	Target string `json:"target" jsonschema:"required,description=The target name the tests will use"`
-	Type   string `json:"type,omitempty" jsonschema:"enum=rest,enum=browser,enum=livekit,enum=sip,enum=realtime,description=The target type; default rest"`
+	Type   string `json:"type,omitempty" jsonschema:"enum=rest,enum=browser,enum=livekit,enum=sip,enum=realtime,enum=grpc,description=The target type; default rest"`
 	Count  int    `json:"count,omitempty" jsonschema:"description=How many tests to draft"`
 	Out    string `json:"out,omitempty" jsonschema:"description=Write the suite here; otherwise it is only returned"`
 	Config string `json:"config,omitempty" jsonschema:"description=The project file (tamesu.yaml)"`

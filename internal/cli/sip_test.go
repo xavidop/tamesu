@@ -201,7 +201,7 @@ func TestGenerateCommand(t *testing.T) {
 	assert.Contains(t, stderr.String(), "--target <name> are required")
 	stderr.Reset()
 	root = cli.NewRoot(cli.BuildInfo{}, cli.Streams{Out: &stdout, Err: &stderr}, deps)
-	assert.Equal(t, cli.ExitConfig, cli.Execute(context.Background(), root, []string{"generate", "--config", cfg, "--from", prd, "--target", "x", "--type", "grpc"}))
+	assert.Equal(t, cli.ExitConfig, cli.Execute(context.Background(), root, []string{"generate", "--config", cfg, "--from", prd, "--target", "x", "--type", "fax"}))
 	assert.Contains(t, stderr.String(), "--type must be one of")
 }
 

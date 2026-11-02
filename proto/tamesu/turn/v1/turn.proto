@@ -1,0 +1,75 @@
+// The generic turn API of tamesu's grpc target: implement TurnService in
+// front of your agent and tamesu talks to it in turns.
+syntax = "proto3";
+
+package tamesu.turn.v1;
+
+option go_package = "github.com/xavidop/tamesu/targets/grpc/turnv1;turnv1";
+
+// TurnService answers user turns. Converse keeps one session open on a
+// bidirectional stream; Turn is the unary form for agents that do not
+// stream. tamesu uses Converse and falls back to Turn when the server
+// answers Unimplemented.
+service TurnService {
+  rpc Converse(stream ClientEvent) returns (stream ServerEvent);
+  rpc Turn(TurnRequest) returns (TurnResponse);
+}
+
+// ClientEvent is what tamesu sends on a Converse stream: the session start
+// first, then one UserTurn per turn, then the end.
+message ClientEvent {
+  oneof event {
+    SessionStart session_start = 1;
+    UserTurn user_turn = 2;
+    SessionEnd session_end = 3;
+  }
+}
+
+message SessionStart {
+  string session_id = 1;
+  map<string, string> metadata = 2;
+}
+
+message UserTurn {
+  string text = 1;
+}
+
+message SessionEnd {}
+
+// ServerEvent is what the agent streams back for a turn: text deltas and
+// tool calls in order, then exactly one TurnEnd.
+message ServerEvent {
+  oneof event {
+    TextDelta text_delta = 1;
+    ToolCall tool_call = 2;
+    TurnEnd turn_end = 3;
+  }
+}
+
+message TextDelta {
+  string text = 1;
+}
+
+message ToolCall {
+  string name = 1;
+  // arguments_json is the call's arguments as a JSON object; empty for none.
+  string arguments_json = 2;
+}
+
+message TurnEnd {
+  // end_session is true when the agent considers the conversation over.
+  bool end_session = 1;
+}
+
+// The unary form.
+message TurnRequest {
+  string session_id = 1;
+  string text = 2;
+  map<string, string> metadata = 3;
+}
+
+message TurnResponse {
+  string text = 1;
+  repeated ToolCall tool_calls = 2;
+  bool end_session = 3;
+}

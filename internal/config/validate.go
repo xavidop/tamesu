@@ -19,8 +19,10 @@ var (
 	e164Re     = regexp.MustCompile(`^\+[1-9]\d{6,14}$`)
 	// realtimeURLRe accepts the schemes a websocket handshake can use.
 	realtimeURLRe = regexp.MustCompile(`^(wss?|https?)://`)
-	e164PatRe     = regexp.MustCompile(`^\+[0-9*]+$`)
-	dtmfRe        = regexp.MustCompile(`^[0-9A-Da-d*#]+$`)
+	// grpcURLRe is the grpc target's address form.
+	grpcURLRe = regexp.MustCompile(`^grpcs?://[^/]+$`)
+	e164PatRe = regexp.MustCompile(`^\+[0-9*]+$`)
+	dtmfRe    = regexp.MustCompile(`^[0-9A-Da-d*#]+$`)
 )
 
 // Enumerations the validator checks.
@@ -44,13 +46,13 @@ var (
 // belongs to, so a field on the wrong kind of target earns a warning.
 var targetFieldTypes = map[string][]string{
 	"browser": {TargetBrowser}, "auth": {TargetBrowser}, "allowed_domains": {TargetBrowser},
-	"method": {TargetREST}, "headers": {TargetREST, TargetRealtime}, "request": {TargetREST}, "response": {TargetREST}, "streaming": {TargetREST}, "session": {TargetREST},
+	"method": {TargetREST}, "headers": {TargetREST, TargetRealtime, TargetGRPC}, "request": {TargetREST}, "response": {TargetREST}, "streaming": {TargetREST}, "session": {TargetREST, TargetGRPC},
 	"api_key": {TargetLiveKit}, "api_secret": {TargetLiveKit}, "room": {TargetLiveKit}, "dispatch": {TargetLiveKit},
 	"agent_identity_prefix": {TargetLiveKit}, "mode": {TargetLiveKit, TargetRealtime}, "data_topic": {TargetLiveKit}, "join_timeout": {TargetLiveKit},
 	"transcript_source": {TargetLiveKit},
 	"direction":         {TargetSIP}, "to": {TargetSIP}, "from": {TargetSIP}, "trunk_id": {TargetSIP}, "ring_timeout": {TargetSIP},
 	"max_call_duration": {TargetSIP}, "trigger": {TargetSIP},
-	"model": {TargetRealtime}, "session_update": {TargetRealtime}, "protocol": {TargetRealtime}, "done_tool": {TargetRealtime}, "turn_timeout": {TargetRealtime},
+	"model": {TargetRealtime}, "session_update": {TargetRealtime}, "protocol": {TargetRealtime}, "done_tool": {TargetRealtime}, "turn_timeout": {TargetRealtime, TargetGRPC},
 	"tool_results": {TargetRealtime}, "audio_format": {TargetRealtime},
 }
 
@@ -259,6 +261,12 @@ func (v *validator) target(name string, t Target) {
 		if _, ok := t.ToolResults[done]; ok {
 			v.warnf(with(tp, "tool_results", done), "%s is the done tool: its call ends the session and is never answered", done)
 		}
+	case TargetGRPC:
+		if t.URL == "" {
+			v.errorf(tp, "grpc target needs url (grpc://host:port or grpcs://host:port)")
+		} else if !strings.Contains(t.URL, "{{") && !strings.Contains(t.URL, "${") && !grpcURLRe.MatchString(t.URL) {
+			v.errorf(with(tp, "url"), "grpc url must be grpc://host:port (plaintext) or grpcs://host:port (TLS)")
+		}
 	case TargetSIP:
 		switch t.Direction {
 		case "":
@@ -353,10 +361,10 @@ func (v *validator) test(i int, t Test) {
 			v.errorf(tp, "browser tests need steps")
 		}
 		if t.Persona != nil {
-			v.errorf(with(tp, "persona"), "persona applies to conversational targets (rest, livekit, sip, realtime); %q is a browser target", t.Target)
+			v.errorf(with(tp, "persona"), "persona applies to conversational targets (rest, grpc, livekit, sip, realtime); %q is a browser target", t.Target)
 		}
 		if t.Scenario != nil {
-			v.errorf(with(tp, "scenario"), "scenario applies to conversational targets (rest, livekit, sip, realtime); %q is a browser target", t.Target)
+			v.errorf(with(tp, "scenario"), "scenario applies to conversational targets (rest, grpc, livekit, sip, realtime); %q is a browser target", t.Target)
 		}
 	case ok:
 		if t.Scenario == nil || strings.TrimSpace(t.Scenario.Goal) == "" {

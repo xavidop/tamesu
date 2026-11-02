@@ -39,13 +39,13 @@ The top level of the file.
 
 | Key | Type | Required | Description |
 |---|---|---|---|
-| `type` | one of `browser`, `rest`, `livekit`, `sip`, `realtime` | yes |  |
-| `url` | string |  | The page (browser) or endpoint (rest and realtime) or LiveKit server (livekit). |
+| `type` | one of `browser`, `rest`, `livekit`, `sip`, `realtime`, `grpc` | yes |  |
+| `url` | string |  | The page (browser) or endpoint (rest and realtime) or grpc://host:port (grpc) or LiveKit server (livekit). |
 | `browser` | [BrowserOptions](#browseroptions) |  |  |
 | `auth` | [BrowserAuth](#browserauth) |  |  |
 | `allowed_domains` | list of string |  | Domains the browser agent may navigate to; defaults to the url's domain. |
 | `method` | string |  | HTTP method; defaults to POST. |
-| `headers` | map of string to string |  | Request (rest) or handshake (realtime) headers; put credentials here as {{secrets.NAME}}. |
+| `headers` | map of string to string |  | Request (rest) or handshake (realtime) headers or call metadata (grpc); put credentials here as {{secrets.NAME}}. |
 | `request` | [RESTRequest](#restrequest) |  |  |
 | `response` | [RESTResponse](#restresponse) |  |  |
 | `streaming` | one of `none`, `sse`, `websocket` |  |  |
@@ -70,7 +70,7 @@ The top level of the file.
 | `session_update` | object (any keys) |  | realtime: merged into the session.update event (instructions / tools / voice / output modalities). |
 | `protocol` | one of `ga`, `beta` |  | realtime: the event dialect; ga (default) or beta (modalities and the OpenAI-Beta header). |
 | `done_tool` | string |  | realtime: a function call with this name ends the session; default end_session. |
-| `turn_timeout` | [Duration](#duration) |  | realtime: how long to wait for response.done; default 60s. |
+| `turn_timeout` | [Duration](#duration) |  | realtime and grpc: how long to wait for the end of a turn; default 60s. |
 | `tool_results` | object (any keys) |  | realtime: answers to the agent's function calls by function name. The value (any JSON; string leaves may use {{args.<key>}}) goes back as the function's output and the response continues. Unlisted functions and done_tool are recorded only. |
 | `audio_format` | one of `pcm16`, `g711_ulaw`, `g711_alaw` |  | realtime audio mode: the agent's output audio; pcm16 (default) or G.711 at 8 kHz. |
 

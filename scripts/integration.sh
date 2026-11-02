@@ -17,6 +17,8 @@ echo "==> build rest-agent"
 port="${AGENT_PORT:-18080}"
 export AGENT_URL="http://127.0.0.1:$port/chat"
 export AGENT_WS_URL="ws://127.0.0.1:$port/ws"
+grpc_port="${AGENT_GRPC_PORT:-18090}"
+export AGENT_GRPC_URL="grpc://127.0.0.1:$grpc_port"
 
 # wait_for polls the agent's port with bash's /dev/tcp (no curl needed).
 wait_for() {
@@ -39,8 +41,8 @@ stop_agent() {
 	wait "$1" 2>/dev/null || true
 }
 
-echo "==> scripted agent: the suite must pass"
-./bin/rest-agent --scripted --addr "127.0.0.1:$port" &
+echo "==> scripted agent: the suite must pass (HTTP, websocket and gRPC)"
+./bin/rest-agent --scripted --addr "127.0.0.1:$port" --grpc "127.0.0.1:$grpc_port" &
 agent=$!
 trap 'stop_agent $agent' EXIT
 wait_for

@@ -106,6 +106,11 @@ func targetStub(typ string) *yaml.Node {
 			key("room"), scalar("tamesu-{{uuid}}"),
 			key("mode"), scalar("text"),
 		)
+	case config.TargetGRPC:
+		return mapping(
+			key("type"), scalar("grpc"),
+			key("url"), scalar("${AGENT_GRPC_URL:-grpc://localhost:9090}"),
+		)
 	case config.TargetRealtime:
 		return mapping(
 			key("type"), scalar("realtime"),

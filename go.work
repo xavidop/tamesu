@@ -11,6 +11,7 @@ use (
 	./llm/plugins/deepgram
 	./llm/plugins/elevenlabs
 	./targets/browser
+	./targets/grpc
 	./targets/livekit
 	./targets/realtime
 	./targets/rest

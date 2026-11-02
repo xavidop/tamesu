@@ -52,6 +52,12 @@ updates:
     schedule: { interval: weekly }
     labels: [dependencies, go, target]
 
+  # gRPC target (own go.mod; grpc-go and protobuf)
+  - package-ecosystem: gomod
+    directory: "/targets/grpc"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, target]
+
   # SIP target (own go.mod; LiveKit Go SDK, on top of targets/livekit)
   - package-ecosystem: gomod
     directory: "/targets/sip"

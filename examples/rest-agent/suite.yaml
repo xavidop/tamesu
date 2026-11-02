@@ -31,6 +31,10 @@ targets:
       done: $.end_session                         # ... and the one that ends the session
       idle: 2s                                    # otherwise a turn ends after this silence
 
+  agent_grpc:                                     # the same agent behind tamesu's gRPC turn API
+    type: grpc
+    url: ${AGENT_GRPC_URL:-grpc://localhost:9090}
+
 tests:
   - name: refund policy question
     target: api
@@ -57,6 +61,23 @@ tests:
     persona:
       name: Ken
       style: in a hurry
+      language: en
+    scenario:
+      goal: "Find out if you can return shoes bought 40 days ago"
+      max_turns: 4
+    assert:
+      - contains: "30 days"
+      - judge: "The agent states the 30-day return policy"
+      - tool_called: lookup_policy
+      - metric: { name: time_to_first_token_ms_p95, lt: 2000 }
+      - turns: { lte: 4 }
+
+  - name: refund policy question over grpc
+    target: agent_grpc
+    tags: [grpc]
+    persona:
+      name: Ana
+      style: direct
       language: en
     scenario:
       goal: "Find out if you can return shoes bought 40 days ago"

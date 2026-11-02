@@ -69,6 +69,7 @@ func main() {
 	scripted := flag.Bool("scripted", os.Getenv("AGENT_SCRIPTED") == "1", "answer from rules, without a model (CI)")
 	broken := flag.Bool("broken", os.Getenv("AGENT_BROKEN") == "1", "promise return exceptions (what the judge must catch)")
 	modelName := flag.String("model", envOr("AGENT_MODEL", "googleai/gemini-2.5-flash"), "Genkit model reference")
+	grpcAddr := flag.String("grpc", os.Getenv("AGENT_GRPC_ADDR"), "also serve tamesu's gRPC turn API on this address (such as :9090)")
 	flag.Parse()
 
 	a := &agent{scripted: *scripted, broken: *broken}
@@ -113,6 +114,13 @@ func main() {
 		defer cancel()
 		_ = srv.Shutdown(shutdownCtx)
 	}()
+	if *grpcAddr != "" {
+		go func() {
+			if err := a.serveGRPC(sigCtx, *grpcAddr); err != nil {
+				log.Fatal(err)
+			}
+		}()
+	}
 	log.Printf("rest-agent listening on %s (scripted=%v broken=%v)", *addr, a.scripted, a.broken)
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(err)

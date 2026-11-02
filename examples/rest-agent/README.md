@@ -21,5 +21,6 @@ go run . --scripted --broken &
 tamesu run --config tamesu.llmfake.yaml broken.yaml
 ```
 
-`PRD.md` is the product note the agent implements; `tamesu generate --from PRD.md` drafts a
+`--grpc :9090` also serves tamesu's gRPC turn API (the `agent_grpc` target of the suite,
+`AGENT_GRPC_URL`). `PRD.md` is the product note the agent implements; `tamesu generate --from PRD.md` drafts a
 suite from it.

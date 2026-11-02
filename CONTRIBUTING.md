@@ -62,6 +62,8 @@ This is a multi-module repository tied together by a `go.work` file:
 - `targets/sip`: the phone target, its own module: it wraps a livekit audio session with call
   control through the LiveKit SIP API (outbound `CreateSIPParticipant`, inbound triggers, hangup),
   the allowed-numbers guard and `tamesu sip setup`; the API sits behind an interface with a fake.
+- `targets/grpc`: the target for agents behind the turn API of `proto/tamesu/turn/v1`, its own
+  module on grpc-go; `turnv1` is the generated code (`make proto` regenerates it).
 - `targets/realtime`: the target for agents speaking the OpenAI Realtime protocol (the API itself
   or a server fronting your agent with its events), its own module on `coder/websocket`: text mode
   (conversation items and text deltas) and audio mode (PCM16 in, audio and transcript deltas out,

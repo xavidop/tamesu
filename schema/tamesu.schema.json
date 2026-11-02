@@ -573,12 +573,13 @@
             "rest",
             "livekit",
             "sip",
-            "realtime"
+            "realtime",
+            "grpc"
           ]
         },
         "url": {
           "type": "string",
-          "description": "The page (browser) or endpoint (rest and realtime) or LiveKit server (livekit)."
+          "description": "The page (browser) or endpoint (rest and realtime) or grpc://host:port (grpc) or LiveKit server (livekit)."
         },
         "browser": {
           "$ref": "#/$defs/BrowserOptions"
@@ -602,7 +603,7 @@
             "type": "string"
           },
           "type": "object",
-          "description": "Request (rest) or handshake (realtime) headers; put credentials here as {{secrets.NAME}}."
+          "description": "Request (rest) or handshake (realtime) headers or call metadata (grpc); put credentials here as {{secrets.NAME}}."
         },
         "request": {
           "$ref": "#/$defs/RESTRequest"
@@ -714,7 +715,7 @@
         },
         "turn_timeout": {
           "$ref": "#/$defs/Duration",
-          "description": "realtime: how long to wait for response.done; default 60s."
+          "description": "realtime and grpc: how long to wait for the end of a turn; default 60s."
         },
         "tool_results": {
           "type": "object",

@@ -166,9 +166,10 @@ error and 4 when the cost budget was exceeded.
 | `livekit` | WebRTC room (LiveKit) | text and audio (TTS in, VAD and STT out, interruptions, noise, stereo WAV) | `turn_latency_ms`, `agent_join_ms`; audio adds `time_to_first_audio_ms`, `interruption_stop_ms`, `talk_over_ratio`, `silence_gap_max_ms` | [`examples/livekit-agent`](examples/livekit-agent/) on `livekit-server --dev` |
 | `sip` | phone call through a LiveKit SIP service and your trunk (outbound or inbound, DTMF, `wait_for`/`say` scripts, line simulation) | audio | the audio metrics plus `call_setup_ms`, `ring_ms`, `greeting_ms`, `call_duration_ms`; `dtmf_received`, `call_ended_by`, `transferred_to` | [`examples/sip-ivr`](examples/sip-ivr/) through Asterisk as the carrier and IVR (`examples/compose.yaml`) |
 | `realtime` | the OpenAI Realtime protocol over a websocket (the API itself, or a server fronting your agent with its events) | text and audio (PCM16 in, audio and transcript deltas out, stereo WAV) | `turn_latency_ms`, `time_to_first_token_ms`, `agent_input_tokens`, `agent_output_tokens`; audio adds `time_to_first_audio_ms` | the OpenAI Realtime API with your instructions and tools in `session_update`, or your own server speaking its events |
+| `grpc` | gRPC, the turn API in [`proto/tamesu/turn/v1`](proto/tamesu/turn/v1/turn.proto) (a `Converse` stream, or a unary `Turn`) | text | `turn_latency_ms`, `time_to_first_token_ms`, `turns` | [`examples/rest-agent`](examples/rest-agent/) with `--grpc`, the same agent behind the turn API |
 
-All five share the suite schema, the assertions, the personas and scenarios, the metrics and the
-reports, and all five work with the action cache for browser goals (`--replay`), `tamesu record
+All six share the suite schema, the assertions, the personas and scenarios, the metrics and the
+reports, and all six work with the action cache for browser goals (`--replay`), `tamesu record
 browser`, `tamesu generate`, the HTML report, the red-team packs, load mode and `tamesu mcp`.
 
 ## CI

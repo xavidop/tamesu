@@ -13,7 +13,7 @@ MODULES := $(shell find . -name go.mod \
 GO ?= go
 export GOWORK = off
 
-.PHONY: all build test race vet lint lint-integration fmt tidy work-sync check-deps check-claims schema schema-check test-llmfake vet-llmfake lint-llmfake integration integration-sip genkit-ui site-dev site-build site-linkcheck demo clean help
+.PHONY: all build test race vet lint lint-integration fmt tidy work-sync check-deps check-claims schema schema-check proto test-llmfake vet-llmfake lint-llmfake integration integration-sip genkit-ui site-dev site-build site-linkcheck demo clean help
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -95,6 +95,14 @@ lint-llmfake: ## golangci-lint -tags llmfake for the fake-provider suites
 
 integration: ## Run the example suites end to end with the fake model provider (scripts/integration.sh): rest, livekit text and audio
 	@bash scripts/integration.sh
+
+proto: ## Regenerate the Go code of proto/ (protoc, protoc-gen-go and protoc-gen-go-grpc on the PATH)
+	@command -v protoc >/dev/null || { echo "protoc is not installed"; exit 1; }
+	@PATH="$$PATH:$$($(GO) env GOPATH)/bin" protoc -I proto \
+		--go_out=targets/grpc/turnv1 --go_opt=paths=source_relative \
+		--go-grpc_out=targets/grpc/turnv1 --go-grpc_opt=paths=source_relative \
+		proto/tamesu/turn/v1/turn.proto
+	@mv targets/grpc/turnv1/tamesu/turn/v1/*.go targets/grpc/turnv1/ && rm -r targets/grpc/turnv1/tamesu
 
 integration-sip: ## Run the phone example through Docker (livekit-server, livekit/sip, Asterisk): tamesu sip setup, outbound and inbound calls
 	@bash scripts/integration-sip.sh
