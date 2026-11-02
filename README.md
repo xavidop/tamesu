@@ -4,7 +4,7 @@
 
 # 試す &nbsp;tamesu
 
-### Test your agents the way your users will.
+### Your agents, tested like users would.
 
 *An open-source, agentic testing framework and CLI written in Go: write tests in YAML or Go and
 run them against web apps and AI agents (REST, realtime voice, phone) with one runner, one

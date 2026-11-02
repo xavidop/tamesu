@@ -1,6 +1,6 @@
 // Package tamesu is the root of tamesu (試す, "to try, to test"),
-// an agentic testing framework and CLI for web apps and AI agents: "Test your
-// agents the way your users will."
+// an agentic testing framework and CLI for web apps and AI agents: "Your agents,
+// tested like users would."
 //
 // Tests are written in YAML suites or in Go and run against four kinds of
 // target with one runner, one assertion model and one report format:

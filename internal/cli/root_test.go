@@ -14,7 +14,7 @@ func TestRootHelp(t *testing.T) {
 	for _, cmd := range []string{"init", "validate", "list", "doctor", "version"} {
 		assert.Contains(t, out, "\n  "+cmd)
 	}
-	assert.Contains(t, out, "Test your agents the way your users will.")
+	assert.Contains(t, out, "Your agents, tested like users would.")
 }
 
 func TestUnknownCommand(t *testing.T) {

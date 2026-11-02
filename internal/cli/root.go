@@ -93,8 +93,8 @@ func NewRoot(info BuildInfo, streams Streams, deps Deps) *cobra.Command {
 	a := &app{info: info, streams: streams, deps: deps, redactor: redact.New()}
 	root := &cobra.Command{
 		Use:   "tamesu",
-		Short: "Test your agents the way your users will.",
-		Long: "tamesu: Test your agents the way your users will.\n\n" +
+		Short: "Your agents, tested like users would.",
+		Long: "tamesu: Your agents, tested like users would.\n\n" +
 			"tamesu (試す, \"to try, to test\") runs agentic tests, written in YAML or Go,\n" +
 			"against web apps and AI agents: browser, REST, LiveKit voice and SIP phone targets,\n" +
 			"with one runner, one assertion model and one report format.",
