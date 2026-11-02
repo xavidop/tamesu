@@ -165,6 +165,18 @@ func TestComputeLoad(t *testing.T) {
 	assert.Equal(t, 5, ls.TurnLatencyMs.Count)
 	assert.Equal(t, 300.0, ls.TurnLatencyMs.P50)
 	assert.Equal(t, 1000.0, ls.TurnLatencyMs.Max)
+	h := ls.TurnLatencyMs.Histogram
+	require.Len(t, h, len(LatencyEdges)+1)
+	counts := map[float64]int{}
+	for _, b := range h {
+		counts[b.UpToMs] = b.Count
+	}
+	assert.Equal(t, map[float64]int{50: 0, 100: 1, 200: 1, 300: 1, 500: 1, 750: 0, 1000: 1, 1500: 0, 2000: 0, 3000: 0, 5000: 0, 0: 0}, counts,
+		"100 and 200 ms sit on their upper bounds, 400 falls in 300–500, 1000 in 750–1000")
+	assert.Nil(t, Histogram(nil))
+	over := Histogram([]float64{6000, 49.9})
+	assert.Equal(t, 1, over[len(over)-1].Count, "above the last edge goes to the overflow bucket")
+	assert.Equal(t, 1, over[0].Count)
 	assert.GreaterOrEqual(t, ls.TurnLatencyMs.P95, 400.0)
 
 	empty := ComputeLoad(&TestOutcome{}, 1)

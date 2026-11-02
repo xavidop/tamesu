@@ -101,7 +101,8 @@ read one file.
 
 `report.html` is one self-contained file (no external assets): the totals, then every test
 with its runs: the assertions and their reasons and evidence, the transcript (or the browser
-steps), the metrics, the event timeline, the session recording and a strip of step screenshots
+steps), the metrics, the event timeline, a turn-latency histogram for a test run in load mode
+(with p50 and p95 marked), the session recording and a strip of step screenshots
 for browser tests, an audio player for
 `audio.wav` with a button per caller and agent utterance (and DTMF) that seeks to that moment,
 the artifacts and the Genkit trace ids. Artifacts are linked relative to the file, so the run

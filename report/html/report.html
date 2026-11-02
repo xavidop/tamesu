@@ -33,6 +33,13 @@ th{color:var(--mute);font-weight:600}
 .turns li{padding:.3rem 0;border-bottom:1px dashed var(--line)}
 .turns .role{display:inline-block;min-width:4.5rem;font-weight:600;color:var(--mute);font-size:.8rem;text-transform:uppercase}
 .turns .user .role{color:var(--accent)}
+.hist{display:flex;align-items:flex-end;gap:2px;height:140px;padding:.4rem 0 2.2rem;margin:.2rem 0 .6rem}
+.hist .bucket{flex:1 1 0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;position:relative;min-width:0}
+.hist .bar{width:100%;min-height:2px;background:#4b7bd6;border-radius:4px 4px 0 0}
+.hist .bar.marked{background:#1f4fb0}
+.hist .count{font-size:.72rem;color:var(--mute);margin-bottom:2px;height:1em}
+.hist .label{position:absolute;top:100%;margin-top:.2rem;font-size:.68rem;color:var(--mute);white-space:nowrap}
+.hist .marker{position:absolute;top:100%;margin-top:1.1rem;font-size:.66rem;font-weight:600;color:var(--ink,#222);white-space:nowrap}
 .recording{display:block;max-width:100%;max-height:480px;border:1px solid var(--line);border-radius:4px;background:#fff;margin:.3rem 0}
 .shots{display:flex;gap:.6rem;overflow-x:auto;padding:.3rem 0}
 .shots figure{margin:0;flex:0 0 220px}
@@ -76,6 +83,10 @@ a{color:var(--ink)}
     {{if .T.Tags}}<span class="tags">{{join .T.Tags ", "}}</span>{{end}}
   </summary>
   <div class="body">
+  {{if .LoadBars}}
+    <h3>Turn latency, {{.T.Load.TurnLatencyMs.Count}} turns</h3>
+    <div class="hist" role="img" aria-label="turn latency histogram">{{range .LoadBars}}<div class="bucket" title="{{.Label}}: {{.Count}} turns{{if .Marker}} ({{.Marker}}){{end}}"><span class="count">{{if .Count}}{{.Count}}{{end}}</span><div class="bar{{if .Marker}} marked{{end}}" style="height:{{printf "%.0f" .Pct}}%"></div><span class="label">{{.Label}}</span>{{if .Marker}}<span class="marker">{{.Marker}}</span>{{end}}</div>{{end}}</div>
+  {{end}}
   {{range .Runs}}{{$run := .}}
     {{if gt .T.Repeat 1}}<h3>Run {{.R.Index}}{{if gt .R.Attempts 1}} (attempt {{.R.Attempt}} of {{.R.Attempts}}){{end}}</h3>{{end}}
     {{if .R.Error}}<div class="error"><b>{{.R.ErrorKind}}:</b> {{.R.Error}}</div>{{end}}

@@ -61,12 +61,14 @@ type LoadStats struct {
 	TurnLatencyMs LatencyStats `json:"turn_latency_ms"`
 }
 
-// LatencyStats are percentiles over a series of durations in milliseconds.
+// LatencyStats are percentiles over a series of durations in milliseconds,
+// with the series binned into Histogram.
 type LatencyStats struct {
-	Count int     `json:"count"`
-	P50   float64 `json:"p50"`
-	P95   float64 `json:"p95"`
-	Max   float64 `json:"max"`
+	Count     int             `json:"count"`
+	Histogram []LatencyBucket `json:"histogram,omitempty"`
+	P50       float64         `json:"p50"`
+	P95       float64         `json:"p95"`
+	Max       float64         `json:"max"`
 }
 
 // ComputeLoad builds the load profile of a finished test from its runs: the
@@ -106,6 +108,7 @@ func ComputeLoad(t *TestOutcome, users int) *LoadStats {
 		m := map[string]float64{}
 		metrics.Summarize(m, "l", series)
 		ls.TurnLatencyMs.P50, ls.TurnLatencyMs.P95, ls.TurnLatencyMs.Max = m["l_p50"], m["l_p95"], m["l_max"]
+		ls.TurnLatencyMs.Histogram = Histogram(series)
 	}
 	return ls
 }
@@ -284,4 +287,34 @@ func (m Multi) Finish(ctx context.Context, s *Summary) error {
 		}
 	}
 	return first
+}
+
+// LatencyBucket counts the turns whose latency was at most UpToMs and more
+// than the previous bucket's bound; the last bucket (UpToMs 0) holds the rest.
+type LatencyBucket struct {
+	UpToMs float64 `json:"up_to_ms,omitempty"`
+	Count  int     `json:"count"`
+}
+
+// LatencyEdges are the histogram's bucket bounds in milliseconds.
+var LatencyEdges = []float64{50, 100, 200, 300, 500, 750, 1000, 1500, 2000, 3000, 5000}
+
+// Histogram bins a series of milliseconds into LatencyEdges plus an overflow
+// bucket; an empty series gives nil.
+func Histogram(series []float64) []LatencyBucket {
+	if len(series) == 0 {
+		return nil
+	}
+	out := make([]LatencyBucket, len(LatencyEdges)+1)
+	for i, e := range LatencyEdges {
+		out[i].UpToMs = e
+	}
+	for _, v := range series {
+		i := 0
+		for i < len(LatencyEdges) && v > LatencyEdges[i] {
+			i++
+		}
+		out[i].Count++
+	}
+	return out
 }

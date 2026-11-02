@@ -85,6 +85,64 @@ type htmlTest struct {
 	PassedRuns int
 	Duration   time.Duration
 	Runs       []htmlRun
+	// LoadBars is the turn latency histogram of a load test, one bar per bucket.
+	LoadBars []htmlBar
+}
+
+// htmlBar is one histogram bucket: its label, count, height as a percentage
+// of the tallest bucket and the percentile markers that fall in it.
+type htmlBar struct {
+	Label  string
+	Count  int
+	Pct    float64
+	Marker string
+}
+
+// loadBars turns a load test's histogram into bars; nil when there is none.
+func loadBars(ls *LoadStats) []htmlBar {
+	if ls == nil || len(ls.TurnLatencyMs.Histogram) == 0 {
+		return nil
+	}
+	h := ls.TurnLatencyMs.Histogram
+	maxCount := 0
+	for _, b := range h {
+		maxCount = max(maxCount, b.Count)
+	}
+	bars := make([]htmlBar, len(h))
+	prev := 0.0
+	for i, b := range h {
+		bar := htmlBar{Count: b.Count}
+		if b.UpToMs == 0 {
+			bar.Label = fmt.Sprintf("> %s", fmtMs(prev))
+		} else {
+			bar.Label = fmt.Sprintf("≤ %s", fmtMs(b.UpToMs))
+		}
+		if maxCount > 0 {
+			bar.Pct = 100 * float64(b.Count) / float64(maxCount)
+		}
+		inBucket := func(v float64) bool { return v > prev && (b.UpToMs == 0 || v <= b.UpToMs) }
+		if ls.TurnLatencyMs.Count > 0 {
+			var marks []string
+			if inBucket(ls.TurnLatencyMs.P50) {
+				marks = append(marks, "p50")
+			}
+			if inBucket(ls.TurnLatencyMs.P95) {
+				marks = append(marks, "p95")
+			}
+			bar.Marker = strings.Join(marks, " ")
+		}
+		bars[i] = bar
+		prev = b.UpToMs
+	}
+	return bars
+}
+
+// fmtMs prints a bound as "750 ms" or "1.5 s".
+func fmtMs(ms float64) string {
+	if ms >= 1000 {
+		return fmt.Sprintf("%g s", ms/1000)
+	}
+	return fmt.Sprintf("%.0f ms", ms)
 }
 
 type htmlRun struct {
@@ -143,7 +201,7 @@ func RenderHTML(w io.Writer, s *Summary, dir string) error {
 	data := htmlData{Summary: s}
 	data.Passed, data.Failed, data.Errored = s.Counts()
 	for ti, t := range s.Tests {
-		ht := htmlTest{T: t, Passed: t.Passed, Status: "pass"}
+		ht := htmlTest{T: t, Passed: t.Passed, Status: "pass", LoadBars: loadBars(t.Load)}
 		switch {
 		case t.Errored():
 			ht.Status = "error"
