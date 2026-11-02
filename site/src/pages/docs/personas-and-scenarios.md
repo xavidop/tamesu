@@ -5,7 +5,7 @@ title: Personas and scenarios
 
 # Personas and scenarios
 
-A conversational test (rest, grpc, livekit, sip, realtime) is driven by a simulated user: a **persona** (who is
+A conversational test (rest, grpc, livekit, sip, realtime, pipecat) is driven by a simulated user: a **persona** (who is
 talking) with a **scenario** (what they want and when to stop). The simulator reads the persona,
 the scenario and the conversation so far and produces the next user turn, or decides to stop; in
 traces it is the `simulateUserTurn` flow.
@@ -46,7 +46,8 @@ tests:
 Give the persona what the agent will ask for: a name, an order reference in the goal, a date. The
 simulator invents plausible details that fit the persona when it must, and never gives a real
 secret, card number or password. The audio behaviours take effect in livekit audio mode and on
-sip calls (`interrupt_probability` also in realtime audio mode); text mode ignores them. A test's `seed` drives the behaviour RNG, so a run
+sip calls (`interrupt_probability` also in realtime audio mode); pipecat audio mode and text mode
+ignore them. A test's `seed` drives the behaviour RNG, so a run
 with the same seed pauses and interrupts at the same points.
 
 ## Scenario

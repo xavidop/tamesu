@@ -46,14 +46,15 @@ var (
 // belongs to, so a field on the wrong kind of target earns a warning.
 var targetFieldTypes = map[string][]string{
 	"browser": {TargetBrowser}, "auth": {TargetBrowser}, "allowed_domains": {TargetBrowser},
-	"method": {TargetREST}, "headers": {TargetREST, TargetRealtime, TargetGRPC}, "request": {TargetREST}, "response": {TargetREST}, "streaming": {TargetREST}, "session": {TargetREST, TargetGRPC},
+	"method": {TargetREST}, "headers": {TargetREST, TargetRealtime, TargetGRPC, TargetPipecat}, "request": {TargetREST}, "response": {TargetREST}, "streaming": {TargetREST}, "session": {TargetREST, TargetGRPC},
 	"api_key": {TargetLiveKit}, "api_secret": {TargetLiveKit}, "room": {TargetLiveKit}, "dispatch": {TargetLiveKit},
-	"agent_identity_prefix": {TargetLiveKit}, "mode": {TargetLiveKit, TargetRealtime}, "data_topic": {TargetLiveKit}, "join_timeout": {TargetLiveKit},
+	"agent_identity_prefix": {TargetLiveKit}, "mode": {TargetLiveKit, TargetRealtime, TargetPipecat}, "data_topic": {TargetLiveKit}, "join_timeout": {TargetLiveKit},
 	"transcript_source": {TargetLiveKit},
 	"direction":         {TargetSIP}, "to": {TargetSIP}, "from": {TargetSIP}, "trunk_id": {TargetSIP}, "ring_timeout": {TargetSIP},
 	"max_call_duration": {TargetSIP}, "trigger": {TargetSIP},
-	"model": {TargetRealtime}, "session_update": {TargetRealtime}, "protocol": {TargetRealtime}, "done_tool": {TargetRealtime}, "turn_timeout": {TargetRealtime, TargetGRPC},
-	"tool_results": {TargetRealtime}, "audio_format": {TargetRealtime},
+	"model": {TargetRealtime}, "session_update": {TargetRealtime}, "protocol": {TargetRealtime}, "done_tool": {TargetRealtime}, "turn_timeout": {TargetRealtime, TargetGRPC, TargetPipecat},
+	"tool_results": {TargetRealtime, TargetPipecat}, "audio_format": {TargetRealtime},
+	"sample_rate": {TargetPipecat}, "idle": {TargetPipecat},
 }
 
 // RealtimeProtocols are the event dialects of the realtime target.
@@ -267,6 +268,18 @@ func (v *validator) target(name string, t Target) {
 		} else if !strings.Contains(t.URL, "{{") && !strings.Contains(t.URL, "${") && !grpcURLRe.MatchString(t.URL) {
 			v.errorf(with(tp, "url"), "grpc url must be grpc://host:port (plaintext) or grpcs://host:port (TLS)")
 		}
+	case TargetPipecat:
+		if t.URL == "" {
+			v.errorf(tp, "pipecat target needs url (the websocket of the Pipecat transport)")
+		} else if !strings.Contains(t.URL, "{{") && !strings.Contains(t.URL, "${") && !realtimeURLRe.MatchString(t.URL) {
+			v.errorf(with(tp, "url"), "pipecat url must be a websocket URL (ws://, wss://, http:// or https://)")
+		}
+		if t.Mode != "" && !slices.Contains(VoiceModes, t.Mode) {
+			v.errorf(with(tp, "mode"), "mode must be text or audio")
+		}
+		if t.SampleRate < 0 || (t.SampleRate > 0 && t.SampleRate < 8000) {
+			v.errorf(with(tp, "sample_rate"), "sample_rate must be 8000 Hz or more")
+		}
 	case TargetSIP:
 		switch t.Direction {
 		case "":
@@ -348,8 +361,8 @@ func (v *validator) test(i int, t Test) {
 		mode = "audio"
 	}
 	if t.Mode != "" {
-		if ok && ttype != TargetLiveKit && ttype != TargetSIP && ttype != TargetRealtime {
-			v.errorf(with(tp, "mode"), "mode applies to livekit, sip and realtime tests only; %q is a %s target", t.Target, ttype)
+		if ok && ttype != TargetLiveKit && ttype != TargetSIP && ttype != TargetRealtime && ttype != TargetPipecat {
+			v.errorf(with(tp, "mode"), "mode applies to livekit, sip, realtime and pipecat tests only; %q is a %s target", t.Target, ttype)
 		}
 		if !slices.Contains(VoiceModes, t.Mode) {
 			v.errorf(with(tp, "mode"), "mode must be text or audio")
@@ -361,10 +374,10 @@ func (v *validator) test(i int, t Test) {
 			v.errorf(tp, "browser tests need steps")
 		}
 		if t.Persona != nil {
-			v.errorf(with(tp, "persona"), "persona applies to conversational targets (rest, grpc, livekit, sip, realtime); %q is a browser target", t.Target)
+			v.errorf(with(tp, "persona"), "persona applies to conversational targets (rest, grpc, livekit, sip, realtime, pipecat); %q is a browser target", t.Target)
 		}
 		if t.Scenario != nil {
-			v.errorf(with(tp, "scenario"), "scenario applies to conversational targets (rest, grpc, livekit, sip, realtime); %q is a browser target", t.Target)
+			v.errorf(with(tp, "scenario"), "scenario applies to conversational targets (rest, grpc, livekit, sip, realtime, pipecat); %q is a browser target", t.Target)
 		}
 	case ok:
 		if t.Scenario == nil || strings.TrimSpace(t.Scenario.Goal) == "" {

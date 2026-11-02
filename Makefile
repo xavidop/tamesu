@@ -96,13 +96,15 @@ lint-llmfake: ## golangci-lint -tags llmfake for the fake-provider suites
 integration: ## Run the example suites end to end with the fake model provider (scripts/integration.sh): rest, livekit text and audio
 	@bash scripts/integration.sh
 
-proto: ## Regenerate the Go code of proto/ (protoc, protoc-gen-go and protoc-gen-go-grpc on the PATH)
+proto: ## Regenerate the Go code of proto/ and the vendored Pipecat frames (protoc, protoc-gen-go and protoc-gen-go-grpc on the PATH)
 	@command -v protoc >/dev/null || { echo "protoc is not installed"; exit 1; }
 	@PATH="$$PATH:$$($(GO) env GOPATH)/bin" protoc -I proto \
 		--go_out=targets/grpc/turnv1 --go_opt=paths=source_relative \
 		--go-grpc_out=targets/grpc/turnv1 --go-grpc_opt=paths=source_relative \
 		proto/tamesu/turn/v1/turn.proto
 	@mv targets/grpc/turnv1/tamesu/turn/v1/*.go targets/grpc/turnv1/ && rm -r targets/grpc/turnv1/tamesu
+	@PATH="$$PATH:$$($(GO) env GOPATH)/bin" protoc -I targets/pipecat/frames \
+		--go_out=targets/pipecat/frames --go_opt=paths=source_relative targets/pipecat/frames/frames.proto
 
 integration-sip: ## Run the phone example through Docker (livekit-server, livekit/sip, Asterisk): tamesu sip setup, outbound and inbound calls
 	@bash scripts/integration-sip.sh

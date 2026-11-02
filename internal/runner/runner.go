@@ -32,7 +32,7 @@ type TargetSpec struct {
 	Config  config.Target
 	Suite   *config.Suite
 	Project config.Project
-	// Mode is the effective voice mode (text or audio) for livekit, sip and realtime.
+	// Mode is the effective voice mode (text or audio) for livekit, sip, realtime and pipecat.
 	Mode string
 	// Headed shows the browser window (browser targets).
 	Headed bool
@@ -351,7 +351,7 @@ func (r *run) collect() ([]*item, error) {
 			if it.mode == "" {
 				it.mode = tgt.Mode
 			}
-			if r.o.Mode != "" && (tgt.Type == config.TargetLiveKit || tgt.Type == config.TargetSIP || tgt.Type == config.TargetRealtime) {
+			if r.o.Mode != "" && (tgt.Type == config.TargetLiveKit || tgt.Type == config.TargetSIP || tgt.Type == config.TargetRealtime || tgt.Type == config.TargetPipecat) {
 				it.mode = r.o.Mode
 			}
 			if tgt.Type == config.TargetSIP {

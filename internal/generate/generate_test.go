@@ -74,6 +74,6 @@ func TestSuiteErrors(t *testing.T) {
 	assert.ErrorContains(t, err, "drafted no tests")
 	_, err = Suite(model.Draft{Tests: []model.DraftTest{{Name: "x"}}}, Options{Target: ""})
 	assert.ErrorContains(t, err, "target name is required")
-	_, err = Suite(model.Draft{Tests: []model.DraftTest{{Name: "x"}}}, Options{Target: "a", Type: "grpc"})
-	assert.ErrorContains(t, err, `unknown target type "grpc"`)
+	_, err = Suite(model.Draft{Tests: []model.DraftTest{{Name: "x"}}}, Options{Target: "a", Type: "fax"})
+	assert.ErrorContains(t, err, `unknown target type "fax"`)
 }

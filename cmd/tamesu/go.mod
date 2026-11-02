@@ -18,6 +18,7 @@ require (
 	github.com/xavidop/tamesu/targets/browser v0.0.0
 	github.com/xavidop/tamesu/targets/grpc v0.0.0
 	github.com/xavidop/tamesu/targets/livekit v0.0.0
+	github.com/xavidop/tamesu/targets/pipecat v0.0.0
 	github.com/xavidop/tamesu/targets/realtime v0.0.0
 	github.com/xavidop/tamesu/targets/rest v0.0.0
 	github.com/xavidop/tamesu/targets/sip v0.0.0
@@ -309,6 +310,8 @@ replace github.com/xavidop/tamesu/targets/rest => ../../targets/rest
 replace github.com/xavidop/tamesu/targets/realtime => ../../targets/realtime
 
 replace github.com/xavidop/tamesu/targets/grpc => ../../targets/grpc
+
+replace github.com/xavidop/tamesu/targets/pipecat => ../../targets/pipecat
 
 replace github.com/xavidop/tamesu/targets/livekit => ../../targets/livekit
 

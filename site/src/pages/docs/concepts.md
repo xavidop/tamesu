@@ -13,7 +13,7 @@ then shows how a conversational test flows and how a result is graded.
 | Concept | Description |
 |---|---|
 | **Suite** | A YAML file (or Go package) containing targets, defaults and tests. |
-| **Target** | The system under test: `browser`, `rest`, `grpc`, `livekit`, `sip` or `realtime`. |
+| **Target** | The system under test: `browser`, `rest`, `grpc`, `livekit`, `sip`, `realtime` or `pipecat`. |
 | **Test** | One scenario run against one target. |
 | **Step** | For browser tests: a natural-language `goal`, a deterministic `action`, or an `expect`. |
 | **Persona** | The simulated user for agent tests: identity, goal, style, voice, behaviours (interrupts, silence, noise). |
@@ -48,7 +48,7 @@ The full key list is in [Suites](/docs/suites/).
 
 ## Personas and scenarios
 
-A conversational test (rest, grpc, livekit, sip, realtime) is driven by a **persona** and a **scenario**:
+A conversational test (rest, grpc, livekit, sip, realtime, pipecat) is driven by a **persona** and a **scenario**:
 
 ```yaml
 persona:
@@ -99,7 +99,7 @@ Every assertion is one key under `assert:`; a test may have any number, and `on_
 | `not_regex` | all | `not_regex: "[\\w.]+@[\\w.]+"` |
 | `json_path` | rest | `{ path: $.status, equals: ok }` |
 | `status` | rest | HTTP status of every turn |
-| `tool_called` / `tool_not_called` | rest, grpc, livekit, realtime | `tool_called: { name: reschedule_booking, args: { day: saturday } }` |
+| `tool_called` / `tool_not_called` | rest, grpc, livekit, realtime, pipecat | `tool_called: { name: reschedule_booking, args: { day: saturday } }` |
 | `dtmf_received` | sip, livekit audio | `{ equals: "1234#" }` |
 | `call_ended_by` | sip | `[agent, caller]`, also `timeout`, `error`, `no_answer`, `busy` |
 | `transferred_to` | sip | `{ matches: "^sip:billing@" }` |
@@ -117,9 +117,9 @@ result so judge drift is traceable.
 
 | Metric | Targets | Definition |
 |---|---|---|
-| `turn_latency_ms` (`_p50`, `_p95`, `_max`) | rest, grpc, livekit, sip, realtime | user turn sent → agent turn complete |
-| `time_to_first_token_ms` | rest (sse, websocket), grpc, realtime | user turn sent → first delta |
-| `time_to_first_audio_ms` | livekit audio, sip, realtime audio | user speech end (VAD, or the audio commit) → agent speech start |
+| `turn_latency_ms` (`_p50`, `_p95`, `_max`) | rest, grpc, livekit, sip, realtime, pipecat | user turn sent → agent turn complete |
+| `time_to_first_token_ms` | rest (sse, websocket), grpc, realtime, pipecat | user turn sent → first delta |
+| `time_to_first_audio_ms` | livekit audio, sip, realtime audio, pipecat audio | user speech end (VAD, or the audio commit) → agent speech start |
 | `interruption_stop_ms` | livekit audio, sip | user starts talking over the agent → agent audio stops |
 | `talk_over_ratio` | livekit audio, sip | overlapping speech time / total agent speech time |
 | `silence_gap_max_ms` | livekit audio, sip | longest dead air while a reply was expected |

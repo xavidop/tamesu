@@ -38,12 +38,13 @@ The [Quick start](/docs/quickstart/) walks through a first project.
 | Run the suites and read the reports | [`tamesu run`](/docs/cli/#tamesu-run), [Reports](/docs/reports/) |
 | Test a REST agent | [REST target](/docs/targets/rest/) |
 | Test an agent over gRPC | [gRPC target](/docs/targets/grpc/) |
+| Test a Pipecat bot | [Pipecat target](/docs/targets/pipecat/) |
 | Test a LiveKit voice agent, in text or audio | [LiveKit target](/docs/targets/livekit/) |
 | Pick models, override prompts, see traces, count cost | [AI (Genkit)](/docs/ai/) |
 | Drive tests from `go test` | [Go API](/docs/go-api/) |
 | Run tamesu in GitHub Actions, GitLab CI or Docker | [CI](/docs/ci/) |
 
-## Six targets, one model
+## Seven targets, one model
 
 | Target | What it is | Transport |
 |---|---|---|
@@ -53,9 +54,10 @@ The [Quick start](/docs/quickstart/) walks through a first project.
 | `sip` | A phone agent reached through a LiveKit SIP service and your trunk | SIP / PSTN |
 | `realtime` | An agent speaking the OpenAI Realtime protocol, in text or audio | WebSocket |
 | `grpc` | An agent behind tamesu's turn API, a small gRPC service you implement | gRPC |
+| `pipecat` | A Pipecat bot through its websocket transport, in text or audio | WebSocket |
 
-All six share the suite schema, the assertion model, the persona and scenario definitions, the
-metrics and the report format, and all six work with the action cache for browser goals, the
+All seven share the suite schema, the assertion model, the persona and scenario definitions, the
+metrics and the report format, and all seven work with the action cache for browser goals, the
 recorder, the generator, the HTML report, the [red-team packs](/docs/red-team/), load mode and the
 [MCP server](/docs/mcp/) for coding agents.
 

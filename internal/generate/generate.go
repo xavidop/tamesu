@@ -111,6 +111,12 @@ func targetStub(typ string) *yaml.Node {
 			key("type"), scalar("grpc"),
 			key("url"), scalar("${AGENT_GRPC_URL:-grpc://localhost:9090}"),
 		)
+	case config.TargetPipecat:
+		return mapping(
+			key("type"), scalar("pipecat"),
+			key("url"), scalar("${AGENT_WS_URL:-ws://localhost:8765/ws}"),
+			key("mode"), scalar("text"),
+		)
 	case config.TargetRealtime:
 		return mapping(
 			key("type"), scalar("realtime"),

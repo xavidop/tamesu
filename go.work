@@ -12,6 +12,7 @@ use (
 	./llm/plugins/elevenlabs
 	./targets/browser
 	./targets/grpc
+	./targets/pipecat
 	./targets/livekit
 	./targets/realtime
 	./targets/rest

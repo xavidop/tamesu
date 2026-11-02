@@ -39,13 +39,13 @@ The top level of the file.
 
 | Key | Type | Required | Description |
 |---|---|---|---|
-| `type` | one of `browser`, `rest`, `livekit`, `sip`, `realtime`, `grpc` | yes |  |
-| `url` | string |  | The page (browser) or endpoint (rest and realtime) or grpc://host:port (grpc) or LiveKit server (livekit). |
+| `type` | one of `browser`, `rest`, `livekit`, `sip`, `realtime`, `grpc`, `pipecat` | yes |  |
+| `url` | string |  | The page (browser) or endpoint (rest / realtime / pipecat) or grpc://host:port (grpc) or LiveKit server (livekit). |
 | `browser` | [BrowserOptions](#browseroptions) |  |  |
 | `auth` | [BrowserAuth](#browserauth) |  |  |
 | `allowed_domains` | list of string |  | Domains the browser agent may navigate to; defaults to the url's domain. |
 | `method` | string |  | HTTP method; defaults to POST. |
-| `headers` | map of string to string |  | Request (rest) or handshake (realtime) headers or call metadata (grpc); put credentials here as {{secrets.NAME}}. |
+| `headers` | map of string to string |  | Request (rest) or handshake (realtime and pipecat) headers or call metadata (grpc); put credentials here as {{secrets.NAME}}. |
 | `request` | [RESTRequest](#restrequest) |  |  |
 | `response` | [RESTResponse](#restresponse) |  |  |
 | `streaming` | one of `none`, `sse`, `websocket` |  |  |
@@ -55,7 +55,7 @@ The top level of the file.
 | `room` | string |  | Room name template; defaults to tamesu-{{uuid}}. |
 | `dispatch` | [Dispatch](#dispatch) |  |  |
 | `agent_identity_prefix` | string |  | How to recognise the agent participant; defaults to kind=agent. |
-| `mode` | one of `text`, `audio` |  | livekit and realtime: text (default) or audio. |
+| `mode` | one of `text`, `audio` |  | livekit / realtime / pipecat: text (default) or audio. |
 | `data_topic` | string |  | Text-mode transport topic; defaults to lk.chat. |
 | `join_timeout` | [Duration](#duration) |  |  |
 | `transcript_source` | one of `auto`, `agent`, `stt` |  | Audio mode: where the agent's words come from; auto (default) takes the agent's own transcription when it publishes one and transcribes its audio otherwise. |
@@ -70,9 +70,11 @@ The top level of the file.
 | `session_update` | object (any keys) |  | realtime: merged into the session.update event (instructions / tools / voice / output modalities). |
 | `protocol` | one of `ga`, `beta` |  | realtime: the event dialect; ga (default) or beta (modalities and the OpenAI-Beta header). |
 | `done_tool` | string |  | realtime: a function call with this name ends the session; default end_session. |
-| `turn_timeout` | [Duration](#duration) |  | realtime and grpc: how long to wait for the end of a turn; default 60s. |
-| `tool_results` | object (any keys) |  | realtime: answers to the agent's function calls by function name. The value (any JSON; string leaves may use {{args.<key>}}) goes back as the function's output and the response continues. Unlisted functions and done_tool are recorded only. |
+| `turn_timeout` | [Duration](#duration) |  | realtime / grpc / pipecat: how long to wait for the end of a turn; default 60s. |
+| `tool_results` | object (any keys) |  | realtime and pipecat: answers to the agent's function calls by function name. The value (any JSON; string leaves may use {{args.<key>}}) goes back as the function's output and the response continues. Unlisted functions and done_tool are recorded only. |
 | `audio_format` | one of `pcm16`, `g711_ulaw`, `g711_alaw` |  | realtime audio mode: the agent's output audio; pcm16 (default) or G.711 at 8 kHz. |
+| `sample_rate` | integer |  | pipecat audio mode: the transport's sample rate in Hz; default 16000. |
+| `idle` | [Duration](#duration) |  | pipecat: silence after the agent's last message or audio that ends a turn when no bot-stopped-speaking / bot-llm-stopped arrives; default 2s. |
 
 ## BrowserOptions
 

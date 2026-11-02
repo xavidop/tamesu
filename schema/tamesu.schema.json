@@ -574,12 +574,13 @@
             "livekit",
             "sip",
             "realtime",
-            "grpc"
+            "grpc",
+            "pipecat"
           ]
         },
         "url": {
           "type": "string",
-          "description": "The page (browser) or endpoint (rest and realtime) or grpc://host:port (grpc) or LiveKit server (livekit)."
+          "description": "The page (browser) or endpoint (rest / realtime / pipecat) or grpc://host:port (grpc) or LiveKit server (livekit)."
         },
         "browser": {
           "$ref": "#/$defs/BrowserOptions"
@@ -603,7 +604,7 @@
             "type": "string"
           },
           "type": "object",
-          "description": "Request (rest) or handshake (realtime) headers or call metadata (grpc); put credentials here as {{secrets.NAME}}."
+          "description": "Request (rest) or handshake (realtime and pipecat) headers or call metadata (grpc); put credentials here as {{secrets.NAME}}."
         },
         "request": {
           "$ref": "#/$defs/RESTRequest"
@@ -647,7 +648,7 @@
             "text",
             "audio"
           ],
-          "description": "livekit and realtime: text (default) or audio."
+          "description": "livekit / realtime / pipecat: text (default) or audio."
         },
         "data_topic": {
           "type": "string",
@@ -715,11 +716,11 @@
         },
         "turn_timeout": {
           "$ref": "#/$defs/Duration",
-          "description": "realtime and grpc: how long to wait for the end of a turn; default 60s."
+          "description": "realtime / grpc / pipecat: how long to wait for the end of a turn; default 60s."
         },
         "tool_results": {
           "type": "object",
-          "description": "realtime: answers to the agent's function calls by function name. The value (any JSON; string leaves may use {{args.\u003ckey\u003e}}) goes back as the function's output and the response continues. Unlisted functions and done_tool are recorded only."
+          "description": "realtime and pipecat: answers to the agent's function calls by function name. The value (any JSON; string leaves may use {{args.\u003ckey\u003e}}) goes back as the function's output and the response continues. Unlisted functions and done_tool are recorded only."
         },
         "audio_format": {
           "type": "string",
@@ -729,6 +730,14 @@
             "g711_alaw"
           ],
           "description": "realtime audio mode: the agent's output audio; pcm16 (default) or G.711 at 8 kHz."
+        },
+        "sample_rate": {
+          "type": "integer",
+          "description": "pipecat audio mode: the transport's sample rate in Hz; default 16000."
+        },
+        "idle": {
+          "$ref": "#/$defs/Duration",
+          "description": "pipecat: silence after the agent's last message or audio that ends a turn when no bot-stopped-speaking / bot-llm-stopped arrives; default 2s."
         }
       },
       "additionalProperties": false,

@@ -52,6 +52,12 @@ updates:
     schedule: { interval: weekly }
     labels: [dependencies, go, target]
 
+  # Pipecat target (own go.mod; coder/websocket and protobuf)
+  - package-ecosystem: gomod
+    directory: "/targets/pipecat"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, target]
+
   # gRPC target (own go.mod; grpc-go and protobuf)
   - package-ecosystem: gomod
     directory: "/targets/grpc"
