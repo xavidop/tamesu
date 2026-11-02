@@ -33,7 +33,7 @@ func (*GitHub) TestFinished(*TestOutcome)             {}
 // Finish writes the annotations, the job summary and summary.md.
 func (g *GitHub) Finish(_ context.Context, s *Summary) error {
 	for _, line := range Annotations(s) {
-		fmt.Fprintln(g.out, line)
+		_, _ = fmt.Fprintln(g.out, line)
 	}
 	md := RenderMarkdown(s)
 	if err := os.WriteFile(filepath.Join(g.dir, MarkdownFile), []byte(md), 0o644); err != nil {

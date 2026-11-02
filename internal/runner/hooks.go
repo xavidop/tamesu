@@ -151,7 +151,7 @@ func (h hookRun) httpHook(ctx context.Context, t *config.HTTPTrigger) (string, e
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	b, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
 	out := fmt.Sprintf("%s\n%s\n", resp.Status, b)
 	if resp.StatusCode >= 400 {

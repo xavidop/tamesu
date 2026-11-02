@@ -190,17 +190,17 @@ func PrintComparison(w io.Writer, c *Comparison) {
 	if c.Regressed {
 		verdict = "REGRESSED"
 	}
-	fmt.Fprintf(w, "\nvs %s: %s · %d compared, %d new failures, %d fixed, %d added, %d removed\n", head, verdict, len(c.Tests), len(c.NewFailures), len(c.Fixed), len(c.Added), len(c.Removed))
+	_, _ = fmt.Fprintf(w, "\nvs %s: %s · %d compared, %d new failures, %d fixed, %d added, %d removed\n", head, verdict, len(c.Tests), len(c.NewFailures), len(c.Fixed), len(c.Added), len(c.Removed))
 	for _, k := range c.NewFailures {
-		fmt.Fprintf(w, "  new failure  %s\n", k)
+		_, _ = fmt.Fprintf(w, "  new failure  %s\n", k)
 	}
 	for _, k := range c.Fixed {
-		fmt.Fprintf(w, "  fixed        %s\n", k)
+		_, _ = fmt.Fprintf(w, "  fixed        %s\n", k)
 	}
 	for _, d := range c.Tests {
 		for _, m := range d.Metrics {
 			if m.Regressed {
-				fmt.Fprintf(w, "  regression   %s / %s: %s %s → %s (+%.0f%%, limit %.0f%%)\n", d.Suite, d.Name, m.Name, fmtDelta(m.Name, m.Before), fmtDelta(m.Name, m.After), m.IncreasePct, limitFor(m.Name, c.Thresholds))
+				_, _ = fmt.Fprintf(w, "  regression   %s / %s: %s %s → %s (+%.0f%%, limit %.0f%%)\n", d.Suite, d.Name, m.Name, fmtDelta(m.Name, m.Before), fmtDelta(m.Name, m.After), m.IncreasePct, limitFor(m.Name, c.Thresholds))
 			}
 		}
 	}

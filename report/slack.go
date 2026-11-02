@@ -50,7 +50,7 @@ func (sl *Slack) Finish(ctx context.Context, s *Summary) error {
 	if err != nil {
 		return fmt.Errorf("slack: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode >= 300 {
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<10))
 		return fmt.Errorf("slack: %s: %s", resp.Status, strings.TrimSpace(string(b)))
