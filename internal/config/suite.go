@@ -26,7 +26,7 @@ var ActionNames = []string{"navigate", "click", "fill", "press", "wait", "screen
 // AssertionKinds lists every assertion key, in documentation order.
 var AssertionKinds = []string{
 	"judge", "contains", "not_contains", "regex", "not_regex", "json_path", "status",
-	"tool_called", "tool_not_called", "dtmf_received", "call_ended_by", "transferred_to",
+	"tool_called", "tool_not_called", "tool_sequence", "dtmf_received", "call_ended_by", "transferred_to",
 	"evaluator", "metric", "turns", "custom", "pack",
 }
 
@@ -262,6 +262,12 @@ func (s ScriptStep) Kind() string {
 	return ""
 }
 
+// ToolSequence is the tool_sequence assertion.
+type ToolSequence struct {
+	Calls []string `yaml:"calls" json:"calls" jsonschema:"required,description=Tool names in the order they must be called."`
+	Exact bool     `yaml:"exact,omitempty" json:"exact,omitempty" jsonschema:"description=The run's tool calls must be exactly this list; default a subsequence."`
+}
+
 // Assertion is one check. Exactly one of the kind fields is set.
 type Assertion struct {
 	Judge         *Judge             `yaml:"judge,omitempty" json:"judge,omitempty"`
@@ -273,6 +279,7 @@ type Assertion struct {
 	Status        *int               `yaml:"status,omitempty" json:"status,omitempty" jsonschema:"description=rest only: the HTTP status of every turn."`
 	ToolCalled    *ToolCall          `yaml:"tool_called,omitempty" json:"tool_called,omitempty"`
 	ToolNotCalled *ToolCall          `yaml:"tool_not_called,omitempty" json:"tool_not_called,omitempty"`
+	ToolSequence  *ToolSequence      `yaml:"tool_sequence,omitempty" json:"tool_sequence,omitempty" jsonschema:"description=The agent called these tools in this order (a subsequence of its calls; exact for the whole list)."`
 	DTMFReceived  *DTMFAssertion     `yaml:"dtmf_received,omitempty" json:"dtmf_received,omitempty" jsonschema:"description=sip and livekit audio: digits the agent sent."`
 	CallEndedBy   StringList         `yaml:"call_ended_by,omitempty" json:"call_ended_by,omitempty" jsonschema:"description=sip: agent caller timeout error no_answer busy."`
 	TransferredTo *Matches           `yaml:"transferred_to,omitempty" json:"transferred_to,omitempty" jsonschema:"description=sip: target of a SIP REFER."`
@@ -300,6 +307,7 @@ func (a Assertion) Kinds() []string {
 		"status":          a.Status != nil,
 		"tool_called":     a.ToolCalled != nil,
 		"tool_not_called": a.ToolNotCalled != nil,
+		"tool_sequence":   a.ToolSequence != nil,
 		"dtmf_received":   a.DTMFReceived != nil,
 		"call_ended_by":   len(a.CallEndedBy) > 0,
 		"transferred_to":  a.TransferredTo != nil,

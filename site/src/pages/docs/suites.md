@@ -212,6 +212,7 @@ The top level of the file.
 | `status` | integer |  | rest only: the HTTP status of every turn. |
 | `tool_called` | [ToolCall](#toolcall) |  |  |
 | `tool_not_called` | [ToolCall](#toolcall) |  |  |
+| `tool_sequence` | [ToolSequence](#toolsequence) |  | The agent called these tools in this order (a subsequence of its calls; exact for the whole list). |
 | `dtmf_received` | [DTMFAssertion](#dtmfassertion) |  | sip and livekit audio: digits the agent sent. |
 | `call_ended_by` | [StringList](#stringlist) |  | sip: agent caller timeout error no_answer busy. |
 | `transferred_to` | [Matches](#matches) |  | sip: target of a SIP REFER. |
@@ -334,4 +335,11 @@ One of: string, list of string.
 A duration such as 30s, 3m or 1h30m.
 
 Type: string.
+
+## ToolSequence
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `calls` | list of string | yes | Tool names in the order they must be called. |
+| `exact` | boolean |  | The run's tool calls must be exactly this list; default a subsequence. |
 

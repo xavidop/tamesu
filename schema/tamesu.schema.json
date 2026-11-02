@@ -36,6 +36,10 @@
         "tool_not_called": {
           "$ref": "#/$defs/ToolCall"
         },
+        "tool_sequence": {
+          "$ref": "#/$defs/ToolSequence",
+          "description": "The agent called these tools in this order (a subsequence of its calls; exact for the whole list)."
+        },
         "dtmf_received": {
           "$ref": "#/$defs/DTMFAssertion",
           "description": "sip and livekit audio: digits the agent sent."
@@ -836,6 +840,26 @@
             "name"
           ]
         }
+      ]
+    },
+    "ToolSequence": {
+      "properties": {
+        "calls": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Tool names in the order they must be called."
+        },
+        "exact": {
+          "type": "boolean",
+          "description": "The run's tool calls must be exactly this list; default a subsequence."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "calls"
       ]
     },
     "Trigger": {

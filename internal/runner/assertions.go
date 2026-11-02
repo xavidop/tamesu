@@ -51,6 +51,8 @@ func buildKind(a config.Assertion) (assert.Assertion, error) {
 		return assert.ToolCalled(a.ToolCalled.Name, a.ToolCalled.Args), nil
 	case "tool_not_called":
 		return assert.ToolNotCalled(a.ToolNotCalled.Name, a.ToolNotCalled.Args), nil
+	case "tool_sequence":
+		return assert.ToolSequence(a.ToolSequence.Calls, a.ToolSequence.Exact), nil
 	case "dtmf_received":
 		return assert.DTMFReceived(a.DTMFReceived.Equals), nil
 	case "call_ended_by":

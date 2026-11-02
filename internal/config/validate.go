@@ -513,6 +513,15 @@ func (v *validator) assertion(ap []string, a Assertion, ttype, mode string) {
 		if *a.Status < 100 || *a.Status > 599 {
 			v.errorf(kp, "status must be an HTTP status code")
 		}
+	case "tool_sequence":
+		if len(a.ToolSequence.Calls) == 0 {
+			v.errorf(kp, "tool_sequence needs calls: a list of tool names")
+		}
+		for i, c := range a.ToolSequence.Calls {
+			if strings.TrimSpace(c) == "" {
+				v.errorf(with(kp, "calls", strconv.Itoa(i)), "a tool name is empty")
+			}
+		}
 	case "tool_called", "tool_not_called":
 		var name string
 		if kind == "tool_called" {

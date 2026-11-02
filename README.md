@@ -133,7 +133,7 @@ error and 4 when the cost budget was exceeded.
 - **Red-team packs.** `pack: prompt_injection`, `pii_leakage` or `system_prompt_leakage` expands
   into a judge and the regex checks for that attack; suites define their own packs too.
 - **One assertion model.** `judge` (an LLM rubric with structured output), `contains`,
-  `not_contains`, `regex`, `json_path`, `status`, `tool_called`, `tool_not_called`,
+  `not_contains`, `regex`, `json_path`, `status`, `tool_called`, `tool_not_called`, `tool_sequence`,
   `dtmf_received`, `call_ended_by`, `transferred_to`, `evaluator` (any Genkit evaluator),
   `metric`, `turns` and `custom`, on the whole test or on one turn with `on_turn`.
 - **Personas and scenarios.** Identity, style, language and voice; interruptions, silence and

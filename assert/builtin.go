@@ -198,6 +198,44 @@ func ToolNotCalled(name string, args map[string]any) Assertion {
 	})
 }
 
+// ToolSequence passes when the tool calls happened in the given order: as a
+// subsequence of the run's calls, or exactly that list with exact.
+func ToolSequence(names []string, exact bool) Assertion {
+	label := "tool_sequence " + strings.Join(names, " → ")
+	return Func(label, func(_ context.Context, r *RunResult) Result {
+		var seen []string
+		for _, c := range r.ToolCalls {
+			seen = append(seen, c.Name)
+		}
+		if exact {
+			for i := 0; i < len(names) || i < len(seen); i++ {
+				switch {
+				case i >= len(names):
+					return Result{Pass: false, Reason: fmt.Sprintf("call %d was %s, beyond the expected sequence (tool calls: %s)", i+1, seen[i], listOr(seen))}
+				case i >= len(seen):
+					return Result{Pass: false, Reason: fmt.Sprintf("call %d (%s) never happened (tool calls: %s)", i+1, names[i], listOr(seen))}
+				case names[i] != seen[i]:
+					return Result{Pass: false, Reason: fmt.Sprintf("call %d was %s, want %s (tool calls: %s)", i+1, seen[i], names[i], listOr(seen))}
+				}
+			}
+			return Result{Pass: true, Reason: fmt.Sprintf("the agent called exactly %s", strings.Join(names, ", then "))}
+		}
+		next := 0
+		for _, name := range seen {
+			if next < len(names) && name == names[next] {
+				next++
+			}
+		}
+		if next < len(names) {
+			if next == 0 {
+				return Result{Pass: false, Reason: fmt.Sprintf("the agent never called %s (tool calls: %s)", names[0], listOr(seen))}
+			}
+			return Result{Pass: false, Reason: fmt.Sprintf("%s was not called after %s (tool calls: %s)", names[next], names[next-1], listOr(seen))}
+		}
+		return Result{Pass: true, Reason: fmt.Sprintf("the agent called %s in order", strings.Join(names, ", then "))}
+	})
+}
+
 func argsMatch(have, want map[string]any) bool {
 	for k, v := range want {
 		got, ok := have[k]

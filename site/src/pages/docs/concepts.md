@@ -100,6 +100,7 @@ Every assertion is one key under `assert:`; a test may have any number, and `on_
 | `json_path` | rest | `{ path: $.status, equals: ok }` |
 | `status` | rest | HTTP status of every turn |
 | `tool_called` / `tool_not_called` | rest, grpc, livekit, realtime, pipecat | `tool_called: { name: reschedule_booking, args: { day: saturday } }` |
+| `tool_sequence` | rest, grpc, livekit, realtime, pipecat | `tool_sequence: { calls: [lookup_order, refund] }` |
 | `dtmf_received` | sip, livekit audio | `{ equals: "1234#" }` |
 | `call_ended_by` | sip | `[agent, caller]`, also `timeout`, `error`, `no_answer`, `busy` |
 | `transferred_to` | sip | `{ matches: "^sip:billing@" }` |
