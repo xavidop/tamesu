@@ -1,0 +1,22 @@
+suite: bad
+targets:
+  api:
+    type: rest
+    url: http://localhost
+    response: { text: "$.reply" }
+tests:
+  - name: no reason
+    target: api
+    quarantine: { until: 2026-12-31 }
+    scenario:
+      goal: x
+  - name: bad date
+    target: api
+    quarantine: { reason: "SUP-1", until: next month }
+    scenario:
+      goal: x
+  - name: expired
+    target: api
+    quarantine: { reason: "SUP-2", until: 2026-01-31 }
+    scenario:
+      goal: x

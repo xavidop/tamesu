@@ -149,7 +149,8 @@ error and 4 when the cost budget was exceeded.
 - **A runner built for CI.** Repeats with a `pass_threshold`, retries on infrastructure errors,
   timeouts, parallel runs, a cost budget that stops the run (exit 4), and a run directory with
   `transcript.json` and `result.json` per run plus `summary.json` and `junit.xml`. `--load N`
-  runs every test with N virtual users and adds a latency profile per test.
+  runs every test with N virtual users and adds a latency profile per test. A known flaky test
+  gets a `quarantine` with a ticket and an end date: reported, but it does not fail the run.
 - **Coding agents.** `tamesu mcp` serves tamesu over the Model Context Protocol, so Claude Code,
   Cursor or Codex can validate, run and draft suites and read the schema; the agent skill teaches
   the same model to agents without MCP.

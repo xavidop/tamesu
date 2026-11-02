@@ -55,7 +55,8 @@ func (g *GitHub) Finish(_ context.Context, s *Summary) error {
 }
 
 // Annotations are the workflow commands for the failed and errored tests:
-// ::error file=<suite>,line=<n>,title=<test>::<reason>.
+// ::error file=<suite>,line=<n>,title=<test>::<reason>; a quarantined
+// failure is a ::warning.
 func Annotations(s *Summary) []string {
 	var out []string
 	for _, d := range failureDetails(s) {
@@ -77,7 +78,15 @@ func Annotations(s *Summary) []string {
 			}
 		}
 		props = append(props, "title="+escapeProp("tamesu: "+t.Name))
-		out = append(out, "::error "+strings.Join(props, ",")+"::"+escapeData(d.reason))
+		level := "::error "
+		if d.quarantined {
+			level = "::warning "
+		}
+		msg := d.reason
+		if d.quarantined {
+			msg = strings.TrimPrefix(d.quarantine, " ") + " " + msg
+		}
+		out = append(out, level+strings.Join(props, ",")+"::"+escapeData(msg))
 	}
 	return out
 }

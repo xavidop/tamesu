@@ -224,3 +224,26 @@ of its target.
 | `2` | config or schema error |
 | `3` | infrastructure error (browser could not start, LiveKit unreachable, model error after retries, secret provider down) |
 | `4` | budget exceeded |
+
+### Quarantining a flaky test
+
+A test that fails for reasons you already know about can be quarantined instead of deleted or
+skipped. It still runs on every invocation and its result is still written and reported, but a
+failure neither fails the run nor counts as a regression against the baseline:
+
+```yaml
+tests:
+  - name: refund status
+    target: api
+    quarantine: { reason: "SUP-412 flaky since the payments migration", until: 2026-12-31 }
+    scenario: { goal: "Ask where the refund for order 1234 is", max_turns: 3 }
+    assert:
+      - judge: "The agent gives a refund date or asks for the order"
+```
+
+`reason` is required, so a quarantine always points at the ticket that tracks it. `until` is
+the last day of the quarantine; from the next day the test counts again, and `tamesu validate`
+warns that it expired. Without `until`, the quarantine lasts until you remove it. A quarantined
+test that passes just passes. The console prints `QUAR` instead of `FAIL`, the summary line and
+every report count quarantined tests apart from failures, the JUnit file reports them as skipped
+with the failure in the message, and the GitHub reporter annotates them as warnings.

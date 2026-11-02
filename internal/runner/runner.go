@@ -399,6 +399,9 @@ func (r *run) collect() ([]*item, error) {
 				Suite: s.Suite, File: s.Path, Line: t.Line, Name: t.Name, Target: t.Target, Type: tgt.Type, Tags: s.TagsOf(t),
 				Repeat: it.repeat, PassThreshold: it.threshold, Dir: it.dir,
 			}
+			if q := t.Quarantine; q.Active(r.now()) {
+				it.outcome.Quarantine = &report.Quarantine{Reason: q.Reason, Until: q.Until}
+			}
 			items = append(items, it)
 		}
 	}

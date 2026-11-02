@@ -3,6 +3,7 @@ package config
 import (
 	"github.com/ohler55/ojg/jp"
 	"github.com/xavidop/tamesu/target"
+	"time"
 
 	"fmt"
 	"regexp"
@@ -68,6 +69,11 @@ type validator struct {
 	root *yaml.Node
 	errs Errors
 }
+
+// now is the clock for date checks; tests override it.
+var validatorNow = time.Now
+
+func (*validator) now() time.Time { return validatorNow() }
 
 func (v *validator) add(warn bool, path []string, format string, args ...any) {
 	v.errs = append(v.errs, &Error{
@@ -352,6 +358,18 @@ func (v *validator) test(i int, t Test) {
 	}
 	if t.Timeout != nil && *t.Timeout < 0 {
 		v.errorf(with(tp, "timeout"), "timeout cannot be negative")
+	}
+	if q := t.Quarantine; q != nil {
+		if strings.TrimSpace(q.Reason) == "" {
+			v.errorf(with(tp, "quarantine", "reason"), "quarantine needs a reason (the ticket that tracks the flake)")
+		}
+		if q.Until != "" {
+			if _, err := time.Parse(QuarantineDateLayout, q.Until); err != nil {
+				v.errorf(with(tp, "quarantine", "until"), "until must be a date like 2026-12-31")
+			} else if !q.Active(v.now()) {
+				v.warnf(with(tp, "quarantine", "until"), "the quarantine expired on %s; the test counts again", q.Until)
+			}
+		}
 	}
 	ttype := ""
 	if ok {

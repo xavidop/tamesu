@@ -1,5 +1,7 @@
 package config
 
+import "time"
+
 // Target types (design.md §2).
 const (
 	TargetBrowser  = "browser"
@@ -213,6 +215,35 @@ type Test struct {
 
 	Capture []Capture   `yaml:"capture,omitempty" json:"capture,omitempty" jsonschema:"description=Values taken from the agent's turns as they arrive (the first match wins) and offered as {{captured.<name>}} to later script say steps / tool_results / hooks / assertions."`
 	Assert  []Assertion `yaml:"assert,omitempty" json:"assert,omitempty"`
+
+	Quarantine *Quarantine `yaml:"quarantine,omitempty" json:"quarantine,omitempty" jsonschema:"description=Known flaky: the test still runs and its failure is reported as quarantined but it does not fail the run or count as a regression."`
+}
+
+// Quarantine marks a test as known flaky. The test runs and is reported, but
+// a failure neither fails the run nor counts as a regression, until the
+// quarantine expires.
+type Quarantine struct {
+	Reason string `yaml:"reason" json:"reason" jsonschema:"required,description=Why the test is quarantined; usually the ticket that tracks it."`
+	Until  string `yaml:"until,omitempty" json:"until,omitempty" jsonschema:"description=The last day (YYYY-MM-DD) of the quarantine; from the next day the test counts again. Without it the quarantine lasts until removed."`
+}
+
+// QuarantineDateLayout is the format of quarantine.until.
+const QuarantineDateLayout = "2006-01-02"
+
+// Active reports whether the quarantine covers now: always when until is
+// unset, else through the whole of the until day (UTC).
+func (q *Quarantine) Active(now time.Time) bool {
+	if q == nil {
+		return false
+	}
+	if q.Until == "" {
+		return true
+	}
+	d, err := time.Parse(QuarantineDateLayout, q.Until)
+	if err != nil {
+		return false
+	}
+	return now.UTC().Before(d.Add(24 * time.Hour))
 }
 
 // Capture names a value to take from the agent's turns.

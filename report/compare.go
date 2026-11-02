@@ -136,8 +136,10 @@ func Compare(base, cur *Summary, t Thresholds) *Comparison {
 }
 
 // FailOnNewFailures reports whether a newly failing test is a regression
-// under t.
-func (*TestOutcome) FailOnNewFailures(t Thresholds) bool { return t.FailOnNewFailures }
+// under t: never while the test is quarantined.
+func (o *TestOutcome) FailOnNewFailures(t Thresholds) bool {
+	return t.FailOnNewFailures && !o.Quarantined()
+}
 
 // medianMetrics takes each metric's median over a test's completed runs, so
 // one slow repeat does not decide.

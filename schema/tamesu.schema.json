@@ -654,6 +654,23 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "Quarantine": {
+      "properties": {
+        "reason": {
+          "type": "string",
+          "description": "Why the test is quarantined; usually the ticket that tracks it."
+        },
+        "until": {
+          "type": "string",
+          "description": "The last day (YYYY-MM-DD) of the quarantine; from the next day the test counts again. Without it the quarantine lasts until removed."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "reason"
+      ]
+    },
     "RESTRequest": {
       "properties": {
         "body": {
@@ -1042,6 +1059,10 @@
             "$ref": "#/$defs/Assertion"
           },
           "type": "array"
+        },
+        "quarantine": {
+          "$ref": "#/$defs/Quarantine",
+          "description": "Known flaky: the test still runs and its failure is reported as quarantined but it does not fail the run or count as a regression."
         }
       },
       "additionalProperties": false,

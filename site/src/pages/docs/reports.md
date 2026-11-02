@@ -99,6 +99,11 @@ read one file.
 | `3` | an infrastructure error on any test |
 | `4` | the cost budget stopped the run |
 
+A test with a `quarantine` block never changes the exit code: its failure is reported as
+quarantined (`QUAR` in the console, a `skipped` element in JUnit, a warning annotation in GitHub,
+its own count in the Markdown, Slack and HTML summaries) and is not a regression in a baseline
+comparison. See [quarantining a flaky test](/docs/concepts#quarantining-a-flaky-test).
+
 ## Comparing with a baseline
 
 A run on its own says whether the tests passed; against a baseline it says whether anything got

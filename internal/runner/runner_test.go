@@ -243,6 +243,34 @@ func TestRunPassesAndFails(t *testing.T) {
 	assert.Contains(t, buf.String(), "judged should fail")
 }
 
+func TestRunQuarantine(t *testing.T) {
+	s := suite("http://agent",
+		convTest("flaky", config.Assertion{NotContains: ptr("echo")}),
+		convTest("expired", config.Assertion{NotContains: ptr("echo")}),
+		convTest("solid", config.Assertion{Contains: ptr("echo")}),
+	)
+	s.Tests[0].Quarantine = &config.Quarantine{Reason: "SUP-412", Until: "2026-12-31"}
+	s.Tests[1].Quarantine = &config.Quarantine{Reason: "SUP-1", Until: "2026-01-31"}
+	o, buf := newOptions(t, s, &fakeProvider{})
+	o.Now = func() time.Time { return time.Date(2026, 11, 2, 12, 0, 0, 0, time.UTC) }
+	sum, err := Run(context.Background(), o)
+	require.NoError(t, err)
+	require.Len(t, sum.Tests, 3)
+	flaky, expired := sum.Tests[0], sum.Tests[1]
+	assert.False(t, flaky.Passed)
+	require.NotNil(t, flaky.Quarantine)
+	assert.Equal(t, "SUP-412", flaky.Quarantine.Reason)
+	assert.True(t, flaky.Quarantined())
+	assert.Nil(t, expired.Quarantine, "an expired quarantine is not carried into the run")
+	assert.False(t, expired.Passed)
+	assert.Equal(t, 1, sum.ExitCode(), "the expired one still fails the run")
+	assert.Contains(t, buf.String(), "QUAR   s / flaky")
+	assert.Contains(t, buf.String(), "FAIL   s / expired")
+
+	sum.Tests = []*report.TestOutcome{flaky, sum.Tests[2]}
+	assert.Equal(t, 0, sum.ExitCode(), "a quarantined failure alone does not fail the run")
+}
+
 func TestRunRepeatsAndThreshold(t *testing.T) {
 	s := suite("flaky://agent", config.Test{Name: "flaky", Target: "api", Repeat: ptr(4), PassThreshold: ptr(0.5), Scenario: &config.Scenario{Goal: "g"}, Assert: []config.Assertion{{Contains: ptr("echo")}}})
 	o, _ := newOptions(t, s, &fakeProvider{})

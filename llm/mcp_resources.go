@@ -43,7 +43,9 @@ type runEntry struct {
 	Passed    int    `json:"passed"`
 	Failed    int    `json:"failed"`
 	Errors    int    `json:"errors"`
-	Tests     int    `json:"tests"`
+	// Quarantined failures count in none of the three above.
+	Quarantined int `json:"quarantined,omitempty"`
+	Tests       int `json:"tests"`
 }
 
 // DefineMCPResources registers the run-directory resources on g: the list of
@@ -108,6 +110,7 @@ func listRuns(runsDir string) ([]runEntry, error) {
 		entry.URI = strings.Replace(entry.URI, "{file}", "summary.json", 1)
 		if s, err := report.LoadSummary(filepath.Join(runsDir, e.Name())); err == nil {
 			entry.Passed, entry.Failed, entry.Errors = s.Counts()
+			entry.Quarantined = len(s.Quarantined())
 			entry.Tests = len(s.Tests)
 			if !s.StartedAt.IsZero() {
 				entry.StartedAt = s.StartedAt.UTC().Format("2006-01-02T15:04:05Z")

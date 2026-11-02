@@ -276,6 +276,7 @@ http: { url: "https://agent.example.com/dial", method: POST, headers: { Authoriz
 | `scenario` | [Scenario](#scenario) |  |  |
 | `capture` | list of [Capture](#capture) |  | Values taken from the agent's turns as they arrive (the first match wins) and offered as {{captured.<name>}} to later script say steps / tool_results / hooks / assertions. |
 | `assert` | list of [Assertion](#assertion) |  |  |
+| `quarantine` | [Quarantine](#quarantine) |  | Known flaky: the test still runs and its failure is reported as quarantined but it does not fail the run or count as a regression. |
 
 Example:
 
@@ -294,6 +295,12 @@ tests:
     assert:
       - judge: "The agent states the 30-day return policy"
       - tool_called: lookup_policy
+  - name: refund status
+    target: api
+    quarantine: { reason: "SUP-412 flaky since the payments migration", until: 2026-12-31 }
+    scenario: { goal: "Ask where the refund for order 1234 is", max_turns: 3 }
+    assert:
+      - judge: "The agent gives a refund date or asks for the order"
 ```
 
 ## Case
@@ -757,4 +764,11 @@ Example:
 ```yaml
 timeout: 90s
 ```
+
+## Quarantine
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `reason` | string | yes | Why the test is quarantined; usually the ticket that tracks it. |
+| `until` | string |  | The last day (YYYY-MM-DD) of the quarantine; from the next day the test counts again. Without it the quarantine lasts until removed. |
 

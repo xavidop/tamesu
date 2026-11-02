@@ -101,6 +101,9 @@ Rules the validator enforces (each error is `file:line: path: message`):
   suite's `packs:`) expands into that set when the suite loads and its results read
   `<pack>/<assertion>`; packs cannot nest;
   `json_path`/`status` are rest only; `call_ended_by`/`transferred_to` are sip only;
+- `quarantine: { reason, until: YYYY-MM-DD }` marks a known flaky test: it runs and is reported
+  (`QUAR`, JUnit `skipped`, a GitHub warning) but does not fail the run or count as a regression;
+  `reason` is required, `until` is the last day and an expired one is a validation warning.
 - `repeat` is 1 or more, `pass_threshold` is in (0, 1], `mode` is `text` or `audio` and only on
   livekit, sip or realtime tests; `vars` (per-test {{vars.x}}), `cases` / `cases_file`
   (parameterised: one test per case, named `<name> [<case>]`, tagged case:<name>); `hooks`

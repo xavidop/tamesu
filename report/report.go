@@ -51,7 +51,21 @@ type TestOutcome struct {
 	// Load is set in load mode (--load): the runs of this test as a load
 	// profile.
 	Load *LoadStats `json:"load,omitempty"`
+	// Quarantine is set when the suite quarantines the test (known flaky)
+	// and the quarantine was in force at the start of the run: a failure is
+	// reported but does not fail the run.
+	Quarantine *Quarantine `json:"quarantine,omitempty"`
 }
+
+// Quarantine is why a test's failure does not count.
+type Quarantine struct {
+	Reason string `json:"reason"`
+	Until  string `json:"until,omitempty"`
+}
+
+// Quarantined reports whether the test failed or errored under a
+// quarantine: reported, but neither a failure of the run nor a regression.
+func (t *TestOutcome) Quarantined() bool { return t.Quarantine != nil && !t.Passed }
 
 // LoadStats summarises a test's runs in load mode: how many virtual users
 // ran it, how many runs they completed in how long, the error rate and the
@@ -225,10 +239,12 @@ type CacheStats struct {
 	Misses int `json:"misses"`
 }
 
-// Counts returns how many tests passed, failed and errored.
+// Counts returns how many tests passed, failed and errored. Quarantined
+// failures are in none of the three; Quarantined counts them.
 func (s *Summary) Counts() (passed, failed, errored int) {
 	for _, t := range s.Tests {
 		switch {
+		case t.Quarantined():
 		case t.Errored():
 			errored++
 		case t.Passed:
@@ -240,12 +256,23 @@ func (s *Summary) Counts() (passed, failed, errored int) {
 	return passed, failed, errored
 }
 
+// Quarantined returns the tests that failed or errored under a quarantine.
+func (s *Summary) Quarantined() []*TestOutcome {
+	var out []*TestOutcome
+	for _, t := range s.Tests {
+		if t.Quarantined() {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
 // Duration is the wall-clock time of the invocation.
 func (s *Summary) Duration() time.Duration { return s.FinishedAt.Sub(s.StartedAt) }
 
-// ExitCode maps the summary to a process exit code (design.md §3): 4 when
-// the budget stopped the run, 3 when any test hit an infrastructure error, 1
-// when any test failed, else 0.
+// ExitCode maps the summary to a process exit code: 4 when the budget
+// stopped the run, 3 when any test hit an infrastructure error, 1 when any
+// test failed, else 0. Quarantined tests do not count.
 func (s *Summary) ExitCode() int {
 	if s.BudgetExceeded {
 		return 4

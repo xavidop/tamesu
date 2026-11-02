@@ -68,6 +68,8 @@ func (c *Console) TestFinished(t *TestOutcome) {
 	defer c.mu.Unlock()
 	label := "PASS "
 	switch {
+	case t.Quarantined():
+		label = "QUAR "
 	case t.Errored():
 		label = "ERROR"
 	case !t.Passed:
@@ -93,6 +95,9 @@ func (c *Console) TestFinished(t *TestOutcome) {
 	}
 	if t.Passed {
 		return
+	}
+	if q := t.Quarantine; q != nil {
+		c.printf("       quarantined%s: %s\n", optional(" until ", q.Until), q.Reason)
 	}
 	for _, r := range t.Runs {
 		if r.Passed {
@@ -127,7 +132,11 @@ func (c *Console) Finish(_ context.Context, s *Summary) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	passed, failed, errored := s.Counts()
-	line := fmt.Sprintf("\n%d passed, %d failed, %d errors in %s", passed, failed, errored, fmtDuration(s.Duration()))
+	line := fmt.Sprintf("\n%d passed, %d failed, %d errors", passed, failed, errored)
+	if q := len(s.Quarantined()); q > 0 {
+		line += fmt.Sprintf(", %d quarantined", q)
+	}
+	line += " in " + fmtDuration(s.Duration())
 	if s.Usage.Calls > 0 {
 		line += fmt.Sprintf(" · %d model calls, %d tokens, $%.4f", s.Usage.Calls, s.Usage.Total(), s.Usage.CostUSD)
 	}

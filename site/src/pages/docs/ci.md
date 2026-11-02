@@ -98,6 +98,10 @@ A chain `env:NAME,aws-sm://...` lets developers use a local variable and CI the 
 | `3` | infrastructure error | red, but not the agent's fault: a provider, LiveKit or a model was unreachable; retry |
 | `4` | budget exceeded | red: raise `budgets.max_cost_usd` or trim the suite |
 
+A known flaky test should not turn the pipeline red while someone works on it: give it a
+`quarantine` with the ticket and an `until` date, and its failure is reported but does not fail
+the run (see [concepts](/docs/concepts#quarantining-a-flaky-test)).
+
 ## Reports
 
 On GitHub Actions add the `github` reporter: every failed test becomes an annotation on its line

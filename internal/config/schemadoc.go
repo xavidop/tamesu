@@ -82,7 +82,13 @@ tests:
     scenario: { goal: "Ask whether shoes bought {{vars.days}} days ago can be returned", max_turns: 4 }
     assert:
       - judge: "The agent states the 30-day return policy"
-      - tool_called: lookup_policy`,
+      - tool_called: lookup_policy
+  - name: refund status
+    target: api
+    quarantine: { reason: "SUP-412 flaky since the payments migration", until: 2026-12-31 }
+    scenario: { goal: "Ask where the refund for order 1234 is", max_turns: 3 }
+    assert:
+      - judge: "The agent gives a refund date or asks for the order"`,
 	"Case": `cases:
   - { name: late, vars: { days: "40", expect: "not possible" } }
   - { name: early, vars: { days: "10", expect: "can return" } }`,

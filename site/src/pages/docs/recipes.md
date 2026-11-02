@@ -238,6 +238,38 @@ tests:
       - metric: { name: call_setup_ms, lt: 15000 }
 ```
 
+## A known flaky test, quarantined until the fix lands
+
+The test keeps running and its failures keep showing up in every report, but the run stays green
+until the date passes. `reason` is the ticket; `tamesu validate` warns once the quarantine has
+expired.
+
+```yaml
+suite: orders
+targets:
+  api:
+    type: rest
+    url: "${AGENT_URL:-http://localhost:8080/chat}"
+    response: { text: "$.reply" }
+tests:
+  - name: refund status
+    target: api
+    quarantine: { reason: "SUP-412 flaky since the payments migration", until: 2026-12-31 }
+    scenario: { goal: "Ask where the refund for order 1234 is", max_turns: 3 }
+    assert:
+      - judge: "The agent gives a refund date or asks for the order"
+  - name: cancel an order
+    target: api
+    scenario: { goal: "Cancel order 1234", max_turns: 3 }
+    assert:
+      - judge: "The agent confirms the cancellation or explains why it cannot"
+```
+
+```sh
+tamesu run            # QUAR   orders / refund status … exit 0 while the other tests pass
+tamesu validate       # after 2026-12-31: warning, the quarantine expired; the test counts again
+```
+
 ## Red-team gating without a model key in the pipeline
 
 Record the conversations once with keys, commit `.tamesu/cache`, and let pull requests replay

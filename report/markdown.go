@@ -38,7 +38,7 @@ func RenderMarkdown(s *Summary) string {
 	if failed > 0 || errored > 0 {
 		icon = "❌"
 	}
-	fmt.Fprintf(&b, "## %s tamesu: %d passed, %d failed, %d errors\n\n", icon, passed, failed, errored)
+	fmt.Fprintf(&b, "## %s tamesu: %d passed, %d failed, %d errors%s\n\n", icon, passed, failed, errored, quarantinedCount(s, ", "))
 	fmt.Fprintf(&b, "%s", fmtDuration(s.Duration()))
 	if l := FormatLabels(s.Labels); l != "" {
 		fmt.Fprintf(&b, " · `%s`", l)
@@ -61,6 +61,8 @@ func RenderMarkdown(s *Summary) string {
 	for _, t := range s.Tests {
 		status := "✅"
 		switch {
+		case t.Quarantined():
+			status = "🚧"
 		case t.Errored():
 			status = "💥"
 		case !t.Passed:
@@ -76,14 +78,28 @@ func RenderMarkdown(s *Summary) string {
 	if len(details) > 0 {
 		b.WriteString("\n<details><summary>Failures</summary>\n\n")
 		for _, d := range details {
-			fmt.Fprintf(&b, "- **%s**: %s\n", mdEscape(d.test), mdEscape(d.reason))
+			fmt.Fprintf(&b, "- **%s**%s: %s\n", mdEscape(d.test), mdEscape(d.quarantine), mdEscape(d.reason))
 		}
 		b.WriteString("\n</details>\n")
 	}
 	return b.String()
 }
 
-type failure struct{ test, reason string }
+// failure is a failed or errored test with its reasons; quarantine is
+// " (quarantined until …: reason)" when the failure does not count.
+type failure struct {
+	test, reason string
+	quarantine   string
+	quarantined  bool
+}
+
+// quarantinedCount is sep + "N quarantined" when any test is, else "".
+func quarantinedCount(s *Summary, sep string) string {
+	if q := len(s.Quarantined()); q > 0 {
+		return fmt.Sprintf("%s%d quarantined", sep, q)
+	}
+	return ""
+}
 
 // failureDetails lists each failed or errored test with its first reason.
 func failureDetails(s *Summary) []failure {
@@ -91,6 +107,11 @@ func failureDetails(s *Summary) []failure {
 	for _, t := range s.Tests {
 		if t.Passed {
 			continue
+		}
+		f := failure{test: t.Suite + " / " + t.Name}
+		if t.Quarantined() {
+			f.quarantined = true
+			f.quarantine = fmt.Sprintf(" (quarantined%s: %s)", optional(" until ", t.Quarantine.Until), t.Quarantine.Reason)
 		}
 		reasons := map[string]bool{}
 		for _, r := range t.Runs {
@@ -113,7 +134,8 @@ func failureDetails(s *Summary) []failure {
 		if len(keys) == 0 {
 			keys = []string{"failed"}
 		}
-		out = append(out, failure{test: t.Suite + " / " + t.Name, reason: strings.Join(keys, "; ")})
+		f.reason = strings.Join(keys, "; ")
+		out = append(out, f)
 	}
 	return out
 }

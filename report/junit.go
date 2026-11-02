@@ -27,6 +27,7 @@ type junitSuites struct {
 	Tests    int          `xml:"tests,attr"`
 	Failures int          `xml:"failures,attr"`
 	Errors   int          `xml:"errors,attr"`
+	Skipped  int          `xml:"skipped,attr,omitempty"`
 	Time     string       `xml:"time,attr"`
 	Suites   []junitSuite `xml:"testsuite"`
 }
@@ -36,6 +37,7 @@ type junitSuite struct {
 	Tests    int         `xml:"tests,attr"`
 	Failures int         `xml:"failures,attr"`
 	Errors   int         `xml:"errors,attr"`
+	Skipped  int         `xml:"skipped,attr,omitempty"`
 	Time     string      `xml:"time,attr"`
 	Cases    []junitCase `xml:"testcase"`
 }
@@ -44,6 +46,7 @@ type junitCase struct {
 	Name      string        `xml:"name,attr"`
 	Classname string        `xml:"classname,attr"`
 	Time      string        `xml:"time,attr"`
+	Skipped   *junitMessage `xml:"skipped,omitempty"`
 	Failure   *junitMessage `xml:"failure,omitempty"`
 	Error     *junitMessage `xml:"error,omitempty"`
 	SystemOut string        `xml:"system-out,omitempty"`
@@ -108,6 +111,13 @@ func (*JUnit) Build(s *Summary) ([]byte, error) {
 			}
 		}
 		switch {
+		case t.Quarantined():
+			// A quarantined failure is skipped for the CI tool, with the
+			// failure kept in the message and the body.
+			js.Skipped++
+			root.Skipped++
+			msg := fmt.Sprintf("quarantined%s: %s", optional(" until ", t.Quarantine.Until), t.Quarantine.Reason)
+			c.Skipped = &junitMessage{Message: msg, Body: body.String()}
 		case t.Errored():
 			js.Errors++
 			root.Errors++
