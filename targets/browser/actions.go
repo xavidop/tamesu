@@ -14,7 +14,7 @@ import (
 )
 
 // ActionNames are the deterministic step actions.
-var ActionNames = []string{"navigate", "click", "fill", "press", "wait", "screenshot", "eval_js", "assert_url", "assert_text"}
+var ActionNames = []string{"navigate", "click", "fill", "press", "wait", "screenshot", "eval_js", "assert_url", "assert_text", "mock", "a11y", "visual"}
 
 // Do runs one deterministic action: a map with exactly one of ActionNames
 // as key (navigate: url; click: selector or ref; fill: {selector|ref, text};
@@ -110,6 +110,22 @@ func (s *session) Do(ctx context.Context, action map[string]any) (string, error)
 			return "", err
 		}
 		return "screenshot " + path, nil
+	case "mock":
+		m, err := mockFromAction(arg)
+		if err != nil {
+			return "", err
+		}
+		if err := s.enableMocks(ctx); err != nil {
+			return "", fmt.Errorf("mock: %w", err)
+		}
+		s.mu.Lock()
+		s.mocks = append([]Mock{m}, s.mocks...)
+		s.mu.Unlock()
+		return "mock " + m.URL, nil
+	case "a11y":
+		return s.a11y(ctx, arg)
+	case "visual":
+		return s.visual(ctx, arg)
 	case "eval_js":
 		js, ok := arg.(string)
 		if !ok {

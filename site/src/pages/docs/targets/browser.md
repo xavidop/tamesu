@@ -95,9 +95,77 @@ replace the brittle parts with `goal` steps where a person would rather say what
 | `eval_js` | an expression | Runs it; the value goes in the step record. |
 | `assert_url` | a string (contains) or `{ contains, equals, matches }` | Fails the step when the URL does not match. |
 | `assert_text` | a string, or `{ contains, selector }` | Fails the step when the page (or element) text does not contain it. |
+| `mock` | `{ url, method, status, body, headers, delay_ms, abort }` | From now on, answers matching requests instead of the network (see [Mocking requests](#mocking-requests)). |
+| `a11y` | `{ impact: serious, max: 0, include: selector }` | Runs an accessibility audit on the page and fails the step when violations at or above `impact` exceed `max` (see [Accessibility](#accessibility)). |
+| `visual` | a name, or `{ name, threshold: 0.01, mask: [selectors] }` | Compares a screenshot with the baseline image of that name and fails the step when more than `threshold` of the pixels differ (see [Visual regression](#visual-regression)). |
 
 A failed `assert_*` or `expect`, or a goal the agent gives up on, fails the test as a `step[N]`
 assertion with the reason; a missing element or a browser error is an error (exit 3).
+
+## Mocking requests
+
+`browser.mocks` on the target answers matching requests before the page ever reaches the
+network, from the first navigation; the `mock` action adds more during a test, the latest
+first. A mock without `abort` answers with `status` (default 200), `body` (a string as is, any
+other value as JSON with its content type) and `headers`, after `delay_ms`; `abort` fails the
+request instead. `url` is a glob on the full URL (`**` crosses slashes) or, without a wildcard,
+a substring; `method` narrows it.
+
+```yaml
+targets:
+  web:
+    type: browser
+    url: https://shop.example.com
+    browser:
+      mocks:
+        - { url: "**/api/recommendations", body: { items: [] } }
+        - { url: "**/api/payment", method: POST, status: 502, delay_ms: 3000 }
+        - { url: "**/analytics.js", abort: true }
+tests:
+  - name: checkout survives a slow payment service
+    target: web
+    steps:
+      - action: { mock: { url: "**/api/cart", body: { items: 3 } } }
+      - goal: "Open the cart and pay"
+      - expect: "The page says payment is unavailable and offers to retry"
+```
+
+Mocked requests are marked `_mocked` in `trace.har`, counted in `mocked_requests`, and each one
+is a `mock` event on the timeline.
+
+## Accessibility
+
+The `a11y` action audits the page with [axe-core](https://github.com/dequelabs/axe-core) and
+fails the step when the violations at or above `impact` (`minor`, `moderate`, `serious` by
+default, `critical`) outnumber `max` (default 0); `include` limits the audit to a selector. Every
+audit writes `a11y-<n>.json` into the run directory with all the violations, their rules and
+node counts, and `a11y_violations` sums the counted ones.
+
+```yaml
+steps:
+  - goal: "Open the checkout page"
+  - action: { a11y: { impact: serious } }        # no serious or critical violations
+  - action: { a11y: { impact: minor, max: 5, include: "main" } }
+```
+
+## Visual regression
+
+The `visual` action screenshots the page and compares it with the baseline `visual/<name>.png`
+next to the suite. The first run writes the baseline and passes with a note; later runs fail the
+step when more than `threshold` (default `0.01`, one percent) of the pixels differ, writing
+`visual/<name>-diff.png` (the differences in red) and `visual/<name>-actual.png` into the run
+directory. `mask` blanks the elements that change on purpose, such as dates or avatars, on both
+sides before comparing. When the new look is the intended one, `tamesu run --update-visual`
+rewrites the baselines; commit them with the suite.
+
+```yaml
+steps:
+  - action: { navigate: "{{vars.base_url}}/pricing" }
+  - action: { visual: { name: pricing, threshold: 0.005, mask: ["#live-chat", ".date"] } }
+```
+
+The metric `visual_diffs` counts the failed comparisons. Keep the viewport fixed
+(`browser.viewport`) so baselines compare like with like.
 
 ## Artifacts and metrics
 
@@ -106,7 +174,8 @@ session, `steps.json` (kind, text, success, reason, the agent's actions, timings
 (every request, HAR 1.2), and `console.log` (console errors and uncaught exceptions).
 `transcript.json` holds the steps as a conversation (each step's text, then its outcome), so
 `judge`, `contains` and `regex` assertions apply. Metrics: `goal_steps` (agent actions over all
-goals), `requests`, `console_errors`, `recording_frames`, `llm_cost_usd`, `llm_tokens`.
+goals), `requests`, `console_errors`, `recording_frames`, `mocked_requests`, `a11y_violations`,
+`visual_diffs`, `llm_cost_usd`, `llm_tokens`.
 
 The recording is every frame Chromium painted, with its real timing, scaled to 960 px wide:
 `recording.webm` when `ffmpeg` is installed, otherwise `recording.gif`. `browser.recording`

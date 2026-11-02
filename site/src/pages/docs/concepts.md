@@ -31,7 +31,7 @@ apply; `tamesu validate` warns when a key belongs to another type.
   storage state and `allowed_domains`. Tests are a list of steps: `goal` (the browser agent
   plans and acts until the goal is met), `expect` (an agentic assertion against the page) and
   `action` (deterministic: `navigate`, `click`, `fill`, `press`, `wait`, `screenshot`,
-  `eval_js`, `assert_url`, `assert_text`).
+  `eval_js`, `assert_url`, `assert_text`, `mock`, `a11y`, `visual`).
 - **`rest`**: a URL and method, headers, how a user turn is sent (`request.body`, with
   `{{session}}` and `{{message}}`), how the agent turn is read back (JSONPaths in
   `response.text`, `response.tool_calls`, `response.done`), `streaming: none|sse|websocket` and a

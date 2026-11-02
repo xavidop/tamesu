@@ -89,6 +89,7 @@ func (a *app) newRunCmd() *cobra.Command {
 		updateGolden bool
 		baseline     bool
 		baselineDir  string
+		updateVisual bool
 		updateCache  bool
 		out          string
 		reporters    []string
@@ -286,7 +287,7 @@ func (a *app) newRunCmd() *cobra.Command {
 			summary, err := runner.Run(ctx, runner.Options{
 				Project: p, Suites: suites, Select: selection, OutDir: out, Parallel: parallel, Repeat: repeat, Mode: mode,
 				Load: load, LoadDuration: loadFor,
-				MaxCostUSD: budget, Headed: headed, Replay: replayOnly, UpdateCache: updateCache, CacheDir: p.Cache.Dir, UpdateGolden: updateGolden, LLMCache: llmCache,
+				MaxCostUSD: budget, Headed: headed, Replay: replayOnly, UpdateCache: updateCache, CacheDir: p.Cache.Dir, UpdateGolden: updateGolden, UpdateVisual: updateVisual, LLMCache: llmCache,
 				Targets: a.targetFactory(), Provider: provider, Secrets: store, Vars: flagVars, Env: a.env(),
 				Limits:   map[string]int{config.TargetLiveKit: p.LiveKit.MaxConcurrentRooms, config.TargetSIP: p.SIP.MaxConcurrentCalls},
 				Reporter: reps, Logger: logger, Now: a.deps.Now, Version: a.info.Version,
@@ -336,6 +337,7 @@ func (a *app) newRunCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&updateCache, "update-cache", false, "ignore the caches (action plans, simulator turns, judge verdicts), call the models and refresh them")
 	cmd.MarkFlagsMutuallyExclusive("replay", "update-cache")
 	cmd.Flags().BoolVar(&updateGolden, "update-golden", false, "golden assertions: rewrite every golden file from this run's transcripts")
+	cmd.Flags().BoolVar(&updateVisual, "update-visual", false, "browser visual steps: rewrite the baseline images from this run")
 	cmd.Flags().StringVar(&out, "out", "", "run output directory (default .tamesu/runs/<timestamp>)")
 	cmd.Flags().StringSliceVar(&reporters, "reporter", nil, "reporters: console, json, junit, html, markdown, github, slack (default from tamesu.yaml)")
 	cmd.Flags().Float64Var(&maxCostUSD, "max-cost-usd", 0, "stop the run once tamesu's own model spend exceeds this (default budgets.max_cost_usd)")

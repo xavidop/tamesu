@@ -55,6 +55,8 @@ type har struct {
 }
 
 type harEntry struct {
+	// Mocked marks an answer tamesu gave instead of the network.
+	Mocked          bool        `json:"_mocked,omitempty"`
 	StartedDateTime string      `json:"startedDateTime"`
 	Time            float64     `json:"time"`
 	Request         harRequest  `json:"request"`
@@ -126,6 +128,20 @@ func (h *har) request(e *network.EventRequestWillBeSent) {
 		h.order = append(h.order, e.RequestID)
 	}
 	h.entries[e.RequestID] = entry
+}
+
+// mocked marks the request as answered by a mock.
+func (h *har) mocked(id network.RequestID) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if e, ok := h.entries[id]; ok {
+		e.Mocked = true
+	} else {
+		h.entries[id] = &harEntry{Mocked: true, started: time.Now(), wall: time.Now(), StartedDateTime: time.Now().UTC().Format(time.RFC3339Nano),
+			Request:  harRequest{HTTPVersion: "HTTP/1.1", Cookies: []any{}, QueryString: []any{}, HeadersSize: -1, BodySize: -1, Headers: []harHeader{}},
+			Response: harResponse{HTTPVersion: "HTTP/1.1", Cookies: []any{}, Headers: []harHeader{}, HeadersSize: -1, BodySize: -1}}
+		h.order = append(h.order, id)
+	}
 }
 
 func (h *har) response(e *network.EventResponseReceived) {

@@ -49,6 +49,11 @@ type RunContext struct {
 	Speech Speech
 	// Voice is the caller's voice and behaviors for audio mode (nil otherwise).
 	Voice *Voice
+	// SuiteDir is the directory of the suite file, where baselines such as
+	// visual/<name>.png live.
+	SuiteDir string
+	// UpdateBaselines rewrites baselines (visual) from this run.
+	UpdateBaselines bool
 }
 
 // UserTurn is what the simulated user sends.

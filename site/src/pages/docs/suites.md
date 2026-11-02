@@ -84,6 +84,7 @@ The top level of the file.
 | `engine` | one of `chromium` |  |  |
 | `viewport` | string |  | WIDTHxHEIGHT such as 1280x800. |
 | `locale` | string |  |  |
+| `mocks` | list of [BrowserMock](#browsermock) |  | Requests answered by tamesu instead of the network from the start of the session; the mock action adds more at run time. |
 | `recording` | one of `auto`, `gif`, `webm`, `off` |  | The session recording written next to the screenshots. auto (the default) writes recording.webm when ffmpeg is installed and recording.gif otherwise; off disables it. |
 
 ## BrowserAuth
@@ -165,7 +166,7 @@ The top level of the file.
 |---|---|---|---|
 | `goal` | string |  | Agentic: the browser agent acts until the goal is met. |
 | `expect` | string |  | Agentic assertion against the current page. |
-| `action` | object (any keys) |  | Deterministic: one of navigate click fill press wait screenshot eval_js assert_url assert_text. |
+| `action` | object (any keys) |  | Deterministic: one of navigate click fill press wait screenshot eval_js assert_url assert_text mock a11y visual. |
 
 ## Persona
 
@@ -342,6 +343,18 @@ One of: string, list of string.
 A duration such as 30s, 3m or 1h30m.
 
 Type: string.
+
+## BrowserMock
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `url` | string | yes | A glob on the full URL (** crosses slashes) or a substring. |
+| `method` | string |  | Only this method; default any. |
+| `status` | integer |  | The answer's status; default 200. |
+| `body` | any |  | The answer: a string as is or any value as JSON. |
+| `headers` | map of string to string |  |  |
+| `delay_ms` | integer |  | Hold the answer back this long. |
+| `abort` | boolean |  | Fail the request instead of answering. |
 
 ## Capture
 

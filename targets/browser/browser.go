@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/chromedp/cdproto/fetch"
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/cdproto/runtime"
@@ -58,6 +59,9 @@ type Config struct {
 	// RecordingAuto (default: a WebM when ffmpeg is installed, else an
 	// animated GIF), RecordingGIF, RecordingWebM or RecordingOff.
 	Recording string
+	// Mocks answer matching requests instead of the network, from the start
+	// of the session; the mock action adds more at run time.
+	Mocks []Mock
 	// StepTimeout bounds one action (default 30 s).
 	StepTimeout time.Duration
 	// Download allows fetching Chromium when none is found (default true).
@@ -134,7 +138,7 @@ func (t *Target) Start(ctx context.Context, run *target.RunContext) (target.Sess
 	s := &session{
 		t: t, run: run, ctx: bctx, cancel: func() { cancelBrowser(); cancelAlloc() },
 		allowed: allowed, refs: map[int]refNode{}, byNode: map[int64]int{}, startedAt: time.Now(),
-		har: newHAR(),
+		har: newHAR(), files: map[string]string{}, mocks: append([]Mock(nil), t.cfg.Mocks...),
 	}
 	s.listen()
 	sctx, cancel := context.WithTimeout(ctx, t.cfg.StepTimeout)
@@ -142,6 +146,12 @@ func (t *Target) Start(ctx context.Context, run *target.RunContext) (target.Sess
 	if err := s.runCtx(sctx, chromedp.Run(bctx, network.Enable(), runtime.Enable(), chromedp.EmulateViewport(int64(w), int64(h)))); err != nil {
 		s.cancel()
 		return nil, fmt.Errorf("browser %s: start chromium (%s): %w", t.name, exec, err)
+	}
+	if len(s.mocks) > 0 {
+		if err := s.runCtx(sctx, s.enableMocks(sctx)); err != nil {
+			s.cancel()
+			return nil, fmt.Errorf("browser %s: mocks: %w", t.name, err)
+		}
 	}
 	if t.cfg.Recording != RecordingOff && run != nil && run.Dir != "" {
 		if err := s.runCtx(sctx, s.startRecording(w)); err != nil {
@@ -182,6 +192,15 @@ type session struct {
 	rec       *screencast
 	startedAt time.Time
 	closed    bool
+	// files are extra artifacts (a11y results, visual diffs).
+	files map[string]string
+	// mocks, newest first; fetchOn once interception is enabled.
+	mocks       []Mock
+	fetchOn     bool
+	mocked      int
+	a11yRuns    int
+	a11yTotal   int
+	visualDiffs int
 }
 
 var _ target.BrowserSession = (*session)(nil)
@@ -230,7 +249,10 @@ func (s *session) Close(context.Context) (target.Artifacts, error) {
 			}
 		}
 	}
-	m := map[string]float64{"requests": float64(len(s.har.entries)), "console_errors": float64(len(s.console))}
+	for k, v := range s.files {
+		files[k] = v
+	}
+	m := map[string]float64{"requests": float64(len(s.har.entries)), "console_errors": float64(len(s.console)), "mocked_requests": float64(s.mocked), "a11y_violations": float64(s.a11yTotal), "visual_diffs": float64(s.visualDiffs)}
 	if s.rec != nil {
 		m["recording_frames"] = float64(s.rec.count())
 	}
@@ -301,6 +323,8 @@ func (s *session) listen() {
 			if s.rec != nil {
 				s.onFrame(e)
 			}
+		case *fetch.EventRequestPaused:
+			s.onRequestPaused(e)
 		}
 	})
 }

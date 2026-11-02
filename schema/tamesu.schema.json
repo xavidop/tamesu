@@ -129,6 +129,44 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "BrowserMock": {
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "A glob on the full URL (** crosses slashes) or a substring."
+        },
+        "method": {
+          "type": "string",
+          "description": "Only this method; default any."
+        },
+        "status": {
+          "type": "integer",
+          "description": "The answer's status; default 200."
+        },
+        "body": {
+          "description": "The answer: a string as is or any value as JSON."
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "delay_ms": {
+          "type": "integer",
+          "description": "Hold the answer back this long."
+        },
+        "abort": {
+          "type": "boolean",
+          "description": "Fail the request instead of answering."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "url"
+      ]
+    },
     "BrowserOptions": {
       "properties": {
         "engine": {
@@ -143,6 +181,13 @@
         },
         "locale": {
           "type": "string"
+        },
+        "mocks": {
+          "items": {
+            "$ref": "#/$defs/BrowserMock"
+          },
+          "type": "array",
+          "description": "Requests answered by tamesu instead of the network from the start of the session; the mock action adds more at run time."
         },
         "recording": {
           "type": "string",
@@ -699,7 +744,7 @@
         },
         "action": {
           "type": "object",
-          "description": "Deterministic: one of navigate click fill press wait screenshot eval_js assert_url assert_text."
+          "description": "Deterministic: one of navigate click fill press wait screenshot eval_js assert_url assert_text mock a11y visual."
         }
       },
       "additionalProperties": false,

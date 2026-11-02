@@ -111,8 +111,21 @@ type BrowserOptions struct {
 	Engine   string `yaml:"engine,omitempty" json:"engine,omitempty" jsonschema:"enum=chromium"`
 	Viewport string `yaml:"viewport,omitempty" json:"viewport,omitempty" jsonschema:"description=WIDTHxHEIGHT such as 1280x800."`
 	Locale   string `yaml:"locale,omitempty" json:"locale,omitempty"`
+	// Mocks answer matching requests instead of the network.
+	Mocks []BrowserMock `yaml:"mocks,omitempty" json:"mocks,omitempty" jsonschema:"description=Requests answered by tamesu instead of the network from the start of the session; the mock action adds more at run time."`
 	// Recording selects the session recording in the run directory.
 	Recording string `yaml:"recording,omitempty" json:"recording,omitempty" jsonschema:"enum=auto,enum=gif,enum=webm,enum=off,description=The session recording written next to the screenshots. auto (the default) writes recording.webm when ffmpeg is installed and recording.gif otherwise; off disables it."`
+}
+
+// BrowserMock is one mocked request.
+type BrowserMock struct {
+	URL     string            `yaml:"url" json:"url" jsonschema:"required,description=A glob on the full URL (** crosses slashes) or a substring."`
+	Method  string            `yaml:"method,omitempty" json:"method,omitempty" jsonschema:"description=Only this method; default any."`
+	Status  int               `yaml:"status,omitempty" json:"status,omitempty" jsonschema:"description=The answer's status; default 200."`
+	Body    any               `yaml:"body,omitempty" json:"body,omitempty" jsonschema:"description=The answer: a string as is or any value as JSON."`
+	Headers map[string]string `yaml:"headers,omitempty" json:"headers,omitempty"`
+	DelayMs int               `yaml:"delay_ms,omitempty" json:"delay_ms,omitempty" jsonschema:"description=Hold the answer back this long."`
+	Abort   bool              `yaml:"abort,omitempty" json:"abort,omitempty" jsonschema:"description=Fail the request instead of answering."`
 }
 
 // BrowserAuth pre-authenticates the browser.
@@ -233,7 +246,7 @@ type CapturedAssertion struct {
 type Step struct {
 	Goal   string         `yaml:"goal,omitempty" json:"goal,omitempty" jsonschema:"description=Agentic: the browser agent acts until the goal is met."`
 	Expect string         `yaml:"expect,omitempty" json:"expect,omitempty" jsonschema:"description=Agentic assertion against the current page."`
-	Action map[string]any `yaml:"action,omitempty" json:"action,omitempty" jsonschema:"description=Deterministic: one of navigate click fill press wait screenshot eval_js assert_url assert_text."`
+	Action map[string]any `yaml:"action,omitempty" json:"action,omitempty" jsonschema:"description=Deterministic: one of navigate click fill press wait screenshot eval_js assert_url assert_text mock a11y visual."`
 }
 
 // Kind returns "goal", "expect", "action" when exactly one is set, else "".

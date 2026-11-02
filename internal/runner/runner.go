@@ -84,6 +84,8 @@ type Options struct {
 	CacheDir    string
 	// UpdateGolden rewrites every golden.file of a run from its transcript.
 	UpdateGolden bool
+	// UpdateVisual rewrites the browser visual baselines from this run.
+	UpdateVisual bool
 	// LLMCache reports the llm cache's counters at the end of the run (set
 	// by the CLI when the provider is wrapped in the replay cache).
 	LLMCache func() report.CacheStats

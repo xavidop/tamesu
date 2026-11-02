@@ -5,6 +5,7 @@ go 1.27
 replace github.com/xavidop/tamesu => ../..
 
 require (
+	github.com/bmatcuk/doublestar/v4 v4.10.4
 	github.com/chromedp/cdproto v0.0.0-20260714215040-dc233986426f
 	github.com/chromedp/chromedp v0.16.0
 	github.com/stretchr/testify v1.12.1
