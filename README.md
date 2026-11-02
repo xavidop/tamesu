@@ -117,7 +117,7 @@ tamesu report <run-dir>          rebuild report.html from a run directory
 tamesu record browser <url>      record a browser session into deterministic steps (--out)
 tamesu generate                  draft tests from a PRD or system prompt (--from, --target, --type, --count, --out)
 tamesu sip setup                 create or reuse the LiveKit SIP trunks and dispatch rule (--outbound, --inbound)
-tamesu mcp                       serve tamesu to coding agents as an MCP server over stdio (--cwd)
+tamesu mcp                       serve tamesu to coding agents as an MCP server over stdio or HTTP (--cwd, --http)
 tamesu version                   print the version, commit and build date
 ```
 
@@ -225,10 +225,12 @@ npx skills add xavidop/tamesu
 
 Or give the agent the tools themselves: `tamesu mcp` is an MCP server with `tamesu_schema`,
 `tamesu_validate`, `tamesu_list`, `tamesu_run`, `tamesu_generate`, `tamesu_doctor` and
-`tamesu_init` (see the [MCP server](https://xavidop.github.io/tamesu/docs/mcp/) page).
+`tamesu_init`, and the run directories as resources (`tamesu://runs`); it speaks stdio or, with
+`--http`, streamable HTTP (see the [MCP server](https://xavidop.github.io/tamesu/docs/mcp/) page).
 
 ```bash
 claude mcp add tamesu -- tamesu mcp --cwd /path/to/project
+tamesu mcp --http :8765 --cwd /path/to/project          # for agents on another machine
 ```
 
 ## Documentation

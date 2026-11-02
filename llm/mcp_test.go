@@ -3,10 +3,13 @@ package llm
 import (
 	"context"
 	"encoding/json"
+	"github.com/firebase/genkit/go/genkit"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/firebase/genkit/go/plugins/mcp"
 	mcpclient "github.com/mark3labs/mcp-go/client"
@@ -138,7 +141,7 @@ func TestMCPServerListsAndCallsTools(t *testing.T) {
 	g, err := initBareGenkit(ctx)
 	require.NoError(t, err)
 	fe := &fakeExec{}
-	DefineMCPTools(g, MCPOptions{Exec: fe.exec, Schema: func(string) (string, error) { return "{}", nil }})
+	DefineMCPTools(g, MCPOptions{Exec: fe.exec, Schema: func(string) (string, error) { return "{}", nil }, RunsDir: t.TempDir()})
 	srv := mcp.NewMCPServer(g, mcp.MCPServerOptions{Name: "tamesu", Version: "test"})
 	c, err := mcpclient.NewInProcessClient(srv.GetServer())
 	require.NoError(t, err)
@@ -170,4 +173,128 @@ func TestMCPServerListsAndCallsTools(t *testing.T) {
 	assert.Contains(t, text.Text, `"exit_code":0`)
 	assert.Contains(t, text.Text, "1 suite, 2 tests, 0 errors")
 	assert.Equal(t, []string{"validate", "suite.yaml"}, fe.calls[0])
+}
+
+// runsFixture writes one run directory with a summary and a test result.
+func runsFixture(t *testing.T) string {
+	t.Helper()
+	runs := t.TempDir()
+	dir := filepath.Join(runs, "2026-11-02T15-11-36")
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "tests", "refund", "run-1"), 0o755))
+	summary := `{"started_at":"2026-11-02T15:11:36Z","tests":[{"name":"refund","passed":true,"runs":[{"passed":true}]},{"name":"other","passed":false,"runs":[{"passed":false}]}]}`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "summary.json"), []byte(summary), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "report.html"), []byte("<html>report</html>"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "tests", "refund", "run-1", "result.json"), []byte(`{"passed":true}`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(runs, "notes.txt"), []byte("not a run"), 0o644))
+	return runs
+}
+
+func mcpClient(t *testing.T, g *genkit.Genkit) *mcpclient.Client {
+	t.Helper()
+	ctx := context.Background()
+	srv := mcp.NewMCPServer(g, mcp.MCPServerOptions{Name: "tamesu", Version: "test"})
+	c, err := mcpclient.NewInProcessClient(srv.GetServer())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.Close() })
+	require.NoError(t, c.Start(ctx))
+	_, err = c.Initialize(ctx, mcpgo.InitializeRequest{Params: mcpgo.InitializeParams{ProtocolVersion: mcpgo.LATEST_PROTOCOL_VERSION, ClientInfo: mcpgo.Implementation{Name: "test", Version: "0"}}})
+	require.NoError(t, err)
+	return c
+}
+
+func readText(t *testing.T, c *mcpclient.Client, uri string) string {
+	t.Helper()
+	req := mcpgo.ReadResourceRequest{}
+	req.Params.URI = uri
+	res, err := c.ReadResource(context.Background(), req)
+	require.NoError(t, err, uri)
+	require.NotEmpty(t, res.Contents)
+	text, ok := res.Contents[0].(mcpgo.TextResourceContents)
+	require.True(t, ok)
+	return text.Text
+}
+
+func TestMCPResources(t *testing.T) {
+	ctx := context.Background()
+	g, err := initBareGenkit(ctx)
+	require.NoError(t, err)
+	runs := runsFixture(t)
+	DefineMCPResources(g, runs)
+	c := mcpClient(t, g)
+
+	list, err := c.ListResources(ctx, mcpgo.ListResourcesRequest{})
+	require.NoError(t, err)
+	var uris []string
+	for _, r := range list.Resources {
+		uris = append(uris, r.URI)
+	}
+	assert.Contains(t, uris, RunsURI)
+	templates, err := c.ListResourceTemplates(ctx, mcpgo.ListResourceTemplatesRequest{})
+	require.NoError(t, err)
+	var tpls []string
+	for _, r := range templates.ResourceTemplates {
+		tpls = append(tpls, r.URITemplate.Raw())
+	}
+	assert.ElementsMatch(t, []string{RunFileTemplate, RunTestURITemplate}, tpls)
+
+	var entries []runEntry
+	require.NoError(t, json.Unmarshal([]byte(readText(t, c, RunsURI)), &entries))
+	require.Len(t, entries, 1, "notes.txt is not a run")
+	assert.Equal(t, runEntry{Run: "2026-11-02T15-11-36", URI: "tamesu://runs/2026-11-02T15-11-36/summary.json", StartedAt: "2026-11-02T15:11:36Z", Passed: 1, Failed: 1, Tests: 2}, entries[0])
+
+	assert.Contains(t, readText(t, c, "tamesu://runs/2026-11-02T15-11-36/summary.json"), `"name":"refund"`)
+	assert.Equal(t, "<html>report</html>", readText(t, c, "tamesu://runs/2026-11-02T15-11-36/report.html"))
+	assert.Equal(t, `{"passed":true}`, readText(t, c, "tamesu://runs/2026-11-02T15-11-36/tests/refund/run-1/result.json"))
+
+	for _, bad := range []string{
+		"tamesu://runs/2026-11-02T15-11-36/notes.txt", // not a run file
+		"tamesu://runs/../notes.txt",                  // traversal
+		"tamesu://runs/2026-11-02T15-11-36/tests/refund/run-1/secrets.env",
+	} {
+		req := mcpgo.ReadResourceRequest{}
+		req.Params.URI = bad
+		_, err := c.ReadResource(ctx, req)
+		assert.Error(t, err, bad)
+	}
+}
+
+func TestServeMCPOverHTTP(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	addr := l.Addr().String()
+	require.NoError(t, l.Close())
+	fe := &fakeExec{}
+	done := make(chan error, 1)
+	go func() {
+		done <- ServeMCP(ctx, MCPOptions{Version: "test", Exec: fe.exec, Schema: func(string) (string, error) { return "{}", nil },
+			HTTPAddr: addr, HTTPPath: "/tamesu", RunsDir: t.TempDir()})
+	}()
+	var c *mcpclient.Client
+	require.Eventually(t, func() bool {
+		conn, err := net.DialTimeout("tcp", addr, 200*time.Millisecond)
+		if err != nil {
+			return false
+		}
+		_ = conn.Close()
+		return true
+	}, 5*time.Second, 50*time.Millisecond, "the HTTP server listens")
+	c, err = mcpclient.NewStreamableHttpClient("http://" + addr + "/tamesu")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.Close() })
+	require.NoError(t, c.Start(ctx))
+	_, err = c.Initialize(ctx, mcpgo.InitializeRequest{Params: mcpgo.InitializeParams{ProtocolVersion: mcpgo.LATEST_PROTOCOL_VERSION, ClientInfo: mcpgo.Implementation{Name: "test", Version: "0"}}})
+	require.NoError(t, err)
+	list, err := c.ListTools(ctx, mcpgo.ListToolsRequest{})
+	require.NoError(t, err)
+	assert.Len(t, list.Tools, 7)
+	assert.Contains(t, readText(t, c, RunsURI), "[]", "no runs yet")
+	cancel()
+	select {
+	case err := <-done:
+		assert.NoError(t, err, "a cancelled context is a clean stop")
+	case <-time.After(10 * time.Second):
+		t.Fatal("ServeMCP did not return after cancel")
+	}
 }

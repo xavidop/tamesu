@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/mark3labs/mcp-go/server"
 	"log/slog"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/firebase/genkit/go/ai"
 	"github.com/firebase/genkit/go/genkit"
@@ -27,6 +30,13 @@ type MCPOptions struct {
 	// ("config").
 	Schema func(which string) (string, error)
 	Logger *slog.Logger
+	// HTTPAddr serves over streamable HTTP on this address (":8765") at
+	// HTTPPath (default "/mcp") instead of stdio.
+	HTTPAddr string
+	HTTPPath string
+	// RunsDir holds the run directories the resources expose and tamesu_run
+	// writes to by default; empty means DefaultRunsDir.
+	RunsDir string
 }
 
 // ServeMCP serves the tamesu tools to a coding agent over stdio with the
@@ -41,9 +51,46 @@ func ServeMCP(ctx context.Context, o MCPOptions) error {
 	if err != nil {
 		return err
 	}
+	if o.RunsDir == "" {
+		o.RunsDir = DefaultRunsDir
+	}
 	DefineMCPTools(g, o)
+	DefineMCPResources(g, o.RunsDir)
 	srv := mcp.NewMCPServer(g, mcp.MCPServerOptions{Name: "tamesu", Version: o.Version})
-	return srv.ServeStdio()
+	if o.HTTPAddr == "" {
+		return srv.ServeStdio()
+	}
+	return serveHTTP(ctx, srv, o)
+}
+
+// serveHTTP serves the MCP server over streamable HTTP until ctx ends.
+func serveHTTP(ctx context.Context, srv *mcp.GenkitMCPServer, o MCPOptions) error {
+	path := o.HTTPPath
+	if path == "" {
+		path = "/mcp"
+	}
+	base := srv.GetServer()
+	if base == nil {
+		return errors.New("llm: the MCP server could not be set up")
+	}
+	h := server.NewStreamableHTTPServer(base, server.WithEndpointPath(path))
+	if o.Logger != nil {
+		o.Logger.Info("tamesu mcp: serving over HTTP", "addr", o.HTTPAddr, "path", path)
+	}
+	errc := make(chan error, 1)
+	go func() { errc <- h.Start(o.HTTPAddr) }()
+	select {
+	case err := <-errc:
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return fmt.Errorf("llm: mcp over http: %w", err)
+		}
+		return nil
+	case <-ctx.Done():
+		sctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancel()
+		_ = h.Shutdown(sctx)
+		return nil
+	}
 }
 
 // Tool inputs. Descriptions avoid commas: the jsonschema tag splits on them.
@@ -78,16 +125,17 @@ type runInput struct {
 	Parallel   int      `json:"parallel,omitempty" jsonschema:"description=Concurrent runs; default the number of CPUs"`
 	Mode       string   `json:"mode,omitempty" jsonschema:"enum=text,enum=audio,description=Voice tests: text or audio"`
 	MaxCostUSD float64  `json:"max_cost_usd,omitempty" jsonschema:"description=Stop once tamesu's own model spend exceeds this"`
-	Out        string   `json:"out,omitempty" jsonschema:"description=The run directory; default a temporary one"`
+	Out        string   `json:"out,omitempty" jsonschema:"description=The run directory; default a new directory under .tamesu/runs that the tamesu://runs resources expose"`
 	Replay     bool     `json:"replay,omitempty" jsonschema:"description=Browser goals from the action cache only (no model)"`
 }
 
 type runResult struct {
-	ExitCode int             `json:"exit_code" jsonschema:"description=0 passed; 1 a test failed; 2 config error; 3 infrastructure error; 4 budget exceeded"`
-	OutDir   string          `json:"out_dir" jsonschema:"description=The run directory with summary.json and one directory per test and run (transcript.json and result.json)"`
-	Summary  json.RawMessage `json:"summary,omitempty" jsonschema:"description=The run's summary.json"`
-	Console  string          `json:"console" jsonschema:"description=The console reporter's output"`
-	Stderr   string          `json:"stderr,omitempty"`
+	ExitCode    int             `json:"exit_code" jsonschema:"description=0 passed; 1 a test failed; 2 config error; 3 infrastructure error; 4 budget exceeded"`
+	OutDir      string          `json:"out_dir" jsonschema:"description=The run directory with summary.json and one directory per test and run (transcript.json and result.json)"`
+	ResourceURI string          `json:"resource_uri,omitempty" jsonschema:"description=The tamesu://runs/... URI of the run's summary when the run directory is under the runs directory"`
+	Summary     json.RawMessage `json:"summary,omitempty" jsonschema:"description=The run's summary.json"`
+	Console     string          `json:"console" jsonschema:"description=The console reporter's output"`
+	Stderr      string          `json:"stderr,omitempty"`
 }
 
 type mcpGenerateInput struct {
@@ -156,7 +204,12 @@ func DefineMCPTools(g *genkit.Genkit, o MCPOptions) []ai.Tool {
 			func(ctx *ai.ToolContext, in runInput) (runResult, error) {
 				out := in.Out
 				if out == "" {
-					dir, err := os.MkdirTemp("", "tamesu-mcp-run-")
+					runs := o.RunsDir
+					if runs == "" {
+						runs = DefaultRunsDir
+					}
+					dir := filepath.Join(runs, time.Now().Format("2006-01-02T15-04-05")+"-mcp")
+					err := os.MkdirAll(dir, 0o755)
 					if err != nil {
 						return runResult{}, err
 					}
@@ -181,6 +234,9 @@ func DefineMCPTools(g *genkit.Genkit, o MCPOptions) []ai.Tool {
 				}
 				res := exec(ctx, append(args, in.Paths...)...)
 				r := runResult{ExitCode: res.ExitCode, OutDir: out, Console: res.Stdout, Stderr: res.Stderr}
+				if rel, err := filepath.Rel(firstNonEmpty(o.RunsDir, DefaultRunsDir), out); err == nil && !strings.Contains(rel, string(filepath.Separator)) && !strings.HasPrefix(rel, ".") {
+					r.ResourceURI = strings.NewReplacer("{run}", rel, "{file}", "summary.json").Replace(RunFileTemplate)
+				}
 				if b, err := os.ReadFile(filepath.Join(out, "summary.json")); err == nil && json.Valid(b) {
 					r.Summary = b
 				}
@@ -291,4 +347,13 @@ func initBareGenkit(ctx context.Context) (g *genkit.Genkit, err error) {
 	}()
 	g = genkit.Init(ctx)
 	return g, nil
+}
+
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }

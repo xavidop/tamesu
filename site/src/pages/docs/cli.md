@@ -248,16 +248,20 @@ fails. See [SIP setup](/docs/sip-setup/).
 ## tamesu mcp
 
 ```text
-tamesu mcp [--cwd dir]
+tamesu mcp [--cwd dir] [--http addr] [--http-path /mcp]
 ```
 
 Serves the tamesu tools over the Model Context Protocol on standard input and output, for a
 coding agent (Claude Code, Cursor, Codex, ...): `tamesu_schema`, `tamesu_validate`,
 `tamesu_list`, `tamesu_run`, `tamesu_generate`, `tamesu_doctor` and `tamesu_init`. Each tool
 runs the matching command in the same process with the server's `--config`, `--var` and
-`--env-file`, and returns its output and exit code (a run returns its `summary.json`). `--cwd`
-changes to the project directory first. The server stops when the client disconnects; `-v` logs
-to standard error. See [MCP server](/docs/mcp/).
+`--env-file`, and returns its output and exit code (a run returns its `summary.json`). The run
+directories under `.tamesu/runs` are resources: `tamesu://runs` lists them and
+`tamesu://runs/<run>/summary.json` reads one. `--cwd` changes to the project directory first.
+`--http addr` (such as `:8765`) serves over streamable HTTP at `--http-path` (default `/mcp`)
+instead of stdio, for agents on another machine. Over stdio the server stops when the client
+disconnects; over HTTP it runs until interrupted. `-v` logs to standard error. See
+[MCP server](/docs/mcp/).
 
 ## tamesu version
 

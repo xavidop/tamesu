@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -24,21 +25,30 @@ type MCPRequest struct {
 	// ("config").
 	Schema func(which string) (string, error)
 	Logger *slog.Logger
+	// HTTPAddr and HTTPPath serve over HTTP instead of stdio when set.
+	HTTPAddr string
+	HTTPPath string
+	// RunsDir is where runs live (.tamesu/runs): the resources and the
+	// default output of tamesu_run.
+	RunsDir string
 }
 
 func (a *app) newMCPCmd() *cobra.Command {
-	var dir string
+	var dir, httpAddr, httpPath string
 	cmd := &cobra.Command{
 		Use:   "mcp",
-		Short: "Serve tamesu to coding agents as an MCP server over stdio",
+		Short: "Serve tamesu to coding agents as an MCP server over stdio or HTTP",
 		Long: "Mcp serves the tamesu tools over the Model Context Protocol on standard input and\n" +
-			"output, so a coding agent (Claude Code, Cursor, Codex, ...) can validate, list, run\n" +
-			"and draft tests and read the suite schema: tamesu_validate, tamesu_list, tamesu_run,\n" +
-			"tamesu_generate, tamesu_doctor, tamesu_init and tamesu_schema. Each tool runs the\n" +
-			"matching command in this process with the same --config, --var and --env-file, and\n" +
-			"returns its output and exit code (a run returns its summary.json). Secrets are\n" +
-			"resolved per command and never returned. The server stops when the client closes\n" +
-			"the connection.",
+			"output, or over HTTP with --http, so a coding agent (Claude Code, Cursor, Codex, ...)\n" +
+			"can validate, list, run and draft tests and read the suite schema: tamesu_validate,\n" +
+			"tamesu_list, tamesu_run, tamesu_generate, tamesu_doctor, tamesu_init and\n" +
+			"tamesu_schema. Each tool runs the matching command in this process with the same\n" +
+			"--config, --var and --env-file, and returns its output and exit code (a run returns\n" +
+			"its summary.json). The run directories under .tamesu/runs are MCP resources:\n" +
+			"tamesu://runs lists them, tamesu://runs/<run>/summary.json and\n" +
+			"tamesu://runs/<run>/tests/<test>/run-<n>/result.json read them. Secrets are\n" +
+			"resolved per command and never returned. Over stdio the server stops when the\n" +
+			"client closes the connection; over HTTP it runs until interrupted.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if a.deps.ServeMCP == nil {
@@ -51,7 +61,7 @@ func (a *app) newMCPCmd() *cobra.Command {
 			}
 			logger := a.logger()
 			slog.SetDefault(logger)
-			req := MCPRequest{Version: a.info.Version, Exec: a.exec, Schema: schemaJSON, Logger: logger}
+			req := MCPRequest{Version: a.info.Version, Exec: a.exec, Schema: schemaJSON, Logger: logger, HTTPAddr: httpAddr, HTTPPath: httpPath, RunsDir: filepath.Join(".tamesu", "runs")}
 			if err := a.deps.ServeMCP(cmd.Context(), req); err != nil {
 				return infraError(err)
 			}
@@ -59,6 +69,8 @@ func (a *app) newMCPCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&dir, "cwd", "", "project directory to run the commands in (default: the current directory)")
+	cmd.Flags().StringVar(&httpAddr, "http", "", "serve over streamable HTTP on this address (such as :8765) instead of stdio")
+	cmd.Flags().StringVar(&httpPath, "http-path", "/mcp", "the HTTP endpoint path, with --http")
 	return cmd
 }
 
