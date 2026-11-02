@@ -37,6 +37,7 @@ and `result.json` show, so a failure reads like a code review comment.
 | `tool_not_called: name` (or with `args`) | the agent never called it (with those arguments). |
 | `tool_sequence: { calls: [lookup_order, refund], exact: false }` | the agent called those tools in that order: as a subsequence of its calls, or exactly that list with `exact`. |
 | `captured: { name: order_id, matches: "^ORD-" }` (or `equals`) | a value the test captured from the agent's turns exists and matches; see [capturing values](/docs/concepts/#capturing-values-across-turns). |
+| `golden: { file: golden/refund.json, mode: similar, min: 0.8 }` (or `turns: [...]`) | the agent's turns, in order, against reference turns: `exact` (normalised text), `similar` (word overlap of at least `min`, the default) or `judge` (the judge decides whether each turn means the same). A missing file is written from the run; `tamesu run --update-golden` rewrites them all. |
 
 Tool calls come from the target: the REST target's `response.tool_calls` path, the LiveKit
 agent's attributes and data messages.

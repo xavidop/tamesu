@@ -215,7 +215,13 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 	}
 	for i, ca := range it.test.Assert {
 		ca = renderAssertion(ca, renderForModel)
-		a, err := Build(ca)
+		var a assert.Assertion
+		var err error
+		if ca.Golden != nil {
+			a, err = r.buildGolden(it, ca.Golden, lo.Transcript)
+		} else {
+			a, err = Build(ca)
+		}
 		if err != nil {
 			out.Assertions = append(out.Assertions, assert.Result{Name: fmt.Sprintf("assert[%d]", i), Pass: false, Reason: err.Error()})
 			out.Passed = false

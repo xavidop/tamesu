@@ -82,7 +82,9 @@ type Options struct {
 	Replay      bool
 	UpdateCache bool
 	CacheDir    string
-	Targets     TargetFactory
+	// UpdateGolden rewrites every golden.file of a run from its transcript.
+	UpdateGolden bool
+	Targets      TargetFactory
 	// Provider is the AI layer; nil fails conversational tests with an
 	// infrastructure error.
 	Provider model.Provider

@@ -79,18 +79,19 @@ var supportedReporters = []string{"console", "json", "junit", "html"}
 
 func (a *app) newRunCmd() *cobra.Command {
 	var (
-		sel         selectFlags
-		parallel    int
-		repeat      int
-		mode        string
-		headed      bool
-		replay      bool
-		updateCache bool
-		out         string
-		reporters   []string
-		maxCostUSD  float64
-		load        int
-		loadFor     time.Duration
+		sel          selectFlags
+		parallel     int
+		repeat       int
+		mode         string
+		headed       bool
+		replay       bool
+		updateGolden bool
+		updateCache  bool
+		out          string
+		reporters    []string
+		maxCostUSD   float64
+		load         int
+		loadFor      time.Duration
 	)
 	cmd := &cobra.Command{
 		Use:   "run [paths...]",
@@ -233,7 +234,7 @@ func (a *app) newRunCmd() *cobra.Command {
 			summary, err := runner.Run(ctx, runner.Options{
 				Project: p, Suites: suites, Select: selection, OutDir: out, Parallel: parallel, Repeat: repeat, Mode: mode,
 				Load: load, LoadDuration: loadFor,
-				MaxCostUSD: budget, Headed: headed, Replay: replay, UpdateCache: updateCache, CacheDir: p.Cache.Dir,
+				MaxCostUSD: budget, Headed: headed, Replay: replay, UpdateCache: updateCache, CacheDir: p.Cache.Dir, UpdateGolden: updateGolden,
 				Targets: a.targetFactory(), Provider: provider, Secrets: store, Vars: flagVars, Env: a.env(),
 				Limits:   map[string]int{config.TargetLiveKit: p.LiveKit.MaxConcurrentRooms, config.TargetSIP: p.SIP.MaxConcurrentCalls},
 				Reporter: reps, Logger: logger, Now: a.deps.Now, Version: a.info.Version,
@@ -260,6 +261,7 @@ func (a *app) newRunCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&replay, "replay", false, "browser goals: use cached action plans only (no model); a miss fails the step")
 	cmd.Flags().BoolVar(&updateCache, "update-cache", false, "browser goals: ignore the action cache, plan again and refresh it")
 	cmd.MarkFlagsMutuallyExclusive("replay", "update-cache")
+	cmd.Flags().BoolVar(&updateGolden, "update-golden", false, "golden assertions: rewrite every golden file from this run's transcripts")
 	cmd.Flags().StringVar(&out, "out", "", "run output directory (default .tamesu/runs/<timestamp>)")
 	cmd.Flags().StringSliceVar(&reporters, "reporter", nil, "reporters: console, json, junit, html (default from tamesu.yaml)")
 	cmd.Flags().Float64Var(&maxCostUSD, "max-cost-usd", 0, "stop the run once tamesu's own model spend exceeds this (default budgets.max_cost_usd)")

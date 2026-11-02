@@ -517,6 +517,23 @@ func (v *validator) assertion(ap []string, a Assertion, ttype, mode string) {
 		if *a.Status < 100 || *a.Status > 599 {
 			v.errorf(kp, "status must be an HTTP status code")
 		}
+	case "golden":
+		g := a.Golden
+		if g.File == "" && len(g.Turns) == 0 {
+			v.errorf(kp, "golden needs file or turns")
+		}
+		if g.File != "" && len(g.Turns) > 0 {
+			v.errorf(kp, "golden takes file or turns, not both")
+		}
+		if g.File != "" && (strings.Contains(g.File, "{{") || strings.Contains(g.File, "${")) {
+			v.errorf(with(kp, "file"), "file is a plain path next to the suite, not a template")
+		}
+		if g.Mode != "" && !slices.Contains(GoldenModes, g.Mode) {
+			v.errorf(with(kp, "mode"), "mode must be one of %s", strings.Join(GoldenModes, ", "))
+		}
+		if g.Min < 0 || g.Min > 1 {
+			v.errorf(with(kp, "min"), "min must be between 0 and 1")
+		}
 	case "captured":
 		if strings.TrimSpace(a.Captured.Name) == "" {
 			v.errorf(with(kp, "name"), "captured needs the capture's name")

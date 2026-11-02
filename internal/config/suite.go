@@ -27,7 +27,7 @@ var ActionNames = []string{"navigate", "click", "fill", "press", "wait", "screen
 var AssertionKinds = []string{
 	"judge", "contains", "not_contains", "regex", "not_regex", "json_path", "status",
 	"tool_called", "tool_not_called", "tool_sequence", "dtmf_received", "call_ended_by", "transferred_to",
-	"evaluator", "metric", "turns", "captured", "custom", "pack",
+	"evaluator", "metric", "turns", "captured", "golden", "custom", "pack",
 }
 
 // Suite is one YAML suite file (design.md §5): targets, defaults and tests.
@@ -205,6 +205,17 @@ type Capture struct {
 	JSONPath string `yaml:"json_path,omitempty" json:"json_path,omitempty" jsonschema:"description=A JSONPath on the turn's raw response (rest / websocket / realtime events)."`
 }
 
+// GoldenAssertion compares the agent's turns with reference turns.
+type GoldenAssertion struct {
+	File  string   `yaml:"file,omitempty" json:"file,omitempty" jsonschema:"description=A JSON file next to the suite: an array of agent turns or a transcript.json; written by tamesu run --update-golden."`
+	Turns []string `yaml:"turns,omitempty" json:"turns,omitempty" jsonschema:"description=Inline reference turns instead of a file."`
+	Mode  string   `yaml:"mode,omitempty" json:"mode,omitempty" jsonschema:"enum=exact,enum=similar,enum=judge,description=exact (normalised text) / similar (word overlap at least min; the default) / judge (the judge decides whether each turn means the same)."`
+	Min   float64  `yaml:"min,omitempty" json:"min,omitempty" jsonschema:"description=similar: the minimum word overlap (0 to 1); default 0.8."`
+}
+
+// GoldenModes are the values of golden.mode.
+var GoldenModes = []string{"exact", "similar", "judge"}
+
 // CapturedAssertion is the captured assertion: a captured value exists and
 // equals or matches something.
 type CapturedAssertion struct {
@@ -325,6 +336,7 @@ type Assertion struct {
 	Metric        *MetricAssertion   `yaml:"metric,omitempty" json:"metric,omitempty"`
 	Turns         *IntCompare        `yaml:"turns,omitempty" json:"turns,omitempty" jsonschema:"description=Number of agent turns."`
 	Captured      *CapturedAssertion `yaml:"captured,omitempty" json:"captured,omitempty" jsonschema:"description=A value captured during the run exists and equals or matches."`
+	Golden        *GoldenAssertion   `yaml:"golden,omitempty" json:"golden,omitempty" jsonschema:"description=The agent's turns against reference turns: a file next to the suite or inline turns; exact / similar / judge."`
 	Custom        *string            `yaml:"custom,omitempty" json:"custom,omitempty" jsonschema:"description=A Go-registered assertion by name."`
 	Pack          *string            `yaml:"pack,omitempty" json:"pack,omitempty" jsonschema:"description=A reusable assertion set: a built-in red-team pack (prompt_injection / pii_leakage / system_prompt_leakage) or one of the suite's packs; it expands into its assertions when the suite loads."`
 	OnTurn        OnTurn             `yaml:"on_turn,omitempty" json:"on_turn,omitempty"`
@@ -354,6 +366,7 @@ func (a Assertion) Kinds() []string {
 		"metric":          a.Metric != nil,
 		"turns":           a.Turns != nil,
 		"captured":        a.Captured != nil,
+		"golden":          a.Golden != nil,
 		"custom":          a.Custom != nil,
 		"pack":            a.Pack != nil,
 	}

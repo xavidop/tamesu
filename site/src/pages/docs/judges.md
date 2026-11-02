@@ -63,6 +63,25 @@ With `genkit.plugins: [evaluators]`, `genkitEval/deep_equal`, `genkitEval/regex`
 `genkitEval/jsonata` are available; a Genkit app that embeds tamesu with `llm.WithGenkit` can
 use its own evaluators.
 
+## Reference answers
+
+When the right answer is known, compare against it instead of describing it: the `golden`
+assertion holds the agent's turns against reference turns, from a file next to the suite or
+inline. `mode: exact` wants the same words (case, punctuation and spacing aside), `similar` a
+word overlap of at least `min` (default 0.8), and `judge` asks the judge whether each turn means
+the same as its reference, which tolerates rewording but not a changed fact.
+
+```yaml
+assert:
+  - golden: { file: golden/refund.json, mode: judge }
+  - golden: { turns: ["Our return window is 30 days from delivery."], mode: similar, min: 0.7 }
+```
+
+The file is a JSON array of agent turns, or a `transcript.json` from an earlier run. The first
+run writes a missing file from its transcript (and tells you to review it); `tamesu run
+--update-golden` rewrites every golden file from the current run once the agent's new answers
+are the ones you want.
+
 ## Cost
 
 Every judge call is counted: `llm_cost_usd` and `llm_tokens` are metrics of each run, the

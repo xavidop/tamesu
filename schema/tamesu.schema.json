@@ -66,6 +66,10 @@
           "$ref": "#/$defs/CapturedAssertion",
           "description": "A value captured during the run exists and equals or matches."
         },
+        "golden": {
+          "$ref": "#/$defs/GoldenAssertion",
+          "description": "The agent's turns against reference turns: a file next to the suite or inline turns; exact / similar / judge."
+        },
         "custom": {
           "type": "string",
           "description": "A Go-registered assertion by name."
@@ -304,6 +308,36 @@
           ]
         }
       ]
+    },
+    "GoldenAssertion": {
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "A JSON file next to the suite: an array of agent turns or a transcript.json; written by tamesu run --update-golden."
+        },
+        "turns": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Inline reference turns instead of a file."
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "exact",
+            "similar",
+            "judge"
+          ],
+          "description": "exact (normalised text) / similar (word overlap at least min; the default) / judge (the judge decides whether each turn means the same)."
+        },
+        "min": {
+          "type": "number",
+          "description": "similar: the minimum word overlap (0 to 1); default 0.8."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "HTTPTrigger": {
       "properties": {

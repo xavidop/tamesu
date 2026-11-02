@@ -225,6 +225,7 @@ The top level of the file.
 | `metric` | [MetricAssertion](#metricassertion) |  |  |
 | `turns` | [IntCompare](#intcompare) |  | Number of agent turns. |
 | `captured` | [CapturedAssertion](#capturedassertion) |  | A value captured during the run exists and equals or matches. |
+| `golden` | [GoldenAssertion](#goldenassertion) |  | The agent's turns against reference turns: a file next to the suite or inline turns; exact / similar / judge. |
 | `custom` | string |  | A Go-registered assertion by name. |
 | `pack` | string |  | A reusable assertion set: a built-in red-team pack (prompt_injection / pii_leakage / system_prompt_leakage) or one of the suite's packs; it expands into its assertions when the suite loads. |
 | `on_turn` | [OnTurn](#onturn) |  |  |
@@ -364,6 +365,15 @@ Type: string.
 |---|---|---|---|
 | `name` | string |  | The case's name; default case 1 / case 2... |
 | `vars` | map of string to string | yes | Values for {{vars.<key>}} in this case. |
+
+## GoldenAssertion
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `file` | string |  | A JSON file next to the suite: an array of agent turns or a transcript.json; written by tamesu run --update-golden. |
+| `turns` | list of string |  | Inline reference turns instead of a file. |
+| `mode` | one of `exact`, `similar`, `judge` |  | exact (normalised text) / similar (word overlap at least min; the default) / judge (the judge decides whether each turn means the same). |
+| `min` | number |  | similar: the minimum word overlap (0 to 1); default 0.8. |
 
 ## Hook
 
