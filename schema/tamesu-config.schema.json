@@ -301,6 +301,24 @@
         "address"
       ]
     },
+    "SlackConfig": {
+      "properties": {
+        "webhook": {
+          "type": "string",
+          "description": "The incoming webhook URL as {{secrets.NAME}}."
+        },
+        "only_failures": {
+          "type": "boolean",
+          "description": "Post only when a test failed or errored or the run regressed against the baseline."
+        },
+        "link": {
+          "type": "string",
+          "description": "A link put at the end of the message such as the job URL; templates and ${VAR} apply."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "Speech": {
       "properties": {
         "stt": {
@@ -398,7 +416,10 @@
         "type": "string"
       },
       "type": "array",
-      "description": "Reporters to run: console and junit and json and html."
+      "description": "Reporters to run: console / junit / json / html / markdown / github / slack."
+    },
+    "slack": {
+      "$ref": "#/$defs/SlackConfig"
     },
     "secrets": {
       "additionalProperties": {

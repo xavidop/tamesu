@@ -100,6 +100,15 @@ A chain `env:NAME,aws-sm://...` lets developers use a local variable and CI the 
 
 ## Reports
 
+On GitHub Actions add the `github` reporter: every failed test becomes an annotation on its line
+in the suite file and the run's table lands in the job summary; `markdown` writes the same table
+as `summary.md` for a pull request comment, and `slack` posts to a webhook. See
+[Reports](/docs/reports/#github).
+
+```yaml
+- run: tamesu run --reporter console,github,junit
+```
+
 Every run writes a run directory with `summary.json`, `junit.xml` for the CI's test reporter
 and, per test and run, `transcript.json` and `result.json` with the assertions, metrics and
 judge reasoning. Upload the run directory as an artifact to read a failure after the fact. See

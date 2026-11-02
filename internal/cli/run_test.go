@@ -192,9 +192,13 @@ func TestRunErrors(t *testing.T) {
 	assert.Equal(t, cli.ExitConfig, code)
 	assert.Contains(t, stderr, "no tests match the selection")
 
+	code, _, stderr = run(t, nil, deps, "run", "--config", cfg, "--reporter", "fax", "--filter", "good")
+	assert.Equal(t, cli.ExitConfig, code)
+	assert.Contains(t, stderr, `unknown reporter "fax"`)
+
 	code, _, stderr = run(t, nil, deps, "run", "--config", cfg, "--reporter", "slack", "--filter", "good")
 	assert.Equal(t, cli.ExitConfig, code)
-	assert.Contains(t, stderr, `unknown reporter "slack"`)
+	assert.Contains(t, stderr, "the slack reporter needs slack.webhook")
 
 	code, _, stderr = run(t, nil, deps, "run", "--config", cfg, "--mode", "video")
 	assert.Equal(t, cli.ExitConfig, code)

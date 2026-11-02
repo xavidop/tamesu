@@ -194,8 +194,12 @@ type Test struct {
 	Steps         []Step            `yaml:"steps,omitempty" json:"steps,omitempty" jsonschema:"description=Browser tests only."`
 	Persona       *Persona          `yaml:"persona,omitempty" json:"persona,omitempty"`
 	Scenario      *Scenario         `yaml:"scenario,omitempty" json:"scenario,omitempty"`
-	Capture       []Capture         `yaml:"capture,omitempty" json:"capture,omitempty" jsonschema:"description=Values taken from the agent's turns as they arrive (the first match wins) and offered as {{captured.<name>}} to later script say steps / tool_results / hooks / assertions."`
-	Assert        []Assertion       `yaml:"assert,omitempty" json:"assert,omitempty"`
+	// Line is the test's line in its suite file, for annotations. Not part
+	// of the format.
+	Line int `yaml:"-" json:"-"`
+
+	Capture []Capture   `yaml:"capture,omitempty" json:"capture,omitempty" jsonschema:"description=Values taken from the agent's turns as they arrive (the first match wins) and offered as {{captured.<name>}} to later script say steps / tool_results / hooks / assertions."`
+	Assert  []Assertion `yaml:"assert,omitempty" json:"assert,omitempty"`
 }
 
 // Capture names a value to take from the agent's turns.

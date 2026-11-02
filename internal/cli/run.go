@@ -76,7 +76,7 @@ func pluginForCredential(name string) string {
 type TargetFactory func(ctx context.Context, spec runner.TargetSpec) (target.Target, error)
 
 // supportedReporters are the reporters this build has.
-var supportedReporters = []string{"console", "json", "junit", "html"}
+var supportedReporters = []string{"console", "json", "junit", "html", "markdown", "github", "slack"}
 
 func (a *app) newRunCmd() *cobra.Command {
 	var (
@@ -161,6 +161,7 @@ func (a *app) newRunCmd() *cobra.Command {
 				out = filepath.Join(".tamesu", "runs", a.deps.Now().Format("2006-01-02T15-04-05"))
 			}
 			var reps report.Multi
+			wantSlack := false
 			for _, r := range reporters {
 				switch r {
 				case "console":
@@ -171,6 +172,12 @@ func (a *app) newRunCmd() *cobra.Command {
 					reps = append(reps, report.NewJUnit(out))
 				case "html":
 					reps = append(reps, report.NewHTML(out))
+				case "markdown":
+					reps = append(reps, report.NewMarkdown(out))
+				case "github":
+					reps = append(reps, report.NewGitHub(out, cmd.OutOrStdout()))
+				case "slack":
+					wantSlack = true
 				default:
 					return usageError(fmt.Errorf("--reporter: unknown reporter %q (have %s)", r, strings.Join(supportedReporters, ", ")))
 				}
@@ -199,6 +206,16 @@ func (a *app) newRunCmd() *cobra.Command {
 			if selected == 0 {
 				return configError(fmt.Errorf("no tests match the selection in %s", plural(len(suites), "suite")))
 			}
+			if wantSlack {
+				declared := secrets.Declared(p, nil)
+				for _, tmpl := range []string{p.Slack.Webhook, p.Slack.Link} {
+					for _, name := range config.SecretRefs(tmpl) {
+						if ref, ok := declared[name]; ok {
+							refs[name] = ref
+						}
+					}
+				}
+			}
 			flagVars, err := a.refVars(nil)
 			if err != nil {
 				return err
@@ -217,6 +234,21 @@ func (a *app) newRunCmd() *cobra.Command {
 				if v, ok := store.Lookup(name); ok {
 					a.redactor.Add(name, v)
 				}
+			}
+			if wantSlack {
+				if p.Slack.Webhook == "" {
+					return configError(errors.New("the slack reporter needs slack.webhook in tamesu.yaml (a {{secrets.NAME}})"))
+				}
+				sc := config.Scope{Env: a.env(), Vars: refVars, Secrets: store.Lookup}
+				hook, err := config.Render(p.Slack.Webhook, sc)
+				if err != nil {
+					return configError(fmt.Errorf("slack.webhook: %w", err))
+				}
+				sl := report.NewSlack(hook, p.Slack.OnlyFailures)
+				if sl.Link, err = config.Render(p.Slack.Link, sc); err != nil {
+					return configError(fmt.Errorf("slack.link: %w", err))
+				}
+				reps = append(reps, sl)
 			}
 			logger := a.logger()
 			slog.SetDefault(logger)
@@ -305,7 +337,7 @@ func (a *app) newRunCmd() *cobra.Command {
 	cmd.MarkFlagsMutuallyExclusive("replay", "update-cache")
 	cmd.Flags().BoolVar(&updateGolden, "update-golden", false, "golden assertions: rewrite every golden file from this run's transcripts")
 	cmd.Flags().StringVar(&out, "out", "", "run output directory (default .tamesu/runs/<timestamp>)")
-	cmd.Flags().StringSliceVar(&reporters, "reporter", nil, "reporters: console, json, junit, html (default from tamesu.yaml)")
+	cmd.Flags().StringSliceVar(&reporters, "reporter", nil, "reporters: console, json, junit, html, markdown, github, slack (default from tamesu.yaml)")
 	cmd.Flags().Float64Var(&maxCostUSD, "max-cost-usd", 0, "stop the run once tamesu's own model spend exceeds this (default budgets.max_cost_usd)")
 	return cmd
 }

@@ -20,6 +20,8 @@ Every `tamesu run` writes a run directory and feeds the reporters named in `repo
     result.json          everything about the run: assertions with reasons, metrics, trace ids, events, steps
     audio.wav            (voice audio mode and sip: left the caller, right the agent)
     steps.json           (browser: each step with its outcome, actions and screenshot)
+    summary.md           (markdown and github reporters: the run as Markdown)
+    comparison.json      (--baseline / tamesu compare: the run against the baseline)
     screenshots/*.png    (browser: one per step, plus screenshot actions)
     recording.webm       (browser: the whole session; recording.gif without ffmpeg)
     trace.har            (browser)
@@ -137,3 +139,39 @@ for browser tests, an audio player for
 the artifacts and the Genkit trace ids. Artifacts are linked relative to the file, so the run
 directory can be zipped and shared. `tamesu report <run-dir>` rebuilds it from `summary.json`
 (for example on a CI artifact).
+
+## markdown
+
+`summary.md` in the run directory: the headline, the table of tests and a collapsed list of the
+failures with their reasons, in GitHub-flavoured Markdown. Post it as it is:
+
+```sh
+tamesu run --reporter console,markdown --out .tamesu/runs/pr
+gh pr comment "$PR" --body-file .tamesu/runs/pr/summary.md
+```
+
+## github
+
+For GitHub Actions. It writes a workflow annotation per failed or errored test, pointing at the
+test's line in its suite file (`::error file=tests/support.yaml,line=30,title=tamesu: refund
+policy::the reason`), so failures show inline on the pull request's files; it appends the
+Markdown summary to the job summary (`GITHUB_STEP_SUMMARY`) and writes `summary.md` in the run
+directory. Nothing to configure: `tamesu run --reporter console,github`.
+
+## slack
+
+Posts one message to a Slack incoming webhook when the run ends: the headline, the baseline
+verdict when there is one, and the failures with their reasons (ten at most).
+
+```yaml
+reporters: [console, slack]
+slack:
+  webhook: "{{secrets.SLACK_WEBHOOK}}"           # declare SLACK_WEBHOOK under secrets:
+  only_failures: true                            # stay quiet when everything passed
+  link: "${CI_JOB_URL:-}"                        # put at the end of the message
+secrets:
+  SLACK_WEBHOOK: env:SLACK_WEBHOOK
+```
+
+A webhook that answers an error fails the run with an infrastructure error, so a broken
+notification is noticed.

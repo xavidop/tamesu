@@ -108,7 +108,7 @@ reported on stderr and makes the command exit `2`; warnings are not printed.
 ## tamesu run
 
 ```text
-tamesu run [paths...] [--filter <regex>] [--tags a,b] [--target <name>] [--parallel N] [--repeat N] [--load N [--load-duration D]] [--mode text|audio] [--headed] [--replay | --update-cache] [--update-golden] [--baseline | --baseline-dir <dir>] [--out <dir>] [--reporter console,json,junit,html] [--max-cost-usd X]
+tamesu run [paths...] [--filter <regex>] [--tags a,b] [--target <name>] [--parallel N] [--repeat N] [--load N [--load-duration D]] [--mode text|audio] [--headed] [--replay | --update-cache] [--update-golden] [--baseline | --baseline-dir <dir>] [--out <dir>] [--reporter console,json,junit,html,markdown,github,slack] [--max-cost-usd X]
 ```
 
 Runs the selected tests. `tamesu.yaml` and the suites are loaded with `${VAR}` required; the
@@ -135,7 +135,7 @@ versions); the reporters write `summary.json`, `junit.xml` and the console outpu
 | `--update-golden` | Rewrite every `golden` file from this run's transcripts; see [Reference answers](/docs/judges/#reference-answers). |
 | `--baseline`, `--baseline-dir <dir>` | After the run, compare it with the baseline (`baseline.dir`, default `.tamesu/baseline`, or the directory given): new failures, fixed tests, p95 latency and cost growth beyond the limits. Writes `comparison.json`, prints the verdict and exits 1 on a regression. See [Comparing with a baseline](/docs/reports/#comparing-with-a-baseline). |
 | `--out <dir>` | Run directory (default `.tamesu/runs/<timestamp>`). |
-| `--reporter console,json,junit,html` | Reporters to run (default `reporters:` of `tamesu.yaml`; `json` is always on). |
+| `--reporter console,json,junit,html,markdown,github,slack` | Reporters to run (default `reporters:` of `tamesu.yaml`; `json` is always on). See [Reports](/docs/reports/). |
 | `--max-cost-usd X` | Stop the run once tamesu's own model spend exceeds X (default `budgets.max_cost_usd`). |
 
 Exit `0` when every test passed, `1` when a test failed (including a timeout), `2` on a config

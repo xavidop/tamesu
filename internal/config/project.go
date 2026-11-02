@@ -17,7 +17,8 @@ type Project struct {
 	LiveKit   LiveKitConfig     `yaml:"livekit,omitempty" json:"livekit,omitempty"`
 	Baseline  BaselineConfig    `yaml:"baseline,omitempty" json:"baseline,omitempty"`
 	Hooks     *Hooks            `yaml:"hooks,omitempty" json:"hooks,omitempty" jsonschema:"description=Setup and teardown for every suite; a suite's hooks run after the project's."`
-	Reporters []string          `yaml:"reporters,omitempty" json:"reporters,omitempty" jsonschema:"description=Reporters to run: console and junit and json and html."`
+	Reporters []string          `yaml:"reporters,omitempty" json:"reporters,omitempty" jsonschema:"description=Reporters to run: console / junit / json / html / markdown / github / slack."`
+	Slack     SlackConfig       `yaml:"slack,omitempty" json:"slack,omitempty"`
 	Secrets   map[string]string `yaml:"secrets,omitempty" json:"secrets,omitempty" jsonschema:"description=Secret name to mamori ref (env:X or aws-sm://... or a precedence chain)."`
 	Vars      map[string]string `yaml:"vars,omitempty" json:"vars,omitempty" jsonschema:"description=Project-wide values for {{vars.x}} and ${VAR} expansion in secret refs."`
 }
@@ -43,6 +44,13 @@ type Models struct {
 type CacheConfig struct {
 	Dir string `yaml:"dir,omitempty" json:"dir,omitempty" jsonschema:"description=Directory of the caches (browser action plans and llm answers); default .tamesu/cache."`
 	LLM *bool  `yaml:"llm,omitempty" json:"llm,omitempty" jsonschema:"description=Cache the simulator's turns and the judge's verdicts by request (default true); false calls the models every time."`
+}
+
+// SlackConfig is the slack reporter's webhook.
+type SlackConfig struct {
+	Webhook      string `yaml:"webhook,omitempty" json:"webhook,omitempty" jsonschema:"description=The incoming webhook URL as {{secrets.NAME}}."`
+	OnlyFailures bool   `yaml:"only_failures,omitempty" json:"only_failures,omitempty" jsonschema:"description=Post only when a test failed or errored or the run regressed against the baseline."`
+	Link         string `yaml:"link,omitempty" json:"link,omitempty" jsonschema:"description=A link put at the end of the message such as the job URL; templates and ${VAR} apply."`
 }
 
 // BaselineConfig is where the baseline run lives and what counts as a

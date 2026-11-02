@@ -32,6 +32,7 @@ type RunInfo struct {
 type TestOutcome struct {
 	Suite         string        `json:"suite"`
 	File          string        `json:"file"`
+	Line          int           `json:"line,omitempty"`
 	Name          string        `json:"name"`
 	Target        string        `json:"target"`
 	Type          string        `json:"type"`

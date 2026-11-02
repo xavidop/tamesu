@@ -73,7 +73,8 @@ secrets:                                    # resolved with mamori, see below
 | `cache.dir` | `.tamesu/cache` | Where the caches live: browser action plans (see [Browser](/docs/targets/browser/)) and cached simulator turns and judge verdicts (see [Replay](/docs/ai/#replay-cached-turns-and-verdicts)). |
 | `baseline.dir` | `.tamesu/baseline` | Where `tamesu baseline save` keeps the baseline; `baseline.max_latency_increase_pct` (20), `baseline.max_cost_increase_pct` (50) and `baseline.fail_on_new_failures` (true) decide what `--baseline` and `tamesu compare` call a regression. |
 | `cache.llm` | `true` | Answer the simulated user's turns and the judge's verdicts from the cache when the same conversation was seen before; `false` calls the models every time. |
-| `reporters` | `[console, junit, html]` | Reporters to run: `console`, `junit`, `json`, `html`. |
+| `reporters` | `[console, junit, html]` | Reporters to run: `console`, `junit`, `json`, `html`, `markdown`, `github`, `slack` (see [Reports](/docs/reports/)). |
+| `slack.webhook` | | The incoming webhook of the `slack` reporter, as `{{secrets.NAME}}`; `slack.only_failures` posts only on failures or a regression; `slack.link` goes at the end of the message. |
 | `secrets` | none | Secret name to mamori ref. |
 | `vars` | none | Project-wide values for `{{vars.x}}` and `${VAR}` in secret refs. |
 

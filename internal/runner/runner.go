@@ -382,7 +382,7 @@ func (r *run) collect() ([]*item, error) {
 			}
 			it.dir = filepath.Join(r.o.OutDir, "tests", slug)
 			it.outcome = &report.TestOutcome{
-				Suite: s.Suite, File: s.Path, Name: t.Name, Target: t.Target, Type: tgt.Type, Tags: s.TagsOf(t),
+				Suite: s.Suite, File: s.Path, Line: t.Line, Name: t.Name, Target: t.Target, Type: tgt.Type, Tags: s.TagsOf(t),
 				Repeat: it.repeat, PassThreshold: it.threshold, Dir: it.dir,
 			}
 			items = append(items, it)
