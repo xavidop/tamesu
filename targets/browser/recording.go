@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"image"
+	"image/color"
 	"image/color/palette"
 	"image/draw"
 	"image/gif"
@@ -162,22 +163,32 @@ func frameDurations(frames []frame, end time.Time) []time.Duration {
 }
 
 // writeGIF encodes the frames as an animated GIF with their real timing.
+// Chromium's frames can differ in size (the viewport settles after the first
+// paints), and a GIF's frames must all fit its canvas, so every frame is
+// drawn onto a canvas of the largest size seen.
 func writeGIF(frames []frame, end time.Time, path string) error {
 	durations := frameDurations(frames, end)
-	g := &gif.GIF{LoopCount: 0}
+	var imgs []image.Image
+	var delays []int
+	w, h := 0, 0
 	for i, f := range frames {
 		img, err := jpeg.Decode(bytes.NewReader(f.jpeg))
 		if err != nil {
 			continue
 		}
-		b := img.Bounds()
-		pal := image.NewPaletted(image.Rect(0, 0, b.Dx(), b.Dy()), palette.Plan9)
-		draw.Draw(pal, pal.Bounds(), img, b.Min, draw.Src)
-		g.Image = append(g.Image, pal)
-		g.Delay = append(g.Delay, int(durations[i]/(10*time.Millisecond)))
+		imgs = append(imgs, img)
+		delays = append(delays, int(durations[i]/(10*time.Millisecond)))
+		w, h = max(w, img.Bounds().Dx()), max(h, img.Bounds().Dy())
 	}
-	if len(g.Image) == 0 {
+	if len(imgs) == 0 {
 		return fmt.Errorf("browser: no decodable frame for the recording")
+	}
+	g := &gif.GIF{LoopCount: 0, Config: image.Config{ColorModel: color.Palette(palette.Plan9), Width: w, Height: h}}
+	for i, img := range imgs {
+		pal := image.NewPaletted(image.Rect(0, 0, w, h), palette.Plan9)
+		draw.Draw(pal, img.Bounds().Sub(img.Bounds().Min), img, img.Bounds().Min, draw.Src)
+		g.Image = append(g.Image, pal)
+		g.Delay = append(g.Delay, delays[i])
 	}
 	f, err := os.Create(path)
 	if err != nil {
@@ -185,6 +196,7 @@ func writeGIF(frames []frame, end time.Time, path string) error {
 	}
 	if err := gif.EncodeAll(f, g); err != nil {
 		_ = f.Close()
+		_ = os.Remove(path)
 		return err
 	}
 	return f.Close()
