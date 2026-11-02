@@ -33,6 +33,9 @@ th{color:var(--mute);font-weight:600}
 .turns li{padding:.3rem 0;border-bottom:1px dashed var(--line)}
 .turns .role{display:inline-block;min-width:4.5rem;font-weight:600;color:var(--mute);font-size:.8rem;text-transform:uppercase}
 .turns .user .role{color:var(--accent)}
+.compare{margin:0 0 1rem;padding:.6rem .9rem;border-radius:8px;border:1px solid var(--line);background:var(--card);font-size:.9rem}
+.compare.bad{border-color:var(--accent)}.compare.good{border-color:var(--ok)}
+.compare-list{color:var(--mute);margin-top:.2rem}
 .hist{display:flex;align-items:flex-end;gap:2px;height:140px;padding:.4rem 0 2.2rem;margin:.2rem 0 .6rem}
 .hist .bucket{flex:1 1 0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;position:relative;min-width:0}
 .hist .bar{width:100%;min-height:2px;background:#4b7bd6;border-radius:4px 4px 0 0}
@@ -71,6 +74,14 @@ a{color:var(--ink)}
   <div class="tile"><b>{{.Summary.Usage.Calls}}</b>model calls</div>
   <div class="tile"><b>${{printf "%.4f" .Summary.Usage.CostUSD}}</b>{{.Summary.Usage.Total}} tokens{{if .Summary.BudgetExceeded}} · budget exceeded{{end}}</div>
 </div>
+{{with .Summary.Comparison}}
+<div class="compare {{if .Regressed}}bad{{else}}good{{end}}">
+  <b>vs baseline{{if .BaselineAt}} {{.BaselineAt}}{{end}}:</b> {{if .Regressed}}regressed{{else}}no regression{{end}} ·
+  {{len .Tests}} compared, {{len .NewFailures}} new failures, {{len .Fixed}} fixed, {{len .Added}} added, {{len .Removed}} removed
+  {{if .NewFailures}}<div class="compare-list">New failures: {{join .NewFailures ", "}}</div>{{end}}
+  {{range .Tests}}{{$t := .}}{{range .Metrics}}{{if .Regressed}}<div class="compare-list">{{$t.Suite}} / {{$t.Name}}: {{.Name}} {{printf "%.0f" .Before}} → {{printf "%.0f" .After}} (+{{printf "%.0f" .IncreasePct}}%)</div>{{end}}{{end}}{{end}}
+</div>
+{{end}}
 {{range .Tests}}
 <details class="test"{{if not .Passed}} open{{end}}>
   <summary>

@@ -108,7 +108,7 @@ reported on stderr and makes the command exit `2`; warnings are not printed.
 ## tamesu run
 
 ```text
-tamesu run [paths...] [--filter <regex>] [--tags a,b] [--target <name>] [--parallel N] [--repeat N] [--load N [--load-duration D]] [--mode text|audio] [--headed] [--replay | --update-cache] [--update-golden] [--out <dir>] [--reporter console,json,junit,html] [--max-cost-usd X]
+tamesu run [paths...] [--filter <regex>] [--tags a,b] [--target <name>] [--parallel N] [--repeat N] [--load N [--load-duration D]] [--mode text|audio] [--headed] [--replay | --update-cache] [--update-golden] [--baseline | --baseline-dir <dir>] [--out <dir>] [--reporter console,json,junit,html] [--max-cost-usd X]
 ```
 
 Runs the selected tests. `tamesu.yaml` and the suites are loaded with `${VAR}` required; the
@@ -133,6 +133,7 @@ versions); the reporters write `summary.json`, `junit.xml` and the console outpu
 | `--replay` | Replay from the caches: browser goals from their cached action plans and the simulated user's turns from cached answers, a miss failing the step or the run; judge verdicts come from the cache when present and from the model otherwise. See [Replay](/docs/ai/#replay-cached-turns-and-verdicts). |
 | `--update-cache` | Ignore the caches (action plans, simulator turns, judge verdicts), call the models and refresh them. |
 | `--update-golden` | Rewrite every `golden` file from this run's transcripts; see [Reference answers](/docs/judges/#reference-answers). |
+| `--baseline`, `--baseline-dir <dir>` | After the run, compare it with the baseline (`baseline.dir`, default `.tamesu/baseline`, or the directory given): new failures, fixed tests, p95 latency and cost growth beyond the limits. Writes `comparison.json`, prints the verdict and exits 1 on a regression. See [Comparing with a baseline](/docs/reports/#comparing-with-a-baseline). |
 | `--out <dir>` | Run directory (default `.tamesu/runs/<timestamp>`). |
 | `--reporter console,json,junit,html` | Reporters to run (default `reporters:` of `tamesu.yaml`; `json` is always on). |
 | `--max-cost-usd X` | Stop the run once tamesu's own model spend exceeds X (default `budgets.max_cost_usd`). |
@@ -185,6 +186,35 @@ timeline, step screenshots and an audio player with turn markers, linking the ru
 relative to itself. The `html` reporter writes the same file during `tamesu run`
 (`reporters: [console, junit, html]`, or `--reporter html`). Exit `2` when the directory has no
 `summary.json`. See [Reports](/docs/reports/).
+
+## tamesu baseline
+
+```text
+tamesu baseline save <run-dir> [--dir <baseline-dir>]
+```
+
+Keeps the run that later runs are measured against. `tamesu baseline` alone lists its
+subcommands.
+
+## tamesu baseline save
+
+Copies a run directory's `summary.json` into the baseline directory: `--dir`, else
+`baseline.dir` in `tamesu.yaml`, else `.tamesu/baseline`. Run it on the branch you trust, after
+a green run; `tamesu run --baseline` and `tamesu compare` read it back.
+
+## tamesu compare
+
+```text
+tamesu compare <baseline-dir> <run-dir> [--max-latency-increase-pct N] [--max-cost-increase-pct N] [--fail-on-new-failures]
+```
+
+Reads both summaries, matches the tests by suite and name and reports new failures, fixed tests
+and the tests whose `turn_latency_ms_p95`, `time_to_first_token_ms_p95`,
+`time_to_first_audio_ms_p95` (medians over repeats) or `llm_cost_usd` grew beyond the limits:
+`--max-latency-increase-pct` (default 20), `--max-cost-increase-pct` (default 50), 0 disables a
+check; `--fail-on-new-failures` (default true) makes a newly failing test a regression. Defaults
+come from `baseline:` in `tamesu.yaml`. It writes `comparison.json` into the run directory and
+exits `1` when the run regressed, `0` otherwise, `2` when a summary cannot be read.
 
 ## tamesu record
 

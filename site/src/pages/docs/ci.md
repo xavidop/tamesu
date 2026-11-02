@@ -136,3 +136,11 @@ simulated user from cached turns and the browser agent from cached action plans,
 request pipeline needs no model key for the conversations that were recorded; see
 [Replay](/docs/ai/#replay-cached-turns-and-verdicts). Record on a trusted branch with the keys
 and refresh with `--update-cache` when the scenarios change.
+
+## Gating on a baseline
+
+Save a green run from your main branch as the baseline (`tamesu baseline save <run-dir>`, kept
+as an artifact or committed) and run pull requests with `tamesu run --baseline`: a test that
+starts failing, or a p95 latency or cost that grows beyond the `baseline:` limits, fails the job
+with exit 1 even when every assertion passed. See
+[Comparing with a baseline](/docs/reports/#comparing-with-a-baseline).

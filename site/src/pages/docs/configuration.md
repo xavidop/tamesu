@@ -71,6 +71,7 @@ secrets:                                    # resolved with mamori, see below
 | `budgets.*` | `max_cost_usd: 5`, `max_tokens: 2_000_000` | Caps on tamesu's own model spend per run (exit code 4 when exceeded). |
 | `livekit.max_concurrent_rooms` | `4` | How many LiveKit tests run at once. |
 | `cache.dir` | `.tamesu/cache` | Where the caches live: browser action plans (see [Browser](/docs/targets/browser/)) and cached simulator turns and judge verdicts (see [Replay](/docs/ai/#replay-cached-turns-and-verdicts)). |
+| `baseline.dir` | `.tamesu/baseline` | Where `tamesu baseline save` keeps the baseline; `baseline.max_latency_increase_pct` (20), `baseline.max_cost_increase_pct` (50) and `baseline.fail_on_new_failures` (true) decide what `--baseline` and `tamesu compare` call a regression. |
 | `cache.llm` | `true` | Answer the simulated user's turns and the judge's verdicts from the cache when the same conversation was seen before; `false` calls the models every time. |
 | `reporters` | `[console, junit, html]` | Reporters to run: `console`, `junit`, `json`, `html`. |
 | `secrets` | none | Secret name to mamori ref. |

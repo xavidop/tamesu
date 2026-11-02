@@ -97,6 +97,35 @@ read one file.
 | `3` | an infrastructure error on any test |
 | `4` | the cost budget stopped the run |
 
+## Comparing with a baseline
+
+A run on its own says whether the tests passed; against a baseline it says whether anything got
+worse. `tamesu baseline save <run-dir>` keeps a trusted run's `summary.json` (in
+`.tamesu/baseline`, or `baseline.dir`); then `tamesu run --baseline` compares the new run with it
+and `tamesu compare <baseline-dir> <run-dir>` compares any two runs after the fact.
+
+The comparison matches tests by suite and name and reports:
+
+- **new failures**: tests that passed in the baseline and fail now (a regression by default);
+- **fixed**, **added** and **removed** tests;
+- per test, the growth of `turn_latency_ms_p95`, `time_to_first_token_ms_p95`,
+  `time_to_first_audio_ms_p95` (medians over the test's repeats, so one slow run does not
+  decide) against `max_latency_increase_pct` (default 20), and of `llm_cost_usd` against
+  `max_cost_increase_pct` (default 50); growth under 50 ms or $0.001 is never a regression,
+  whatever the percentage.
+
+```yaml
+baseline:                                   # tamesu.yaml
+  dir: .tamesu/baseline
+  max_latency_increase_pct: 20
+  max_cost_increase_pct: 50
+  fail_on_new_failures: true
+```
+
+The verdict is printed after the summary line, written as `comparison.json` in the run
+directory and into `summary.json`, and shown at the top of the HTML report. A regression exits
+`1` even when every test passed.
+
 ## html
 
 `report.html` is one self-contained file (no external assets): the totals, then every test

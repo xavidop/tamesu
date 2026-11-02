@@ -87,6 +87,8 @@ func (a *app) newRunCmd() *cobra.Command {
 		headed       bool
 		replayOnly   bool
 		updateGolden bool
+		baseline     bool
+		baselineDir  string
 		updateCache  bool
 		out          string
 		reporters    []string
@@ -263,13 +265,35 @@ func (a *app) newRunCmd() *cobra.Command {
 				}
 				return infraError(err)
 			}
-			if code := summary.ExitCode(); code != ExitOK {
+			code := summary.ExitCode()
+			if baseline || baselineDir != "" {
+				dir := baselineDir
+				if dir == "" {
+					dir = p.Baseline.EffectiveDir()
+				}
+				c, cerr := compareWithBaseline(cmd.OutOrStdout(), dir, out, summary, thresholdsOf(p.Baseline))
+				if cerr != nil {
+					return configError(cerr)
+				}
+				// The summary now carries the comparison; rewrite the files
+				// that show it.
+				_ = report.NewJSON(out).Finish(ctx, summary)
+				if slices.Contains(reporters, "html") {
+					_ = report.WriteHTML(out, summary)
+				}
+				if c.Regressed && code == ExitOK {
+					code = ExitFailed
+				}
+			}
+			if code != ExitOK {
 				return silentExit(code)
 			}
 			return nil
 		},
 	}
 	sel.add(cmd)
+	cmd.Flags().BoolVar(&baseline, "baseline", false, "after the run, compare it with the baseline (baseline.dir in tamesu.yaml, default .tamesu/baseline) and exit 1 on a regression")
+	cmd.Flags().StringVar(&baselineDir, "baseline-dir", "", "the baseline directory to compare with (implies --baseline)")
 	cmd.Flags().IntVar(&parallel, "parallel", 0, "concurrent runs (default: the number of CPUs)")
 	cmd.Flags().IntVar(&repeat, "repeat", 0, "override every test's repeat count")
 	cmd.Flags().IntVar(&load, "load", 0, "load mode: run every selected test with N concurrent virtual users (--parallel defaults to N per test)")

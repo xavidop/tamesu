@@ -2,6 +2,28 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://xavidop.github.io/tamesu/schema/tamesu-config.schema.json",
   "$defs": {
+    "BaselineConfig": {
+      "properties": {
+        "dir": {
+          "type": "string",
+          "description": "Where tamesu baseline save keeps the baseline summary; default .tamesu/baseline."
+        },
+        "max_latency_increase_pct": {
+          "type": "number",
+          "description": "A test's p95 latency metrics may grow this much over the baseline (median over repeats); default 20; 0 disables."
+        },
+        "max_cost_increase_pct": {
+          "type": "number",
+          "description": "A test's llm_cost_usd may grow this much; default 50; 0 disables."
+        },
+        "fail_on_new_failures": {
+          "type": "boolean",
+          "description": "A test that passed in the baseline and fails now is a regression; default true."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "Budgets": {
       "properties": {
         "max_cost_usd": {
@@ -363,6 +385,9 @@
     },
     "livekit": {
       "$ref": "#/$defs/LiveKitConfig"
+    },
+    "baseline": {
+      "$ref": "#/$defs/BaselineConfig"
     },
     "hooks": {
       "$ref": "#/$defs/Hooks",

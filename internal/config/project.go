@@ -15,6 +15,7 @@ type Project struct {
 	Defaults  Defaults          `yaml:"defaults,omitempty" json:"defaults,omitempty"`
 	Budgets   Budgets           `yaml:"budgets,omitempty" json:"budgets,omitempty"`
 	LiveKit   LiveKitConfig     `yaml:"livekit,omitempty" json:"livekit,omitempty"`
+	Baseline  BaselineConfig    `yaml:"baseline,omitempty" json:"baseline,omitempty"`
 	Hooks     *Hooks            `yaml:"hooks,omitempty" json:"hooks,omitempty" jsonschema:"description=Setup and teardown for every suite; a suite's hooks run after the project's."`
 	Reporters []string          `yaml:"reporters,omitempty" json:"reporters,omitempty" jsonschema:"description=Reporters to run: console and junit and json and html."`
 	Secrets   map[string]string `yaml:"secrets,omitempty" json:"secrets,omitempty" jsonschema:"description=Secret name to mamori ref (env:X or aws-sm://... or a precedence chain)."`
@@ -42,6 +43,26 @@ type Models struct {
 type CacheConfig struct {
 	Dir string `yaml:"dir,omitempty" json:"dir,omitempty" jsonschema:"description=Directory of the caches (browser action plans and llm answers); default .tamesu/cache."`
 	LLM *bool  `yaml:"llm,omitempty" json:"llm,omitempty" jsonschema:"description=Cache the simulator's turns and the judge's verdicts by request (default true); false calls the models every time."`
+}
+
+// BaselineConfig is where the baseline run lives and what counts as a
+// regression against it (tamesu run --baseline, tamesu compare).
+type BaselineConfig struct {
+	Dir                   string   `yaml:"dir,omitempty" json:"dir,omitempty" jsonschema:"description=Where tamesu baseline save keeps the baseline summary; default .tamesu/baseline."`
+	MaxLatencyIncreasePct *float64 `yaml:"max_latency_increase_pct,omitempty" json:"max_latency_increase_pct,omitempty" jsonschema:"description=A test's p95 latency metrics may grow this much over the baseline (median over repeats); default 20; 0 disables."`
+	MaxCostIncreasePct    *float64 `yaml:"max_cost_increase_pct,omitempty" json:"max_cost_increase_pct,omitempty" jsonschema:"description=A test's llm_cost_usd may grow this much; default 50; 0 disables."`
+	FailOnNewFailures     *bool    `yaml:"fail_on_new_failures,omitempty" json:"fail_on_new_failures,omitempty" jsonschema:"description=A test that passed in the baseline and fails now is a regression; default true."`
+}
+
+// DefaultBaselineDir is where the baseline summary lives.
+const DefaultBaselineDir = ".tamesu/baseline"
+
+// EffectiveDir is the baseline directory with the default applied.
+func (b BaselineConfig) EffectiveDir() string {
+	if b.Dir == "" {
+		return DefaultBaselineDir
+	}
+	return b.Dir
 }
 
 // LLMCacheOn reports whether the llm cache is enabled (the default).

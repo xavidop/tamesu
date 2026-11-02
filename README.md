@@ -114,6 +114,8 @@ tamesu list [paths...]           list tests (--json, --filter, --tags, --target)
 tamesu run [paths...]            run suites (--filter, --tags, --target, --parallel, --repeat, --load, --load-duration, --mode, --headed, --replay, --update-cache, --out, --reporter, --max-cost-usd)
 tamesu doctor [paths...]         check config, suites and secrets (via mamori), models, speech, Chromium, LiveKit and SIP
 tamesu report <run-dir>          rebuild report.html from a run directory
+tamesu baseline save <run-dir>   keep a run as the baseline (--dir)
+tamesu compare <base> <run>      compare a run with a baseline; exit 1 on a regression
 tamesu record browser <url>      record a browser session into deterministic steps (--out)
 tamesu generate                  draft tests from a PRD or system prompt (--from, --target, --type, --count, --out)
 tamesu sip setup                 create or reuse the LiveKit SIP trunks and dispatch rule (--outbound, --inbound)

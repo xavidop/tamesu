@@ -208,6 +208,8 @@ type Summary struct {
 	// LLMCache counts the simulator turns and judge verdicts answered from
 	// the cache and the ones that called a model.
 	LLMCache *CacheStats `json:"llm_cache,omitempty"`
+	// Comparison is the run against its baseline, when one was given.
+	Comparison *Comparison `json:"comparison,omitempty"`
 }
 
 // CacheStats are hits and misses of a cache.
