@@ -60,7 +60,8 @@ A greeting the agent sends before the first user turn is attached to the first r
    time. Between turns the track carries the noise alone (or silence). A `dtmf` from the
    simulator is sent as real keypad tones.
 2. tamesu subscribes to the agent's audio track, decodes it and runs the voice activity
-   detector (`speech.vad.provider`: `energy` by default, `silero` in a build with `-tags onnx`).
+   detector (`speech.vad.provider`: `energy` by default, or the neural `silero`; see
+   [Speech](/docs/ai/#speech)).
    `time_to_first_audio_ms` is the caller's speech end to the agent's speech start, from the
    audio itself, never from a model.
 3. The turn is complete when the agent stopped speaking and went back to `listening` (its
@@ -74,9 +75,6 @@ A greeting the agent sends before the first user turn is attached to the first r
    adds a pause before each caller turn; `seed` makes both repeatable.
 5. `audio.wav` in the run directory is the whole session: left channel the caller (noise
    included), right channel the agent, aligned on one clock.
-
-The scripted example agent speaks and listens too (`--audio`), so `make integration` runs audio
-mode end to end with the fake speech models.
 
 ## Keys
 
@@ -113,14 +111,14 @@ mode end to end with the fake speech models.
 `result.json` records `joined`, `agent_joined`, `agent_left` and `disconnected` with
 timestamps, plus in audio mode `audio_published`, `user_speech_start`/`_end`,
 `agent_speech_start`/`_end`, `interruption`, `interruption_stopped`, `dtmf_sent` and
-`transcript_source`: the beginning of the call timeline the sip target extends.
+`transcript_source`; the sip target adds the call events to the same timeline.
 
 ## Example
 
 [`examples/livekit-agent`](https://github.com/xavidop/tamesu/tree/main/examples/livekit-agent) is
 an agent built with the LiveKit Go SDK and Genkit that joins every `tamesu-*` room, in text mode
-or (`--audio`) speaking and listening, and the suites that test it in both modes. `make integration` runs it against `livekit-server --dev` when the
-binary or Docker is available:
+or (`--audio`) speaking and listening, and the suites that test it in both modes. To run it
+against `livekit-server --dev`:
 
 ```sh
 livekit-server --dev &

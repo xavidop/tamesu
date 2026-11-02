@@ -57,7 +57,7 @@ with the list of the ones it did. See [Metrics](/docs/metrics/).
 | `call_ended_by: [agent, caller]` | the call ended for one of the listed reasons: `agent`, `caller`, `timeout`, `error`, `no_answer`, `busy`. |
 | `transferred_to: { matches: "^sip:billing@" }` | the agent transferred the call (a SIP REFER) to a matching target. |
 
-These read the session timeline the sip target records; the sip runner is planned.
+These read the call timeline the sip and livekit targets record.
 
 ## Models
 

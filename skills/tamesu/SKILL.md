@@ -7,16 +7,12 @@ description: Use when working with tamesu (試す), the Go agentic testing frame
 
 tamesu (試す, Japanese for *to try / to put to the test*) is a Go CLI and framework that runs
 agentic tests against web apps and AI agents. A **persona** with a **scenario** plays the user;
-the **target** is the system under test (`browser`, `rest`, `livekit` voice over WebRTC, or
-`sip` phone calls through a LiveKit SIP service); **assertions** mix deterministic checks with
-LLM **judges**; every run leaves a transcript, metrics and reports. Module:
-`github.com/xavidop/tamesu`. Docs: https://xavidop.github.io/tamesu/docs/
-
-What the CLI has today: `tamesu init`, `tamesu validate`, `tamesu list`, `tamesu run`,
-`tamesu doctor` and `tamesu version`, with the `rest` and `livekit` (text mode) targets runnable
-and the suite schema for all five target types. All five targets run: browser
-(Chromium, the browser agent on `models.browser_agent`), rest (HTTP, SSE, websocket), livekit
-(text and audio), sip and realtime (the OpenAI Realtime protocol, text and audio).
+the **target** is the system under test: `browser` (Chromium, driven by the browser agent on
+`models.browser_agent`), `rest` (HTTP, SSE, websocket), `livekit` (voice over WebRTC, text and
+audio), `sip` (phone calls through a LiveKit SIP service) or `realtime` (the OpenAI Realtime
+protocol, text and audio); **assertions** mix deterministic checks with LLM **judges**; every run
+leaves a transcript, metrics and reports. Module: `github.com/xavidop/tamesu`. Docs:
+https://xavidop.github.io/tamesu/docs/
 
 ## The model in one minute
 
@@ -146,7 +142,7 @@ tamesu list [paths...] [--json] [--filter re] [--tags a,b] [--target name]
 tamesu run [paths...] [--filter re] [--tags a,b] [--target name] [--parallel N] [--repeat N | --load N [--load-duration D]]
            [--mode text|audio] [--headed] [--replay | --update-cache] [--out dir] [--reporter console,json,junit,html] [--max-cost-usd X]
 tamesu doctor [paths...]                    config, suites, every secret (which chain link answered), models, speech, Chromium, LiveKit, SIP
-tamesu report <run-dir>                     rebuild report.html (self-contained: transcripts, assertions, metrics, screenshots, audio) from a run
+tamesu report <run-dir>                     rebuild report.html (self-contained: transcripts, assertions, metrics, screenshots, recording, audio) from a run
 tamesu record browser <url> [--out f]       open a window, record clicks/typing/navigation as action steps (passwords become {{secrets.PASSWORD}})
 tamesu generate --from f --target t [--type rest|livekit|sip|browser] [--count N] [--out f]   draft tests from a PRD/system prompt; validates the draft
 tamesu sip setup [--outbound] [--inbound]   create or reuse the LiveKit SIP trunks and the inbound dispatch rule from sip.trunk; prints the ids
@@ -163,7 +159,7 @@ the metrics, the judge trace ids and prompt version. With `-v` each run prints a
 The AI layer needs a model: `genkit.plugins` and `models.*` in `tamesu.yaml`, with the
 credential declared under `secrets:` (`GEMINI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or
 `models.credentials`). A binary built with `-tags llmfake` also accepts `plugins: [fake]` and
-`fake/simulator`, `fake/judge` models that replay `TAMESU_LLMFAKE_SCRIPT`, for CI without keys.
+`fake/simulator`, `fake/judge` models that replay `TAMESU_LLMFAKE_SCRIPT`, to run without keys.
 
 Global flags: `--config tamesu.yaml`, `-v/--verbose`, `--var KEY=VAL` (repeatable; ref vars for
 `${VAR}` in secret refs and `{{vars.KEY}}`), `--env-file .env` (read through mamori's dotenv
@@ -181,7 +177,7 @@ secret ref), `3` infrastructure error (a secret provider down, LiveKit or a mode
 - `secret X is not declared`: add `X` under `secrets:` in the suite or `tamesu.yaml`.
 - `tamesu run` exit 3 with `no simulator model is available` means `models.simulator` (or
   `models.default`) is unset or its plugin is not configured; `target type X is not available in
-  this build` means that target's runner has not landed (planned) or the lite build lacks it.
+  this build` means the lite build lacks it (audio and phone targets need the full build).
 - A judge failure prints the judge's reason under the test; the transcript's last turns follow.
 - `doctor` says `fail secret X: not found in any of N ref(s)`: none of the chain's links had a
   value; `provider ... failed (unavailable)` is the backend, not your config (exit 3).

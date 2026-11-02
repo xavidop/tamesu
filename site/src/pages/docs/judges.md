@@ -39,8 +39,8 @@ placeholders in anything a model reads.
 
 ## Determinism
 
-The judge prompt runs at temperature 0 when the provider supports it, and its text lives in
-`llm/prompts/judge.prompt`, a dotprompt file with a `version:` in its front matter. The version
+The judge prompt runs at temperature 0 when the provider supports it. It is a dotprompt file,
+`judge.prompt`, with a `version:` in its front matter. The version
 is written to every `result.json` (`prompt_version`), so a change to the rubric wording of the
 prompt itself is visible in the results. The simulated user's prompt (`simulator.prompt`) is
 versioned the same way.
@@ -67,10 +67,10 @@ use its own evaluators.
 
 Every judge call is counted: `llm_cost_usd` and `llm_tokens` are metrics of each run, the
 summary totals them, and `budgets.max_cost_usd` stops the run when exceeded (exit code 4). Prices
-come from `llm/pricing.yaml`; an unknown model is counted in tokens and priced at zero.
+come from the built-in price list; an unknown model is counted in tokens and priced at zero.
 
-## In CI without a model
+## Without a model
 
 A binary built with `-tags llmfake` provides `fake/judge`, which passes every rubric unless it
-contains `FAIL`. It exercises the pipeline, not the agent; run the real judge on the suites that
-matter.
+contains `FAIL`. It checks your suites and setup, not the agent; run the real judge on the suites
+that matter.

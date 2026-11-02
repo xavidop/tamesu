@@ -69,9 +69,10 @@ This is a multi-module repository tied together by a `go.work` file:
 - `targets/browser`: the browser target, its own module on chromedp (pinned to the v0.16 line,
   the last with the classic action API): Chromium discovery and download, the accessibility-tree
   observation with stable refs, the page actions the browser agent's tools call, the
-  deterministic step actions, screenshots, the HAR and the console log.
+  deterministic step actions, screenshots, the session recording, the HAR and the console log.
 - `audio`: the audio pipeline, its own module: PCM buffers and resampling, WAV, the energy VAD
-  (and Silero behind `-tags onnx` on onnxruntime), noise presets, G.711 and line simulation in
+  (and Silero behind `-tags onnx`, which the full build sets; onnxruntime is loaded at run
+  time), noise presets, G.711 and line simulation in
   pure Go; `audio/opus` is a cgo binding to libopus that compiles to a stub under `-tags lite`.
 - `examples/rest-agent`: a tiny Genkit REST agent with the suite that tests it; `make integration`
   runs it with the fake model provider.

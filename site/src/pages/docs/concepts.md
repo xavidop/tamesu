@@ -13,7 +13,7 @@ then shows how a conversational test flows and how a result is graded.
 | Concept | Description |
 |---|---|
 | **Suite** | A YAML file (or Go package) containing targets, defaults and tests. |
-| **Target** | The system under test: `browser`, `rest`, `livekit` or `sip`. |
+| **Target** | The system under test: `browser`, `rest`, `livekit`, `sip` or `realtime`. |
 | **Test** | One scenario run against one target. |
 | **Step** | For browser tests: a natural-language `goal`, a deterministic `action`, or an `expect`. |
 | **Persona** | The simulated user for agent tests: identity, goal, style, voice, behaviours (interrupts, silence, noise). |
@@ -70,13 +70,13 @@ scenario:
     - say: "Hi, my last invoice is higher than usual"
 ```
 
-The simulated user is a Genkit flow that, given the persona, the scenario and the conversation so
-far, produces the next utterance (or a DTMF digit, or decides to hang up or stop). Its model is
+The simulated user, given the persona, the scenario and the conversation so far, produces the
+next utterance (or a DTMF digit, or decides to hang up or stop). Its model is
 `models.simulator`; a `seed` per test keeps it as repeatable as the provider allows.
 
 ## How a conversational test flows
 
-1. The runner resolves the target and opens a session.
+1. tamesu opens a session on the target.
 2. The persona loop runs: the simulator produces the next user message from persona, scenario and
    history; the target sends it and waits for the agent's turn; the turn is appended to the
    transcript; `stop_when`, `max_turns` and the agent's own end-of-session are checked.

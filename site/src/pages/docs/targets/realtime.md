@@ -80,9 +80,10 @@ tool results. Point the target at your own server when the tools matter.
 | `turns` | the number of agent turns |
 | `ws_messages_received` | the server events of the session |
 
-Timestamps are taken around the socket, never from a model. Audio mode has no VAD, interruptions
-or line simulation: the protocol says where a turn starts and ends, so those belong to the
-[LiveKit](/docs/targets/livekit/) and [SIP](/docs/targets/sip/) targets.
+Timestamps are taken around the socket, never from a model. Audio mode has no voice activity
+detection, interruptions or line simulation, since the protocol itself marks where a turn starts
+and ends; for those, test through the [LiveKit](/docs/targets/livekit/) or [SIP](/docs/targets/sip/)
+target.
 
 ## Assertions that apply
 

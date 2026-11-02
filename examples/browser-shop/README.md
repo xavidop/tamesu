@@ -22,6 +22,6 @@ TAMESU_LLMFAKE_SCRIPT=examples/browser-shop/llmfake-script.json TEST_PASSWORD=co
 ```
 
 The run directory has a screenshot per step (`screenshots/step-NN.png`), `steps.json`,
-`trace.har` and `console.log`. `make integration` runs this flow headless; GitHub's runners
-ship Chrome, elsewhere tamesu finds Chrome, Chromium or Edge, or downloads Chrome for Testing
-into `~/.cache/tamesu`.
+`trace.har`, `console.log` and a recording of the session (`recording.webm`, or
+`recording.gif` without ffmpeg). tamesu finds Chrome, Chromium or Edge on the machine, or
+downloads Chrome for Testing into `~/.cache/tamesu`.

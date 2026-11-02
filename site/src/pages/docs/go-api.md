@@ -6,9 +6,9 @@ title: Go API
 # Go API
 
 Everything the CLI does is available from Go, so `go test` alone can drive agent tests. The
-root module `github.com/xavidop/tamesu` is light (no Genkit, no LiveKit, no browser); the heavy
-pieces are modules you import when you need them: `github.com/xavidop/tamesu/llm` and
-`github.com/xavidop/tamesu/targets/rest`.
+root module `github.com/xavidop/tamesu` holds the test, assertion and report types; the AI
+client and the targets are modules you import when you need them, such as
+`github.com/xavidop/tamesu/llm` and `github.com/xavidop/tamesu/targets/rest`.
 
 ## Run a test from `go test`
 
@@ -108,11 +108,11 @@ type Session interface {
 
 A target renders its strings through `run.Render` (vars, secrets, `{{uuid}}`), reports the
 transport timestamps in `AgentTurn.StartedAt`/`FirstTokenAt`/`EndedAt`, and returns metrics,
-files and timeline events from `Close`. `github.com/xavidop/tamesu/targettest` is the
-conformance suite a target must pass; see [Contributing](/docs/contributing/).
+files and timeline events from `Close`. `github.com/xavidop/tamesu/targettest` checks a target
+of your own against that contract; see [Contributing](/docs/contributing/).
 
 ## The AI layer
 
 `llm.New(ctx, llm.Config{...})` returns the client the runner uses: `Simulate`, `Judge`,
-`Evaluate`, `Usage`. `llm.WithGenkit(g)` reuses an existing Genkit instance. `llm.Judge` is
-`assert.Judge`, re-exported so a Go test reads naturally. See [AI](/docs/ai/).
+`Evaluate`, `Usage`. `llm.WithGenkit(g)` reuses an existing Genkit instance. `llm.Judge` is the
+judge assertion, so a Go test reads naturally. See [AI](/docs/ai/).

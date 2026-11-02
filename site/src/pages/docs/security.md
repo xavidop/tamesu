@@ -17,10 +17,9 @@ not open a public issue; see
 `secrets:` entries are [mamori](https://github.com/xavidop/mamori) refs (`env:`, `dotenv://`,
 `file://`, `aws-sm://`, `aws-ps://`, `vault://`, `gcp-sm://`, `azure-kv://`, `k8s-secret://`,
 `op://`, `doppler://`, `infisical://`, `sops://`), never values. They are resolved once per run,
-before any test starts, and only the secrets the selected tests use are fetched. Values are held
-as mamori `secret.String`, which redacts itself in `fmt`, JSON and `slog`, and revealed only at
-the moment of use: an HTTP header, a LiveKit token signature, a Genkit plugin's initialisation,
-a value typed into a browser field.
+before any test starts, and only the secrets the selected tests use are fetched. Values are kept
+redacted in memory and revealed only at the moment of use: an HTTP header, a LiveKit token
+signature, a model plugin's initialisation, a value typed into a browser field.
 
 `tamesu doctor` reports which link of a chain resolved and from which provider, never the value.
 A `${VAR}` in a field documented as secret earns a warning from `tamesu validate`, because
@@ -28,8 +27,7 @@ A `${VAR}` in a field documented as secret earns a warning from `tamesu validate
 
 ## Redaction
 
-Every resolved value is registered with the redactor, which replaces it with `‹secret:NAME›` in
-everything tamesu writes: transcripts, HARs, logs, reports, error messages and Genkit traces. The
+Every resolved value is replaced with `‹secret:NAME›` in everything tamesu writes: transcripts, HARs, logs, reports, error messages and Genkit traces. The
 value is matched in its plain, standard and URL-safe base64, URL-encoded and JSON-escaped forms.
 As a second line of defence, `${VAR}` values whose name matches `*_KEY`, `*_SECRET`, `*_TOKEN`
 or `*PASSWORD*` are redacted too.
@@ -69,8 +67,7 @@ a stranger. Calls are capped by `sip.max_concurrent_calls` (default 2) and every
 ## Budgets
 
 `budgets.max_cost_usd` and `budgets.max_tokens` stop a run that would otherwise spend without
-bound (exit code `4`). Every model call goes through the `llm` module, which counts tokens and
-estimated cost.
+bound (exit code `4`); every model call counts its tokens and estimated cost.
 
 ## Out of scope
 

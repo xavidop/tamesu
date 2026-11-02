@@ -123,8 +123,7 @@ tamesu version                   print the version, commit and build date
 
 Every command takes `--config`, `--verbose`, `--var KEY=VAL` and `--env-file`. `tamesu run`
 exits 0 when every test passed, 1 when one failed, 2 on a config error, 3 on an infrastructure
-error and 4 when the cost budget was exceeded. What comes next is on the
-[roadmap](https://xavidop.github.io/tamesu/docs/roadmap/).
+error and 4 when the cost budget was exceeded.
 
 ## Features
 
@@ -154,24 +153,23 @@ error and 4 when the cost budget was exceeded. What comes next is on the
   the same model to agents without MCP.
 - **All AI through Genkit.** The simulated user and the judges are Genkit flows with dotprompt
   files you can override; every model is a Genkit reference; usage is priced on every call; a
-  fake provider (`-tags llmfake`) runs the whole pipeline in CI without keys.
+  fake provider (a build with `-tags llmfake`) runs whole suites without a model or a key.
 - **Determinism.** Seeds per test, versioned judge prompts recorded in every result, and metrics
   from transport timestamps, never from a model.
 
 ## Targets
 
-| Target | Transport | Modes | Metrics | Tested against |
+| Target | Transport | Modes | Metrics | Example |
 |---|---|---|---|---|
-| `browser` | Chromium over CDP (chromedp) | agentic `goal` and `expect` steps, deterministic actions (`navigate click fill press wait screenshot eval_js assert_url assert_text`), a screenshot per step, HAR and console log | `goal_steps`, `llm_cost_usd` | [`examples/browser-shop`](examples/browser-shop/) against the bundled demo shop [`examples/webapp`](examples/webapp/), in CI with the fake browser agent |
-| `rest` | HTTP, SSE, WebSocket | text | `turn_latency_ms`, `time_to_first_token_ms`, `turns` | [`examples/rest-agent`](examples/rest-agent/), a Genkit agent, in CI with the fake provider |
-| `livekit` | WebRTC room (LiveKit) | text and audio (TTS in, VAD and STT out, interruptions, noise, stereo WAV) | `turn_latency_ms`, `agent_join_ms`; audio adds `time_to_first_audio_ms`, `interruption_stop_ms`, `talk_over_ratio`, `silence_gap_max_ms` | [`examples/livekit-agent`](examples/livekit-agent/) on `livekit-server --dev`, in CI with the fake provider and fake speech models |
+| `browser` | Chromium over CDP (chromedp) | agentic `goal` and `expect` steps, deterministic actions (`navigate click fill press wait screenshot eval_js assert_url assert_text`), a screenshot per step, a recording of the session, HAR and console log | `goal_steps`, `llm_cost_usd` | [`examples/browser-shop`](examples/browser-shop/) against the bundled demo shop [`examples/webapp`](examples/webapp/) |
+| `rest` | HTTP, SSE, WebSocket | text | `turn_latency_ms`, `time_to_first_token_ms`, `turns` | [`examples/rest-agent`](examples/rest-agent/), a small Genkit agent over HTTP and WebSocket |
+| `livekit` | WebRTC room (LiveKit) | text and audio (TTS in, VAD and STT out, interruptions, noise, stereo WAV) | `turn_latency_ms`, `agent_join_ms`; audio adds `time_to_first_audio_ms`, `interruption_stop_ms`, `talk_over_ratio`, `silence_gap_max_ms` | [`examples/livekit-agent`](examples/livekit-agent/) on `livekit-server --dev` |
 | `sip` | phone call through a LiveKit SIP service and your trunk (outbound or inbound, DTMF, `wait_for`/`say` scripts, line simulation) | audio | the audio metrics plus `call_setup_ms`, `ring_ms`, `greeting_ms`, `call_duration_ms`; `dtmf_received`, `call_ended_by`, `transferred_to` | [`examples/sip-ivr`](examples/sip-ivr/) through Asterisk as the carrier and IVR (`examples/compose.yaml`) |
-| `realtime` | the OpenAI Realtime protocol over a websocket (the API itself, or a server fronting your agent with its events) | text and audio (PCM16 in, audio and transcript deltas out, stereo WAV) | `turn_latency_ms`, `time_to_first_token_ms`, `agent_input_tokens`, `agent_output_tokens`; audio adds `time_to_first_audio_ms` | a fake Realtime server in the module's tests (GA and beta event names) |
+| `realtime` | the OpenAI Realtime protocol over a websocket (the API itself, or a server fronting your agent with its events) | text and audio (PCM16 in, audio and transcript deltas out, stereo WAV) | `turn_latency_ms`, `time_to_first_token_ms`, `agent_input_tokens`, `agent_output_tokens`; audio adds `time_to_first_audio_ms` | the OpenAI Realtime API with your instructions and tools in `session_update`, or your own server speaking its events |
 
-All five target types are part of the suite schema, so suites can be written, validated and
-listed and all five run today, with the action cache for browser goals (`--replay`), `tamesu record
-browser`, `tamesu generate`, the HTML report, the red-team packs, load mode and `tamesu mcp`; what
-comes next is on the [roadmap](https://xavidop.github.io/tamesu/docs/roadmap/).
+All five share the suite schema, the assertions, the personas and scenarios, the metrics and the
+reports, and all five work with the action cache for browser goals (`--replay`), `tamesu record
+browser`, `tamesu generate`, the HTML report, the red-team packs, load mode and `tamesu mcp`.
 
 ## CI
 
@@ -190,7 +188,8 @@ The [CI page](https://xavidop.github.io/tamesu/docs/ci/) has GitHub Actions and 
 
 ## Go API
 
-The root module `github.com/xavidop/tamesu` has no heavy dependencies and is the public API:
+The root module `github.com/xavidop/tamesu` is the public API; the targets and the AI client are
+modules you import as you need them:
 
 ```go
 func TestRefundPolicy(t *testing.T) {

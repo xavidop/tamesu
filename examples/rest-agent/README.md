@@ -11,7 +11,7 @@ closed by `{done: true, end_session, tool_calls}` (the suite's `ws` target, `str
 go run . &
 tamesu run --config tamesu.yaml
 
-# Without a model, as CI does: the agent answers from rules and tamesu uses the fake provider
+# Without a model: the agent answers from rules and tamesu uses the fake provider
 # (a binary built with -tags llmfake):
 go run . --scripted &
 tamesu run --config tamesu.llmfake.yaml
@@ -21,5 +21,5 @@ go run . --scripted --broken &
 tamesu run --config tamesu.llmfake.yaml broken.yaml
 ```
 
-`make integration` at the repository root does the scripted runs end to end. `PRD.md` is the
-product note the agent implements, kept for the scenario generator.
+`PRD.md` is the product note the agent implements; `tamesu generate --from PRD.md` drafts a
+suite from it.

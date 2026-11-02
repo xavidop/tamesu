@@ -37,8 +37,8 @@ secrets `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET`.
 ## Outbound calls
 
 1. tamesu joins a fresh room `tamesu-sip-<uuid>` and asks the SIP service to dial `to`
-   through the trunk with `from` as caller ID (`CreateSIPParticipant`, waiting until answered,
-   with `ring_timeout` and `max_call_duration`).
+   through the trunk with `from` as caller ID, waiting until answered, within `ring_timeout` and
+   `max_call_duration`.
 2. The SIP participant's `sip.callStatus` attribute drives the timeline: `dialing`, `ringing`,
    `call_active`, and the metrics `call_setup_ms` (dial → active) and `ring_ms` (ringing →
    active). `greeting_ms` is active → the agent's first speech, `call_duration_ms` active →
@@ -109,6 +109,5 @@ whole timeline (`dialing`, `ringing`, `call_active`, `dtmf_sent`, `dtmf_received
 [`examples/sip-ivr`](https://github.com/xavidop/tamesu/tree/main/examples/sip-ivr) calls an
 Asterisk IVR through a LiveKit SIP service, all in Docker (`examples/compose.yaml`:
 livekit-server, Redis, `livekit/sip`, Asterisk as carrier and IVR), navigates the menu with
-`wait_for`/`dtmf` and checks the digits and the hangup. `make integration` runs it when Docker
-is available; no phone number or trunk account is involved. A run against a real trunk is the
-same suite with your `sip:` block.
+`wait_for`/`dtmf` and checks the digits and the hangup; no phone number or trunk account is
+involved. A run against a real trunk is the same suite with your `sip:` block.

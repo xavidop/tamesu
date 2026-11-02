@@ -100,5 +100,5 @@ assert:
 
 [`examples/rest-agent`](https://github.com/xavidop/tamesu/tree/main/examples/rest-agent) is a
 tiny Genkit agent for a shoe store with the suite that tests it, over HTTP (`POST /chat`) and
-over a websocket (`GET /ws`, chunked replies), in two project configurations: real models, and
-the fake provider CI uses (`make integration`).
+over a websocket (`GET /ws`, chunked replies), in two project configurations: real models
+(`tamesu.yaml`) and the fake provider (`tamesu.llmfake.yaml`, no keys needed).

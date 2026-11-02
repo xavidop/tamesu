@@ -5,12 +5,11 @@ title: AI (Genkit)
 
 # AI: Genkit everywhere
 
-Every model call in tamesu goes through [Genkit](https://genkit.dev), from the `llm` module: the
-simulated user, the judges, the Genkit evaluators, speech (text to speech and speech to text)
-and, as they land, the browser agent and scenario generation. No other module imports a model SDK (`check_ai_deps.sh` fails CI if one
-does). That buys three things: every model is a Genkit reference so switching provider is a
-config change, every call is a traced flow visible in the Genkit Developer UI, and usage is
-counted on every response.
+Every model call in tamesu goes through [Genkit](https://genkit.dev): the simulated user, the
+judges, the Genkit evaluators, speech (text to speech and speech to text), the browser agent and
+scenario generation. Every model is a Genkit reference, so switching provider is a config change;
+every call is a traced flow you can open in the Genkit Developer UI; and usage is counted and
+priced on every response.
 
 ## Models and plugins
 
@@ -43,14 +42,10 @@ Credentials are the resolved secrets with those conventional names, or `models.c
 initialised even when `plugins` forgets it. `tamesu doctor` reports each model and whether its
 credential resolved.
 
-The jobs: `models.simulator` plays the user, `models.judge` grades, `models.default` is the
-fallback for both (and `browser_agent` and `scenario_generator` as those land).
-
-Every flow asks for JSON with the schema of its prompt. OpenAI models receive that schema in
-the API's strict mode, which the `llm` module prepares for them (every object closed to
-extra properties, every property required, optional ones nullable); the other providers get
-it as written. The verified combinations are Gemini, OpenAI and Anthropic models in every
-role, including `tamesu generate`.
+The jobs: `models.simulator` plays the user, `models.judge` grades, `models.browser_agent` drives
+the browser, `models.scenario_generator` drafts suites, and `models.default` is the fallback for
+all of them. Gemini, OpenAI and Anthropic models can take any of the roles; every flow asks the
+model for JSON in the shape its prompt declares, in the provider's structured-output mode.
 
 ## Flows
 
@@ -73,11 +68,11 @@ speech:
   vad: { provider: energy }
 ```
 
-Text to speech is `genkit.Generate` with a TTS model that answers with an audio media part:
-Gemini TTS natively (`googleai/gemini-2.5-flash-preview-tts`, `googleai/gemini-2.5-pro-preview-tts`)
-or ElevenLabs through the bundled `elevenlabs` plugin. Speech to text is `genkit.Generate` with
-the agent's audio as a media part and text out: Gemini audio input natively (`googleai/gemini-2.5-flash`)
-or Deepgram through the bundled `deepgram` plugin. Switching provider is a config change.
+Text to speech is a Genkit model that answers with audio: Gemini TTS
+(`googleai/gemini-2.5-flash-preview-tts`, `googleai/gemini-2.5-pro-preview-tts`) or ElevenLabs
+through the bundled `elevenlabs` plugin. Speech to text is a Genkit model that takes the agent's
+audio and answers with text: Gemini (`googleai/gemini-2.5-flash`) or Deepgram through the bundled
+`deepgram` plugin. Switching provider is a config change.
 
 A persona's `voice` is a hint, `<language>-<gender>` such as `en-GB-female`, `es-ES-male` or
 just `female`, mapped to each provider's voices (Gemini `Kore`/`Puck`, ElevenLabs
@@ -86,15 +81,23 @@ language is also the TTS language when `speech.tts.language` is not set.
 
 The two plugins, `github.com/xavidop/tamesu/llm/plugins/deepgram` and
 `github.com/xavidop/tamesu/llm/plugins/elevenlabs`, are ordinary Genkit model plugins and work
-in any Genkit Go app. Speech is priced from `llm/pricing.yaml` too: TTS per character and STT
-per minute of audio, counted into the same budget. `tamesu doctor` has a `speech` check: the
-models and their credentials, the VAD this build can run and whether libopus is linked.
+in any Genkit Go app. Speech is priced too, TTS per character and STT per minute of audio,
+into the same budget. `tamesu doctor` has a `speech` check: the models and their credentials, the
+voice activity detector and whether this build has audio support.
+
+The voice activity detector (`speech.vad.provider`) decides when the agent is speaking:
+`energy` (the default) listens for sound above the noise floor; `silero` runs the Silero neural
+model and tells speech from music, tones and background noise. `silero` needs the full tamesu
+build and the [onnxruntime](https://onnxruntime.ai) shared library: `brew install onnxruntime`
+on macOS, your distribution's package or a release tarball on Linux, `onnxruntime.dll` on the
+PATH on Windows. tamesu finds it in the usual places; `TAMESU_ONNXRUNTIME=/path/to/libonnxruntime.so`
+points at another one. `tamesu doctor` says which library it loaded.
 
 ## Prompts
 
-The prompts are dotprompt files embedded in the binary, `llm/prompts/simulator.prompt` and
-`llm/prompts/judge.prompt`, each with a `version:` in its front matter that is recorded with
-every result. To change one, copy it to `.tamesu/prompts/<name>.prompt` in your project and
+The prompts are dotprompt files embedded in the binary (`simulator.prompt`, `judge.prompt`,
+`browser_agent.prompt`, `expect.prompt`, `scenario_gen.prompt`), each with a `version:` in its
+front matter that is recorded with every result. To change one, copy it to `.tamesu/prompts/<name>.prompt` in your project and
 edit it; the file with the same name replaces the built-in one. Keep the output schema, the
 runner depends on it.
 
@@ -105,13 +108,12 @@ genkit start -- tamesu run tests/support.yaml     # or genkit.dev_ui: true in ta
 ```
 
 Every simulator and judge call appears as a trace with its input, output and usage; `result.json`
-links them by `trace_ids`. `make genkit-ui` in the repository runs the example this way.
-OpenTelemetry export works through Genkit's standard telemetry plugins.
+links them by `trace_ids`. OpenTelemetry export works through Genkit's standard telemetry plugins.
 
 ## Cost
 
-Usage is read from every response and priced from `llm/pricing.yaml` (USD per million tokens,
-by model reference, longest prefix wins, unknown models cost 0). `budgets.max_cost_usd` and
+Usage is read from every response and priced from the built-in price list (USD per million
+tokens, by model reference, longest prefix wins, unknown models cost 0). `budgets.max_cost_usd` and
 `budgets.max_tokens` (or `--max-cost-usd`) stop the run when exceeded: runs in flight finish,
 runs not started are marked `budget`, the exit code is 4.
 
@@ -127,15 +129,14 @@ with its own evaluators.
 
 ## The MCP server
 
-`tamesu mcp` is Genkit too: the tamesu tools (`tamesu_run`, `tamesu_validate`, `tamesu_schema`
-and the rest) are Genkit tools on an instance of their own, served to coding agents over the
-Model Context Protocol with Genkit's MCP plugin. See [MCP server](/docs/mcp/).
+`tamesu mcp` serves the tamesu tools (`tamesu_run`, `tamesu_validate`, `tamesu_schema` and the
+rest) to coding agents over the Model Context Protocol. See [MCP server](/docs/mcp/).
 
-## CI without keys
+## Running without keys
 
 A binary built with `-tags llmfake` registers the `fake` plugin: `fake/simulator` and
 `fake/judge` replay `TAMESU_LLMFAKE_SCRIPT` (JSON: `simulator` outputs in a cycle, a `judge`
 verdict that fails any rubric containing `FAIL`, `text` replies, `stt` transcripts in a cycle),
-`fake/tts` speaks a tone and `fake/stt` replays the transcripts, so the whole pipeline, audio
-mode included, runs with no network. `make integration` and the CI integration job use it; a default build never
-contains the fake provider.
+`fake/tts` speaks a tone and `fake/stt` replays the transcripts, so whole suites, audio mode
+included, run with no network: a dry run of your pipeline, or tests of your own tamesu setup. A
+default build does not contain the fake provider.

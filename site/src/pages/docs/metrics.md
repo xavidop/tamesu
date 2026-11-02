@@ -41,9 +41,9 @@ should not fail a test, a slow conversation should.
 
 ## Cost metrics
 
-`llm_cost_usd` and `llm_tokens` are the change of the model meter during the run. They are exact
-when runs do not overlap and approximate under `--parallel`, where a concurrent run's calls may
-be attributed to a neighbour; the summary's total is always exact.
+`llm_cost_usd` and `llm_tokens` are what the run's own model calls cost. They are exact when runs
+do not overlap and approximate under `--parallel`, where a concurrent run's calls may be counted
+against a neighbour; the summary's total is always exact.
 
 ## Variance
 

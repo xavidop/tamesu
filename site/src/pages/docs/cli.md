@@ -35,7 +35,7 @@ tamesu --help                   # every command
 | [`tamesu version`](#tamesu-version) | Print the version, commit and build date |
 
 `tamesu completion` prints a shell completion script, and `tamesu help` shows help for any
-command. The other commands of the roadmap are listed on the [roadmap page](/docs/roadmap/).
+command.
 
 ## Global flags
 
@@ -163,8 +163,8 @@ Checks the setup and prints one line per check, `ok`, `warn`, `fail` or `skip`:
   printed. A chain with no value is `fail` (exit `2`); a provider that failed is `fail` with the
   kind (`unavailable`, `permission_denied`, ...) and exit `3`. A value shorter than three bytes
   is `warn`: it cannot be redacted.
-- **models, speech, chromium, livekit, sip**: provided by the modules that know how to reach
-  them; `skip` when this build does not include them. `speech` reports the TTS and STT models,
+- **models, speech, chromium, livekit, sip**: `skip` when the configuration does not use them or
+  this build lacks them. `speech` reports the TTS and STT models,
   their credentials, the VAD this build can run and whether libopus is linked; `sip` checks that
   `sip.livekit_url`, the trunk id, `inbound_number` and the LiveKit keys are there for the sip
   targets the suites declare.
@@ -191,7 +191,7 @@ relative to itself. The `html` reporter writes the same file during `tamesu run`
 tamesu record <command>
 ```
 
-Recorders; today there is one, `tamesu record browser`.
+The recorders. `tamesu record browser` turns a session you drive by hand into suite steps.
 
 ## tamesu record browser
 
@@ -227,8 +227,7 @@ usage or config error, `3` when the model failed. See [Generating tests](/docs/g
 tamesu sip <command>
 ```
 
-The phone target's helpers. `tamesu sip` alone prints them; today there is one, `tamesu sip
-setup`.
+The phone target's helpers; `tamesu sip` alone lists them.
 
 ## tamesu sip setup
 

@@ -29,12 +29,10 @@ tamesu init && tamesu validate
 
 Each release has two builds of the same CLI:
 
-- **`tamesu`** (the full build): everything, including audio mode and SIP, which need CGO
-  (onnxruntime for voice activity detection, Opus). Built natively per platform and attached to
-  the release as `tamesu_<version>_<os>_<arch>`.
-- **`tamesu-lite`**: pure Go, fully static, `CGO_ENABLED=0`. No audio mode and no SIP; everything
-  else works. This is what the Homebrew cask, the Scoop manifest, the Linux packages and the
-  Docker image install, because it runs anywhere.
+- **`tamesu`** (the full build): everything, including audio mode, SIP and the Silero voice
+  activity detector. Attached to the release as `tamesu_<version>_<os>_<arch>`.
+- **`tamesu-lite`**: a single static binary. No audio mode and no SIP; everything else works. This
+  is what the Homebrew cask, the Scoop manifest, the Linux packages and the Docker image install.
 
 Both report the same version and install as `tamesu`.
 
@@ -117,8 +115,8 @@ environment variables (`-e SUPPORT_API_TOKEN`) or mount a `.env` and use `--env-
 go install github.com/xavidop/tamesu/cmd/tamesu@latest
 ```
 
-You need Go 1.27 or newer. The CLI is its own module, so `go install` of that path works and
-builds the pure-Go variant on any platform. The binary reports its version as `(devel)` unless
+You need Go 1.27 or newer. This builds the lite variant on any platform; add `-tags onnx` to a
+`go build` of `./cmd/tamesu` for the Silero detector. The binary reports its version as `(devel)` unless
 built from a tag.
 
 ## From source

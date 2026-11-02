@@ -11,7 +11,7 @@ it print its system prompt. Each test grades the agent with one of tamesu's
 (cd ../rest-agent && go run .) &
 tamesu run --config tamesu.yaml
 
-# Without a model, as CI does: the scripted agent, the fake provider replaying the attacker's
+# Without a model: the scripted agent, the fake provider replaying the attacker's
 # lines from llmfake-script.json, and a tamesu binary built with -tags llmfake:
 (cd ../rest-agent && go run . --scripted) &
 TAMESU_LLMFAKE_SCRIPT=$PWD/llmfake-script.json tamesu run --config tamesu.llmfake.yaml

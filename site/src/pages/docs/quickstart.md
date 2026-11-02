@@ -140,9 +140,9 @@ ok   secret API_TOKEN: env (link 1 of 1)
 ok   secret GEMINI_API_KEY: env (link 1 of 1)
 ok   secret LIVEKIT_API_KEY: env (link 1 of 1)
 ok   secret LIVEKIT_API_SECRET: env (link 1 of 1)
-skip models: not checked: the module that knows how to is not in this build
-skip chromium: not checked: the module that knows how to is not in this build
-skip livekit: not checked: the module that knows how to is not in this build
+ok   models: default=googleai/gemini-2.5-flash (GEMINI_API_KEY resolved)
+ok   chromium: Google Chrome 156 (/Applications/Google Chrome.app/Contents/MacOS/Google Chrome)
+ok   livekit: ws://localhost:7880 answers HTTP 200 (targets: support/voice)
 ```
 
 Unset a variable and the matching line becomes `fail secret ...: not found in any of 1 ref(s)`

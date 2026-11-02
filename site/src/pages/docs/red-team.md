@@ -83,4 +83,4 @@ that works one time in five is an attack that works, and give the persona a seed
 the same attack twice. The judge rubrics are plain language, so a suite can tighten them by
 defining a pack of its own next to the built-in one.
 [`examples/red-team`](https://github.com/xavidop/tamesu/tree/main/examples/red-team) runs the
-three packs against the example shoe-store agent, with the fake provider in CI.
+three packs against the example shoe-store agent.

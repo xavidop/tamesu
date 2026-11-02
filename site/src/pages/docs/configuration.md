@@ -26,7 +26,7 @@ models:                                     # every value is a Genkit model refe
 speech:                                     # audio mode and sip; still Genkit models
   stt: { model: deepgram/nova-3, language: en }          # or googleai/gemini-2.5-flash (audio input)
   tts: { model: googleai/gemini-2.5-flash-preview-tts }  # or elevenlabs/eleven_flash_v2_5, openai/gpt-4o-mini-tts
-  vad: { provider: energy }                 # energy (default) or silero (needs a build with -tags onnx)
+  vad: { provider: energy }                 # energy (default) or silero (the neural detector; needs onnxruntime)
 sip:
   livekit_url: ${LIVEKIT_URL}               # LiveKit server with the SIP service enabled
   outbound_trunk_id: ST_xxxxxxxx            # printed by tamesu sip setup
@@ -38,7 +38,6 @@ sip:
     numbers: ["+34910000000"]
     auth_username: "{{secrets.SIP_USER}}"
     auth_password: "{{secrets.SIP_PASSWORD}}"
-  allowed_numbers: ["+1800555*", "+3491*"]  # E.164 patterns tamesu may dial
 defaults:
   timeout: 3m
   repeat: 1
@@ -107,9 +106,9 @@ var** fed by `--var KEY=VAL` and the suite's `vars:`, never by the ambient envir
 
 **Resolving.** Once per run, before any test starts, for every secret the selected tests use
 (unreferenced secrets are never fetched). A chain with no value is a config error (exit 2); a
-provider that fails is an infrastructure error (exit 3). Values are held as mamori
-`secret.String` and revealed only at the moment of use: an HTTP header, a LiveKit token
-signature, a Genkit plugin's initialisation, a value typed into a browser field.
+provider that fails is an infrastructure error (exit 3). Values are kept redacted and revealed
+only at the moment of use: an HTTP header, a LiveKit token signature, a model plugin's
+initialisation, a value typed into a browser field.
 
 **Using.** `{{secrets.NAME}}` anywhere a string is accepted, such as
 `api_key: "{{secrets.LIVEKIT_API_KEY}}"` or `Authorization: "Bearer {{secrets.API_TOKEN}}"`.

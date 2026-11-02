@@ -47,8 +47,8 @@ image `ghcr.io/xavidop/tamesu` ships Chromium. `tamesu run --headed` shows the w
    or act on: `[12] button "Add to cart"`, `[13] textbox "Search products" value="laptop"`,
    `    heading "Your cart" (h1)`. Refs are stable for an element across observations. The URL,
    the title and the last console errors come with it.
-2. **Plan.** The `browserStep` flow (model `models.browser_agent`, else `models.default`) gets
-   the goal and the observation and calls one tool at a time: `click(ref)`, `type(ref, text)`,
+2. **Plan.** The browser agent (model `models.browser_agent`, else `models.default`) gets the
+   goal and the observation and calls one tool at a time: `click(ref)`, `type(ref, text)`,
    `select(ref, value)`, `scroll(direction)`, `navigate(url)`, `wait(ms)`, `done(success, reason)`.
 3. **Act.** Each tool runs in the browser and answers with the new page. The loop ends when the
    agent calls `done`, or after `max_goal_steps` actions (default 15), which fails the step.
@@ -56,8 +56,8 @@ image `ghcr.io/xavidop/tamesu` ships Chromium. `tamesu run --headed` shows the w
 Secrets never reach the model: the goal keeps `{{secrets.NAME}}` and the agent types the
 placeholder literally; the browser substitutes the value at the moment of typing. The agent is
 told the allowed domains and the page refuses any navigation outside them (a `navigation_refused`
-event). `expect` runs the `checkExpect` flow over the same observation and answers `{ pass,
-reason }`.
+event). `expect` asks the same model one question over the same observation and gets `{ pass,
+reason }` back.
 
 ## The action cache
 
@@ -101,17 +101,30 @@ assertion with the reason; a missing element or a browser error is an error (exi
 
 ## Artifacts and metrics
 
-Each run directory has `screenshots/step-NN.png` (one per step), `steps.json` (kind, text,
-success, reason, the agent's actions, timings), `trace.har` (every request, HAR 1.2), and
-`console.log` (console errors and uncaught exceptions). `transcript.json` holds the steps as a
-conversation (each step's text, then its outcome), so `judge`, `contains` and `regex` assertions
-apply. Metrics: `goal_steps` (agent actions over all goals), `requests`, `console_errors`,
-`llm_cost_usd`, `llm_tokens`.
+Each run directory has `screenshots/step-NN.png` (one per step), a recording of the whole
+session, `steps.json` (kind, text, success, reason, the agent's actions, timings), `trace.har`
+(every request, HAR 1.2), and `console.log` (console errors and uncaught exceptions).
+`transcript.json` holds the steps as a conversation (each step's text, then its outcome), so
+`judge`, `contains` and `regex` assertions apply. Metrics: `goal_steps` (agent actions over all
+goals), `requests`, `console_errors`, `recording_frames`, `llm_cost_usd`, `llm_tokens`.
+
+The recording is every frame Chromium painted, with its real timing, scaled to 960 px wide:
+`recording.webm` when `ffmpeg` is installed, otherwise `recording.gif`. `browser.recording`
+on the target chooses: `auto` (the default), `webm`, `gif` or `off`. The HTML report plays it
+above the step screenshots.
+
+```yaml
+targets:
+  web:
+    type: browser
+    url: https://shop.example.com
+    browser: { viewport: 1280x800, recording: gif }
+```
 
 ## Example
 
 [`examples/browser-shop`](https://github.com/xavidop/tamesu/tree/main/examples/browser-shop) tests
 [`examples/webapp`](https://github.com/xavidop/tamesu/tree/main/examples/webapp), a tiny shop
-(login, search, cart) with no dependencies. `make integration` runs it headless with the fake
-browser agent replaying scripted tool calls against the real Chromium; with a model
-(`tamesu.yaml` there) the agent finds its own way.
+(login, search, cart) with no dependencies. With a model (`tamesu.yaml` there) the agent finds
+its own way; with the fake provider (`tamesu.llmfake.yaml`) it replays scripted actions against
+the real Chromium.

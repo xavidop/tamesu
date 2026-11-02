@@ -21,6 +21,7 @@ Every `tamesu run` writes a run directory and feeds the reporters named in `repo
     audio.wav            (voice audio mode and sip: left the caller, right the agent)
     steps.json           (browser: each step with its outcome, actions and screenshot)
     screenshots/*.png    (browser: one per step, plus screenshot actions)
+    recording.webm       (browser: the whole session; recording.gif without ffmpeg)
     trace.har            (browser)
     console.log          (browser: console errors and exceptions)
 ```
@@ -100,7 +101,8 @@ read one file.
 
 `report.html` is one self-contained file (no external assets): the totals, then every test
 with its runs: the assertions and their reasons and evidence, the transcript (or the browser
-steps), the metrics, the event timeline, a strip of step screenshots, an audio player for
+steps), the metrics, the event timeline, the session recording and a strip of step screenshots
+for browser tests, an audio player for
 `audio.wav` with a button per caller and agent utterance (and DTMF) that seeks to that moment,
 the artifacts and the Genkit trace ids. Artifacts are linked relative to the file, so the run
 directory can be zipped and shared. `tamesu report <run-dir>` rebuilds it from `summary.json`

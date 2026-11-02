@@ -18,9 +18,8 @@ DTMF `9` back, thanks the caller and hangs up. The prompts are the 8 kHz WAV fil
   drop it into the room `tamesu-sip-inbound`, where tamesu answers and navigates the same menu.
 
 The speech models are the fake ones (`fake/tts` speaks a tone, `fake/stt` replays
-`llmfake-script.json`), so no keys are needed: what the run proves is the plumbing, a real
-SIP call set up through the LiveKit SIP API, audio in both directions, DTMF relayed both
-ways, call status and hangup.
+`llmfake-script.json`), so no keys are needed. The run is a real SIP call set up through the
+LiveKit SIP API, with audio in both directions, DTMF relayed both ways, call status and hangup.
 
 ```sh
 docker compose -f examples/compose.yaml up -d
@@ -31,6 +30,5 @@ TAMESU_LLMFAKE_SCRIPT=examples/sip-ivr/llmfake-script.json tamesu run --config e
 docker compose -f examples/compose.yaml down -v
 ```
 
-`make integration-sip` does all of that (it needs Docker); the CI job `integration-sip` runs it
-on every push. Against a real trunk, the same suite works with your own `sip:` block, see
+`make integration-sip` does all of that (it needs Docker). Against a real trunk, the same suite works with your own `sip:` block, see
 [SIP setup](https://xavidop.github.io/tamesu/docs/sip-setup/).

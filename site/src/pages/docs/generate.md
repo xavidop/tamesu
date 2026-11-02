@@ -55,12 +55,10 @@ tests:
 
 ## The model
 
-The `generateScenarios` flow runs on `models.scenario_generator` (else `models.default`) with
-the `scenario_gen` prompt (`llm/prompts/scenario_gen.prompt`, overridable from
-`.tamesu/prompts/` like the others); the document is sent as is (capped at 60k characters).
-It is one model call, counted and priced like any other. In CI without keys, the fake
-provider's `fake/generate` returns a fixed draft, which is how `make integration` checks that
-drafts validate.
+The draft is one model call on `models.scenario_generator` (else `models.default`) with the
+`scenario_gen` prompt, which you can override from `.tamesu/prompts/scenario_gen.prompt` like
+the others; the document is sent as is (capped at 60k characters) and the call is counted and
+priced like any other. With the fake provider, `fake/generate` returns a fixed draft.
 
 ## Review before you run
 

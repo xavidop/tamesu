@@ -6,9 +6,9 @@ title: Personas and scenarios
 # Personas and scenarios
 
 A conversational test (rest, livekit, sip, realtime) is driven by a simulated user: a **persona** (who is
-talking) with a **scenario** (what they want and when to stop). The simulator is a Genkit flow,
-`simulateUserTurn`, that reads the persona, the scenario and the conversation so far and
-produces the next user turn, or decides to stop.
+talking) with a **scenario** (what they want and when to stop). The simulator reads the persona,
+the scenario and the conversation so far and produces the next user turn, or decides to stop; in
+traces it is the `simulateUserTurn` flow.
 
 ```yaml
 tests:
@@ -45,8 +45,8 @@ tests:
 
 Give the persona what the agent will ask for: a name, an order reference in the goal, a date. The
 simulator invents plausible details that fit the persona when it must, and never gives a real
-secret, card number or password. The audio behaviours take effect in livekit audio mode (and
-sip when it lands); text mode ignores them. A test's `seed` drives the behaviour RNG, so a run
+secret, card number or password. The audio behaviours take effect in livekit audio mode and on
+sip calls; text mode ignores them. A test's `seed` drives the behaviour RNG, so a run
 with the same seed pauses and interrupts at the same points.
 
 ## Scenario
@@ -56,7 +56,7 @@ with the same seed pauses and interrupts at the same points.
 | `goal` | What the persona is trying to achieve, in the second person: "Find out if you can return shoes bought 40 days ago". |
 | `max_turns` | The turn budget (default 10). The simulator knows it and wraps up before running out. |
 | `stop_when` | A plain-language stop condition the simulator checks after every agent turn: "the agent has given a clear yes/no answer". |
-| `script` | Sip and livekit audio: deterministic steps (`wait_for`, `dtmf`, `say`) mixed with free conversation, for IVR menus (planned with the sip runner). |
+| `script` | Sip and livekit audio: deterministic steps (`wait_for`, `dtmf`, `say`) mixed with free conversation, for IVR menus. |
 
 The conversation stops when the simulator says the goal or the stop condition is met (or that
 the agent cannot help), when the persona hangs up, when the agent ends the session

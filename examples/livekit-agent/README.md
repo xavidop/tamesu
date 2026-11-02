@@ -13,7 +13,7 @@ audio mode (with `transcript_source: stt` on one target so tamesu's STT path run
 # A LiveKit server with the dev keys (devkey / secret):
 livekit-server --dev                       # brew install livekit, or docker run livekit/livekit-server --dev
 
-# The agent, without a model (as CI does), listening and speaking too:
+# The agent, without a model, listening and speaking too:
 go run . --scripted --audio &
 
 # The suite, with the fake model provider (a tamesu binary built with -tags llmfake):
@@ -22,5 +22,4 @@ tamesu run --config tamesu.llmfake.yaml
 ```
 
 With a model: `GEMINI_API_KEY=... go run .` and a `tamesu.yaml` with real models (see
-`examples/rest-agent/tamesu.yaml`). `make integration` at the repository root runs the scripted
-flow end to end when `livekit-server` is on the PATH or Docker is available.
+`examples/rest-agent/tamesu.yaml`).

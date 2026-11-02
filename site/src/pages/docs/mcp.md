@@ -8,8 +8,8 @@ title: MCP server
 `tamesu mcp` serves tamesu to a coding agent over the
 [Model Context Protocol](https://modelcontextprotocol.io) on standard input and output, so
 Claude Code, Cursor, Codex or any MCP client can write a suite, validate it, run it and read the
-results without leaving the editor. The server is built on Genkit's MCP support: every tool is a
-Genkit tool that runs the matching tamesu command in the same process, with the `--config`,
+results without leaving the editor. Every tool runs the matching tamesu command in the same
+process, with the `--config`,
 `--var` and `--env-file` the server was started with, and returns the command's output and exit
 code.
 
