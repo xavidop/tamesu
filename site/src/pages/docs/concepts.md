@@ -74,6 +74,12 @@ The simulated user, given the persona, the scenario and the conversation so far,
 next utterance (or a DTMF digit, or decides to hang up or stop). Its model is
 `models.simulator`; a `seed` per test keeps it as repeatable as the provider allows.
 
+## Hooks
+
+`hooks` in the project or the suite run commands or HTTP requests before and after the whole
+suite (`before_all`, `after_all`) and around every run (`before_each`, `after_each`): seeding,
+resets and cleanup live next to the tests. See [Configuration](/docs/configuration/#hooks-setup-and-teardown).
+
 ## Parameterised tests
 
 A test with `cases` runs once per case, each case giving values to `{{vars.<key>}}` in the goal,

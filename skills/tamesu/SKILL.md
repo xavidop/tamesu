@@ -100,7 +100,9 @@ Rules the validator enforces (each error is `file:line: path: message`):
   `json_path`/`status` are rest only; `call_ended_by`/`transferred_to` are sip only;
 - `repeat` is 1 or more, `pass_threshold` is in (0, 1], `mode` is `text` or `audio` and only on
   livekit, sip or realtime tests; `vars` (per-test {{vars.x}}), `cases` / `cases_file`
-  (parameterised: one test per case, named `<name> [<case>]`, tagged case:<name>);
+  (parameterised: one test per case, named `<name> [<case>]`, tagged case:<name>); `hooks`
+  (`before_all` / `after_all` / `before_each` / `after_each`, each `command` or `http`, on the
+  suite or in tamesu.yaml);
 - every `{{secrets.X}}` must be declared; a `${VAR}` in a secret field is a warning;
 - an unset `${VAR}` is a warning for `validate` (so CI without the variables can check suites)
   and an error for `doctor` (and the runner).

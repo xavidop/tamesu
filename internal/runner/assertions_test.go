@@ -18,4 +18,3 @@ func TestRenderAssertion(t *testing.T) {
 	assert.Equal(t, "says {{vars.expect}}", *in.Contains, "the config is not modified")
 	assert.Equal(t, "mentions {{vars.expect}}", in.Judge.Rubric)
 }
-

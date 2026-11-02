@@ -40,6 +40,7 @@ type Suite struct {
 	Models   *Models                `yaml:"models,omitempty" json:"models,omitempty"`
 	Budgets  *Budgets               `yaml:"budgets,omitempty" json:"budgets,omitempty"`
 	Targets  map[string]Target      `yaml:"targets" json:"targets" jsonschema:"required,description=The systems under test by name."`
+	Hooks    *Hooks                 `yaml:"hooks,omitempty" json:"hooks,omitempty"`
 	Packs    map[string][]Assertion `yaml:"packs,omitempty" json:"packs,omitempty" jsonschema:"description=Reusable assertion sets by name for assert entries of the form pack: name; a name also used by a built-in pack (prompt_injection / pii_leakage / system_prompt_leakage) replaces it."`
 	Tests    []Test                 `yaml:"tests" json:"tests" jsonschema:"required"`
 
@@ -142,6 +143,24 @@ type RESTSession struct {
 // Dispatch requests an explicit LiveKit agent dispatch.
 type Dispatch struct {
 	AgentName string `yaml:"agent_name" json:"agent_name" jsonschema:"required"`
+}
+
+// Hooks are commands or HTTP requests run around a suite and its runs.
+type Hooks struct {
+	BeforeAll  []Hook `yaml:"before_all,omitempty" json:"before_all,omitempty" jsonschema:"description=Run once before the suite's first test (the project's first)."`
+	AfterAll   []Hook `yaml:"after_all,omitempty" json:"after_all,omitempty" jsonschema:"description=Run once after the suite's last test."`
+	BeforeEach []Hook `yaml:"before_each,omitempty" json:"before_each,omitempty" jsonschema:"description=Run before every run of every test; a failure is an infrastructure error for that run."`
+	AfterEach  []Hook `yaml:"after_each,omitempty" json:"after_each,omitempty" jsonschema:"description=Run after every run; a failure is logged and does not change the run's result."`
+}
+
+// Hook is one setup or teardown step: a shell command or an HTTP request.
+// Templates render with the suite's vars and secrets; the environment of a
+// command carries TAMESU_SUITE / TAMESU_TEST / TAMESU_RUN / TAMESU_RUN_DIR /
+// TAMESU_SESSION where they apply.
+type Hook struct {
+	Command string       `yaml:"command,omitempty" json:"command,omitempty" jsonschema:"description=A shell command (sh -c)."`
+	HTTP    *HTTPTrigger `yaml:"http,omitempty" json:"http,omitempty" jsonschema:"description=An HTTP request; a status of 400 or more fails the hook."`
+	Timeout Duration     `yaml:"timeout,omitempty" json:"timeout,omitempty" jsonschema:"description=How long the hook may take; default 60s."`
 }
 
 // Trigger makes an agent call tamesu (inbound sip).

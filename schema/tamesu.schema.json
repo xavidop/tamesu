@@ -283,6 +283,58 @@
         "url"
       ]
     },
+    "Hook": {
+      "properties": {
+        "command": {
+          "type": "string",
+          "description": "A shell command (sh -c)."
+        },
+        "http": {
+          "$ref": "#/$defs/HTTPTrigger",
+          "description": "An HTTP request; a status of 400 or more fails the hook."
+        },
+        "timeout": {
+          "$ref": "#/$defs/Duration",
+          "description": "How long the hook may take; default 60s."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Hooks": {
+      "properties": {
+        "before_all": {
+          "items": {
+            "$ref": "#/$defs/Hook"
+          },
+          "type": "array",
+          "description": "Run once before the suite's first test (the project's first)."
+        },
+        "after_all": {
+          "items": {
+            "$ref": "#/$defs/Hook"
+          },
+          "type": "array",
+          "description": "Run once after the suite's last test."
+        },
+        "before_each": {
+          "items": {
+            "$ref": "#/$defs/Hook"
+          },
+          "type": "array",
+          "description": "Run before every run of every test; a failure is an infrastructure error for that run."
+        },
+        "after_each": {
+          "items": {
+            "$ref": "#/$defs/Hook"
+          },
+          "type": "array",
+          "description": "Run after every run; a failure is logged and does not change the run's result."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "IntCompare": {
       "properties": {
         "lt": {
@@ -955,6 +1007,9 @@
       },
       "type": "object",
       "description": "The systems under test by name."
+    },
+    "hooks": {
+      "$ref": "#/$defs/Hooks"
     },
     "packs": {
       "additionalProperties": {

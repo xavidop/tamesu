@@ -75,6 +75,34 @@ secrets:                                    # resolved with mamori, see below
 | `secrets` | none | Secret name to mamori ref. |
 | `vars` | none | Project-wide values for `{{vars.x}}` and `${VAR}` in secret refs. |
 
+## Hooks: setup and teardown
+
+`hooks` run shell commands or HTTP requests around the tests, in `tamesu.yaml` for every suite
+and in a suite for its own; a suite's hooks run after the project's. Use them to seed an account,
+reset the agent's conversation store, or clean up what a test created.
+
+```yaml
+hooks:
+  before_all:                                   # once per suite, before its first test
+    - command: ./scripts/seed-fixtures.sh
+  before_each:                                  # before every run of every test
+    - http: { url: "{{vars.admin_url}}/sessions/reset", method: POST, headers: { Authorization: "Bearer {{secrets.ADMIN_TOKEN}}" } }
+  after_each:                                   # after every run, whatever its result
+    - command: ./scripts/cleanup.sh "$TAMESU_SESSION"
+      timeout: 30s
+  after_all:
+    - command: ./scripts/drop-fixtures.sh
+```
+
+A hook is a `command` (run with `sh -c`) or an `http` request (`url`, `method`, `body`,
+`headers`); templates render with the suite's vars and secrets. Commands see `TAMESU_SUITE`,
+`TAMESU_OUT_DIR` and, around a run, `TAMESU_TEST`, `TAMESU_RUN`, `TAMESU_RUN_DIR` and
+`TAMESU_SESSION`. A `before_all` failure stops the run; a `before_each` failure is an
+infrastructure error for that run (exit 3); `after_*` failures are logged and change nothing.
+Each hook may take `timeout` (default `60s`). Output goes to `hooks.log` in the run directory
+(`before_each` / `after_each`) or next to `summary.json` (`before_all` / `after_all`); the
+rendered command is never written there, since it may carry a secret.
+
 ## Secrets with mamori
 
 All secrets go through [mamori](https://github.com/xavidop/mamori). tamesu never reads an API

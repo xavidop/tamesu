@@ -176,6 +176,7 @@ func (v *validator) suite() {
 		}
 	}
 	seen := map[string]int{}
+	v.validateHooks(at("hooks"), s.Hooks)
 	for i, t := range s.Tests {
 		v.validateCases(s, i, t, v.file)
 		tp := at("tests", idx(i))
@@ -653,6 +654,7 @@ func (v *validator) models(mp []string, m Models) {
 // ValidateProject checks tamesu.yaml. root may be nil.
 func ValidateProject(p Project, file string, root *yaml.Node) Errors {
 	v := &validator{file: file, p: p, root: root}
+	v.validateHooks(at("hooks"), p.Hooks)
 	if p.Version != 1 {
 		v.errorf(at("version"), "version must be 1")
 	}
@@ -703,4 +705,24 @@ func ValidateProject(p Project, file string, root *yaml.Node) Errors {
 		v.secretRef(at("secrets", name), p.Secrets[name])
 	}
 	return v.errs
+}
+
+// validateHooks checks that every hook is exactly one of command and http.
+func (v *validator) validateHooks(path []string, h *Hooks) {
+	if h == nil {
+		return
+	}
+	for name, hooks := range map[string][]Hook{"before_all": h.BeforeAll, "after_all": h.AfterAll, "before_each": h.BeforeEach, "after_each": h.AfterEach} {
+		for i, hk := range hooks {
+			hp := with(path, name, strconv.Itoa(i))
+			switch {
+			case hk.Command == "" && hk.HTTP == nil:
+				v.errorf(hp, "a hook is a command or an http request")
+			case hk.Command != "" && hk.HTTP != nil:
+				v.errorf(hp, "a hook is a command or an http request, not both")
+			case hk.HTTP != nil && hk.HTTP.URL == "":
+				v.errorf(with(hp, "http", "url"), "url is required")
+			}
+		}
+	}
 }

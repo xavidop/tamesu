@@ -175,6 +175,9 @@ func Run(ctx context.Context, o Options) (*report.Summary, error) {
 		summary.Tests = append(summary.Tests, it.outcome)
 	}
 	r.reporter.RunStarted(report.RunInfo{OutDir: o.OutDir, Tests: len(items), StartedAt: summary.StartedAt})
+	if err := r.runSuiteHooks(ctx, items, beforeAll, "before_all"); err != nil {
+		return summary, fmt.Errorf("hooks: %w", err)
+	}
 
 	runCtx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
@@ -230,6 +233,9 @@ func Run(ctx context.Context, o Options) (*report.Summary, error) {
 		}(it)
 	}
 	wg.Wait()
+	if err := r.runSuiteHooks(context.WithoutCancel(ctx), items, afterAll, "after_all"); err != nil {
+		r.logger.Warn("after_all hooks failed", "error", err)
+	}
 
 	summary.FinishedAt = r.now()
 	summary.BudgetExceeded = r.budgetHit.Load()

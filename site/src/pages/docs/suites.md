@@ -32,6 +32,7 @@ The top level of the file.
 | `models` | [Models](#models) |  |  |
 | `budgets` | [Budgets](#budgets) |  |  |
 | `targets` | map of string to [Target](#target) | yes | The systems under test by name. |
+| `hooks` | [Hooks](#hooks) |  |  |
 | `packs` | map of string to list of [Assertion](#assertion) |  | Reusable assertion sets by name for assert entries of the form pack: name; a name also used by a built-in pack (prompt_injection / pii_leakage / system_prompt_leakage) replaces it. |
 | `tests` | list of [Test](#test) | yes |  |
 
@@ -345,6 +346,23 @@ Type: string.
 |---|---|---|---|
 | `name` | string |  | The case's name; default case 1 / case 2... |
 | `vars` | map of string to string | yes | Values for {{vars.<key>}} in this case. |
+
+## Hook
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `command` | string |  | A shell command (sh -c). |
+| `http` | [HTTPTrigger](#httptrigger) |  | An HTTP request; a status of 400 or more fails the hook. |
+| `timeout` | [Duration](#duration) |  | How long the hook may take; default 60s. |
+
+## Hooks
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `before_all` | list of [Hook](#hook) |  | Run once before the suite's first test (the project's first). |
+| `after_all` | list of [Hook](#hook) |  | Run once after the suite's last test. |
+| `before_each` | list of [Hook](#hook) |  | Run before every run of every test; a failure is an infrastructure error for that run. |
+| `after_each` | list of [Hook](#hook) |  | Run after every run; a failure is logged and does not change the run's result. |
 
 ## ToolSequence
 

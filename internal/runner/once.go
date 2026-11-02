@@ -90,6 +90,21 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 	if r.o.Targets == nil {
 		return fail(report.KindInfra, errors.New("no target factory is available in this build"))
 	}
+	hookEnv := map[string]string{"TAMESU_SUITE": it.suite.Suite, "TAMESU_TEST": it.test.Name, "TAMESU_RUN": fmt.Sprint(idx + 1), "TAMESU_RUN_DIR": dir, "TAMESU_SESSION": sessionID}
+	if hooks := hooksOf(r.o.Project, it.suite, beforeEach); len(hooks) > 0 {
+		hr := hookRun{stage: "before_each", hooks: hooks, scope: scope, env: hookEnv, log: filepath.Join(dir, "hooks.log")}
+		if err := hr.run(tctx); err != nil {
+			return fail(r.classify(tctx, err), err)
+		}
+	}
+	if hooks := hooksOf(r.o.Project, it.suite, afterEach); len(hooks) > 0 {
+		defer func() {
+			hr := hookRun{stage: "after_each", hooks: hooks, scope: scope, env: hookEnv, log: filepath.Join(dir, "hooks.log")}
+			if err := hr.run(context.WithoutCancel(ctx)); err != nil {
+				logger.Warn("after_each hooks failed", "error", err)
+			}
+		}()
+	}
 	tgt, err := r.o.Targets(tctx, TargetSpec{Name: it.test.Target, Config: it.target, Suite: it.suite, Project: r.o.Project, Mode: it.mode, Headed: r.o.Headed})
 	if err != nil {
 		return fail(r.classify(tctx, err), fmt.Errorf("target %s: %w", it.test.Target, err))
