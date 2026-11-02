@@ -149,6 +149,9 @@ The top level of the file.
 | `retries` | integer |  |  |
 | `timeout` | [Duration](#duration) |  |  |
 | `seed` | integer |  | Seed for the simulator prompts and the behaviour RNG. |
+| `vars` | map of string to string |  | Values for {{vars.<key>}} in this test; on top of the suite's vars and under --var. |
+| `cases` | list of [Case](#case) |  | Parameterised: the test runs once per case with the case's vars; each becomes a test named <name> [<case>] tagged case:<name>. |
+| `cases_file` | string |  | Cases from a file next to the suite: a CSV with a header row (a name column names the case) or a JSON array of objects (a name key names the case). |
 | `steps` | list of [Step](#step) |  | Browser tests only. |
 | `persona` | [Persona](#persona) |  |  |
 | `scenario` | [Scenario](#scenario) |  |  |
@@ -335,6 +338,13 @@ One of: string, list of string.
 A duration such as 30s, 3m or 1h30m.
 
 Type: string.
+
+## Case
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `name` | string |  | The case's name; default case 1 / case 2... |
+| `vars` | map of string to string | yes | Values for {{vars.<key>}} in this case. |
 
 ## ToolSequence
 

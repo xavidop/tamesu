@@ -98,6 +98,7 @@ func LoadSuiteWithProject(path string, p Project, o LoadOptions) (*Suite, Errors
 		return nil, append(errs, perrs...).Sorted(), nil
 	}
 	errs = append(errs, Validate(s, p, root)...)
+	errs = append(errs, ExpandCases(s, path)...)
 	return s, errs.Sorted(), nil
 }
 

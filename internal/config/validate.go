@@ -177,6 +177,7 @@ func (v *validator) suite() {
 	}
 	seen := map[string]int{}
 	for i, t := range s.Tests {
+		v.validateCases(s, i, t, v.file)
 		tp := at("tests", idx(i))
 		switch j, dup := seen[t.Name]; {
 		case t.Name == "":

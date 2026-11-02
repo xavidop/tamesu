@@ -118,3 +118,31 @@ func comparison(ops []string, value func(op string) *float64) (assert.Comparison
 	}
 	return assert.Comparison{Op: ops[0], Value: *value(ops[0])}, nil
 }
+
+// renderAssertion renders the templated strings of an assertion (contains,
+// not_contains, regex, not_regex, the judge rubric) through the run scope,
+// so {{vars.x}} and {{captured.x}} work in assertions; a value that does
+// not render is left as written and the assertion reports it.
+func renderAssertion(a config.Assertion, render func(string) (string, error)) config.Assertion {
+	str := func(p *string) *string {
+		if p == nil {
+			return nil
+		}
+		if r, err := render(*p); err == nil {
+			return &r
+		}
+		return p
+	}
+	a.Contains = str(a.Contains)
+	a.NotContains = str(a.NotContains)
+	a.Regex = str(a.Regex)
+	a.NotRegex = str(a.NotRegex)
+	if a.Judge != nil {
+		j := *a.Judge
+		if r, err := render(j.Rubric); err == nil {
+			j.Rubric = r
+		}
+		a.Judge = &j
+	}
+	return a
+}

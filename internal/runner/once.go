@@ -70,6 +70,9 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 	for k, v := range it.suite.Vars {
 		vars[k] = v
 	}
+	for k, v := range it.test.Vars {
+		vars[k] = v
+	}
 	for k, v := range r.o.Vars {
 		vars[k] = v
 	}
@@ -189,6 +192,7 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 		out.Passed = false
 	}
 	for i, ca := range it.test.Assert {
+		ca = renderAssertion(ca, renderForModel)
 		a, err := Build(ca)
 		if err != nil {
 			out.Assertions = append(out.Assertions, assert.Result{Name: fmt.Sprintf("assert[%d]", i), Pass: false, Reason: err.Error()})

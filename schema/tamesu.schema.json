@@ -162,6 +162,26 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "Case": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The case's name; default case 1 / case 2..."
+        },
+        "vars": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Values for {{vars.\u003ckey\u003e}} in this case."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "vars"
+      ]
+    },
     "DTMFAssertion": {
       "properties": {
         "equals": {
@@ -789,6 +809,24 @@
         "seed": {
           "type": "integer",
           "description": "Seed for the simulator prompts and the behaviour RNG."
+        },
+        "vars": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Values for {{vars.\u003ckey\u003e}} in this test; on top of the suite's vars and under --var."
+        },
+        "cases": {
+          "items": {
+            "$ref": "#/$defs/Case"
+          },
+          "type": "array",
+          "description": "Parameterised: the test runs once per case with the case's vars; each becomes a test named \u003cname\u003e [\u003ccase\u003e] tagged case:\u003cname\u003e."
+        },
+        "cases_file": {
+          "type": "string",
+          "description": "Cases from a file next to the suite: a CSV with a header row (a name column names the case) or a JSON array of objects (a name key names the case)."
         },
         "steps": {
           "items": {

@@ -160,19 +160,22 @@ type HTTPTrigger struct {
 
 // Test is one scenario run against one target.
 type Test struct {
-	Name          string      `yaml:"name" json:"name" jsonschema:"required"`
-	Target        string      `yaml:"target" json:"target" jsonschema:"required,description=A key of targets."`
-	Tags          []string    `yaml:"tags,omitempty" json:"tags,omitempty"`
-	Mode          string      `yaml:"mode,omitempty" json:"mode,omitempty" jsonschema:"enum=text,enum=audio,description=Voice tests: overrides the target's mode."`
-	Repeat        *int        `yaml:"repeat,omitempty" json:"repeat,omitempty" jsonschema:"description=Times the test runs to measure variance."`
-	PassThreshold *float64    `yaml:"pass_threshold,omitempty" json:"pass_threshold,omitempty"`
-	Retries       *int        `yaml:"retries,omitempty" json:"retries,omitempty"`
-	Timeout       *Duration   `yaml:"timeout,omitempty" json:"timeout,omitempty"`
-	Seed          *int64      `yaml:"seed,omitempty" json:"seed,omitempty" jsonschema:"description=Seed for the simulator prompts and the behaviour RNG."`
-	Steps         []Step      `yaml:"steps,omitempty" json:"steps,omitempty" jsonschema:"description=Browser tests only."`
-	Persona       *Persona    `yaml:"persona,omitempty" json:"persona,omitempty"`
-	Scenario      *Scenario   `yaml:"scenario,omitempty" json:"scenario,omitempty"`
-	Assert        []Assertion `yaml:"assert,omitempty" json:"assert,omitempty"`
+	Name          string            `yaml:"name" json:"name" jsonschema:"required"`
+	Target        string            `yaml:"target" json:"target" jsonschema:"required,description=A key of targets."`
+	Tags          []string          `yaml:"tags,omitempty" json:"tags,omitempty"`
+	Mode          string            `yaml:"mode,omitempty" json:"mode,omitempty" jsonschema:"enum=text,enum=audio,description=Voice tests: overrides the target's mode."`
+	Repeat        *int              `yaml:"repeat,omitempty" json:"repeat,omitempty" jsonschema:"description=Times the test runs to measure variance."`
+	PassThreshold *float64          `yaml:"pass_threshold,omitempty" json:"pass_threshold,omitempty"`
+	Retries       *int              `yaml:"retries,omitempty" json:"retries,omitempty"`
+	Timeout       *Duration         `yaml:"timeout,omitempty" json:"timeout,omitempty"`
+	Seed          *int64            `yaml:"seed,omitempty" json:"seed,omitempty" jsonschema:"description=Seed for the simulator prompts and the behaviour RNG."`
+	Vars          map[string]string `yaml:"vars,omitempty" json:"vars,omitempty" jsonschema:"description=Values for {{vars.<key>}} in this test; on top of the suite's vars and under --var."`
+	Cases         []Case            `yaml:"cases,omitempty" json:"cases,omitempty" jsonschema:"description=Parameterised: the test runs once per case with the case's vars; each becomes a test named <name> [<case>] tagged case:<name>."`
+	CasesFile     string            `yaml:"cases_file,omitempty" json:"cases_file,omitempty" jsonschema:"description=Cases from a file next to the suite: a CSV with a header row (a name column names the case) or a JSON array of objects (a name key names the case)."`
+	Steps         []Step            `yaml:"steps,omitempty" json:"steps,omitempty" jsonschema:"description=Browser tests only."`
+	Persona       *Persona          `yaml:"persona,omitempty" json:"persona,omitempty"`
+	Scenario      *Scenario         `yaml:"scenario,omitempty" json:"scenario,omitempty"`
+	Assert        []Assertion       `yaml:"assert,omitempty" json:"assert,omitempty"`
 }
 
 // Step is one browser step: a natural-language goal, an agentic expectation

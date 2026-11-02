@@ -74,6 +74,31 @@ The simulated user, given the persona, the scenario and the conversation so far,
 next utterance (or a DTMF digit, or decides to hang up or stop). Its model is
 `models.simulator`; a `seed` per test keeps it as repeatable as the provider allows.
 
+## Parameterised tests
+
+A test with `cases` runs once per case, each case giving values to `{{vars.<key>}}` in the goal,
+the stop condition, the target's request or anywhere else a template is accepted. Each case
+becomes a test of its own, named `<name> [<case>]` and tagged `case:<name>`, so `--filter`,
+`--tags`, repeats and reports treat it like any other test.
+
+```yaml
+tests:
+  - name: return window
+    target: api
+    vars: { lang: en }                          # this test's values, under the cases
+    cases:
+      - { name: late, vars: { days: "40", expect: "not possible" } }
+      - { name: early, vars: { days: "10", expect: "can return" } }
+    persona: { name: Marta, language: "{{vars.lang}}" }
+    scenario: { goal: "Ask whether shoes bought {{vars.days}} days ago can be returned" }
+    assert:
+      - contains: "{{vars.expect}}"
+```
+
+`cases_file: cases.csv` (a header row; a `name` column names the case) or `cases_file:
+cases.json` (an array of objects; a `name` key names the case) reads the cases from a file next
+to the suite, so a spreadsheet of questions becomes a suite.
+
 ## How a conversational test flows
 
 1. tamesu opens a session on the target.
