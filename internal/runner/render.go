@@ -42,11 +42,8 @@ func renderScenario(s *config.Scenario, render func(string) (string, error)) (co
 	if out.StopWhen, err = render(out.StopWhen); err != nil {
 		return out, fmt.Errorf("scenario.stop_when: %w", err)
 	}
+	// Script say steps render when they are sent (persona.Loop.Render), so
+	// values captured earlier in the conversation are available to them.
 	out.Script = append([]config.ScriptStep(nil), s.Script...)
-	for i := range out.Script {
-		if out.Script[i].Say, err = render(out.Script[i].Say); err != nil {
-			return out, fmt.Errorf("scenario.script[%d].say: %w", i, err)
-		}
-	}
 	return out, nil
 }

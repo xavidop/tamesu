@@ -62,6 +62,10 @@
           "$ref": "#/$defs/IntCompare",
           "description": "Number of agent turns."
         },
+        "captured": {
+          "$ref": "#/$defs/CapturedAssertion",
+          "description": "A value captured during the run exists and equals or matches."
+        },
         "custom": {
           "type": "string",
           "description": "A Go-registered assertion by name."
@@ -161,6 +165,46 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "Capture": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name; the value is {{captured.\u003cname\u003e}}."
+        },
+        "regex": {
+          "type": "string",
+          "description": "A regular expression on the agent's text; the first group (else the whole match) is the value."
+        },
+        "json_path": {
+          "type": "string",
+          "description": "A JSONPath on the turn's raw response (rest / websocket / realtime events)."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name"
+      ]
+    },
+    "CapturedAssertion": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "equals": {
+          "type": "string"
+        },
+        "matches": {
+          "type": "string",
+          "description": "A regular expression the value must match."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name"
+      ]
     },
     "Case": {
       "properties": {
@@ -892,6 +936,13 @@
         },
         "scenario": {
           "$ref": "#/$defs/Scenario"
+        },
+        "capture": {
+          "items": {
+            "$ref": "#/$defs/Capture"
+          },
+          "type": "array",
+          "description": "Values taken from the agent's turns as they arrive (the first match wins) and offered as {{captured.\u003cname\u003e}} to later script say steps / tool_results / hooks / assertions."
         },
         "assert": {
           "items": {

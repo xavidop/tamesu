@@ -105,6 +105,31 @@ tests:
 cases.json` (an array of objects; a `name` key names the case) reads the cases from a file next
 to the suite, so a spreadsheet of questions becomes a suite.
 
+## Capturing values across turns
+
+`capture` takes values from the agent's turns as they arrive, by a regular expression on the
+agent's text (the first group, else the whole match) or a JSONPath on the turn's raw response.
+The first turn that matches sets the value; from then on it is `{{captured.<name>}}` in later
+script `say` steps, in `tool_results`, in hooks and in assertions, and it is written to
+`result.json`.
+
+```yaml
+tests:
+  - name: order status
+    target: api
+    capture:
+      - { name: order_id, regex: "order (ORD-[0-9]+)" }
+      - { name: eta, json_path: "$.eta" }
+    scenario:
+      goal: "Place an order for the blue sneakers, then ask when it arrives"
+      script:
+        - say: "I'd like the blue sneakers in a 42"
+        - say: "What is the status of order {{captured.order_id}}?"
+    assert:
+      - captured: { name: order_id, matches: "^ORD-" }
+      - contains: "{{captured.eta}}"
+```
+
 ## How a conversational test flows
 
 1. tamesu opens a session on the target.

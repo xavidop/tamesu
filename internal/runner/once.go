@@ -122,12 +122,17 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 		return fail(r.classify(tctx, err), fmt.Errorf("start %s: %w", it.test.Target, err))
 	}
 
-	loop := &persona.Loop{Sim: r.simulator(), Seed: it.seed, Mode: it.mode, Logger: logger, Now: r.now, ScriptTimeout: it.timeout / 2}
+	caps, err := newCapturer(it.test.Capture, func(name, value string) { scope.Values["captured."+name] = value })
+	if err != nil {
+		return fail(report.KindInfra, err)
+	}
+	loop := &persona.Loop{Sim: r.simulator(), Seed: it.seed, Mode: it.mode, Logger: logger, Now: r.now, ScriptTimeout: it.timeout / 2, OnAgentTurn: caps.turn}
 	var lo *persona.Outcome
 	var loopErr error
 	var stepFails []assert.Result
 	safe := modelScope(scope)
 	renderForModel := func(s string) (string, error) { return config.Render(s, safe) }
+	loop.Render = renderForModel
 	if bs, ok := sess.(target.BrowserSession); ok {
 		lo, stepFails, loopErr = r.runBrowser(tctx, it, bs, dir, out, renderForModel)
 	} else if p, err := renderPersona(it.test.Persona, renderForModel); err != nil {
@@ -147,6 +152,7 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 	}
 
 	out.Transcript = lo.Transcript
+	out.Captures = caps.snapshot()
 	out.TraceIDs = append(out.TraceIDs, lo.TraceIDs...)
 	out.StopReason = lo.StopReason
 	out.Events = arts.Events
@@ -190,6 +196,7 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 	rr := &assert.RunResult{
 		TestName: it.test.Name, Target: it.test.Target, Transcript: lo.Transcript, ToolCalls: out.ToolCalls,
 		Metrics: out.Metrics, Artifacts: arts, Status: statuses, Responses: responses, Events: arts.Events,
+		Captures: out.Captures,
 	}
 	if r.o.Provider != nil {
 		rr.Judger = r.o.Provider

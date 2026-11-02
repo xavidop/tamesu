@@ -131,6 +131,11 @@ func (sc Scope) lookup(key string) (string, error) {
 		}
 		return "", fmt.Errorf("var %s is not defined", name)
 	}
+	if strings.HasPrefix(key, "captured.") {
+		// A value not captured yet stays a template, so an early reference
+		// reads as what it is instead of failing the run.
+		return "{{" + key + "}}", nil
+	}
 	if name, ok := strings.CutPrefix(key, "secrets."); ok {
 		if sc.Secrets != nil {
 			if v, ok := sc.Secrets(name); ok {

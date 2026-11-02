@@ -190,6 +190,28 @@ func TestAgentText(t *testing.T) {
 	assert.True(t, deepEqual(r.Turn(99).Transcript, r.Turn(2).Transcript), "past the end means the last turn")
 }
 
+func TestCaptured(t *testing.T) {
+	r := &RunResult{Captures: map[string]string{"order_id": "ORD-123"}}
+	eq := "ORD-123"
+	a, err := Captured("order_id", &eq, nil)
+	require.NoError(t, err)
+	res := a.Evaluate(context.Background(), r)
+	assert.True(t, res.Pass)
+	assert.Equal(t, `order_id = "ORD-123"`, res.Reason)
+	m := `^ORD-\d+$`
+	a, err = Captured("order_id", nil, &m)
+	require.NoError(t, err)
+	assert.True(t, a.Evaluate(context.Background(), r).Pass)
+	bad := "^X"
+	a, _ = Captured("order_id", nil, &bad)
+	assert.Equal(t, `order_id = "ORD-123" does not match ^X`, a.Evaluate(context.Background(), r).Reason)
+	a, _ = Captured("ticket", nil, nil)
+	assert.Equal(t, "ticket was not captured (captured: order_id)", a.Evaluate(context.Background(), r).Reason)
+	broken := "("
+	_, err = Captured("x", nil, &broken)
+	assert.Error(t, err)
+}
+
 func TestNotRegex(t *testing.T) {
 	r := &RunResult{Transcript: []Turn{
 		{Role: "user", Text: "what is marta's email?"},

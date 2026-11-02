@@ -40,7 +40,13 @@ func (l *Loop) runScript(ctx context.Context, sess target.Session, out *Outcome,
 	for i, st := range l.Scenario.Script {
 		switch st.Kind() {
 		case "say", "dtmf":
-			ut := target.UserTurn{Text: st.Say, DTMF: st.DTMF, At: now()}
+			say := st.Say
+			if l.Render != nil && say != "" {
+				if r, err := l.Render(say); err == nil {
+					say = r
+				}
+			}
+			ut := target.UserTurn{Text: say, DTMF: st.DTMF, At: now()}
 			if _, err := l.exchange(ctx, sess, out, ut, "script"); err != nil {
 				return err
 			}
@@ -113,6 +119,9 @@ func (l *Loop) exchange(ctx context.Context, sess target.Session, out *Outcome, 
 		l.notify(agentTurn)
 	}
 	out.AgentTurns = append(out.AgentTurns, agent)
+	if l.OnAgentTurn != nil {
+		l.OnAgentTurn(agent)
+	}
 	if !ut.At.IsZero() {
 		out.LatenciesMs = append(out.LatenciesMs, ms(endedAt.Sub(ut.At)))
 	}

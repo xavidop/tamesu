@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/ohler55/ojg/jp"
 	"github.com/xavidop/tamesu/target"
 
 	"fmt"
@@ -179,6 +180,7 @@ func (v *validator) suite() {
 	v.validateHooks(at("hooks"), s.Hooks)
 	for i, t := range s.Tests {
 		v.validateCases(s, i, t, v.file)
+		v.validateCaptures(i, t)
 		tp := at("tests", idx(i))
 		switch j, dup := seen[t.Name]; {
 		case t.Name == "":
@@ -515,6 +517,15 @@ func (v *validator) assertion(ap []string, a Assertion, ttype, mode string) {
 		if *a.Status < 100 || *a.Status > 599 {
 			v.errorf(kp, "status must be an HTTP status code")
 		}
+	case "captured":
+		if strings.TrimSpace(a.Captured.Name) == "" {
+			v.errorf(with(kp, "name"), "captured needs the capture's name")
+		}
+		if a.Captured.Matches != nil {
+			if _, err := regexp.Compile(*a.Captured.Matches); err != nil {
+				v.errorf(with(kp, "matches"), "invalid regular expression: %v", err)
+			}
+		}
 	case "tool_sequence":
 		if len(a.ToolSequence.Calls) == 0 {
 			v.errorf(kp, "tool_sequence needs calls: a list of tool names")
@@ -722,6 +733,34 @@ func (v *validator) validateHooks(path []string, h *Hooks) {
 				v.errorf(hp, "a hook is a command or an http request, not both")
 			case hk.HTTP != nil && hk.HTTP.URL == "":
 				v.errorf(with(hp, "http", "url"), "url is required")
+			}
+		}
+	}
+}
+
+// validateCaptures checks a test's capture entries.
+func (v *validator) validateCaptures(i int, t Test) {
+	seen := map[string]bool{}
+	for j, c := range t.Capture {
+		cp := at("tests", idx(i), "capture", idx(j))
+		switch {
+		case strings.TrimSpace(c.Name) == "":
+			v.errorf(with(cp, "name"), "a capture needs a name")
+		case seen[c.Name]:
+			v.errorf(with(cp, "name"), "capture %q is declared twice", c.Name)
+		}
+		seen[c.Name] = true
+		if c.Regex == "" && c.JSONPath == "" {
+			v.errorf(cp, "a capture is a regex or a json_path")
+		}
+		if c.Regex != "" {
+			if _, err := regexp.Compile(c.Regex); err != nil {
+				v.errorf(with(cp, "regex"), "invalid regular expression: %v", err)
+			}
+		}
+		if c.JSONPath != "" {
+			if _, err := jp.ParseString(c.JSONPath); err != nil {
+				v.errorf(with(cp, "json_path"), "invalid JSONPath: %v", err)
 			}
 		}
 	}

@@ -41,7 +41,9 @@ type RunResult struct {
 	// Responses holds the raw payload of every agent turn (the JSON body for
 	// rest), in order, for json_path.
 	Responses []any
-	Events    []target.Event
+	// Captures are the values the run captured from the agent's turns.
+	Captures map[string]string
+	Events   []target.Event
 	// Judger and Evaluator are the AI hooks the runner sets; nil means no
 	// model is available and judge or evaluator assertions fail.
 	Judger    Judger

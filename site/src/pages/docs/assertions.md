@@ -36,6 +36,7 @@ and `result.json` show, so a failure reads like a code review comment.
 | `tool_called: { name: reschedule_booking, args: { day: saturday } }` | the agent called it with those argument values (a subset of the call's arguments). |
 | `tool_not_called: name` (or with `args`) | the agent never called it (with those arguments). |
 | `tool_sequence: { calls: [lookup_order, refund], exact: false }` | the agent called those tools in that order: as a subsequence of its calls, or exactly that list with `exact`. |
+| `captured: { name: order_id, matches: "^ORD-" }` (or `equals`) | a value the test captured from the agent's turns exists and matches; see [capturing values](/docs/concepts/#capturing-values-across-turns). |
 
 Tool calls come from the target: the REST target's `response.tool_calls` path, the LiveKit
 agent's attributes and data messages.

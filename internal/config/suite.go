@@ -27,7 +27,7 @@ var ActionNames = []string{"navigate", "click", "fill", "press", "wait", "screen
 var AssertionKinds = []string{
 	"judge", "contains", "not_contains", "regex", "not_regex", "json_path", "status",
 	"tool_called", "tool_not_called", "tool_sequence", "dtmf_received", "call_ended_by", "transferred_to",
-	"evaluator", "metric", "turns", "custom", "pack",
+	"evaluator", "metric", "turns", "captured", "custom", "pack",
 }
 
 // Suite is one YAML suite file (design.md §5): targets, defaults and tests.
@@ -194,7 +194,23 @@ type Test struct {
 	Steps         []Step            `yaml:"steps,omitempty" json:"steps,omitempty" jsonschema:"description=Browser tests only."`
 	Persona       *Persona          `yaml:"persona,omitempty" json:"persona,omitempty"`
 	Scenario      *Scenario         `yaml:"scenario,omitempty" json:"scenario,omitempty"`
+	Capture       []Capture         `yaml:"capture,omitempty" json:"capture,omitempty" jsonschema:"description=Values taken from the agent's turns as they arrive (the first match wins) and offered as {{captured.<name>}} to later script say steps / tool_results / hooks / assertions."`
 	Assert        []Assertion       `yaml:"assert,omitempty" json:"assert,omitempty"`
+}
+
+// Capture names a value to take from the agent's turns.
+type Capture struct {
+	Name     string `yaml:"name" json:"name" jsonschema:"required,description=The name; the value is {{captured.<name>}}."`
+	Regex    string `yaml:"regex,omitempty" json:"regex,omitempty" jsonschema:"description=A regular expression on the agent's text; the first group (else the whole match) is the value."`
+	JSONPath string `yaml:"json_path,omitempty" json:"json_path,omitempty" jsonschema:"description=A JSONPath on the turn's raw response (rest / websocket / realtime events)."`
+}
+
+// CapturedAssertion is the captured assertion: a captured value exists and
+// equals or matches something.
+type CapturedAssertion struct {
+	Name    string  `yaml:"name" json:"name" jsonschema:"required"`
+	Equals  *string `yaml:"equals,omitempty" json:"equals,omitempty"`
+	Matches *string `yaml:"matches,omitempty" json:"matches,omitempty" jsonschema:"description=A regular expression the value must match."`
 }
 
 // Step is one browser step: a natural-language goal, an agentic expectation
@@ -308,6 +324,7 @@ type Assertion struct {
 	Evaluator     *Evaluator         `yaml:"evaluator,omitempty" json:"evaluator,omitempty"`
 	Metric        *MetricAssertion   `yaml:"metric,omitempty" json:"metric,omitempty"`
 	Turns         *IntCompare        `yaml:"turns,omitempty" json:"turns,omitempty" jsonschema:"description=Number of agent turns."`
+	Captured      *CapturedAssertion `yaml:"captured,omitempty" json:"captured,omitempty" jsonschema:"description=A value captured during the run exists and equals or matches."`
 	Custom        *string            `yaml:"custom,omitempty" json:"custom,omitempty" jsonschema:"description=A Go-registered assertion by name."`
 	Pack          *string            `yaml:"pack,omitempty" json:"pack,omitempty" jsonschema:"description=A reusable assertion set: a built-in red-team pack (prompt_injection / pii_leakage / system_prompt_leakage) or one of the suite's packs; it expands into its assertions when the suite loads."`
 	OnTurn        OnTurn             `yaml:"on_turn,omitempty" json:"on_turn,omitempty"`
@@ -336,6 +353,7 @@ func (a Assertion) Kinds() []string {
 		"evaluator":       a.Evaluator != nil,
 		"metric":          a.Metric != nil,
 		"turns":           a.Turns != nil,
+		"captured":        a.Captured != nil,
 		"custom":          a.Custom != nil,
 		"pack":            a.Pack != nil,
 	}

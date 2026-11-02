@@ -198,6 +198,47 @@ func ToolNotCalled(name string, args map[string]any) Assertion {
 	})
 }
 
+// Captured passes when the run captured name and, when given, the value
+// equals or matches the expectation.
+func Captured(name string, equals, matches *string) (Assertion, error) {
+	var re *regexp.Regexp
+	if matches != nil {
+		var err error
+		if re, err = regexp.Compile(*matches); err != nil {
+			return nil, fmt.Errorf("captured %s: %w", name, err)
+		}
+	}
+	label := "captured " + name
+	switch {
+	case equals != nil:
+		label += " == " + *equals
+	case matches != nil:
+		label += " ~ " + *matches
+	}
+	return Func(label, func(_ context.Context, r *RunResult) Result {
+		v, ok := r.Captures[name]
+		if !ok {
+			return Result{Pass: false, Reason: fmt.Sprintf("%s was not captured (captured: %s)", name, listOr(captureNames(r.Captures)))}
+		}
+		switch {
+		case equals != nil && v != *equals:
+			return Result{Pass: false, Reason: fmt.Sprintf("%s = %q, want %q", name, v, *equals), Evidence: []string{v}}
+		case re != nil && !re.MatchString(v):
+			return Result{Pass: false, Reason: fmt.Sprintf("%s = %q does not match %s", name, v, *matches), Evidence: []string{v}}
+		}
+		return Result{Pass: true, Reason: fmt.Sprintf("%s = %q", name, v), Evidence: []string{v}}
+	}), nil
+}
+
+func captureNames(m map[string]string) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
 // ToolSequence passes when the tool calls happened in the given order: as a
 // subsequence of the run's calls, or exactly that list with exact.
 func ToolSequence(names []string, exact bool) Assertion {

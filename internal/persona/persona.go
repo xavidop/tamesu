@@ -44,6 +44,12 @@ type Loop struct {
 	Now func() time.Time
 	// OnTurn is called after every turn is appended (optional, for live output).
 	OnTurn func(assert.Turn)
+	// OnAgentTurn is called with every agent turn as the transport returned
+	// it (raw payload included), before the next user turn is produced.
+	OnAgentTurn func(target.AgentTurn)
+	// Render expands templates in script say steps at send time, so values
+	// captured earlier in the conversation are available; nil sends as is.
+	Render func(string) (string, error)
 	// ScriptTimeout bounds each wait_for step (default 30 s).
 	ScriptTimeout time.Duration
 }
@@ -143,6 +149,9 @@ func (l *Loop) Run(ctx context.Context, sess target.Session) (*Outcome, error) {
 			out.FirstTokenMs = append(out.FirstTokenMs, ms(agent.FirstTokenAt.Sub(sentAt)))
 		}
 		l.notify(agentTurn)
+		if l.OnAgentTurn != nil {
+			l.OnAgentTurn(agent)
+		}
 		logger.Debug("turn", "n", turn, "latency_ms", out.LatenciesMs[len(out.LatenciesMs)-1], "done", agent.Done)
 		switch {
 		case sim.HangUp:

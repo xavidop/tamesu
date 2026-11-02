@@ -159,6 +159,7 @@ type RunOutcome struct {
 	// Steps are a browser test's steps, in order, with their outcome.
 	Steps      []StepRecord      `json:"steps,omitempty"`
 	Artifacts  map[string]string `json:"artifacts,omitempty"`
+	Captures   map[string]string `json:"captures,omitempty"`
 	TraceIDs   []string          `json:"trace_ids,omitempty"`
 	StopReason string            `json:"stop_reason,omitempty"`
 	// Usage is tamesu's own model spend during this run. It is measured as

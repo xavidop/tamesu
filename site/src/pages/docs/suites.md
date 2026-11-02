@@ -156,6 +156,7 @@ The top level of the file.
 | `steps` | list of [Step](#step) |  | Browser tests only. |
 | `persona` | [Persona](#persona) |  |  |
 | `scenario` | [Scenario](#scenario) |  |  |
+| `capture` | list of [Capture](#capture) |  | Values taken from the agent's turns as they arrive (the first match wins) and offered as {{captured.<name>}} to later script say steps / tool_results / hooks / assertions. |
 | `assert` | list of [Assertion](#assertion) |  |  |
 
 ## Step
@@ -223,6 +224,7 @@ The top level of the file.
 | `evaluator` | [Evaluator](#evaluator) |  |  |
 | `metric` | [MetricAssertion](#metricassertion) |  |  |
 | `turns` | [IntCompare](#intcompare) |  | Number of agent turns. |
+| `captured` | [CapturedAssertion](#capturedassertion) |  | A value captured during the run exists and equals or matches. |
 | `custom` | string |  | A Go-registered assertion by name. |
 | `pack` | string |  | A reusable assertion set: a built-in red-team pack (prompt_injection / pii_leakage / system_prompt_leakage) or one of the suite's packs; it expands into its assertions when the suite loads. |
 | `on_turn` | [OnTurn](#onturn) |  |  |
@@ -339,6 +341,22 @@ One of: string, list of string.
 A duration such as 30s, 3m or 1h30m.
 
 Type: string.
+
+## Capture
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `name` | string | yes | The name; the value is {{captured.<name>}}. |
+| `regex` | string |  | A regular expression on the agent's text; the first group (else the whole match) is the value. |
+| `json_path` | string |  | A JSONPath on the turn's raw response (rest / websocket / realtime events). |
+
+## CapturedAssertion
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `name` | string | yes |  |
+| `equals` | string |  |  |
+| `matches` | string |  | A regular expression the value must match. |
 
 ## Case
 
