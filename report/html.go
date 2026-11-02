@@ -88,15 +88,17 @@ type htmlTest struct {
 }
 
 type htmlRun struct {
-	ID          string
-	T           *TestOutcome
-	R           *RunOutcome
-	Audio       string
-	Markers     []htmlMarker
-	Screenshots []htmlLink
-	Files       []htmlLink
-	Metrics     []htmlMetric
-	Events      []htmlEvent
+	ID               string
+	T                *TestOutcome
+	R                *RunOutcome
+	Audio            string
+	Recording        string // the session recording, a WebM or an animated GIF
+	RecordingIsVideo bool
+	Markers          []htmlMarker
+	Screenshots      []htmlLink
+	Files            []htmlLink
+	Metrics          []htmlMetric
+	Events           []htmlEvent
 }
 
 type htmlMarker struct {
@@ -180,6 +182,9 @@ func htmlRunView(id string, t *TestOutcome, r *RunOutcome, dir string) htmlRun {
 		switch {
 		case strings.HasSuffix(name, ".wav"):
 			v.Audio = link.Href
+		case strings.HasSuffix(name, ".webm"), strings.HasSuffix(name, ".gif"):
+			v.Recording, v.RecordingIsVideo = link.Href, strings.HasSuffix(name, ".webm")
+			continue
 		case strings.HasSuffix(name, ".png"):
 			link.Label = strings.TrimSuffix(filepath.Base(name), ".png")
 			v.Screenshots = append(v.Screenshots, link)

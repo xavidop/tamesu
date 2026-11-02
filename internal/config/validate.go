@@ -200,6 +200,9 @@ func (v *validator) target(name string, t Target) {
 		if t.Browser != nil && t.Browser.Viewport != "" && !viewportRe.MatchString(t.Browser.Viewport) {
 			v.errorf(with(tp, "browser", "viewport"), "viewport must be WIDTHxHEIGHT such as 1280x800")
 		}
+		if t.Browser != nil && t.Browser.Recording != "" && !slices.Contains(BrowserRecordingFormats, t.Browser.Recording) {
+			v.errorf(with(tp, "browser", "recording"), "recording must be one of %s", strings.Join(BrowserRecordingFormats, ", "))
+		}
 	case TargetREST:
 		if t.URL == "" {
 			v.errorf(tp, "rest target needs url")

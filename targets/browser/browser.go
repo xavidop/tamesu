@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/chromedp/cdproto/network"
+	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
 
@@ -53,6 +54,10 @@ type Config struct {
 	// ExecPath is the Chromium binary; empty means TAMESU_CHROMIUM, then the
 	// usual install locations, then a download of Chrome for Testing.
 	ExecPath string
+	// Recording selects the session recording written into the run directory:
+	// RecordingAuto (default: a WebM when ffmpeg is installed, else an
+	// animated GIF), RecordingGIF, RecordingWebM or RecordingOff.
+	Recording string
 	// StepTimeout bounds one action (default 30 s).
 	StepTimeout time.Duration
 	// Download allows fetching Chromium when none is found (default true).
@@ -138,6 +143,12 @@ func (t *Target) Start(ctx context.Context, run *target.RunContext) (target.Sess
 		s.cancel()
 		return nil, fmt.Errorf("browser %s: start chromium (%s): %w", t.name, exec, err)
 	}
+	if t.cfg.Recording != RecordingOff && run != nil && run.Dir != "" {
+		if err := s.runCtx(sctx, s.startRecording(w)); err != nil {
+			s.cancel()
+			return nil, fmt.Errorf("browser %s: start recording: %w", t.name, err)
+		}
+	}
 	if t.cfg.StorageState != "" {
 		if err := s.loadStorageState(sctx, t.cfg.StorageState, u); err != nil {
 			s.cancel()
@@ -168,6 +179,7 @@ type session struct {
 	console   []string
 	events    []target.Event
 	har       *har
+	rec       *screencast
 	startedAt time.Time
 	closed    bool
 }
@@ -211,8 +223,17 @@ func (s *session) Close(context.Context) (target.Artifacts, error) {
 				files[ConsoleFile] = ConsoleFile
 			}
 		}
+		if s.rec != nil {
+			if name, err := s.rec.write(dir, resolveRecordingFormat(s.t.cfg.Recording), time.Now()); err == nil && name != "" {
+				files[name] = name
+				s.events = append(s.events, target.Event{At: time.Now(), Kind: "recording", Detail: name})
+			}
+		}
 	}
 	m := map[string]float64{"requests": float64(len(s.har.entries)), "console_errors": float64(len(s.console))}
+	if s.rec != nil {
+		m["recording_frames"] = float64(s.rec.count())
+	}
 	return target.Artifacts{Files: files, Metrics: m, Events: append([]target.Event(nil), s.events...)}, nil
 }
 
@@ -276,6 +297,10 @@ func (s *session) listen() {
 			s.har.finished(e)
 		case *network.EventLoadingFailed:
 			s.har.failed(e)
+		case *page.EventScreencastFrame:
+			if s.rec != nil {
+				s.onFrame(e)
+			}
 		}
 	})
 }

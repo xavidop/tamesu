@@ -33,6 +33,7 @@ th{color:var(--mute);font-weight:600}
 .turns li{padding:.3rem 0;border-bottom:1px dashed var(--line)}
 .turns .role{display:inline-block;min-width:4.5rem;font-weight:600;color:var(--mute);font-size:.8rem;text-transform:uppercase}
 .turns .user .role{color:var(--accent)}
+.recording{display:block;max-width:100%;max-height:480px;border:1px solid var(--line);border-radius:4px;background:#fff;margin:.3rem 0}
 .shots{display:flex;gap:.6rem;overflow-x:auto;padding:.3rem 0}
 .shots figure{margin:0;flex:0 0 220px}
 .shots img{width:220px;border:1px solid var(--line);border-radius:4px;background:#fff}
@@ -90,6 +91,10 @@ a{color:var(--ink)}
     {{if .R.Steps}}
     <h3>Steps</h3>
     <table>{{range .R.Steps}}<tr><td>{{.Index}}</td><td>{{if .Success}}<span class="v">✓</span>{{else}}<span class="x">✗</span>{{end}} {{.Kind}}</td><td>{{.Text}}</td><td class="reason">{{.Reason}}{{if .Steps}} · {{.Steps}} actions{{end}}</td></tr>{{end}}</table>
+    {{end}}
+    {{if .Recording}}
+    <h3>Recording</h3>
+    {{if .RecordingIsVideo}}<video class="recording" controls preload="metadata" src="{{.Recording}}"></video>{{else}}<a href="{{.Recording}}"><img class="recording" src="{{.Recording}}" alt="session recording" loading="lazy"></a>{{end}}
     {{end}}
     {{if .Screenshots}}
     <div class="shots">{{range .Screenshots}}<figure><a href="{{.Href}}"><img src="{{.Href}}" alt="{{.Label}}" loading="lazy"></a><figcaption>{{.Label}}</figcaption></figure>{{end}}</div>

@@ -3,10 +3,12 @@ package browser
 import (
 	"context"
 	"encoding/json"
+	"image/gif"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -283,4 +285,70 @@ func parseInt(s string) (int, error) {
 		n = n*10 + int(r-'0')
 	}
 	return n, nil
+}
+
+func TestRecordingGIF(t *testing.T) {
+	srv := server(t)
+	page, sess, dir := start(t, srv, Config{Viewport: "1000x700", Recording: RecordingGIF})
+	ctx := context.Background()
+	obs, err := page.Observe(ctx, false)
+	require.NoError(t, err)
+	require.NoError(t, page.Type(ctx, refOf(t, obs, `textbox "Username"`), "marta"))
+	require.NoError(t, page.Navigate(ctx, srv.URL+"/cart"))
+	time.Sleep(300 * time.Millisecond) // let Chromium paint and send the frames
+	art, err := sess.Close(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, RecordingGIFFile, art.Files[RecordingGIFFile], "the recording is an artifact")
+	assert.GreaterOrEqual(t, art.Metrics["recording_frames"], 1.0)
+	f, err := os.Open(filepath.Join(dir, RecordingGIFFile))
+	require.NoError(t, err)
+	g, err := gif.DecodeAll(f)
+	require.NoError(t, f.Close())
+	require.NoError(t, err)
+	assert.NotEmpty(t, g.Image, "at least one frame")
+	assert.LessOrEqual(t, g.Image[0].Bounds().Dx(), recordingMaxWidth, "frames are scaled to the recording width")
+	var sawRecording bool
+	for _, e := range art.Events {
+		sawRecording = sawRecording || (e.Kind == "recording" && e.Detail == RecordingGIFFile)
+	}
+	assert.True(t, sawRecording, "the recording is on the timeline")
+}
+
+func TestRecordingWebM(t *testing.T) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("no ffmpeg on this machine")
+	}
+	srv := server(t)
+	page, sess, dir := start(t, srv, Config{Recording: RecordingAuto})
+	ctx := context.Background()
+	require.NoError(t, page.Navigate(ctx, srv.URL+"/cart"))
+	time.Sleep(300 * time.Millisecond)
+	art, err := sess.Close(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, RecordingWebMFile, art.Files[RecordingWebMFile], "auto picks WebM when ffmpeg is installed")
+	info, err := os.Stat(filepath.Join(dir, RecordingWebMFile))
+	require.NoError(t, err)
+	assert.Greater(t, info.Size(), int64(100))
+}
+
+func TestRecordingOff(t *testing.T) {
+	srv := server(t)
+	_, sess, dir := start(t, srv, Config{Recording: RecordingOff})
+	art, err := sess.Close(context.Background())
+	require.NoError(t, err)
+	assert.NotContains(t, art.Files, RecordingGIFFile)
+	assert.NotContains(t, art.Files, RecordingWebMFile)
+	assert.NotContains(t, art.Metrics, "recording_frames")
+	entries, _ := os.ReadDir(dir)
+	for _, e := range entries {
+		assert.NotContains(t, e.Name(), "recording")
+	}
+}
+
+func TestFrameDurations(t *testing.T) {
+	t0 := time.Date(2026, 11, 2, 0, 0, 0, 0, time.UTC)
+	frames := []frame{{at: t0}, {at: t0.Add(10 * time.Millisecond)}, {at: t0.Add(time.Second)}, {at: t0.Add(2 * time.Second)}}
+	got := frameDurations(frames, t0.Add(30*time.Second))
+	assert.Equal(t, []time.Duration{50 * time.Millisecond, 990 * time.Millisecond, time.Second, 3 * time.Second}, got,
+		"too short is stretched, the long tail is clamped")
 }

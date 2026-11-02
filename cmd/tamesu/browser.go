@@ -21,7 +21,7 @@ func newBrowserTarget(_ context.Context, spec runner.TargetSpec) (target.Target,
 	t := spec.Config
 	cfg := browser.Config{URL: t.URL, AllowedDomains: t.AllowedDomains, Headed: spec.Headed}
 	if t.Browser != nil {
-		cfg.Viewport, cfg.Locale = t.Browser.Viewport, t.Browser.Locale
+		cfg.Viewport, cfg.Locale, cfg.Recording = t.Browser.Viewport, t.Browser.Locale, t.Browser.Recording
 	}
 	if t.Auth != nil {
 		cfg.StorageState = t.Auth.StorageState

@@ -91,11 +91,16 @@ type Target struct {
 	TurnTimeout   Duration       `yaml:"turn_timeout,omitempty" json:"turn_timeout,omitempty" jsonschema:"description=realtime: how long to wait for response.done; default 60s."`
 }
 
+// BrowserRecordingFormats are the values of browser.recording.
+var BrowserRecordingFormats = []string{"auto", "gif", "webm", "off"}
+
 // BrowserOptions configures the browser.
 type BrowserOptions struct {
 	Engine   string `yaml:"engine,omitempty" json:"engine,omitempty" jsonschema:"enum=chromium"`
 	Viewport string `yaml:"viewport,omitempty" json:"viewport,omitempty" jsonschema:"description=WIDTHxHEIGHT such as 1280x800."`
 	Locale   string `yaml:"locale,omitempty" json:"locale,omitempty"`
+	// Recording selects the session recording in the run directory.
+	Recording string `yaml:"recording,omitempty" json:"recording,omitempty" jsonschema:"enum=auto,enum=gif,enum=webm,enum=off,description=The session recording written next to the screenshots. auto (the default) writes recording.webm when ffmpeg is installed and recording.gif otherwise; off disables it."`
 }
 
 // BrowserAuth pre-authenticates the browser.

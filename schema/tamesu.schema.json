@@ -131,6 +131,16 @@
         },
         "locale": {
           "type": "string"
+        },
+        "recording": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "gif",
+            "webm",
+            "off"
+          ],
+          "description": "The session recording written next to the screenshots. auto (the default) writes recording.webm when ffmpeg is installed and recording.gif otherwise; off disables it."
         }
       },
       "additionalProperties": false,
