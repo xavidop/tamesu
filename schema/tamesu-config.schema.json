@@ -800,6 +800,13 @@
       "type": "object",
       "description": "Secret name to mamori ref (env:X or aws-sm://... or a precedence chain)."
     },
+    "labels": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object",
+      "description": "Key-value labels written into every run's summary such as env: staging; tamesu run --label adds or overrides them. Values take ${VAR}."
+    },
     "vars": {
       "additionalProperties": {
         "type": "string"

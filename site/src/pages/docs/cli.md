@@ -108,7 +108,7 @@ reported on stderr and makes the command exit `2`; warnings are not printed.
 ## tamesu run
 
 ```text
-tamesu run [paths...] [--filter <regex>] [--tags a,b] [--target <name>] [--parallel N] [--repeat N] [--load N [--load-duration D]] [--mode text|audio] [--headed] [--replay | --update-cache] [--update-golden] [--update-visual] [--baseline | --baseline-dir <dir>] [--out <dir>] [--reporter console,json,junit,html,markdown,github,slack] [--max-cost-usd X]
+tamesu run [paths...] [--filter <regex>] [--tags a,b] [--target <name>] [--parallel N] [--repeat N] [--load N [--load-duration D]] [--mode text|audio] [--headed] [--replay | --update-cache] [--update-golden] [--update-visual] [--baseline | --baseline-dir <dir>] [--label k=v] [--out <dir>] [--reporter console,json,junit,html,markdown,github,slack] [--max-cost-usd X]
 ```
 
 Runs the selected tests. `tamesu.yaml` and the suites are loaded with `${VAR}` required; the
@@ -134,6 +134,7 @@ versions); the reporters write `summary.json`, `junit.xml` and the console outpu
 | `--update-cache` | Ignore the caches (action plans, simulator turns, judge verdicts), call the models and refresh them. |
 | `--update-golden` | Rewrite every `golden` file from this run's transcripts; see [Reference answers](/docs/judges/#reference-answers). |
 | `--update-visual` | Browser `visual` steps: rewrite the baseline images from this run; see [Visual regression](/docs/targets/browser/#visual-regression). |
+| `--label KEY=VALUE` | Label the run (repeatable), on top of `labels:` in `tamesu.yaml`: the agent's build, the environment, the branch. Labels are written into `summary.json`, shown in every report and in a baseline comparison, so a result says what it tested. |
 | `--baseline`, `--baseline-dir <dir>` | After the run, compare it with the baseline (`baseline.dir`, default `.tamesu/baseline`, or the directory given): new failures, fixed tests, p95 latency and cost growth beyond the limits. Writes `comparison.json`, prints the verdict and exits 1 on a regression. See [Comparing with a baseline](/docs/reports/#comparing-with-a-baseline). |
 | `--out <dir>` | Run directory (default `.tamesu/runs/<timestamp>`). |
 | `--reporter console,json,junit,html,markdown,github,slack` | Reporters to run (default `reporters:` of `tamesu.yaml`; `json` is always on). See [Reports](/docs/reports/). |

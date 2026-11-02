@@ -40,6 +40,9 @@ func RenderMarkdown(s *Summary) string {
 	}
 	fmt.Fprintf(&b, "## %s tamesu: %d passed, %d failed, %d errors\n\n", icon, passed, failed, errored)
 	fmt.Fprintf(&b, "%s", fmtDuration(s.Duration()))
+	if l := FormatLabels(s.Labels); l != "" {
+		fmt.Fprintf(&b, " · `%s`", l)
+	}
 	if s.Usage.Calls > 0 {
 		fmt.Fprintf(&b, " · %d model calls, %d tokens, $%.4f", s.Usage.Calls, s.Usage.Total(), s.Usage.CostUSD)
 	}

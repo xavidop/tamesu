@@ -64,7 +64,7 @@ a{color:var(--ink)}
 <body>
 <header>
   <h1>tamesu report</h1>
-  <div class="meta">{{.Summary.OutDir}} · started {{fmtTime .Summary.StartedAt}} · {{fmtDur .Summary.Duration}}{{if .Summary.Version}} · tamesu {{.Summary.Version}}{{end}}</div>
+  <div class="meta">{{.Summary.OutDir}} · started {{fmtTime .Summary.StartedAt}} · {{fmtDur .Summary.Duration}}{{if .Summary.Version}} · tamesu {{.Summary.Version}}{{end}}{{with labels .Summary.Labels}} · {{.}}{{end}}</div>
 </header>
 <main>
 <div class="totals">

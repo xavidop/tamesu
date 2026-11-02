@@ -71,6 +71,9 @@ func SlackText(s *Summary, link string) string {
 	if s.Usage.Calls > 0 {
 		fmt.Fprintf(&b, " · $%.4f", s.Usage.CostUSD)
 	}
+	if l := FormatLabels(s.Labels); l != "" {
+		fmt.Fprintf(&b, " · %s", l)
+	}
 	if c := s.Comparison; c != nil {
 		if c.Regressed {
 			fmt.Fprintf(&b, "\n:warning: regressed against the baseline: %d new failures", len(c.NewFailures))

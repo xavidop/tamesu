@@ -89,7 +89,9 @@ type Options struct {
 	// LLMCache reports the llm cache's counters at the end of the run (set
 	// by the CLI when the provider is wrapped in the replay cache).
 	LLMCache func() report.CacheStats
-	Targets  TargetFactory
+	// Labels are written into the summary (the project's plus --label).
+	Labels  map[string]string
+	Targets TargetFactory
 	// Provider is the AI layer; nil fails conversational tests with an
 	// infrastructure error.
 	Provider model.Provider
@@ -181,11 +183,11 @@ func Run(ctx context.Context, o Options) (*report.Summary, error) {
 		return nil, fmt.Errorf("create run directory: %w", err)
 	}
 
-	summary := &report.Summary{StartedAt: r.now(), OutDir: o.OutDir, Version: o.Version}
+	summary := &report.Summary{StartedAt: r.now(), OutDir: o.OutDir, Version: o.Version, Labels: o.Labels}
 	for _, it := range items {
 		summary.Tests = append(summary.Tests, it.outcome)
 	}
-	r.reporter.RunStarted(report.RunInfo{OutDir: o.OutDir, Tests: len(items), StartedAt: summary.StartedAt})
+	r.reporter.RunStarted(report.RunInfo{OutDir: o.OutDir, Tests: len(items), StartedAt: summary.StartedAt, Labels: o.Labels})
 	if err := r.runSuiteHooks(ctx, items, beforeAll, "before_all"); err != nil {
 		return summary, fmt.Errorf("hooks: %w", err)
 	}

@@ -28,7 +28,11 @@ func (c *Console) printf(format string, args ...any) {
 func (c *Console) RunStarted(info RunInfo) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.printf("tamesu run: %s, output in %s\n", plural(info.Tests, "test"), info.OutDir)
+	line := fmt.Sprintf("tamesu run: %s, output in %s", plural(info.Tests, "test"), info.OutDir)
+	if l := FormatLabels(info.Labels); l != "" {
+		line += " · " + l
+	}
+	c.printf("%s\n", line)
 }
 
 // TestStarted prints a START line in verbose mode.

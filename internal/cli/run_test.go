@@ -235,3 +235,11 @@ func TestRunDefaultOutDir(t *testing.T) {
 	_, err := os.Stat(filepath.Join(dir, ".tamesu", "runs", "2026-10-31T14-20-00", "summary.json"))
 	assert.NoError(t, err)
 }
+
+func TestRunLabelsFlag(t *testing.T) {
+	// --label is parsed as KEY=VALUE and rejected otherwise.
+	deps := cli.Deps{LookupEnv: func(string) (string, bool) { return "", false }}
+	code, _, stderr := run(t, nil, deps, "run", "--label", "nokey", "--filter", "x")
+	assert.Equal(t, cli.ExitConfig, code)
+	assert.Contains(t, stderr, "want KEY=VALUE")
+}

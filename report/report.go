@@ -5,6 +5,8 @@ package report
 
 import (
 	"context"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/xavidop/tamesu/assert"
@@ -23,9 +25,10 @@ const (
 
 // RunInfo describes the whole invocation, for Reporter.RunStarted.
 type RunInfo struct {
-	OutDir    string    `json:"out_dir"`
-	Tests     int       `json:"tests"`
-	StartedAt time.Time `json:"started_at"`
+	OutDir    string            `json:"out_dir"`
+	Labels    map[string]string `json:"labels,omitempty"`
+	Tests     int               `json:"tests"`
+	StartedAt time.Time         `json:"started_at"`
 }
 
 // TestOutcome is one test with all its repeats.
@@ -199,13 +202,16 @@ func (r *RunOutcome) FailedAssertions() []assert.Result {
 
 // Summary is the whole invocation.
 type Summary struct {
-	StartedAt      time.Time      `json:"started_at"`
-	FinishedAt     time.Time      `json:"finished_at"`
-	OutDir         string         `json:"out_dir"`
-	Tests          []*TestOutcome `json:"tests"`
-	Usage          model.Usage    `json:"usage"`
-	BudgetExceeded bool           `json:"budget_exceeded"`
-	Version        string         `json:"tamesu_version,omitempty"`
+	StartedAt  time.Time `json:"started_at"`
+	FinishedAt time.Time `json:"finished_at"`
+	OutDir     string    `json:"out_dir"`
+	// Labels say what this run tested: the agent's build, the environment,
+	// anything the project or --label set.
+	Labels         map[string]string `json:"labels,omitempty"`
+	Tests          []*TestOutcome    `json:"tests"`
+	Usage          model.Usage       `json:"usage"`
+	BudgetExceeded bool              `json:"budget_exceeded"`
+	Version        string            `json:"tamesu_version,omitempty"`
 	// LLMCache counts the simulator turns and judge verdicts answered from
 	// the cache and the ones that called a model.
 	LLMCache *CacheStats `json:"llm_cache,omitempty"`
@@ -330,4 +336,21 @@ func Histogram(series []float64) []LatencyBucket {
 		out[i].Count++
 	}
 	return out
+}
+
+// FormatLabels prints labels as "k=v k=v", keys sorted; "" for none.
+func FormatLabels(labels map[string]string) string {
+	if len(labels) == 0 {
+		return ""
+	}
+	keys := make([]string, 0, len(labels))
+	for k := range labels {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	parts := make([]string, 0, len(keys))
+	for _, k := range keys {
+		parts = append(parts, k+"="+labels[k])
+	}
+	return strings.Join(parts, " ")
 }

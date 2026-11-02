@@ -106,6 +106,11 @@ worse. `tamesu baseline save <run-dir>` keeps a trusted run's `summary.json` (in
 `.tamesu/baseline`, or `baseline.dir`); then `tamesu run --baseline` compares the new run with it
 and `tamesu compare <baseline-dir> <run-dir>` compares any two runs after the fact.
 
+Label the runs so the comparison says which builds it compared: `tamesu run --label agent=$GIT_SHA
+--label env=staging`, or `labels:` in `tamesu.yaml`. Labels appear in `summary.json`, in the
+console and HTML headers, in the Markdown and Slack summaries and next to the baseline's date in
+the comparison.
+
 The comparison matches tests by suite and name and reports:
 
 - **new failures**: tests that passed in the baseline and fail now (a regression by default);

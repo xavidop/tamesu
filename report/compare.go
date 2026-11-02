@@ -40,15 +40,18 @@ var latencyMetrics = []string{"turn_latency_ms_p95", "time_to_first_token_ms_p95
 
 // Comparison is a run against a baseline.
 type Comparison struct {
-	BaselineDir string      `json:"baseline_dir,omitempty"`
-	BaselineAt  string      `json:"baseline_at,omitempty"`
-	Thresholds  Thresholds  `json:"thresholds"`
-	NewFailures []string    `json:"new_failures"`
-	Fixed       []string    `json:"fixed"`
-	Added       []string    `json:"added"`
-	Removed     []string    `json:"removed"`
-	Tests       []TestDelta `json:"tests"`
-	Regressed   bool        `json:"regressed"`
+	BaselineDir string `json:"baseline_dir,omitempty"`
+	BaselineAt  string `json:"baseline_at,omitempty"`
+	// BaselineLabels and Labels say which builds were compared.
+	BaselineLabels map[string]string `json:"baseline_labels,omitempty"`
+	Labels         map[string]string `json:"labels,omitempty"`
+	Thresholds     Thresholds        `json:"thresholds"`
+	NewFailures    []string          `json:"new_failures"`
+	Fixed          []string          `json:"fixed"`
+	Added          []string          `json:"added"`
+	Removed        []string          `json:"removed"`
+	Tests          []TestDelta       `json:"tests"`
+	Regressed      bool              `json:"regressed"`
 }
 
 // TestDelta is one test in both runs.
@@ -78,10 +81,12 @@ func Compare(base, cur *Summary, t Thresholds) *Comparison {
 	c := &Comparison{Thresholds: t, NewFailures: []string{}, Fixed: []string{}, Added: []string{}, Removed: []string{}}
 	if base != nil {
 		c.BaselineDir = base.OutDir
+		c.BaselineLabels = base.Labels
 		if !base.StartedAt.IsZero() {
 			c.BaselineAt = base.StartedAt.UTC().Format("2006-01-02T15:04:05Z")
 		}
 	}
+	c.Labels = cur.Labels
 	key := func(t *TestOutcome) string { return t.Suite + " / " + t.Name }
 	before := map[string]*TestOutcome{}
 	if base != nil {
@@ -185,6 +190,9 @@ func PrintComparison(w io.Writer, c *Comparison) {
 	head := "baseline"
 	if c.BaselineAt != "" {
 		head += " " + c.BaselineAt
+	}
+	if l := FormatLabels(c.BaselineLabels); l != "" {
+		head += " (" + l + ")"
 	}
 	verdict := "no regression"
 	if c.Regressed {

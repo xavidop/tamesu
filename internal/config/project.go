@@ -20,6 +20,7 @@ type Project struct {
 	Reporters []string          `yaml:"reporters,omitempty" json:"reporters,omitempty" jsonschema:"description=Reporters to run: console / junit / json / html / markdown / github / slack."`
 	Slack     SlackConfig       `yaml:"slack,omitempty" json:"slack,omitempty"`
 	Secrets   map[string]string `yaml:"secrets,omitempty" json:"secrets,omitempty" jsonschema:"description=Secret name to mamori ref (env:X or aws-sm://... or a precedence chain)."`
+	Labels    map[string]string `yaml:"labels,omitempty" json:"labels,omitempty" jsonschema:"description=Key-value labels written into every run's summary such as env: staging; tamesu run --label adds or overrides them. Values take ${VAR}."`
 	Vars      map[string]string `yaml:"vars,omitempty" json:"vars,omitempty" jsonschema:"description=Project-wide values for {{vars.x}} and ${VAR} expansion in secret refs."`
 }
 

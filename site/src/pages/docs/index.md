@@ -8,8 +8,8 @@ title: Introduction
 `tamesu` (試す, "to try, to test") is an open-source, agentic testing framework and
 CLI written in Go. You describe a test the way you would brief a colleague: a **persona**, a
 **goal**, and what a good outcome looks like. A simulated user then talks to your agent or drives
-your web app, and deterministic checks and LLM **judges** grade the result. **Put your web apps
-and AI agents to the test.**
+your web app, and deterministic checks and LLM **judges** grade the result. **Your agents,
+tested like users would.**
 
 ![tamesu init, validate, list and doctor in a terminal](/demo.gif)
 

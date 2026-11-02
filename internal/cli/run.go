@@ -90,6 +90,7 @@ func (a *app) newRunCmd() *cobra.Command {
 		baseline     bool
 		baselineDir  string
 		updateVisual bool
+		labelFlags   []string
 		updateCache  bool
 		out          string
 		reporters    []string
@@ -125,6 +126,10 @@ func (a *app) newRunCmd() *cobra.Command {
 			}
 			if load > 0 && repeat > 0 {
 				return usageError(fmt.Errorf("--load and --repeat exclude each other: load mode sets the runs"))
+			}
+			flagLabels, err := parseLabelFlags(labelFlags)
+			if err != nil {
+				return usageError(err)
 			}
 			p, perrs, err := a.loadProject(cmd, true)
 			if err != nil {
@@ -284,10 +289,14 @@ func (a *app) newRunCmd() *cobra.Command {
 				llmCache = func() report.CacheStats { s := rp.Stats(); return report.CacheStats{Hits: s.Hits, Misses: s.Misses} }
 			}
 
+			labels, err := runLabels(p.Labels, flagLabels, a.env())
+			if err != nil {
+				return configError(err)
+			}
 			summary, err := runner.Run(ctx, runner.Options{
 				Project: p, Suites: suites, Select: selection, OutDir: out, Parallel: parallel, Repeat: repeat, Mode: mode,
 				Load: load, LoadDuration: loadFor,
-				MaxCostUSD: budget, Headed: headed, Replay: replayOnly, UpdateCache: updateCache, CacheDir: p.Cache.Dir, UpdateGolden: updateGolden, UpdateVisual: updateVisual, LLMCache: llmCache,
+				MaxCostUSD: budget, Headed: headed, Replay: replayOnly, UpdateCache: updateCache, CacheDir: p.Cache.Dir, UpdateGolden: updateGolden, UpdateVisual: updateVisual, LLMCache: llmCache, Labels: labels,
 				Targets: a.targetFactory(), Provider: provider, Secrets: store, Vars: flagVars, Env: a.env(),
 				Limits:   map[string]int{config.TargetLiveKit: p.LiveKit.MaxConcurrentRooms, config.TargetSIP: p.SIP.MaxConcurrentCalls},
 				Reporter: reps, Logger: logger, Now: a.deps.Now, Version: a.info.Version,
@@ -338,6 +347,7 @@ func (a *app) newRunCmd() *cobra.Command {
 	cmd.MarkFlagsMutuallyExclusive("replay", "update-cache")
 	cmd.Flags().BoolVar(&updateGolden, "update-golden", false, "golden assertions: rewrite every golden file from this run's transcripts")
 	cmd.Flags().BoolVar(&updateVisual, "update-visual", false, "browser visual steps: rewrite the baseline images from this run")
+	cmd.Flags().StringArrayVar(&labelFlags, "label", nil, "label the run, KEY=VALUE (repeatable; on top of labels: in tamesu.yaml): the agent's build, the environment")
 	cmd.Flags().StringVar(&out, "out", "", "run output directory (default .tamesu/runs/<timestamp>)")
 	cmd.Flags().StringSliceVar(&reporters, "reporter", nil, "reporters: console, json, junit, html, markdown, github, slack (default from tamesu.yaml)")
 	cmd.Flags().Float64Var(&maxCostUSD, "max-cost-usd", 0, "stop the run once tamesu's own model spend exceeds this (default budgets.max_cost_usd)")
@@ -357,3 +367,36 @@ func (a *app) targetFactory() runner.TargetFactory {
 }
 
 func infraError(err error) error { return &exitError{code: ExitInfra, err: err} }
+
+// parseLabelFlags reads --label KEY=VALUE flags.
+func parseLabelFlags(flags []string) (map[string]string, error) {
+	out := map[string]string{}
+	for _, f := range flags {
+		k, v, ok := strings.Cut(f, "=")
+		k = strings.TrimSpace(k)
+		if !ok || k == "" {
+			return nil, fmt.Errorf("--label %q: want KEY=VALUE", f)
+		}
+		out[k] = v
+	}
+	return out, nil
+}
+
+// runLabels merges the project's labels (${VAR} expanded) with the flags.
+func runLabels(project, flags map[string]string, env config.EnvLookup) (map[string]string, error) {
+	out := map[string]string{}
+	for k, v := range project {
+		expanded, _, err := config.ExpandEnv(v, env, false)
+		if err != nil {
+			return nil, fmt.Errorf("labels.%s: %w", k, err)
+		}
+		out[k] = expanded
+	}
+	for k, v := range flags {
+		out[k] = v
+	}
+	if len(out) == 0 {
+		return nil, nil
+	}
+	return out, nil
+}

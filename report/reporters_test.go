@@ -33,8 +33,11 @@ func reportersFixture() *Summary {
 
 func TestMarkdownAndGitHub(t *testing.T) {
 	s := reportersFixture()
+	s.Labels = map[string]string{"env": "staging", "agent": "sha123"}
 	md := RenderMarkdown(s)
 	assert.Contains(t, md, "## ❌ tamesu: 1 passed, 1 failed, 1 errors")
+	assert.Contains(t, md, "· `agent=sha123 env=staging`", "labels, keys sorted")
+	assert.Equal(t, "", FormatLabels(nil))
 	assert.Contains(t, md, "| ❌ | no exceptions \\| strict | support · api (rest) | 1 |")
 	assert.Contains(t, md, "| 💥 | broken |")
 	assert.Contains(t, md, "**support / no exceptions \\| strict**: judge \"no exception\": the agent promised a refund after 40 days")
