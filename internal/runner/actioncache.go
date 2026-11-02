@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/xavidop/tamesu/internal/fsutil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -123,9 +124,6 @@ func (c *ActionCache) Load(key string) (*Plan, error) {
 
 // Save writes the plan.
 func (c *ActionCache) Save(p *Plan) error {
-	if err := os.MkdirAll(c.dir, 0o755); err != nil {
-		return err
-	}
 	if p.CreatedAt.IsZero() {
 		p.CreatedAt = time.Now()
 	}
@@ -133,7 +131,7 @@ func (c *ActionCache) Save(p *Plan) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(c.path(p.Key), append(b, '\n'), 0o644)
+	return fsutil.WriteFileAtomic(c.path(p.Key), append(b, '\n'), 0o644)
 }
 
 // Delete removes a plan.

@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/xavidop/tamesu/internal/fsutil"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -146,15 +147,13 @@ func (p *Provider) store(key string, e simEntry) {
 	if p.mode == ModeOff {
 		return
 	}
-	if err := os.MkdirAll(p.dir, 0o755); err != nil {
-		return
-	}
 	e.CreatedAt = time.Now()
 	b, err := json.MarshalIndent(e, "", "  ")
 	if err != nil {
 		return
 	}
-	_ = os.WriteFile(filepath.Join(p.dir, key+".json"), b, 0o644)
+	// Atomic: parallel runs that miss the same key must not leave a torn file.
+	_ = fsutil.WriteFileAtomic(filepath.Join(p.dir, key+".json"), b, 0o644)
 }
 
 // Simulate answers from the cache or the inner simulator.
