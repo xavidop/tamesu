@@ -19,7 +19,10 @@ project_name: tamesu
 before:
   hooks:
     # The shell completions go into the archives and the Linux packages.
-    - ./scripts/completions.sh
+    # Through bash explicitly: the native Windows build runs this hook too,
+    # and Windows cannot execute a shell script directly (Git Bash is on the
+    # PATH of every GitHub runner).
+    - bash ./scripts/completions.sh
 
 builds:
   - id: tamesu

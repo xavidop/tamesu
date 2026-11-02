@@ -150,9 +150,10 @@ type event struct {
 }
 
 type session struct {
-	t    *Target
-	run  *target.RunContext
-	conn *websocket.Conn
+	closeOnce sync.Once
+	t         *Target
+	run       *target.RunContext
+	conn      *websocket.Conn
 	// events is fed by the reader goroutine; stop ends it.
 	events chan event
 	stop   context.CancelFunc
@@ -602,13 +603,19 @@ func (s *session) Close(context.Context) (target.Artifacts, error) {
 	return arts, nil
 }
 
+// closeConn closes the websocket once and stops the reader. The connection
+// is never set to nil: the reader goroutine still holds it and would
+// otherwise dereference nil (a data race the -race tests caught).
 func (s *session) closeConn() error {
-	if s.conn == nil {
-		return nil
-	}
-	err := s.conn.Close(websocket.StatusNormalClosure, "done")
-	s.stop()
-	s.conn = nil
+	var err error
+	s.closeOnce.Do(func() {
+		if s.conn != nil {
+			err = s.conn.Close(websocket.StatusNormalClosure, "done")
+		}
+		if s.stop != nil {
+			s.stop()
+		}
+	})
 	return err
 }
 
