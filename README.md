@@ -241,6 +241,7 @@ tamesu mcp --http :8765 --cwd /path/to/project          # for agents on another 
 
 - [Docs site](https://xavidop.github.io/tamesu/docs/): quick start, concepts, configuration
 - [Install](https://xavidop.github.io/tamesu/docs/install/)
+- [Recipes](https://xavidop.github.io/tamesu/docs/recipes/): complete projects to start from
 - [Suites](https://xavidop.github.io/tamesu/docs/suites/): the YAML reference, generated from the schema
 - [CLI reference](https://xavidop.github.io/tamesu/docs/cli/): every command, flag and exit code
 - [Security](https://xavidop.github.io/tamesu/docs/security/) and [SECURITY.md](SECURITY.md)

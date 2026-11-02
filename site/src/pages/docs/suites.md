@@ -36,6 +36,29 @@ The top level of the file.
 | `packs` | map of string to list of [Assertion](#assertion) |  | Reusable assertion sets by name for assert entries of the form pack: name; a name also used by a built-in pack (prompt_injection / pii_leakage / system_prompt_leakage) replaces it. |
 | `tests` | list of [Test](#test) | yes |  |
 
+Example:
+
+```yaml
+suite: support
+tags: [smoke]
+vars: { base_url: "https://api.example.com" }
+secrets: { API_TOKEN: env:API_TOKEN }
+targets:
+  api:
+    type: rest
+    url: "{{vars.base_url}}/chat"
+    headers: { Authorization: "Bearer {{secrets.API_TOKEN}}" }
+    response: { text: "$.reply" }
+tests:
+  - name: refund policy
+    target: api
+    persona: { name: Marta, style: polite }
+    scenario: { goal: "Find out if shoes bought 40 days ago can be returned", max_turns: 4 }
+    assert:
+      - judge: "The agent states the 30-day return policy"
+      - contains: "30 days"
+```
+
 ## Target
 
 | Key | Type | Required | Description |
@@ -77,6 +100,19 @@ The top level of the file.
 | `sample_rate` | integer |  | pipecat audio mode: the transport's sample rate in Hz; default 16000. |
 | `idle` | [Duration](#duration) |  | pipecat: silence after the agent's last message or audio that ends a turn when no bot-stopped-speaking / bot-llm-stopped arrives; default 2s. |
 
+Example:
+
+```yaml
+targets:
+  web:  { type: browser, url: "https://shop.example.com", browser: { viewport: 1280x800 } }
+  api:  { type: rest, url: "https://api.example.com/chat", response: { text: "$.reply", done: "$.end_session" } }
+  grpc: { type: grpc, url: "grpc://agent.internal:9090" }
+  voice: { type: livekit, url: "${LIVEKIT_URL}", api_key: "{{secrets.LIVEKIT_API_KEY}}", api_secret: "{{secrets.LIVEKIT_API_SECRET}}", mode: audio }
+  phone: { type: sip, direction: outbound, to: "+15550001", from: "+15550002" }
+  rt:   { type: realtime, model: gpt-realtime, headers: { Authorization: "Bearer {{secrets.OPENAI_API_KEY}}" }, mode: text }
+  bot:  { type: pipecat, url: "wss://bot.example.com/ws", mode: audio }
+```
+
 ## BrowserOptions
 
 | Key | Type | Required | Description |
@@ -87,11 +123,48 @@ The top level of the file.
 | `mocks` | list of [BrowserMock](#browsermock) |  | Requests answered by tamesu instead of the network from the start of the session; the mock action adds more at run time. |
 | `recording` | one of `auto`, `gif`, `webm`, `off` |  | The session recording written next to the screenshots. auto (the default) writes recording.webm when ffmpeg is installed and recording.gif otherwise; off disables it. |
 
+Example:
+
+```yaml
+browser:
+  viewport: 1280x800
+  locale: en-US
+  recording: webm
+  mocks:
+    - { url: "**/api/recommendations", body: { items: [] } }
+```
+
+## BrowserMock
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `url` | string | yes | A glob on the full URL (** crosses slashes) or a substring. |
+| `method` | string |  | Only this method; default any. |
+| `status` | integer |  | The answer's status; default 200. |
+| `body` | any |  | The answer: a string as is or any value as JSON. |
+| `headers` | map of string to string |  |  |
+| `delay_ms` | integer |  | Hold the answer back this long. |
+| `abort` | boolean |  | Fail the request instead of answering. |
+
+Example:
+
+```yaml
+mocks:
+  - { url: "**/api/payment", method: POST, status: 502, delay_ms: 2000 }
+  - { url: "**/analytics.js", abort: true }
+```
+
 ## BrowserAuth
 
 | Key | Type | Required | Description |
 |---|---|---|---|
 | `storage_state` | string |  | Path to a saved storage state (cookies and local storage). |
+
+Example:
+
+```yaml
+auth: { storage_state: auth/customer.json }
+```
 
 ## RESTRequest
 
@@ -99,6 +172,14 @@ The top level of the file.
 |---|---|---|---|
 | `body` | any |  | Request body template; {{message}} is the user turn and {{session}} the session id. |
 | `open` | any |  | streaming websocket: a message template sent once after connecting. |
+
+Example:
+
+```yaml
+request:
+  body: { session_id: "{{session}}", message: "{{message}}" }
+  open: { type: hello, session: "{{session}}" }        # websocket only
+```
 
 ## RESTResponse
 
@@ -110,11 +191,28 @@ The top level of the file.
 | `turn_done` | string |  | streaming websocket: JSONPath of a boolean that ends the turn; otherwise the turn ends after idle. |
 | `idle` | [Duration](#duration) |  | streaming websocket: silence that ends a turn when no message marks it; default 2s. |
 
+Example:
+
+```yaml
+response:
+  text: "$.reply"
+  tool_calls: "$.tool_calls[*]"
+  done: "$.end_session"
+  turn_done: "$.done"                                    # websocket: the message that ends a turn
+  idle: 2s
+```
+
 ## RESTSession
 
 | Key | Type | Required | Description |
 |---|---|---|---|
 | `id` | string |  | Session id template; defaults to {{uuid}}. |
+
+Example:
+
+```yaml
+session: { id: "{{uuid}}" }
+```
 
 ## Dispatch
 
@@ -122,12 +220,25 @@ The top level of the file.
 |---|---|---|---|
 | `agent_name` | string | yes |  |
 
+Example:
+
+```yaml
+dispatch: { agent_name: support-agent }
+```
+
 ## Trigger
 
 | Key | Type | Required | Description |
 |---|---|---|---|
 | `http` | [HTTPTrigger](#httptrigger) |  |  |
 | `command` | string |  | A shell command that makes the agent dial sip.inbound_number. |
+
+Example:
+
+```yaml
+trigger:
+  http: { url: "https://agent.example.com/callbacks", method: POST, body: { number: "{{sip.inbound_number}}" } }
+```
 
 ## HTTPTrigger
 
@@ -137,6 +248,12 @@ The top level of the file.
 | `method` | string |  |  |
 | `body` | any |  |  |
 | `headers` | map of string to string |  |  |
+
+Example:
+
+```yaml
+http: { url: "https://agent.example.com/dial", method: POST, headers: { Authorization: "Bearer {{secrets.AGENT_TOKEN}}" } }
+```
 
 ## Test
 
@@ -160,6 +277,56 @@ The top level of the file.
 | `capture` | list of [Capture](#capture) |  | Values taken from the agent's turns as they arrive (the first match wins) and offered as {{captured.<name>}} to later script say steps / tool_results / hooks / assertions. |
 | `assert` | list of [Assertion](#assertion) |  |  |
 
+Example:
+
+```yaml
+tests:
+  - name: return window
+    target: api
+    tags: [returns]
+    repeat: 3
+    pass_threshold: 0.67
+    vars: { days: "40" }
+    capture:
+      - { name: order_id, regex: "order (ORD-[0-9]+)" }
+    persona: { name: Marta, style: polite, language: en }
+    scenario: { goal: "Ask whether shoes bought {{vars.days}} days ago can be returned", max_turns: 4 }
+    assert:
+      - judge: "The agent states the 30-day return policy"
+      - tool_called: lookup_policy
+```
+
+## Case
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `name` | string |  | The case's name; default case 1 / case 2... |
+| `vars` | map of string to string | yes | Values for {{vars.<key>}} in this case. |
+
+Example:
+
+```yaml
+cases:
+  - { name: late, vars: { days: "40", expect: "not possible" } }
+  - { name: early, vars: { days: "10", expect: "can return" } }
+```
+
+## Capture
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `name` | string | yes | The name; the value is {{captured.<name>}}. |
+| `regex` | string |  | A regular expression on the agent's text; the first group (else the whole match) is the value. |
+| `json_path` | string |  | A JSONPath on the turn's raw response (rest / websocket / realtime events). |
+
+Example:
+
+```yaml
+capture:
+  - { name: order_id, regex: "order (ORD-[0-9]+)" }
+  - { name: eta, json_path: "$.eta" }
+```
+
 ## Step
 
 | Key | Type | Required | Description |
@@ -167,6 +334,17 @@ The top level of the file.
 | `goal` | string |  | Agentic: the browser agent acts until the goal is met. |
 | `expect` | string |  | Agentic assertion against the current page. |
 | `action` | object (any keys) |  | Deterministic: one of navigate click fill press wait screenshot eval_js assert_url assert_text mock a11y visual. |
+
+Example:
+
+```yaml
+steps:
+  - goal: "Log in as {{vars.user}} with password {{secrets.PASSWORD}}"
+  - expect: "The account page shows the user's name"
+  - action: { click: "#add-to-cart" }
+  - action: { a11y: { impact: serious } }
+  - action: { visual: { name: cart, mask: ["#date"] } }
+```
 
 ## Persona
 
@@ -178,6 +356,17 @@ The top level of the file.
 | `voice` | string |  | TTS voice such as en-GB-female. |
 | `behaviors` | [Behaviors](#behaviors) |  |  |
 
+Example:
+
+```yaml
+persona:
+  name: Marta
+  style: polite, slightly confused
+  language: es-ES
+  voice: es-ES-female
+  behaviors: { interrupt_probability: 0.2, background_noise: cafe }
+```
+
 ## Behaviors
 
 | Key | Type | Required | Description |
@@ -188,6 +377,17 @@ The top level of the file.
 | `background_noise_snr_db` | number |  | Signal-to-noise ratio of the background noise in dB; default 20. |
 | `line_quality` | one of `pstn`, `mobile_poor`, `voip_good` |  |  |
 
+Example:
+
+```yaml
+behaviors:
+  interrupt_probability: 0.2
+  silence_after_turn_ms: [300, 900]
+  background_noise: street
+  background_noise_snr_db: 15
+  line_quality: mobile_poor
+```
+
 ## Scenario
 
 | Key | Type | Required | Description |
@@ -197,6 +397,19 @@ The top level of the file.
 | `stop_when` | string |  | A plain-language stop condition judged after each agent turn. |
 | `script` | list of [ScriptStep](#scriptstep) |  | Deterministic steps mixed with free conversation (sip and livekit audio). |
 
+Example:
+
+```yaml
+scenario:
+  goal: "Reach the billing department and ask about a double charge"
+  max_turns: 6
+  stop_when: "the agent has confirmed a refund or clearly refused one"
+  script:
+    - wait_for: "press 2 for billing"
+    - dtmf: "2"
+    - say: "I was charged twice for order {{captured.order_id}}"
+```
+
 ## ScriptStep
 
 | Key | Type | Required | Description |
@@ -204,6 +417,15 @@ The top level of the file.
 | `wait_for` | string |  | Wait until the transcript fuzzily contains this text. |
 | `dtmf` | string |  | Digits to send. |
 | `say` | string |  | Exact text to say before the persona takes over. |
+
+Example:
+
+```yaml
+script:
+  - wait_for: "press 2 for billing"
+  - dtmf: "2"
+  - say: "Hello, I was charged twice"
+```
 
 ## Assertion
 
@@ -231,6 +453,24 @@ The top level of the file.
 | `pack` | string |  | A reusable assertion set: a built-in red-team pack (prompt_injection / pii_leakage / system_prompt_leakage) or one of the suite's packs; it expands into its assertions when the suite loads. |
 | `on_turn` | [OnTurn](#onturn) |  |  |
 
+Example:
+
+```yaml
+assert:
+  - judge: "The agent states the 30-day return policy and does not promise an exception"
+  - judge: { rubric: "The tone stays warm", scale: "1-5", min: 4 }
+  - contains: "30 days"
+  - not_regex: "[0-9]{16}"
+  - tool_called: { name: lookup_policy, args: { topic: returns } }
+  - tool_sequence: { calls: [lookup_policy, end_session] }
+  - metric: { name: turn_latency_ms_p95, lt: 3000 }
+  - turns: { lte: 6 }
+  - captured: { name: order_id, matches: "^ORD-" }
+  - golden: { file: golden/refund.json, mode: similar, min: 0.8 }
+  - pack: pii_leakage
+  - { contains: "goodbye", on_turn: last }
+```
+
 ## Judge
 
 Either a string (The rubric; the judge model and a binary scale are the defaults), or an object with:
@@ -242,6 +482,12 @@ Either a string (The rubric; the judge model and a binary scale are the defaults
 | `scale` | one of `binary`, `1-5` |  | binary (pass or fail) or 1-5 with min. |
 | `min` | number |  | Minimum score to pass on the 1-5 scale. |
 
+Example:
+
+```yaml
+judge: { rubric: "The agent apologises before explaining the policy", scale: "1-5", min: 4, model: anthropic/claude-sonnet-4-6 }
+```
+
 ## ToolCall
 
 Either a string (The tool name), or an object with:
@@ -250,6 +496,25 @@ Either a string (The tool name), or an object with:
 |---|---|---|---|
 | `name` | string | yes | Tool name as the target reports it. |
 | `args` | object (any keys) |  | Argument values that must match (a subset of the call's arguments). |
+
+Example:
+
+```yaml
+tool_called: { name: lookup_policy, args: { topic: returns } }
+```
+
+## ToolSequence
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `calls` | list of string | yes | Tool names in the order they must be called. |
+| `exact` | boolean |  | The run's tool calls must be exactly this list; default a subsequence. |
+
+Example:
+
+```yaml
+tool_sequence: { calls: [lookup_policy, issue_refund], exact: false }
+```
 
 ## Evaluator
 
@@ -260,6 +525,12 @@ Either a string (The evaluator name), or an object with:
 | `name` | string | yes | Genkit evaluator name such as genkitEval/faithfulness. |
 | `min` | number |  | Minimum score to pass (0 to 1). |
 
+Example:
+
+```yaml
+evaluator: { name: genkitEval/faithfulness, min: 0.8 }
+```
+
 ## JSONPathAssertion
 
 | Key | Type | Required | Description |
@@ -267,17 +538,35 @@ Either a string (The evaluator name), or an object with:
 | `path` | string | yes | JSONPath into the response body such as $.status. |
 | `equals` | any |  | The value the path must equal. |
 
+Example:
+
+```yaml
+json_path: { path: "$.status", equals: ok }
+```
+
 ## DTMFAssertion
 
 | Key | Type | Required | Description |
 |---|---|---|---|
 | `equals` | string | yes | The exact digits such as 1234#. |
 
+Example:
+
+```yaml
+dtmf_received: { equals: "9" }
+```
+
 ## Matches
 
 | Key | Type | Required | Description |
 |---|---|---|---|
 | `matches` | string | yes | A regular expression such as ^sip:billing@. |
+
+Example:
+
+```yaml
+transferred_to: { matches: "^sip:billing@" }
+```
 
 ## MetricAssertion
 
@@ -290,6 +579,12 @@ Either a string (The evaluator name), or an object with:
 | `gte` | number |  |  |
 | `eq` | number |  |  |
 
+Example:
+
+```yaml
+metric: { name: time_to_first_audio_ms_p95, lt: 1500 }
+```
+
 ## IntCompare
 
 | Key | Type | Required | Description |
@@ -300,15 +595,96 @@ Either a string (The evaluator name), or an object with:
 | `gte` | integer |  |  |
 | `eq` | integer |  |  |
 
+Example:
+
+```yaml
+turns: { lte: 6 }
+```
+
+## CapturedAssertion
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `name` | string | yes |  |
+| `equals` | string |  |  |
+| `matches` | string |  | A regular expression the value must match. |
+
+Example:
+
+```yaml
+captured: { name: order_id, matches: "^ORD-[0-9]+$" }
+```
+
+## GoldenAssertion
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `file` | string |  | A JSON file next to the suite: an array of agent turns or a transcript.json; written by tamesu run --update-golden. |
+| `turns` | list of string |  | Inline reference turns instead of a file. |
+| `mode` | one of `exact`, `similar`, `judge` |  | exact (normalised text) / similar (word overlap at least min; the default) / judge (the judge decides whether each turn means the same). |
+| `min` | number |  | similar: the minimum word overlap (0 to 1); default 0.8. |
+
+Example:
+
+```yaml
+golden: { file: golden/refund.json, mode: judge }
+```
+
 ## OnTurn
 
 Evaluate the assertion on one agent turn: a 1-based number or last.
 
 One of: integer, one of `last`.
 
+Example:
+
+```yaml
+- { contains: "goodbye", on_turn: last }
+- { json_path: { path: "$.end_session", equals: true }, on_turn: 3 }
+```
+
 ## StringList
 
 One of: string, list of string.
+
+Example:
+
+```yaml
+call_ended_by: [agent, caller]
+```
+
+## Hooks
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `before_all` | list of [Hook](#hook) |  | Run once before the suite's first test (the project's first). |
+| `after_all` | list of [Hook](#hook) |  | Run once after the suite's last test. |
+| `before_each` | list of [Hook](#hook) |  | Run before every run of every test; a failure is an infrastructure error for that run. |
+| `after_each` | list of [Hook](#hook) |  | Run after every run; a failure is logged and does not change the run's result. |
+
+Example:
+
+```yaml
+hooks:
+  before_all: [ { command: ./scripts/seed.sh } ]
+  before_each: [ { http: { url: "{{vars.admin_url}}/reset", method: POST } } ]
+  after_each: [ { command: "./scripts/cleanup.sh $TAMESU_SESSION", timeout: 30s } ]
+```
+
+## Hook
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `command` | string |  | A shell command (sh -c). |
+| `http` | [HTTPTrigger](#httptrigger) |  | An HTTP request; a status of 400 or more fails the hook. |
+| `timeout` | [Duration](#duration) |  | How long the hook may take; default 60s. |
+
+Example:
+
+```yaml
+- command: ./scripts/seed.sh
+- http: { url: "https://admin.example.com/reset", method: POST, headers: { Authorization: "Bearer {{secrets.ADMIN_TOKEN}}" } }
+```
 
 ## Defaults
 
@@ -322,6 +698,21 @@ One of: string, list of string.
 | `assert` | list of [Assertion](#assertion) |  | Assertions every test must pass (results named defaults/<name>); a suite's entries run after the project's. Packs apply. |
 | `slo` | map of string to number |  | Maximum per metric on every test such as turn_latency_ms_p95: 3000 or llm_cost_usd: 0.05 (results named slo/<metric>); a metric a test does not measure passes. |
 
+Example:
+
+```yaml
+defaults:
+  timeout: 3m
+  repeat: 1
+  retries: 1
+  pass_threshold: 1
+  assert:
+    - pack: pii_leakage
+  slo:
+    turn_latency_ms_p95: 3000
+    llm_cost_usd: 0.05
+```
+
 ## Models
 
 | Key | Type | Required | Description |
@@ -333,6 +724,15 @@ One of: string, list of string.
 | `scenario_generator` | string |  |  |
 | `credentials` | map of string to string |  | Plugin name to {{secrets.NAME}} when the secret is not named conventionally. |
 
+Example:
+
+```yaml
+models:
+  default: googleai/gemini-2.5-flash
+  judge: anthropic/claude-sonnet-4-6
+  simulator: openai/gpt-4.1-mini
+```
+
 ## Budgets
 
 | Key | Type | Required | Description |
@@ -340,77 +740,21 @@ One of: string, list of string.
 | `max_cost_usd` | number |  |  |
 | `max_tokens` | integer |  |  |
 
+Example:
+
+```yaml
+budgets: { max_cost_usd: 2, max_tokens: 500000 }
+```
+
 ## Duration
 
 A duration such as 30s, 3m or 1h30m.
 
 Type: string.
 
-## BrowserMock
+Example:
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `url` | string | yes | A glob on the full URL (** crosses slashes) or a substring. |
-| `method` | string |  | Only this method; default any. |
-| `status` | integer |  | The answer's status; default 200. |
-| `body` | any |  | The answer: a string as is or any value as JSON. |
-| `headers` | map of string to string |  |  |
-| `delay_ms` | integer |  | Hold the answer back this long. |
-| `abort` | boolean |  | Fail the request instead of answering. |
-
-## Capture
-
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `name` | string | yes | The name; the value is {{captured.<name>}}. |
-| `regex` | string |  | A regular expression on the agent's text; the first group (else the whole match) is the value. |
-| `json_path` | string |  | A JSONPath on the turn's raw response (rest / websocket / realtime events). |
-
-## CapturedAssertion
-
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `name` | string | yes |  |
-| `equals` | string |  |  |
-| `matches` | string |  | A regular expression the value must match. |
-
-## Case
-
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `name` | string |  | The case's name; default case 1 / case 2... |
-| `vars` | map of string to string | yes | Values for {{vars.<key>}} in this case. |
-
-## GoldenAssertion
-
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `file` | string |  | A JSON file next to the suite: an array of agent turns or a transcript.json; written by tamesu run --update-golden. |
-| `turns` | list of string |  | Inline reference turns instead of a file. |
-| `mode` | one of `exact`, `similar`, `judge` |  | exact (normalised text) / similar (word overlap at least min; the default) / judge (the judge decides whether each turn means the same). |
-| `min` | number |  | similar: the minimum word overlap (0 to 1); default 0.8. |
-
-## Hook
-
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `command` | string |  | A shell command (sh -c). |
-| `http` | [HTTPTrigger](#httptrigger) |  | An HTTP request; a status of 400 or more fails the hook. |
-| `timeout` | [Duration](#duration) |  | How long the hook may take; default 60s. |
-
-## Hooks
-
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `before_all` | list of [Hook](#hook) |  | Run once before the suite's first test (the project's first). |
-| `after_all` | list of [Hook](#hook) |  | Run once after the suite's last test. |
-| `before_each` | list of [Hook](#hook) |  | Run before every run of every test; a failure is an infrastructure error for that run. |
-| `after_each` | list of [Hook](#hook) |  | Run after every run; a failure is logged and does not change the run's result. |
-
-## ToolSequence
-
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `calls` | list of string | yes | Tool names in the order they must be called. |
-| `exact` | boolean |  | The run's tool calls must be exactly this list; default a subsequence. |
+```yaml
+timeout: 90s
+```
 

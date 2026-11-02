@@ -30,6 +30,7 @@ The [Quick start](/docs/quickstart/) walks through a first project.
 | Task | Where to read |
 |---|---|
 | Write a suite: targets, personas, scenarios, steps and assertions in YAML | [Suites](/docs/suites/) |
+| Start from a complete, working project | [Recipes](/docs/recipes/) |
 | Describe a REST agent, a LiveKit voice agent, a phone agent or a web app as a target | [Suites: Target](/docs/suites/#target) |
 | Grade a conversation with an LLM judge and deterministic checks | [Concepts: assertions](/docs/concepts/#assertions) |
 | Keep API keys out of suites with mamori secret refs | [Configuration: secrets](/docs/configuration/#secrets-with-mamori) |

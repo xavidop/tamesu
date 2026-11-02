@@ -21,7 +21,7 @@ func TargetTypes() []string {
 func IsConversational(targetType string) bool { return targetType != TargetBrowser && targetType != "" }
 
 // ActionNames are the deterministic browser actions a step may take.
-var ActionNames = []string{"navigate", "click", "fill", "press", "wait", "screenshot", "eval_js", "assert_url", "assert_text"}
+var ActionNames = []string{"navigate", "click", "fill", "press", "wait", "screenshot", "eval_js", "assert_url", "assert_text", "mock", "a11y", "visual"}
 
 // AssertionKinds lists every assertion key, in documentation order.
 var AssertionKinds = []string{
