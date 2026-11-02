@@ -48,6 +48,29 @@ const (
 	ModeAudio = "audio"
 )
 
+// Output audio formats of audio mode.
+const (
+	FormatPCM16    = "pcm16"
+	FormatG711ULaw = "g711_ulaw"
+	FormatG711ALaw = "g711_alaw"
+	// G711Rate is the sample rate of G.711 audio.
+	G711Rate = 8000
+)
+
+// AudioFormats are the accepted values of Config.AudioFormat.
+var AudioFormats = []string{FormatPCM16, FormatG711ULaw, FormatG711ALaw}
+
+// outputFormatGA is the GA session's audio.output.format for an AudioFormat.
+func outputFormatGA(format string) map[string]any {
+	switch format {
+	case FormatG711ULaw:
+		return map[string]any{"type": "audio/pcmu"}
+	case FormatG711ALaw:
+		return map[string]any{"type": "audio/pcma"}
+	}
+	return map[string]any{"type": "audio/pcm", "rate": AudioRate}
+}
+
 // ErrNoSpeech is returned by Start in audio mode when the run has no speech
 // layer.
 var ErrNoSpeech = errors.New("audio mode needs the speech models: set speech.tts.model in tamesu.yaml")
@@ -70,6 +93,14 @@ type Config struct {
 	Mode string
 	// DoneTool is the function whose call ends the session (default end_session).
 	DoneTool string
+	// ToolResults answers the agent's function calls, by function name: the
+	// value (any JSON value; string leaves may use {{args.<key>}}) goes back
+	// as a function_call_output and the response continues. Calls to
+	// functions not listed, and to DoneTool, are recorded only.
+	ToolResults map[string]any
+	// AudioFormat is the agent's output audio in audio mode: FormatPCM16
+	// (default), FormatG711ULaw or FormatG711ALaw.
+	AudioFormat string
 	// Timeout bounds one turn (and the handshake); zero means DefaultTimeout.
 	Timeout time.Duration
 	// Client overrides the HTTP client of the handshake.
@@ -89,6 +120,9 @@ func New(name string, cfg Config) target.Target {
 	}
 	if cfg.DoneTool == "" {
 		cfg.DoneTool = DefaultDoneTool
+	}
+	if cfg.AudioFormat == "" {
+		cfg.AudioFormat = FormatPCM16
 	}
 	if cfg.Timeout <= 0 {
 		cfg.Timeout = DefaultTimeout
@@ -216,13 +250,13 @@ func (s *session) sessionConfig() map[string]any {
 	var base map[string]any
 	switch {
 	case cfg.Protocol == ProtocolBeta && cfg.Mode == ModeAudio:
-		base = map[string]any{"modalities": []any{"audio", "text"}, "input_audio_format": "pcm16", "output_audio_format": "pcm16", "turn_detection": nil}
+		base = map[string]any{"modalities": []any{"audio", "text"}, "input_audio_format": "pcm16", "output_audio_format": cfg.AudioFormat, "turn_detection": nil}
 	case cfg.Protocol == ProtocolBeta:
 		base = map[string]any{"modalities": []any{"text"}, "turn_detection": nil}
 	case cfg.Mode == ModeAudio:
 		base = map[string]any{"type": "realtime", "output_modalities": []any{"audio"}, "audio": map[string]any{
 			"input":  map[string]any{"format": map[string]any{"type": "audio/pcm", "rate": AudioRate}, "turn_detection": nil},
-			"output": map[string]any{"format": map[string]any{"type": "audio/pcm", "rate": AudioRate}},
+			"output": map[string]any{"format": outputFormatGA(cfg.AudioFormat)},
 		}}
 	default:
 		base = map[string]any{"type": "realtime", "output_modalities": []any{"text"}}
@@ -311,9 +345,39 @@ func (s *session) Send(ctx context.Context, turn target.UserTurn) error {
 	if err := s.write(tctx, map[string]any{"type": "response.create"}); err != nil {
 		return fmt.Errorf("realtime: response.create: %w", err)
 	}
-	agent, err := s.readTurn(tctx, started, spoken)
+	agent, calls, err := s.readTurn(tctx, started, spoken)
 	if err != nil {
 		return fmt.Errorf("realtime: %w", err)
+	}
+	// Answer the function calls that have a configured result, and read the
+	// response that follows, up to maxToolRounds times.
+	for round := 0; round < maxToolRounds && !agent.Done; round++ {
+		answered := 0
+		for i, call := range calls {
+			out, ok := s.toolOutput(call.call)
+			if !ok {
+				continue
+			}
+			item := map[string]any{"type": "conversation.item.create", "item": map[string]any{"type": "function_call_output", "call_id": call.id, "output": out}}
+			if err := s.write(tctx, item); err != nil {
+				return fmt.Errorf("realtime: function_call_output: %w", err)
+			}
+			s.event("tool_result", call.call.Name)
+			answered++
+			_ = i
+		}
+		if answered == 0 {
+			break
+		}
+		if err := s.write(tctx, map[string]any{"type": "response.create"}); err != nil {
+			return fmt.Errorf("realtime: response.create: %w", err)
+		}
+		next, nextCalls, err := s.readTurn(tctx, started, spoken)
+		if err != nil {
+			return fmt.Errorf("realtime: %w", err)
+		}
+		mergeTurn(&agent, next)
+		calls = nextCalls
 	}
 	agent.StartedAt = started
 	agent.EndedAt = time.Now()
@@ -327,19 +391,32 @@ func (s *session) Send(ctx context.Context, turn target.UserTurn) error {
 	return nil
 }
 
-// readTurn assembles the agent's turn from the events up to response.done.
-func (s *session) readTurn(ctx context.Context, started time.Time, spoken *spokenTurn) (target.AgentTurn, error) {
+// idCall is a recorded function call with the call id its answer needs.
+type idCall struct {
+	id   string
+	call target.ToolCall
+}
+
+// readTurn assembles the agent's turn from the events up to response.done,
+// returning the function calls of that response with their ids.
+func (s *session) readTurn(ctx context.Context, started time.Time, spoken *spokenTurn) (target.AgentTurn, []idCall, error) {
 	agent := target.AgentTurn{}
 	var text strings.Builder
 	var raw []any
-	calls := map[string]bool{}
+	var calls []idCall
+	seen := map[string]bool{}
+	var plan *interruptPlan
+	if s.audio != nil {
+		plan = s.audio.planInterrupt()
+	}
+	var itemID string
 	for {
 		select {
 		case <-ctx.Done():
-			return agent, fmt.Errorf("no response.done within %s: %w", s.t.cfg.Timeout, ctx.Err())
+			return agent, calls, fmt.Errorf("no response.done within %s: %w", s.t.cfg.Timeout, ctx.Err())
 		case ev, ok := <-s.events:
 			if !ok || ev.err != nil {
-				return agent, fmt.Errorf("connection closed by the agent: %w", errOr(ev.err))
+				return agent, calls, fmt.Errorf("connection closed by the agent: %w", errOr(ev.err))
 			}
 			s.mu.Lock()
 			s.received++
@@ -360,12 +437,20 @@ func (s *session) readTurn(ctx context.Context, started time.Time, spoken *spoke
 				}
 				if s.audio != nil {
 					s.agentAudio(ev.data, spoken)
+					if plan != nil && plan.due(spoken) {
+						s.interrupt(ctx, plan, itemID, spoken)
+						agent.Interrupted = true
+					}
+				}
+			case "response.output_item.added":
+				if item, ok := ev.data["item"].(map[string]any); ok && item["type"] == "message" {
+					itemID, _ = item["id"].(string)
 				}
 			case "response.function_call_arguments.done":
-				s.toolCall(&agent, calls, ev.data["call_id"], ev.data["name"], ev.data["arguments"])
+				calls = s.toolCall(&agent, calls, seen, ev.data["call_id"], ev.data["name"], ev.data["arguments"])
 			case "response.output_item.done":
 				if item, ok := ev.data["item"].(map[string]any); ok && item["type"] == "function_call" {
-					s.toolCall(&agent, calls, item["call_id"], item["name"], item["arguments"])
+					calls = s.toolCall(&agent, calls, seen, item["call_id"], item["name"], item["arguments"])
 				}
 			case "response.done":
 				resp, _ := ev.data["response"].(map[string]any)
@@ -378,19 +463,22 @@ func (s *session) readTurn(ctx context.Context, started time.Time, spoken *spoke
 							msg = fmt.Sprintf("the response failed: %s", strOf(e["message"], e["code"], e["type"]))
 						}
 					}
-					return agent, errors.New(msg)
+					return agent, calls, errors.New(msg)
 				}
-				if status != "" && status != "completed" {
+				if status != "" && status != "completed" && !(agent.Interrupted && status == "cancelled") {
 					s.event("response_"+status, "")
+				}
+				if plan != nil && !plan.cancelledAt.IsZero() {
+					s.audio.interrupted(plan)
 				}
 				agent.Text = text.String()
 				agent.Raw = raw
 				if s.audio != nil {
 					s.finishAudio(spoken, &agent)
 				}
-				return agent, nil
+				return agent, calls, nil
 			case "error":
-				return agent, errors.New(errorMessage(ev.data))
+				return agent, calls, errors.New(errorMessage(ev.data))
 			default:
 				s.unsolicited(ev)
 			}
@@ -400,11 +488,11 @@ func (s *session) readTurn(ctx context.Context, started time.Time, spoken *spoke
 
 // toolCall records a function call once per call id; the done tool ends the
 // session.
-func (s *session) toolCall(agent *target.AgentTurn, seen map[string]bool, callID, name, args any) {
+func (s *session) toolCall(agent *target.AgentTurn, calls []idCall, seen map[string]bool, callID, name, args any) []idCall {
 	id, _ := callID.(string)
 	n, _ := name.(string)
 	if n == "" || (id != "" && seen[id]) {
-		return
+		return calls
 	}
 	seen[id] = true
 	call := target.ToolCall{Name: n}
@@ -421,6 +509,20 @@ func (s *session) toolCall(agent *target.AgentTurn, seen map[string]bool, callID
 	s.event("tool_call", n)
 	if n == s.t.cfg.DoneTool {
 		agent.Done = true
+	}
+	return append(calls, idCall{id: id, call: call})
+}
+
+// interrupt makes the caller talk over the agent: the response is cancelled
+// (and the spoken item truncated to what was heard) and the turn ends when
+// the server confirms.
+func (s *session) interrupt(ctx context.Context, plan *interruptPlan, itemID string, sp *spokenTurn) {
+	plan.cancelledAt = time.Now()
+	s.event("interruption", "the caller spoke over the agent")
+	_ = s.write(ctx, map[string]any{"type": "response.cancel"})
+	if itemID != "" && sp != nil && !sp.firstAudio.IsZero() {
+		_ = s.write(ctx, map[string]any{"type": "conversation.item.truncate", "item_id": itemID, "content_index": 0,
+			"audio_end_ms": plan.cancelledAt.Sub(sp.firstAudio).Milliseconds()})
 	}
 }
 

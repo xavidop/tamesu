@@ -89,7 +89,12 @@ type Target struct {
 	Protocol      string         `yaml:"protocol,omitempty" json:"protocol,omitempty" jsonschema:"enum=ga,enum=beta,description=realtime: the event dialect; ga (default) or beta (modalities and the OpenAI-Beta header)."`
 	DoneTool      string         `yaml:"done_tool,omitempty" json:"done_tool,omitempty" jsonschema:"description=realtime: a function call with this name ends the session; default end_session."`
 	TurnTimeout   Duration       `yaml:"turn_timeout,omitempty" json:"turn_timeout,omitempty" jsonschema:"description=realtime: how long to wait for response.done; default 60s."`
+	ToolResults   map[string]any `yaml:"tool_results,omitempty" json:"tool_results,omitempty" jsonschema:"description=realtime: answers to the agent's function calls by function name. The value (any JSON; string leaves may use {{args.<key>}}) goes back as the function's output and the response continues. Unlisted functions and done_tool are recorded only."`
+	AudioFormat   string         `yaml:"audio_format,omitempty" json:"audio_format,omitempty" jsonschema:"enum=pcm16,enum=g711_ulaw,enum=g711_alaw,description=realtime audio mode: the agent's output audio; pcm16 (default) or G.711 at 8 kHz."`
 }
+
+// RealtimeAudioFormats are the values of a realtime target's audio_format.
+var RealtimeAudioFormats = []string{"pcm16", "g711_ulaw", "g711_alaw"}
 
 // BrowserRecordingFormats are the values of browser.recording.
 var BrowserRecordingFormats = []string{"auto", "gif", "webm", "off"}

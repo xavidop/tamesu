@@ -715,6 +715,19 @@
         "turn_timeout": {
           "$ref": "#/$defs/Duration",
           "description": "realtime: how long to wait for response.done; default 60s."
+        },
+        "tool_results": {
+          "type": "object",
+          "description": "realtime: answers to the agent's function calls by function name. The value (any JSON; string leaves may use {{args.\u003ckey\u003e}}) goes back as the function's output and the response continues. Unlisted functions and done_tool are recorded only."
+        },
+        "audio_format": {
+          "type": "string",
+          "enum": [
+            "pcm16",
+            "g711_ulaw",
+            "g711_alaw"
+          ],
+          "description": "realtime audio mode: the agent's output audio; pcm16 (default) or G.711 at 8 kHz."
         }
       },
       "additionalProperties": false,

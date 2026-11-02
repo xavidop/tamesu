@@ -51,6 +51,7 @@ var targetFieldTypes = map[string][]string{
 	"direction":         {TargetSIP}, "to": {TargetSIP}, "from": {TargetSIP}, "trunk_id": {TargetSIP}, "ring_timeout": {TargetSIP},
 	"max_call_duration": {TargetSIP}, "trigger": {TargetSIP},
 	"model": {TargetRealtime}, "session_update": {TargetRealtime}, "protocol": {TargetRealtime}, "done_tool": {TargetRealtime}, "turn_timeout": {TargetRealtime},
+	"tool_results": {TargetRealtime}, "audio_format": {TargetRealtime},
 }
 
 // RealtimeProtocols are the event dialects of the realtime target.
@@ -247,6 +248,16 @@ func (v *validator) target(name string, t Target) {
 		}
 		if _, ok := t.Headers["Authorization"]; !ok && (t.URL == "" || strings.Contains(t.URL, "api.openai.com")) {
 			v.warnf(tp, "the OpenAI Realtime API needs headers.Authorization: \"Bearer {{secrets.OPENAI_API_KEY}}\"")
+		}
+		if t.AudioFormat != "" && !slices.Contains(RealtimeAudioFormats, t.AudioFormat) {
+			v.errorf(with(tp, "audio_format"), "audio_format must be one of %s", strings.Join(RealtimeAudioFormats, ", "))
+		}
+		done := t.DoneTool
+		if done == "" {
+			done = "end_session"
+		}
+		if _, ok := t.ToolResults[done]; ok {
+			v.warnf(with(tp, "tool_results", done), "%s is the done tool: its call ends the session and is never answered", done)
 		}
 	case TargetSIP:
 		switch t.Direction {

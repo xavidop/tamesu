@@ -5,10 +5,12 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
+	"math/rand/v2"
 	"path/filepath"
 	"time"
 
 	"github.com/xavidop/tamesu/audio"
+	"github.com/xavidop/tamesu/audio/g711"
 	"github.com/xavidop/tamesu/audio/wav"
 	"github.com/xavidop/tamesu/metrics"
 	"github.com/xavidop/tamesu/target"
@@ -28,12 +30,42 @@ const (
 type audioState struct {
 	speech target.Speech
 	voice  target.Voice
+	format string
+	rng    *rand.Rand
 	start  time.Time
 	user   []int16
 	agent  []int16
 	ttfa   []float64
-	userMs float64
-	agMs   float64
+	// interrupts are the cancel → confirmation times of the interruptions.
+	interrupts []float64
+	userMs     float64
+	agMs       float64
+}
+
+// interruptPlan is one turn's decision to talk over the agent: after `after`
+// of agent audio, the response is cancelled.
+type interruptPlan struct {
+	after       time.Duration
+	cancelledAt time.Time
+}
+
+// planInterrupt rolls the persona's interrupt_probability for the coming
+// turn; nil when the caller will listen to the end.
+func (a *audioState) planInterrupt() *interruptPlan {
+	if a.voice.InterruptProbability <= 0 || a.rng.Float64() >= a.voice.InterruptProbability {
+		return nil
+	}
+	return &interruptPlan{after: 600*time.Millisecond + time.Duration(a.rng.Float64()*float64(1400*time.Millisecond))}
+}
+
+// due reports whether the agent has spoken long enough to be interrupted.
+func (p *interruptPlan) due(sp *spokenTurn) bool {
+	return p.cancelledAt.IsZero() && sp != nil && !sp.firstAudio.IsZero() && time.Since(sp.firstAudio) >= p.after
+}
+
+// interrupted records how long the agent kept talking after the cancel.
+func (a *audioState) interrupted(p *interruptPlan) {
+	a.interrupts = append(a.interrupts, float64(time.Since(p.cancelledAt).Microseconds())/1000)
 }
 
 // spokenTurn is what Send measured while speaking the user's turn.
@@ -44,10 +76,15 @@ type spokenTurn struct {
 }
 
 func (s *session) startAudio(run *target.RunContext) {
-	a := &audioState{speech: run.Speech, start: time.Now()}
+	a := &audioState{speech: run.Speech, start: time.Now(), format: s.t.cfg.AudioFormat}
 	if run.Voice != nil {
 		a.voice = *run.Voice
 	}
+	seed := uint64(a.voice.Seed)
+	if seed == 0 {
+		seed = uint64(time.Now().UnixNano())
+	}
+	a.rng = rand.New(rand.NewPCG(seed, seed^0x5a5a5a5a))
 	s.audio = a
 }
 
@@ -88,14 +125,15 @@ func (s *session) speak(ctx context.Context, turn target.UserTurn, started time.
 	return sp, nil
 }
 
-// agentAudio appends one response.output_audio.delta to the agent track.
+// agentAudio appends one response.output_audio.delta to the agent track,
+// decoded from the session's output format into 24 kHz PCM16.
 func (s *session) agentAudio(ev map[string]any, sp *spokenTurn) {
 	b64, _ := ev["delta"].(string)
-	pcm, err := decodePCM(b64)
+	a := s.audio
+	pcm, err := decodeAudio(b64, a.format)
 	if err != nil || len(pcm) == 0 {
 		return
 	}
-	a := s.audio
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if sp != nil && sp.firstAudio.IsZero() {
@@ -132,6 +170,28 @@ func (s *session) closeAudioLocked(files map[string]string) {
 	metrics.Summarize(s.metrics, metrics.TimeToFirstAudioMs, a.ttfa)
 	s.metrics["agent_speech_ms"] = a.agMs
 	s.metrics["user_speech_ms"] = a.userMs
+	s.metrics["interruptions"] = float64(len(a.interrupts))
+	metrics.Summarize(s.metrics, metrics.InterruptionStopMs, a.interrupts)
+}
+
+// decodeAudio decodes a base64 audio delta in the given format to PCM16 at
+// AudioRate: PCM16 as is, G.711 decoded and resampled from 8 kHz.
+func decodeAudio(b64, format string) ([]int16, error) {
+	switch format {
+	case FormatG711ULaw, FormatG711ALaw:
+		b, err := base64.StdEncoding.DecodeString(b64)
+		if err != nil {
+			return nil, err
+		}
+		var pcm []int16
+		if format == FormatG711ULaw {
+			pcm = g711.DecodeMuLaw(b)
+		} else {
+			pcm = g711.DecodeALaw(b)
+		}
+		return audio.Resample(audio.PCM{Rate: G711Rate, Samples: pcm}, AudioRate).Samples, nil
+	}
+	return decodePCM(b64)
 }
 
 func padTo(samples []int16, n int) []int16 {

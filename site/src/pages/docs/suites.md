@@ -71,6 +71,8 @@ The top level of the file.
 | `protocol` | one of `ga`, `beta` |  | realtime: the event dialect; ga (default) or beta (modalities and the OpenAI-Beta header). |
 | `done_tool` | string |  | realtime: a function call with this name ends the session; default end_session. |
 | `turn_timeout` | [Duration](#duration) |  | realtime: how long to wait for response.done; default 60s. |
+| `tool_results` | object (any keys) |  | realtime: answers to the agent's function calls by function name. The value (any JSON; string leaves may use {{args.<key>}}) goes back as the function's output and the response continues. Unlisted functions and done_tool are recorded only. |
+| `audio_format` | one of `pcm16`, `g711_ulaw`, `g711_alaw` |  | realtime audio mode: the agent's output audio; pcm16 (default) or G.711 at 8 kHz. |
 
 ## BrowserOptions
 

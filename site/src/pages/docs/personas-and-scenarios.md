@@ -46,7 +46,7 @@ tests:
 Give the persona what the agent will ask for: a name, an order reference in the goal, a date. The
 simulator invents plausible details that fit the persona when it must, and never gives a real
 secret, card number or password. The audio behaviours take effect in livekit audio mode and on
-sip calls; text mode ignores them. A test's `seed` drives the behaviour RNG, so a run
+sip calls (`interrupt_probability` also in realtime audio mode); text mode ignores them. A test's `seed` drives the behaviour RNG, so a run
 with the same seed pauses and interrupts at the same points.
 
 ## Scenario
