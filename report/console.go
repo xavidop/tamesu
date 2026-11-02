@@ -82,6 +82,11 @@ func (c *Console) TestFinished(t *TestOutcome) {
 		runs = fmt.Sprintf("  (%d/%d runs passed, threshold %.0f%%)", passed, len(t.Runs), t.PassThreshold*100)
 	}
 	c.printf("%s  %s / %s  %s%s\n", label, t.Suite, t.Name, fmtDuration(dur), runs)
+	if l := t.Load; l != nil {
+		c.printf("       load: %d users · %d runs in %s · %.1f runs/s · %.0f%% errors · turn latency p50 %.0fms p95 %.0fms max %.0fms (%d turns)\n",
+			l.Users, l.Runs, fmtDuration(time.Duration(l.DurationMs*float64(time.Millisecond))), l.RunsPerSecond, l.ErrorRate*100,
+			l.TurnLatencyMs.P50, l.TurnLatencyMs.P95, l.TurnLatencyMs.Max, l.TurnLatencyMs.Count)
+	}
 	if t.Passed {
 		return
 	}

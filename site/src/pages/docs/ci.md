@@ -105,6 +105,25 @@ and, per test and run, `transcript.json` and `result.json` with the assertions, 
 judge reasoning. Upload the run directory as an artifact to read a failure after the fact. See
 [Reports](/docs/reports/).
 
+## Load mode
+
+`tamesu run --load N` runs every selected test with `N` concurrent virtual users, each looping
+runs for `--load-duration` (one run each without it), so a conversational agent can be watched
+under modest concurrency with the same suites and assertions: pass/fail still comes from the
+assertions and `pass_threshold` over all the runs, and the target caps
+(`livekit.max_concurrent_rooms`, `sip.max_concurrent_calls`) still hold, so a phone suite cannot
+place more calls than the project allows.
+
+```sh
+tamesu run --tags smoke --load 10 --load-duration 2m --max-cost-usd 5
+```
+
+Each test's entry in `summary.json` gets a `load` profile: `users`, `runs`, `duration_ms`,
+`runs_per_second`, `error_rate` (runs that did not pass) and `turn_latency_ms` (`count`, `p50`,
+`p95`, `max` over every agent turn of every run, from transport timestamps). The console prints
+the same line under the test and the HTML report shows it next to the runs. Load mode is a
+smoke-level tool: the simulator and the judges cost model calls per run, so set a budget.
+
 ## Budgets
 
 `budgets.max_cost_usd` (or `--max-cost-usd`) caps what a pipeline run may spend on models and

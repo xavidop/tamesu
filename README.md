@@ -111,7 +111,7 @@ The commands:
 tamesu init [dir]                scaffold tamesu.yaml and examples/ (--force overwrites)
 tamesu validate [paths...]       schema-validate suites without running them (--strict)
 tamesu list [paths...]           list tests (--json, --filter, --tags, --target)
-tamesu run [paths...]            run suites (--filter, --tags, --target, --parallel, --repeat, --mode, --headed, --replay, --update-cache, --out, --reporter, --max-cost-usd)
+tamesu run [paths...]            run suites (--filter, --tags, --target, --parallel, --repeat, --load, --load-duration, --mode, --headed, --replay, --update-cache, --out, --reporter, --max-cost-usd)
 tamesu doctor [paths...]         check config, suites and secrets (via mamori), models, speech, Chromium, LiveKit and SIP
 tamesu report <run-dir>          rebuild report.html from a run directory
 tamesu record browser <url>      record a browser session into deterministic steps (--out)

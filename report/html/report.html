@@ -70,6 +70,7 @@ a{color:var(--ink)}
     <span class="name">{{.T.Name}}</span>
     <span class="suite">{{.T.Suite}} · {{.T.Target}} ({{.T.Type}})</span>
     {{if gt .T.Repeat 1}}<span class="dur">{{.PassedRuns}}/{{len .T.Runs}} runs, threshold {{printf "%.0f" (mul .T.PassThreshold 100)}}%</span>{{end}}
+    {{with .T.Load}}<span class="dur">load: {{.Users}} users, {{.Runs}} runs, {{printf "%.1f" .RunsPerSecond}} runs/s, {{printf "%.0f" (mul .ErrorRate 100)}}% errors, turn latency p50 {{printf "%.0f" .TurnLatencyMs.P50}} ms, p95 {{printf "%.0f" .TurnLatencyMs.P95}} ms, max {{printf "%.0f" .TurnLatencyMs.Max}} ms</span>{{end}}
     <span class="dur">{{fmtDur .Duration}}</span>
     {{if .T.Tags}}<span class="tags">{{join .T.Tags ", "}}</span>{{end}}
   </summary>

@@ -138,3 +138,36 @@ func TestMulti(t *testing.T) {
 	assert.Equal(t, a.String(), b.String())
 	assert.Contains(t, a.String(), "PASS   support / refund")
 }
+
+func TestComputeLoad(t *testing.T) {
+	t0 := time.Date(2026, 11, 2, 12, 0, 0, 0, time.UTC)
+	turns := func(latencies ...time.Duration) []tassert.Turn {
+		var out []tassert.Turn
+		at := t0
+		for i, l := range latencies {
+			out = append(out, tassert.Turn{Role: "user", Text: "u", At: at}, tassert.Turn{Role: "agent", Text: "a", At: at.Add(l), Index: i + 1})
+			at = at.Add(l + time.Second)
+		}
+		return out
+	}
+	to := &TestOutcome{StartedAt: t0, FinishedAt: t0.Add(4 * time.Second), Runs: []*RunOutcome{
+		{Passed: true, Transcript: turns(100*time.Millisecond, 200*time.Millisecond)},
+		{Passed: false, Transcript: turns(300 * time.Millisecond)},
+		{Passed: true, Transcript: turns(400*time.Millisecond, 1000*time.Millisecond)},
+		{Passed: true, ErrorKind: KindInfra},
+	}}
+	ls := ComputeLoad(to, 2)
+	assert.Equal(t, 2, ls.Users)
+	assert.Equal(t, 4, ls.Runs)
+	assert.Equal(t, 4000.0, ls.DurationMs)
+	assert.Equal(t, 1.0, ls.RunsPerSecond)
+	assert.Equal(t, 0.25, ls.ErrorRate)
+	assert.Equal(t, 5, ls.TurnLatencyMs.Count)
+	assert.Equal(t, 300.0, ls.TurnLatencyMs.P50)
+	assert.Equal(t, 1000.0, ls.TurnLatencyMs.Max)
+	assert.GreaterOrEqual(t, ls.TurnLatencyMs.P95, 400.0)
+
+	empty := ComputeLoad(&TestOutcome{}, 1)
+	assert.Equal(t, 0, empty.Runs)
+	assert.Equal(t, 0.0, empty.ErrorRate)
+}

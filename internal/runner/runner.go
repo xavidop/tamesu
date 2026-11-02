@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -63,6 +64,12 @@ type Options struct {
 	Limits map[string]int
 	// Repeat overrides every test's repeat count when > 0.
 	Repeat int
+	// Load > 0 is load mode: every selected test runs with Load concurrent
+	// virtual users, each looping runs for LoadDuration (one run each when
+	// zero); Parallel defaults to Load times the number of tests. The
+	// summary gets a load profile per test.
+	Load         int
+	LoadDuration time.Duration
 	// Mode overrides every voice test's mode when set.
 	Mode string
 	// MaxCostUSD overrides the project budget when > 0.
@@ -156,6 +163,9 @@ func Run(ctx context.Context, o Options) (*report.Summary, error) {
 	if len(items) == 0 {
 		return nil, ErrNoTests
 	}
+	if o.Load > 0 && o.Parallel <= 0 {
+		parallel = o.Load * len(items)
+	}
 	if err := os.MkdirAll(filepath.Join(o.OutDir, "tests"), 0o755); err != nil {
 		return nil, fmt.Errorf("create run directory: %w", err)
 	}
@@ -182,6 +192,10 @@ func Run(ctx context.Context, o Options) (*report.Summary, error) {
 			defer wg.Done()
 			it.outcome.StartedAt = r.now()
 			r.reporter.TestStarted(it.outcome)
+			if o.Load > 0 {
+				r.runLoad(runCtx, cancel, it, sem, typeSem[it.target.Type])
+				return
+			}
 			runs := make([]*report.RunOutcome, it.repeat)
 			var twg sync.WaitGroup
 			for i := range runs {
@@ -226,6 +240,69 @@ func Run(ctx context.Context, o Options) (*report.Summary, error) {
 		return summary, fmt.Errorf("reporter: %w", err)
 	}
 	return summary, nil
+}
+
+// runLoad is load mode for one test: Load virtual users each loop runs until
+// LoadDuration elapses (once when it is zero), under the same semaphores as
+// a normal run, so target caps still hold.
+func (r *run) runLoad(ctx context.Context, cancel context.CancelCauseFunc, it *item, sem, typeSem chan struct{}) {
+	var (
+		mu    sync.Mutex
+		runs  []*report.RunOutcome
+		next  atomic.Int32
+		uwg   sync.WaitGroup
+		until time.Time
+	)
+	if r.o.LoadDuration > 0 {
+		until = r.now().Add(r.o.LoadDuration)
+	}
+	for u := 0; u < r.o.Load; u++ {
+		uwg.Add(1)
+		go func() {
+			defer uwg.Done()
+			for {
+				idx := int(next.Add(1)) - 1
+				var out *report.RunOutcome
+				select {
+				case sem <- struct{}{}:
+				case <-ctx.Done():
+					out = r.skipped(ctx, it, idx)
+				}
+				if out == nil {
+					if typeSem != nil {
+						select {
+						case typeSem <- struct{}{}:
+						case <-ctx.Done():
+							<-sem
+							out = r.skipped(ctx, it, idx)
+						}
+					}
+					if out == nil {
+						out = r.runWithRetries(ctx, it, idx)
+						if typeSem != nil {
+							<-typeSem
+						}
+						<-sem
+					}
+				}
+				mu.Lock()
+				runs = append(runs, out)
+				mu.Unlock()
+				r.reporter.RunFinished(it.outcome, out)
+				r.checkBudget(cancel)
+				if ctx.Err() != nil || until.IsZero() || !r.now().Before(until) {
+					return
+				}
+			}
+		}()
+	}
+	uwg.Wait()
+	sort.Slice(runs, func(i, j int) bool { return runs[i].Index < runs[j].Index })
+	it.outcome.Repeat = r.o.Load
+	it.outcome.Runs = runs
+	it.outcome.Finalize(r.now())
+	it.outcome.Load = report.ComputeLoad(it.outcome, r.o.Load)
+	r.reporter.TestFinished(it.outcome)
 }
 
 // collect resolves the selected tests of every suite into items with their

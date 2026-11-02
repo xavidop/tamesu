@@ -9,6 +9,7 @@ import (
 
 	"github.com/xavidop/tamesu/assert"
 	"github.com/xavidop/tamesu/internal/model"
+	"github.com/xavidop/tamesu/metrics"
 	"github.com/xavidop/tamesu/target"
 )
 
@@ -43,6 +44,70 @@ type TestOutcome struct {
 	StartedAt     time.Time     `json:"started_at"`
 	FinishedAt    time.Time     `json:"finished_at"`
 	Dir           string        `json:"dir"`
+	// Load is set in load mode (--load): the runs of this test as a load
+	// profile.
+	Load *LoadStats `json:"load,omitempty"`
+}
+
+// LoadStats summarises a test's runs in load mode: how many virtual users
+// ran it, how many runs they completed in how long, the error rate and the
+// latency of every agent turn across all runs.
+type LoadStats struct {
+	Users         int          `json:"users"`
+	Runs          int          `json:"runs"`
+	DurationMs    float64      `json:"duration_ms"`
+	RunsPerSecond float64      `json:"runs_per_second"`
+	ErrorRate     float64      `json:"error_rate"`
+	TurnLatencyMs LatencyStats `json:"turn_latency_ms"`
+}
+
+// LatencyStats are percentiles over a series of durations in milliseconds.
+type LatencyStats struct {
+	Count int     `json:"count"`
+	P50   float64 `json:"p50"`
+	P95   float64 `json:"p95"`
+	Max   float64 `json:"max"`
+}
+
+// ComputeLoad builds the load profile of a finished test from its runs: the
+// latency of each agent turn is the time from the user turn before it to its
+// completion, read from the transcripts (transport timestamps). The error
+// rate counts runs that did not pass, for whatever reason.
+func ComputeLoad(t *TestOutcome, users int) *LoadStats {
+	ls := &LoadStats{Users: users, Runs: len(t.Runs)}
+	if len(t.Runs) == 0 {
+		return ls
+	}
+	var series []float64
+	failed := 0
+	for _, r := range t.Runs {
+		if !r.Passed {
+			failed++
+		}
+		var lastUser time.Time
+		for _, turn := range r.Transcript {
+			switch turn.Role {
+			case "user":
+				lastUser = turn.At
+			case "agent":
+				if !lastUser.IsZero() && !turn.At.Before(lastUser) {
+					series = append(series, float64(turn.At.Sub(lastUser).Microseconds())/1000)
+				}
+			}
+		}
+	}
+	ls.ErrorRate = float64(failed) / float64(len(t.Runs))
+	if d := t.FinishedAt.Sub(t.StartedAt); d > 0 {
+		ls.DurationMs = float64(d.Microseconds()) / 1000
+		ls.RunsPerSecond = float64(len(t.Runs)) / d.Seconds()
+	}
+	ls.TurnLatencyMs.Count = len(series)
+	if len(series) > 0 {
+		m := map[string]float64{}
+		metrics.Summarize(m, "l", series)
+		ls.TurnLatencyMs.P50, ls.TurnLatencyMs.P95, ls.TurnLatencyMs.Max = m["l_p50"], m["l_p95"], m["l_max"]
+	}
+	return ls
 }
 
 // Errored reports whether any run hit an infrastructure, budget or

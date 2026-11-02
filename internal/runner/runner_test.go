@@ -453,3 +453,35 @@ func TestSlugify(t *testing.T) {
 	assert.Equal(t, "test", slugify("***"))
 	assert.Len(t, slugify(strings.Repeat("a", 100)), 60)
 }
+
+func TestRunLoadMode(t *testing.T) {
+	s := suite("echo://agent", convTest("load", config.Assertion{Contains: ptr("echo")}))
+	o, _ := newOptions(t, s, &fakeProvider{})
+	o.Load = 3
+	o.LoadDuration = 300 * time.Millisecond
+	started := time.Now()
+	sum, err := Run(context.Background(), o)
+	require.NoError(t, err)
+	require.Len(t, sum.Tests, 1)
+	to := sum.Tests[0]
+	assert.GreaterOrEqual(t, time.Since(started), 300*time.Millisecond, "the users loop for the duration")
+	assert.Greater(t, len(to.Runs), 3, "each user ran more than once")
+	assert.Equal(t, 3, to.Repeat)
+	assert.True(t, to.Passed)
+	for i, r := range to.Runs {
+		assert.Equal(t, i+1, r.Index, "runs are numbered in order")
+		assert.True(t, r.Passed)
+	}
+	require.NotNil(t, to.Load)
+	assert.Equal(t, 3, to.Load.Users)
+	assert.Equal(t, len(to.Runs), to.Load.Runs)
+	assert.Greater(t, to.Load.RunsPerSecond, 0.0)
+	assert.Equal(t, 0.0, to.Load.ErrorRate)
+	assert.Greater(t, to.Load.TurnLatencyMs.Count, 0)
+	assert.Equal(t, 0, sum.ExitCode())
+
+	o.LoadDuration = 0
+	sum, err = Run(context.Background(), o)
+	require.NoError(t, err)
+	assert.Len(t, sum.Tests[0].Runs, 3, "without a duration every user runs once")
+}

@@ -108,7 +108,7 @@ reported on stderr and makes the command exit `2`; warnings are not printed.
 ## tamesu run
 
 ```text
-tamesu run [paths...] [--filter <regex>] [--tags a,b] [--target <name>] [--parallel N] [--repeat N] [--mode text|audio] [--headed] [--replay | --update-cache] [--out <dir>] [--reporter console,json,junit,html] [--max-cost-usd X]
+tamesu run [paths...] [--filter <regex>] [--tags a,b] [--target <name>] [--parallel N] [--repeat N] [--load N [--load-duration D]] [--mode text|audio] [--headed] [--replay | --update-cache] [--out <dir>] [--reporter console,json,junit,html] [--max-cost-usd X]
 ```
 
 Runs the selected tests. `tamesu.yaml` and the suites are loaded with `${VAR}` required; the
@@ -126,7 +126,9 @@ versions); the reporters write `summary.json`, `junit.xml` and the console outpu
 | `--target <name>` | Only tests of this target. |
 | `--parallel N` | Concurrent runs (default: the number of CPUs). |
 | `--repeat N` | Override every test's repeat count. |
-| `--mode text\|audio` | Voice tests: override the mode (livekit and sip). |
+| `--load N` | Load mode: every selected test runs with N concurrent virtual users; `--parallel` defaults to N per test and the target caps (`livekit.max_concurrent_rooms`, `sip.max_concurrent_calls`) still apply. The summary gets a `load` profile per test and the console prints it. Excludes `--repeat`. |
+| `--load-duration D` | Load mode: each virtual user keeps looping runs for `D` (such as `2m`); without it every user runs once. |
+| `--mode text\|audio` | Voice tests: override the mode (livekit, sip and realtime). |
 | `--headed` | Browser tests: show the browser window instead of running headless. |
 | `--replay` | Browser goals: replay the cached action plans only, no model; a miss or a failed replay fails the step. |
 | `--update-cache` | Browser goals: ignore the action cache, plan again and refresh it. |
@@ -141,7 +143,8 @@ when a target, a model or a secret provider was unreachable, `4` when the budget
 A test fails when any assertion fails or it exceeds its `timeout`; an infrastructure error
 (target unreachable, model error) is retried `retries` times and then counts as an error, not a
 failure. With `repeat` above 1, the test passes when the fraction of passing runs reaches
-`pass_threshold`.
+`pass_threshold`; in load mode the same threshold applies to every run the virtual users made.
+See [CI: load mode](/docs/ci/#load-mode).
 
 ## tamesu doctor
 

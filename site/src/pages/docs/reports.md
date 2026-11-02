@@ -80,7 +80,9 @@ run's reasons, and `system-out` the first failing transcript. An infrastructure 
 
 ## json
 
-`summary.json`, the whole invocation: every test with every run (`result.json` inlined), the
+`summary.json`, the whole invocation: every test with every run (`result.json` inlined), in
+load mode a `load` profile per test (users, runs, runs per second, error rate, turn latency
+percentiles; see [CI: load mode](/docs/ci/#load-mode)), the
 totals and the model usage. It is always written, whatever `--reporter` says, so a script can
 read one file.
 

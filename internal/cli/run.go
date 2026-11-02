@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -88,6 +89,8 @@ func (a *app) newRunCmd() *cobra.Command {
 		out         string
 		reporters   []string
 		maxCostUSD  float64
+		load        int
+		loadFor     time.Duration
 	)
 	cmd := &cobra.Command{
 		Use:   "run [paths...]",
@@ -108,6 +111,15 @@ func (a *app) newRunCmd() *cobra.Command {
 			}
 			if mode != "" && mode != "text" && mode != "audio" {
 				return usageError(fmt.Errorf("--mode must be text or audio"))
+			}
+			if load < 0 {
+				return usageError(fmt.Errorf("--load must be 1 or more"))
+			}
+			if loadFor != 0 && load == 0 {
+				return usageError(fmt.Errorf("--load-duration needs --load"))
+			}
+			if load > 0 && repeat > 0 {
+				return usageError(fmt.Errorf("--load and --repeat exclude each other: load mode sets the runs"))
 			}
 			p, perrs, err := a.loadProject(cmd, true)
 			if err != nil {
@@ -220,6 +232,7 @@ func (a *app) newRunCmd() *cobra.Command {
 
 			summary, err := runner.Run(ctx, runner.Options{
 				Project: p, Suites: suites, Select: selection, OutDir: out, Parallel: parallel, Repeat: repeat, Mode: mode,
+				Load: load, LoadDuration: loadFor,
 				MaxCostUSD: budget, Headed: headed, Replay: replay, UpdateCache: updateCache, CacheDir: p.Cache.Dir,
 				Targets: a.targetFactory(), Provider: provider, Secrets: store, Vars: flagVars, Env: a.env(),
 				Limits:   map[string]int{config.TargetLiveKit: p.LiveKit.MaxConcurrentRooms, config.TargetSIP: p.SIP.MaxConcurrentCalls},
@@ -240,6 +253,8 @@ func (a *app) newRunCmd() *cobra.Command {
 	sel.add(cmd)
 	cmd.Flags().IntVar(&parallel, "parallel", 0, "concurrent runs (default: the number of CPUs)")
 	cmd.Flags().IntVar(&repeat, "repeat", 0, "override every test's repeat count")
+	cmd.Flags().IntVar(&load, "load", 0, "load mode: run every selected test with N concurrent virtual users (--parallel defaults to N per test)")
+	cmd.Flags().DurationVar(&loadFor, "load-duration", 0, "load mode: each virtual user keeps looping runs for this long (default: one run each)")
 	cmd.Flags().StringVar(&mode, "mode", "", "voice tests: text or audio (default from the suite)")
 	cmd.Flags().BoolVar(&headed, "headed", false, "browser tests: show the browser window instead of running headless")
 	cmd.Flags().BoolVar(&replay, "replay", false, "browser goals: use cached action plans only (no model); a miss fails the step")
