@@ -101,3 +101,65 @@ func TestQuarantinedIsNotARegression(t *testing.T) {
 	assert.Equal(t, []string{"s / flaky"}, c.NewFailures, "listed")
 	assert.False(t, c.Regressed, "but not a regression")
 }
+
+func TestSkippedTests(t *testing.T) {
+	s := sampleSummary()
+	skipped := &TestOutcome{Suite: "support", Name: "never ran", Target: "api", Type: "rest", Repeat: 2, PassThreshold: 1, StartedAt: s.StartedAt, Runs: []*RunOutcome{
+		{Index: 1, ErrorKind: KindSkipped, Error: "the run stopped after a failure (--fail-fast)"},
+		{Index: 2, ErrorKind: KindSkipped, Error: "the run stopped after a failure (--fail-fast)"},
+	}}
+	skipped.Finalize(s.StartedAt)
+	assert.True(t, skipped.Skipped())
+	assert.False(t, skipped.Passed)
+	assert.False(t, skipped.Errored())
+	skipped.Quarantine = &Quarantine{Reason: "r"}
+	assert.False(t, skipped.Quarantined(), "a skipped test is not a quarantined failure")
+	skipped.Quarantine = nil
+	s.Tests = append(s.Tests[:2], skipped)
+	s.StoppedEarly = StoppedFailFast
+	passed, failed, errored := s.Counts()
+	assert.Equal(t, []int{1, 1, 0}, []int{passed, failed, errored})
+	require.Len(t, s.Skipped(), 1)
+	assert.Equal(t, 1, s.ExitCode())
+
+	partial := &TestOutcome{Repeat: 2, PassThreshold: 1, Runs: []*RunOutcome{{Passed: true}, {ErrorKind: KindSkipped}}}
+	partial.Finalize(time.Now())
+	assert.False(t, partial.Skipped())
+	assert.True(t, partial.Passed, "the completed run decides")
+	assert.Equal(t, 1.0, partial.PassRate)
+
+	var buf bytes.Buffer
+	c := NewConsole(&buf, false)
+	c.TestFinished(skipped)
+	require.NoError(t, c.Finish(context.Background(), s))
+	assert.Contains(t, buf.String(), "SKIP   support / never ran  the run stopped after a failure (--fail-fast)")
+	assert.Contains(t, buf.String(), "1 passed, 1 failed, 0 errors, 1 skipped in")
+	assert.Contains(t, buf.String(), "stopped after the first failure (--fail-fast)")
+
+	dir := t.TempDir()
+	require.NoError(t, NewJUnit(dir).Finish(context.Background(), s))
+	b, err := os.ReadFile(filepath.Join(dir, "junit.xml"))
+	require.NoError(t, err)
+	var got junitSuites
+	require.NoError(t, xml.Unmarshal(b, &got))
+	assert.Equal(t, 1, got.Skipped)
+	assert.Equal(t, 1, got.Failures)
+	require.NotNil(t, got.Suites[0].Cases[2].Skipped)
+	assert.Contains(t, got.Suites[0].Cases[2].Skipped.Message, "--fail-fast")
+
+	md := RenderMarkdown(s)
+	assert.Contains(t, md, "## ❌ tamesu: 1 passed, 1 failed, 0 errors, 1 skipped")
+	assert.Contains(t, md, "stopped after the first failure (`--fail-fast`)")
+	assert.Contains(t, md, "| ⏭️ | never ran |")
+	assert.NotContains(t, md, "**support / never ran**", "skipped tests are not failures")
+	assert.Contains(t, SlackText(s, ""), "1 skipped in")
+	assert.Len(t, Annotations(s), 1)
+	var html bytes.Buffer
+	require.NoError(t, RenderHTML(&html, s, dir))
+	assert.Contains(t, html.String(), `<span class="badge skipped">skipped</span>`)
+	assert.Contains(t, html.String(), `<b>1</b>skipped`)
+
+	base := summaryWith(outcome("support", "never ran", true))
+	c2 := Compare(base, s, DefaultThresholds)
+	assert.Empty(t, c2.NewFailures, "a skipped test is not a new failure")
+}

@@ -102,12 +102,19 @@ type selectFlags struct {
 	filter string
 	tags   []string
 	target string
+	shard  string
 }
 
 func (f *selectFlags) add(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&f.filter, "filter", "", "run tests whose name matches this regular expression")
 	cmd.Flags().StringSliceVar(&f.tags, "tags", nil, "run tests having any of these tags")
 	cmd.Flags().StringVar(&f.target, "target", "", "restrict to tests of this target")
+	cmd.Flags().StringVar(&f.shard, "shard", "", "INDEX/TOTAL: run only this slice of the selected tests, for CI jobs that split a suite (2/4 is the second of four)")
+}
+
+// shardOf parses --shard.
+func (f *selectFlags) shardOf() (config.Shard, error) {
+	return config.ParseShard(f.shard)
 }
 
 func (f *selectFlags) compile() (*regexp.Regexp, error) {

@@ -38,7 +38,7 @@ func RenderMarkdown(s *Summary) string {
 	if failed > 0 || errored > 0 {
 		icon = "❌"
 	}
-	fmt.Fprintf(&b, "## %s tamesu: %d passed, %d failed, %d errors%s\n\n", icon, passed, failed, errored, quarantinedCount(s, ", "))
+	fmt.Fprintf(&b, "## %s tamesu: %d passed, %d failed, %d errors%s%s\n\n", icon, passed, failed, errored, quarantinedCount(s, ", "), skippedCount(s, ", "))
 	fmt.Fprintf(&b, "%s", fmtDuration(s.Duration()))
 	if l := FormatLabels(s.Labels); l != "" {
 		fmt.Fprintf(&b, " · `%s`", l)
@@ -48,6 +48,9 @@ func RenderMarkdown(s *Summary) string {
 	}
 	if s.BudgetExceeded {
 		b.WriteString(" · **budget exceeded, the run was stopped**")
+	}
+	if s.StoppedEarly == StoppedFailFast {
+		b.WriteString(" · stopped after the first failure (`--fail-fast`)")
 	}
 	b.WriteString("\n\n")
 	if c := s.Comparison; c != nil {
@@ -61,6 +64,8 @@ func RenderMarkdown(s *Summary) string {
 	for _, t := range s.Tests {
 		status := "✅"
 		switch {
+		case t.Skipped():
+			status = "⏭️"
 		case t.Quarantined():
 			status = "🚧"
 		case t.Errored():
@@ -93,6 +98,14 @@ type failure struct {
 	quarantined  bool
 }
 
+// skippedCount is sep + "N skipped" when any test is, else "".
+func skippedCount(s *Summary, sep string) string {
+	if n := len(s.Skipped()); n > 0 {
+		return fmt.Sprintf("%s%d skipped", sep, n)
+	}
+	return ""
+}
+
 // quarantinedCount is sep + "N quarantined" when any test is, else "".
 func quarantinedCount(s *Summary, sep string) string {
 	if q := len(s.Quarantined()); q > 0 {
@@ -105,7 +118,7 @@ func quarantinedCount(s *Summary, sep string) string {
 func failureDetails(s *Summary) []failure {
 	var out []failure
 	for _, t := range s.Tests {
-		if t.Passed {
+		if t.Passed || t.Skipped() {
 			continue
 		}
 		f := failure{test: t.Suite + " / " + t.Name}

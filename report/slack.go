@@ -67,7 +67,7 @@ func SlackText(s *Summary, link string) string {
 		icon = ":x:"
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "%s *tamesu*: %d passed, %d failed, %d errors%s in %s", icon, passed, failed, errored, quarantinedCount(s, ", "), fmtDuration(s.Duration()))
+	fmt.Fprintf(&b, "%s *tamesu*: %d passed, %d failed, %d errors%s%s in %s", icon, passed, failed, errored, quarantinedCount(s, ", "), skippedCount(s, ", "), fmtDuration(s.Duration()))
 	if s.Usage.Calls > 0 {
 		fmt.Fprintf(&b, " · $%.4f", s.Usage.CostUSD)
 	}

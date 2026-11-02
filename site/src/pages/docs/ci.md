@@ -62,6 +62,41 @@ tamesu:
 The image's working directory is `/work`; GitLab mounts the checkout there when `image:` is the
 job's image.
 
+## Splitting a suite across jobs
+
+A long suite runs in parallel jobs with `--shard i/n`: each job runs the i-th of n equal slices
+of the selected tests, dealt in suite and test order, so the n jobs cover every test exactly
+once and the split does not change between runs unless the suite does. Each shard writes its
+own run directory and `junit.xml`; the run is labelled `shard=i/n`, and a shard that ends up
+with no tests exits 0.
+
+```yaml
+jobs:
+  tamesu:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v7
+      - run: go install github.com/xavidop/tamesu/cmd/tamesu@latest
+      - run: tamesu run --shard ${{ matrix.shard }}/4 --out out
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: junit-${{ matrix.shard }}
+          path: out/junit.xml
+```
+
+`tamesu list --shard 2/4` prints the tests a shard would run. Shards compare against a baseline
+one by one, so save a baseline per shard or compare the whole suite from a single job.
+
+For a quick local loop, `tamesu run --fail-fast` stops starting new tests after the first
+failure; the tests that never ran are reported as skipped and the exit code is still `1`.
+
 ## Docker
 
 ```sh

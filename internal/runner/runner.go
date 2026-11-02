@@ -47,6 +47,8 @@ type Selection struct {
 	Filter *regexp.Regexp
 	Tags   []string
 	Target string
+	// Shard keeps one slice of the selected tests (CI sharding).
+	Shard config.Shard
 }
 
 // Options configure a run.
@@ -54,6 +56,10 @@ type Options struct {
 	Project config.Project
 	Suites  []*config.Suite
 	Select  Selection
+	// FailFast stops starting new runs after the first run that fails or
+	// errors (quarantined tests excepted); runs in flight finish and the
+	// tests that never ran are reported as skipped. Ignored in load mode.
+	FailFast bool
 	// OutDir is the run directory; it is created.
 	OutDir string
 	// Parallel caps concurrent runs; 0 means GOMAXPROCS.
@@ -108,6 +114,10 @@ type Options struct {
 // ErrNoTests is returned when the selection matches nothing.
 var ErrNoTests = errors.New("no tests selected")
 
+// ErrEmptyShard is returned when tests were selected but none fell into
+// this shard.
+var ErrEmptyShard = errors.New("no tests in this shard")
+
 // ErrBudgetExceeded cancels the run when tamesu's own model spend passes the budget.
 var ErrBudgetExceeded = errors.New("cost budget exceeded")
 
@@ -132,13 +142,16 @@ type item struct {
 }
 
 type run struct {
-	o          Options
-	now        func() time.Time
-	logger     *slog.Logger
-	reporter   report.Reporter
-	budgetUSD  float64
-	budgetTok  int
-	budgetHit  atomic.Bool
+	o         Options
+	now       func() time.Time
+	logger    *slog.Logger
+	reporter  report.Reporter
+	budgetUSD float64
+	budgetTok int
+	budgetHit atomic.Bool
+	// stop is set by --fail-fast after the first failed run: runs that have
+	// not started are skipped, runs in flight finish.
+	stop       atomic.Bool
 	usageStart model.Usage
 }
 
@@ -169,11 +182,14 @@ func Run(ctx context.Context, o Options) (*report.Summary, error) {
 		r.usageStart = o.Provider.Usage()
 	}
 
-	items, err := r.collect()
+	items, selected, err := r.collect()
 	if err != nil {
 		return nil, err
 	}
 	if len(items) == 0 {
+		if selected > 0 {
+			return nil, ErrEmptyShard
+		}
 		return nil, ErrNoTests
 	}
 	if o.Load > 0 && o.Parallel <= 0 {
@@ -234,9 +250,16 @@ func Run(ctx context.Context, o Options) (*report.Summary, error) {
 						}
 						defer func() { <-ts }()
 					}
+					if o.FailFast && r.stop.Load() {
+						runs[i] = r.skippedRun(it, i, "the run stopped after a failure (--fail-fast)")
+						return
+					}
 					runs[i] = r.runWithRetries(runCtx, it, i)
 					r.reporter.RunFinished(it.outcome, runs[i])
 					r.checkBudget(cancel)
+					if o.FailFast && !runs[i].Passed && it.outcome.Quarantine == nil {
+						r.stop.Store(true)
+					}
 				}(i)
 			}
 			twg.Wait()
@@ -252,6 +275,9 @@ func Run(ctx context.Context, o Options) (*report.Summary, error) {
 
 	summary.FinishedAt = r.now()
 	summary.BudgetExceeded = r.budgetHit.Load()
+	if r.stop.Load() {
+		summary.StoppedEarly = report.StoppedFailFast
+	}
 	if o.LLMCache != nil {
 		st := o.LLMCache()
 		summary.LLMCache = &st
@@ -330,15 +356,20 @@ func (r *run) runLoad(ctx context.Context, cancel context.CancelCauseFunc, it *i
 
 // collect resolves the selected tests of every suite into items with their
 // effective settings and unique directories.
-func (r *run) collect() ([]*item, error) {
-	var items []*item
+// collect plans the selected tests; selected counts them before sharding.
+func (r *run) collect() (items []*item, selected int, err error) {
 	slugs := map[string]int{}
 	for _, s := range r.o.Suites {
 		defaults := s.EffectiveDefaults(r.o.Project)
 		for _, t := range s.SelectTests(r.o.Select.Filter, r.o.Select.Tags, r.o.Select.Target) {
+			k := selected
+			selected++
+			if !r.o.Select.Shard.Keeps(k) {
+				continue
+			}
 			tgt, ok := s.TargetOf(t)
 			if !ok {
-				return nil, fmt.Errorf("%s: test %q: target %q is not declared", s.Path, t.Name, t.Target)
+				return nil, 0, fmt.Errorf("%s: test %q: target %q is not declared", s.Path, t.Name, t.Target)
 			}
 			it := &item{suite: s, test: t, target: tgt}
 			it.repeat = defaults.Repeat
@@ -361,7 +392,7 @@ func (r *run) collect() ([]*item, error) {
 			it.retries = defaults.Retries
 			it.maxGoalSteps = defaults.MaxGoalSteps
 			if every, err := config.ExpandAssertionPacks(s, defaults.Assert); err != nil {
-				return nil, fmt.Errorf("%s: defaults.assert: %w", s.Path, err)
+				return nil, 0, fmt.Errorf("%s: defaults.assert: %w", s.Path, err)
 			} else {
 				it.everyAssert = every
 			}
@@ -405,7 +436,7 @@ func (r *run) collect() ([]*item, error) {
 			items = append(items, it)
 		}
 	}
-	return items, nil
+	return items, selected, nil
 }
 
 // checkBudget cancels the run once tamesu's own spend passes the budget.
@@ -433,6 +464,13 @@ func usageDelta(start, now model.Usage) model.Usage {
 
 // skipped is the outcome of a run that never started because the run was
 // cancelled (budget or interrupt).
+// skippedRun is a run that never started.
+func (r *run) skippedRun(it *item, idx int, why string) *report.RunOutcome {
+	out := &report.RunOutcome{Index: idx + 1, Attempt: 1, Attempts: 1, StartedAt: r.now(), Metrics: map[string]float64{}, Dir: filepath.Join(it.dir, fmt.Sprintf("run-%d", idx+1))}
+	out.ErrorKind, out.Error = report.KindSkipped, why
+	return out
+}
+
 func (r *run) skipped(ctx context.Context, it *item, idx int) *report.RunOutcome {
 	out := &report.RunOutcome{Index: idx + 1, Attempt: 1, Attempts: 1, StartedAt: r.now(), Metrics: map[string]float64{}, Dir: filepath.Join(it.dir, fmt.Sprintf("run-%d", idx+1))}
 	out.ErrorKind, out.Error = classifyCancel(ctx)

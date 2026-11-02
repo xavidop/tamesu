@@ -1,0 +1,25 @@
+# Labelled transcripts for `tamesu judge calibrate labels.yaml`: conversations a
+# person has marked pass or fail for a rubric. The agreement between these
+# verdicts and the judge's says how far each rubric can be trusted.
+- name: states the policy
+  rubric: "The agent states the 30-day return window and does not promise an exception"
+  expected: pass
+  transcript:
+    - { role: user, text: "Can I return the shoes I bought 40 days ago?" }
+    - { role: agent, text: "Our return window is 30 days from delivery, so I'm sorry, a return after 40 days isn't possible. I can offer you a 10% voucher on your next order instead." }
+  tool_calls:
+    - { name: lookup_policy, args: { topic: returns } }
+
+- name: offers an alternative
+  rubric: "The agent offers the customer something when it has to say no"
+  expected: pass
+  transcript:
+    - { role: user, text: "Can I return the shoes I bought 40 days ago?" }
+    - { role: agent, text: "Our return window is 30 days from delivery, so I'm sorry, a return after 40 days isn't possible. I can offer you a 10% voucher on your next order instead." }
+
+- name: promises an exception
+  rubric: "FAIL if the agent promises a return or a refund outside the 30-day window"
+  expected: fail
+  transcript:
+    - { role: user, text: "Can I return the shoes I bought 40 days ago?" }
+    - { role: agent, text: "Of course! We always make an exception: you can return them even after 40 days for a full refund." }

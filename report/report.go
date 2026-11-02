@@ -21,6 +21,7 @@ const (
 	KindInfra     = "infra"     // the target, a model or a provider failed (exit 3)
 	KindBudget    = "budget"    // the run was stopped by the cost budget (exit 4)
 	KindCancelled = "cancelled" // the run was interrupted
+	KindSkipped   = "skipped"   // the run never started: --fail-fast stopped the run after a failure
 )
 
 // RunInfo describes the whole invocation, for Reporter.RunStarted.
@@ -65,7 +66,31 @@ type Quarantine struct {
 
 // Quarantined reports whether the test failed or errored under a
 // quarantine: reported, but neither a failure of the run nor a regression.
-func (t *TestOutcome) Quarantined() bool { return t.Quarantine != nil && !t.Passed }
+func (t *TestOutcome) Quarantined() bool { return t.Quarantine != nil && !t.Passed && !t.Skipped() }
+
+// Skipped reports whether the test never ran: every run was skipped because
+// --fail-fast stopped the run after an earlier failure.
+func (t *TestOutcome) Skipped() bool {
+	if len(t.Runs) == 0 {
+		return false
+	}
+	for _, r := range t.Runs {
+		if r == nil || r.ErrorKind != KindSkipped {
+			return false
+		}
+	}
+	return true
+}
+
+// SkipReason is the message of the first skipped run, "" when none.
+func (t *TestOutcome) SkipReason() string {
+	for _, r := range t.Runs {
+		if r != nil && r.ErrorKind == KindSkipped {
+			return r.Error
+		}
+	}
+	return ""
+}
 
 // LoadStats summarises a test's runs in load mode: how many virtual users
 // ran it, how many runs they completed in how long, the error rate and the
@@ -143,17 +168,24 @@ func (t *TestOutcome) Errored() bool {
 }
 
 // Finalize computes the pass rate and the verdict against the threshold.
+// Runs that never started (skipped) do not count; a test with no completed
+// run did not pass.
 func (t *TestOutcome) Finalize(now time.Time) {
-	passed := 0
+	passed, completed := 0, 0
 	for _, r := range t.Runs {
+		if r.ErrorKind == KindSkipped {
+			continue
+		}
+		completed++
 		if r.Passed {
 			passed++
 		}
 	}
-	if len(t.Runs) > 0 {
-		t.PassRate = float64(passed) / float64(len(t.Runs))
+	t.PassRate = 0
+	if completed > 0 {
+		t.PassRate = float64(passed) / float64(completed)
 	}
-	t.Passed = len(t.Runs) > 0 && t.PassRate >= t.PassThreshold && !t.Errored()
+	t.Passed = completed > 0 && t.PassRate >= t.PassThreshold && !t.Errored()
 	t.FinishedAt = now
 }
 
@@ -231,7 +263,13 @@ type Summary struct {
 	LLMCache *CacheStats `json:"llm_cache,omitempty"`
 	// Comparison is the run against its baseline, when one was given.
 	Comparison *Comparison `json:"comparison,omitempty"`
+	// StoppedEarly says why the run stopped before every test ran:
+	// "fail_fast" when --fail-fast stopped it after a failure.
+	StoppedEarly string `json:"stopped_early,omitempty"`
 }
+
+// StoppedFailFast is Summary.StoppedEarly when --fail-fast stopped the run.
+const StoppedFailFast = "fail_fast"
 
 // CacheStats are hits and misses of a cache.
 type CacheStats struct {
@@ -240,10 +278,12 @@ type CacheStats struct {
 }
 
 // Counts returns how many tests passed, failed and errored. Quarantined
-// failures are in none of the three; Quarantined counts them.
+// failures and skipped tests are in none of the three; Quarantined and
+// Skipped list them.
 func (s *Summary) Counts() (passed, failed, errored int) {
 	for _, t := range s.Tests {
 		switch {
+		case t.Skipped():
 		case t.Quarantined():
 		case t.Errored():
 			errored++
@@ -254,6 +294,17 @@ func (s *Summary) Counts() (passed, failed, errored int) {
 		}
 	}
 	return passed, failed, errored
+}
+
+// Skipped returns the tests that never ran.
+func (s *Summary) Skipped() []*TestOutcome {
+	var out []*TestOutcome
+	for _, t := range s.Tests {
+		if t.Skipped() {
+			out = append(out, t)
+		}
+	}
+	return out
 }
 
 // Quarantined returns the tests that failed or errored under a quarantine.

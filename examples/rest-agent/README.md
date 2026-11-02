@@ -24,3 +24,15 @@ tamesu run --config tamesu.llmfake.yaml broken.yaml
 `--grpc :9090` also serves tamesu's gRPC turn API (the `agent_grpc` target of the suite,
 `AGENT_GRPC_URL`). `PRD.md` is the product note the agent implements; `tamesu generate --from PRD.md` drafts a
 suite from it.
+
+```sh
+# Conversations the agent already had, replayed as tests (no simulator needed):
+tamesu import conversations.json --target api --out recorded.yaml --golden-dir golden
+tamesu run --config tamesu.llmfake.yaml recorded.yaml
+
+# How far the judge agrees with people on each rubric:
+tamesu judge calibrate labels.yaml --config tamesu.llmfake.yaml
+```
+
+`conversations.json` holds two recorded conversations in the JSON shape `tamesu import` reads;
+`labels.yaml` holds transcripts a person marked pass or fail for `tamesu judge calibrate`.

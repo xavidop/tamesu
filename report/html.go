@@ -73,9 +73,9 @@ func LoadSummary(dir string) (*Summary, error) {
 
 // View types for the template.
 type htmlData struct {
-	Summary                              *Summary
-	Passed, Failed, Errored, Quarantined int
-	Tests                                []htmlTest
+	Summary                                       *Summary
+	Passed, Failed, Errored, Quarantined, Skipped int
+	Tests                                         []htmlTest
 }
 
 type htmlTest struct {
@@ -202,9 +202,12 @@ func RenderHTML(w io.Writer, s *Summary, dir string) error {
 	data := htmlData{Summary: s}
 	data.Passed, data.Failed, data.Errored = s.Counts()
 	data.Quarantined = len(s.Quarantined())
+	data.Skipped = len(s.Skipped())
 	for ti, t := range s.Tests {
 		ht := htmlTest{T: t, Passed: t.Passed, Status: "pass", LoadBars: loadBars(t.Load)}
 		switch {
+		case t.Skipped():
+			ht.Status = "skipped"
 		case t.Quarantined():
 			ht.Status = "quarantined"
 		case t.Errored():

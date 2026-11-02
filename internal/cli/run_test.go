@@ -243,3 +243,35 @@ func TestRunLabelsFlag(t *testing.T) {
 	assert.Equal(t, cli.ExitConfig, code)
 	assert.Contains(t, stderr, "want KEY=VALUE")
 }
+
+func TestRunShardAndFailFast(t *testing.T) {
+	deps, _, _ := runDeps(t)
+	dir := writeProject(t, map[string]string{"tamesu.yaml": "version: 1\nsuites: [\"s/**/*.yaml\"]\n", "s/suite.yaml": runSuite})
+	cfg := filepath.Join(dir, "tamesu.yaml")
+
+	code, stdout, _ := run(t, nil, deps, "list", "--config", cfg, "--shard", "2/2")
+	assert.Equal(t, cli.ExitOK, code)
+	assert.Contains(t, stdout, "bad")
+	assert.NotContains(t, stdout, "good")
+	assert.NotContains(t, stdout, "broken")
+
+	code, stdout, _ = run(t, map[string]string{"TOKEN": "t"}, deps, "run", "--config", cfg, "--shard", "2/2", "--out", filepath.Join(dir, "shard2"))
+	assert.Equal(t, cli.ExitFailed, code, stdout)
+	assert.Contains(t, stdout, "FAIL   run-suite / bad")
+	assert.NotContains(t, stdout, "run-suite / good")
+	b, err := os.ReadFile(filepath.Join(dir, "shard2", "summary.json"))
+	require.NoError(t, err)
+	assert.Contains(t, string(b), `"shard": "2/2"`, "the run is labelled with its shard")
+
+	code, stdout, _ = run(t, map[string]string{"TOKEN": "t"}, deps, "run", "--config", cfg, "--filter", "good", "--shard", "2/2", "--out", filepath.Join(dir, "empty"))
+	assert.Equal(t, cli.ExitOK, code, stdout)
+	assert.Contains(t, stdout, "shard 2/2: no tests fall into this shard (1 selected); nothing to run")
+
+	code, _, stderr := run(t, nil, deps, "run", "--config", cfg, "--shard", "4/2")
+	assert.Equal(t, cli.ExitConfig, code)
+	assert.Contains(t, stderr, "the index runs from 1 to the total")
+
+	code, stdout, _ = run(t, map[string]string{"TOKEN": "t"}, deps, "run", "--config", cfg, "--filter", "bad", "--repeat", "3", "--parallel", "1", "--fail-fast", "--out", filepath.Join(dir, "ff"))
+	assert.Equal(t, cli.ExitFailed, code, stdout)
+	assert.Contains(t, stdout, "stopped after the first failure (--fail-fast)")
+}

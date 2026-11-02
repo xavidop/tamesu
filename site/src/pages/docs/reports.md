@@ -99,6 +99,10 @@ read one file.
 | `3` | an infrastructure error on any test |
 | `4` | the cost budget stopped the run |
 
+Tests that never ran because `--fail-fast` stopped the run are reported as skipped (`SKIP` in the
+console, a `skipped` element in JUnit, their own count elsewhere) and do not change the exit
+code; `summary.json` carries `stopped_early: fail_fast`.
+
 A test with a `quarantine` block never changes the exit code: its failure is reported as
 quarantined (`QUAR` in the console, a `skipped` element in JUnit, a warning annotation in GitHub,
 its own count in the Markdown, Slack and HTML summaries) and is not a regression in a baseline

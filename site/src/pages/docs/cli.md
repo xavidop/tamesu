@@ -92,7 +92,7 @@ examples/support-agent.yaml:12: warning: targets.voice.url: env var LIVEKIT_URL 
 ## tamesu list
 
 ```text
-tamesu list [paths...] [--json] [--filter <regex>] [--tags a,b] [--target <name>]
+tamesu list [paths...] [--json] [--filter <regex>] [--tags a,b] [--target <name>] [--shard i/n]
 ```
 
 Prints one line per test: suite, test, target, target type and tags. A suite with errors is
@@ -104,11 +104,12 @@ reported on stderr and makes the command exit `2`; warnings are not printed.
 | `--filter <regex>` | Only tests whose name matches. |
 | `--tags a,b` | Only tests having any of these tags (the suite's tags count for every test). |
 | `--target <name>` | Only tests of this target. |
+| `--shard i/n` | Only the tests `tamesu run --shard i/n` would run: the i-th of n equal slices of the selection. |
 
 ## tamesu run
 
 ```text
-tamesu run [paths...] [--filter <regex>] [--tags a,b] [--target <name>] [--parallel N] [--repeat N] [--load N [--load-duration D]] [--mode text|audio] [--headed] [--replay | --update-cache] [--update-golden] [--update-visual] [--baseline | --baseline-dir <dir>] [--label k=v] [--out <dir>] [--reporter console,json,junit,html,markdown,github,slack] [--max-cost-usd X]
+tamesu run [paths...] [--filter <regex>] [--tags a,b] [--target <name>] [--parallel N] [--repeat N] [--load N [--load-duration D]] [--mode text|audio] [--headed] [--replay | --update-cache] [--update-golden] [--update-visual] [--baseline | --baseline-dir <dir>] [--label k=v] [--shard i/n] [--fail-fast] [--out <dir>] [--reporter console,json,junit,html,markdown,github,slack] [--max-cost-usd X]
 ```
 
 Runs the selected tests. `tamesu.yaml` and the suites are loaded with `${VAR}` required; the
@@ -124,6 +125,8 @@ versions); the reporters write `summary.json`, `junit.xml` and the console outpu
 | `--filter <regex>` | Only tests whose name matches. |
 | `--tags a,b` | Only tests having any of these tags. |
 | `--target <name>` | Only tests of this target. |
+| `--shard i/n` | CI sharding: run only the i-th of n equal slices of the selected tests (`2/4` is the second of four). Tests are dealt in suite and test order, so n jobs with `1/n` to `n/n` cover every test once; the run is labelled `shard=i/n`. A shard with no tests exits 0. See [Splitting a suite across jobs](/docs/ci/#splitting-a-suite-across-jobs). |
+| `--fail-fast` | Stop starting new runs after the first run that fails or errors (a quarantined test does not count). Runs in flight finish; tests that never started are reported as skipped (`SKIP` in the console, `skipped` in JUnit) and `summary.json` says `stopped_early: fail_fast`. Not applied in load mode. |
 | `--parallel N` | Concurrent runs (default: the number of CPUs). |
 | `--repeat N` | Override every test's repeat count. |
 | `--load N` | Load mode: every selected test runs with N concurrent virtual users; `--parallel` defaults to N per test and the target caps (`livekit.max_concurrent_rooms`, `sip.max_concurrent_calls`) still apply. The summary gets a `load` profile per test and the console prints it. Excludes `--repeat`. |

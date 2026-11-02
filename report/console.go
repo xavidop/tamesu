@@ -68,6 +68,8 @@ func (c *Console) TestFinished(t *TestOutcome) {
 	defer c.mu.Unlock()
 	label := "PASS "
 	switch {
+	case t.Skipped():
+		label = "SKIP "
 	case t.Quarantined():
 		label = "QUAR "
 	case t.Errored():
@@ -86,6 +88,10 @@ func (c *Console) TestFinished(t *TestOutcome) {
 	runs := ""
 	if t.Repeat > 1 {
 		runs = fmt.Sprintf("  (%d/%d runs passed, threshold %.0f%%)", passed, len(t.Runs), t.PassThreshold*100)
+	}
+	if t.Skipped() {
+		c.printf("%s  %s / %s  %s\n", label, t.Suite, t.Name, t.SkipReason())
+		return
 	}
 	c.printf("%s  %s / %s  %s%s\n", label, t.Suite, t.Name, fmtDuration(dur), runs)
 	if l := t.Load; l != nil {
@@ -136,7 +142,13 @@ func (c *Console) Finish(_ context.Context, s *Summary) error {
 	if q := len(s.Quarantined()); q > 0 {
 		line += fmt.Sprintf(", %d quarantined", q)
 	}
+	if n := len(s.Skipped()); n > 0 {
+		line += fmt.Sprintf(", %d skipped", n)
+	}
 	line += " in " + fmtDuration(s.Duration())
+	if s.StoppedEarly == StoppedFailFast {
+		line += " · stopped after the first failure (--fail-fast)"
+	}
 	if s.Usage.Calls > 0 {
 		line += fmt.Sprintf(" · %d model calls, %d tokens, $%.4f", s.Usage.Calls, s.Usage.Total(), s.Usage.CostUSD)
 	}

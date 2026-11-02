@@ -103,6 +103,9 @@ func Compare(base, cur *Summary, t Thresholds) *Comparison {
 			c.Added = append(c.Added, k)
 			continue
 		}
+		if t.Skipped() {
+			continue
+		}
 		d := TestDelta{Suite: t.Suite, Name: t.Name, PassedBefore: b.Passed, PassedAfter: t.Passed, PassRateBefore: b.PassRate, PassRateAfter: t.PassRate}
 		switch {
 		case b.Passed && !t.Passed:

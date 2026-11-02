@@ -91,6 +91,7 @@ func (a *app) newRunCmd() *cobra.Command {
 		baselineDir  string
 		updateVisual bool
 		labelFlags   []string
+		failFast     bool
 		updateCache  bool
 		out          string
 		reporters    []string
@@ -130,6 +131,15 @@ func (a *app) newRunCmd() *cobra.Command {
 			flagLabels, err := parseLabelFlags(labelFlags)
 			if err != nil {
 				return usageError(err)
+			}
+			shard, err := sel.shardOf()
+			if err != nil {
+				return usageError(err)
+			}
+			if shard.Active() {
+				if _, ok := flagLabels["shard"]; !ok {
+					flagLabels["shard"] = shard.String()
+				}
 			}
 			p, perrs, err := a.loadProject(cmd, true)
 			if err != nil {
@@ -190,7 +200,7 @@ func (a *app) newRunCmd() *cobra.Command {
 			}
 
 			// Selection and secrets: only what the selected tests use.
-			selection := runner.Selection{Filter: filter, Tags: sel.tags, Target: sel.target}
+			selection := runner.Selection{Filter: filter, Tags: sel.tags, Target: sel.target, Shard: shard}
 			refs := map[string]string{}
 			refVars := map[string]string{}
 			selected := 0
@@ -295,13 +305,17 @@ func (a *app) newRunCmd() *cobra.Command {
 			}
 			summary, err := runner.Run(ctx, runner.Options{
 				Project: p, Suites: suites, Select: selection, OutDir: out, Parallel: parallel, Repeat: repeat, Mode: mode,
-				Load: load, LoadDuration: loadFor,
+				Load: load, LoadDuration: loadFor, FailFast: failFast,
 				MaxCostUSD: budget, Headed: headed, Replay: replayOnly, UpdateCache: updateCache, CacheDir: p.Cache.Dir, UpdateGolden: updateGolden, UpdateVisual: updateVisual, LLMCache: llmCache, Labels: labels,
 				Targets: a.targetFactory(), Provider: provider, Secrets: store, Vars: flagVars, Env: a.env(),
 				Limits:   map[string]int{config.TargetLiveKit: p.LiveKit.MaxConcurrentRooms, config.TargetSIP: p.SIP.MaxConcurrentCalls},
 				Reporter: reps, Logger: logger, Now: a.deps.Now, Version: a.info.Version,
 			})
 			if err != nil {
+				if errors.Is(err, runner.ErrEmptyShard) {
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "shard %s: no tests fall into this shard (%d selected); nothing to run\n", shard, selected)
+					return nil
+				}
 				if errors.Is(err, runner.ErrNoTests) {
 					return configError(err)
 				}
@@ -348,6 +362,7 @@ func (a *app) newRunCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&updateGolden, "update-golden", false, "golden assertions: rewrite every golden file from this run's transcripts")
 	cmd.Flags().BoolVar(&updateVisual, "update-visual", false, "browser visual steps: rewrite the baseline images from this run")
 	cmd.Flags().StringArrayVar(&labelFlags, "label", nil, "label the run, KEY=VALUE (repeatable; on top of labels: in tamesu.yaml): the agent's build, the environment")
+	cmd.Flags().BoolVar(&failFast, "fail-fast", false, "stop starting new runs after the first failed run; runs in flight finish, the rest are reported as skipped")
 	cmd.Flags().StringVar(&out, "out", "", "run output directory (default .tamesu/runs/<timestamp>)")
 	cmd.Flags().StringSliceVar(&reporters, "reporter", nil, "reporters: console, json, junit, html, markdown, github, slack (default from tamesu.yaml)")
 	cmd.Flags().Float64Var(&maxCostUSD, "max-cost-usd", 0, "stop the run once tamesu's own model spend exceeds this (default budgets.max_cost_usd)")

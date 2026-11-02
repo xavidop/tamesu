@@ -111,6 +111,10 @@ func (*JUnit) Build(s *Summary) ([]byte, error) {
 			}
 		}
 		switch {
+		case t.Skipped():
+			js.Skipped++
+			root.Skipped++
+			c.Skipped = &junitMessage{Message: t.SkipReason()}
 		case t.Quarantined():
 			// A quarantined failure is skipped for the CI tool, with the
 			// failure kept in the message and the body.

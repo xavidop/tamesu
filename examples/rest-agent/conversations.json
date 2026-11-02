@@ -1,0 +1,21 @@
+[
+  {
+    "id": "return after 40 days",
+    "turns": [
+      { "role": "user", "text": "Hi, can I return the shoes I bought 40 days ago?" },
+      { "role": "agent", "text": "Our return window is 30 days from delivery, so I'm sorry, a return after 40 days isn't possible. I can offer you a 10% voucher on your next order instead." },
+      { "role": "user", "text": "Thank you, that's clear." },
+      { "role": "agent", "text": "You're welcome! Have a lovely day." }
+    ]
+  },
+  {
+    "id": "shipping times",
+    "turns": [
+      { "role": "agent", "text": "Welcome to Mochi Shoes support." },
+      { "role": "user", "text": "How long does shipping take?" },
+      { "role": "agent", "text": "Shipping takes 2 to 4 business days." },
+      { "role": "user", "text": "Great, thanks, bye!" },
+      { "role": "agent", "text": "You're welcome! Have a lovely day." }
+    ]
+  }
+]

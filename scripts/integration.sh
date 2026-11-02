@@ -65,6 +65,40 @@ echo "==> generate: a draft suite from the PRD must validate"
 ./bin/tamesu-llmfake generate --config examples/rest-agent/tamesu.llmfake.yaml --from examples/rest-agent/PRD.md --target rt --type realtime --out "$out/generated-realtime.yaml"
 ./bin/tamesu-llmfake validate --config examples/rest-agent/tamesu.llmfake.yaml "$out/generated-realtime.yaml"
 
+echo "==> import: recorded conversations must replay against the scripted agent, with no simulator"
+./bin/rest-agent --scripted --addr "127.0.0.1:$port" --grpc "127.0.0.1:$grpc_port" &
+agent=$!
+wait_for
+./bin/tamesu-llmfake import examples/rest-agent/conversations.json --config examples/rest-agent/tamesu.llmfake.yaml --target api --out "$out/imported/recorded.yaml" --golden-dir golden
+test -f "$out/imported/golden/shipping-times.json" || { echo "import wrote no reference file" >&2; exit 1; }
+./bin/tamesu-llmfake run --config examples/rest-agent/tamesu.llmfake.yaml "$out/imported/recorded.yaml" --out "$out/imported-run"
+python3 - "$out/imported-run/summary.json" <<'PY'
+import json, sys
+s = json.load(open(sys.argv[1]))
+assert s["usage"]["calls"] == 0, "the imported tests called a model: %s" % s["usage"]
+assert len(s["tests"]) == 2 and all(t["passed"] for t in s["tests"]), [(t["name"], t["passed"]) for t in s["tests"]]
+print("import: %d recorded conversations replayed with no model call" % len(s["tests"]))
+PY
+
+echo "==> shards: two halves of the suite must both pass and cover every test"
+./bin/tamesu-llmfake run --config examples/rest-agent/tamesu.llmfake.yaml --shard 1/2 --out "$out/shard-1"
+./bin/tamesu-llmfake run --config examples/rest-agent/tamesu.llmfake.yaml --shard 2/2 --out "$out/shard-2"
+python3 - "$out" <<'PY'
+import json, sys
+out = sys.argv[1]
+shards = [json.load(open(f"{out}/shard-{i}/summary.json")) for i in (1, 2)]
+names = [sorted(t["name"] for t in s["tests"]) for s in shards]
+assert not set(names[0]) & set(names[1]), names
+assert len(names[0]) + len(names[1]) == 3, names
+assert all(s["labels"]["shard"] == f"{i}/2" for i, s in enumerate(shards, 1)), [s.get("labels") for s in shards]
+print("shards: %d + %d tests" % (len(names[0]), len(names[1])))
+PY
+stop_agent "$agent"
+
+echo "==> judge calibrate: the fake judge must agree with every label"
+./bin/tamesu-llmfake judge calibrate examples/rest-agent/labels.yaml --config examples/rest-agent/tamesu.llmfake.yaml --out "$out/calibration.json"
+grep -q '"agreement": 1' "$out/calibration.json" || { echo "calibration.json does not report full agreement" >&2; cat "$out/calibration.json" >&2; exit 1; }
+
 echo "==> mcp: the server must list its tools over stdio"
 printf '%s\n' \
 	'{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"integration","version":"0"}}}' \
@@ -87,6 +121,22 @@ if [ "$code" -ne 1 ]; then
 	exit 1
 fi
 grep -q "fake judge: the rubric asks for a failure" "$out/fail/junit.xml" || { echo "junit.xml lacks the judge reason" >&2; exit 1; }
+
+echo "==> broken agent with --fail-fast: the run must stop after the first failure"
+./bin/rest-agent --scripted --broken --addr "127.0.0.1:$port" &
+agent=$!
+wait_for
+set +e
+./bin/tamesu-llmfake run --config examples/rest-agent/tamesu.llmfake.yaml examples/rest-agent/broken.yaml --parallel 1 --repeat 3 --fail-fast --out "$out/fail-fast"
+code=$?
+set -e
+stop_agent "$agent"
+if [ "$code" -ne 1 ]; then
+	echo "expected exit code 1 with --fail-fast, got $code" >&2
+	exit 1
+fi
+grep -q '"stopped_early": "fail_fast"' "$out/fail-fast/summary.json" || { echo "summary.json does not say the run stopped early" >&2; exit 1; }
+grep -q '"skipped"' "$out/fail-fast/summary.json" || { echo "summary.json has no skipped run" >&2; exit 1; }
 
 # Browser: the demo web shop and the fake browser agent's scripted actions
 # against the real Chromium (found locally, or downloaded by tamesu).

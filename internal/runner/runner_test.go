@@ -271,6 +271,79 @@ func TestRunQuarantine(t *testing.T) {
 	assert.Equal(t, 0, sum.ExitCode(), "a quarantined failure alone does not fail the run")
 }
 
+func TestRunShard(t *testing.T) {
+	s := suite("http://agent",
+		convTest("a", config.Assertion{Contains: ptr("echo")}),
+		convTest("b", config.Assertion{Contains: ptr("echo")}),
+		convTest("c", config.Assertion{Contains: ptr("echo")}),
+		convTest("d", config.Assertion{Contains: ptr("echo")}),
+		convTest("e", config.Assertion{Contains: ptr("echo")}),
+	)
+	var names [][]string
+	for i := 1; i <= 2; i++ {
+		o, _ := newOptions(t, s, &fakeProvider{})
+		o.Select.Shard = config.Shard{Index: i, Total: 2}
+		sum, err := Run(context.Background(), o)
+		require.NoError(t, err)
+		var ns []string
+		for _, to := range sum.Tests {
+			ns = append(ns, to.Name)
+		}
+		names = append(names, ns)
+	}
+	assert.Equal(t, [][]string{{"a", "c", "e"}, {"b", "d"}}, names)
+
+	o, _ := newOptions(t, s, &fakeProvider{})
+	o.Select.Shard = config.Shard{Index: 3, Total: 3}
+	o.Select.Filter = regexp.MustCompile("^a$")
+	_, err := Run(context.Background(), o)
+	assert.ErrorIs(t, err, ErrEmptyShard, "one test selected, shard 3/3 is empty")
+	o.Select.Filter = regexp.MustCompile("^nothing$")
+	_, err = Run(context.Background(), o)
+	assert.ErrorIs(t, err, ErrNoTests)
+}
+
+func TestRunFailFast(t *testing.T) {
+	s := suite("http://agent", convTest("bad", config.Assertion{NotContains: ptr("echo")}))
+	s.Tests[0].Repeat = ptr(3)
+	o, buf := newOptions(t, s, &fakeProvider{})
+	o.Parallel = 1
+	o.FailFast = true
+	sum, err := Run(context.Background(), o)
+	require.NoError(t, err)
+	require.Len(t, sum.Tests, 1)
+	bad := sum.Tests[0]
+	assert.False(t, bad.Passed)
+	assert.False(t, bad.Skipped(), "one run completed")
+	ran, skipped := 0, 0
+	for _, r := range bad.Runs {
+		if r.ErrorKind == report.KindSkipped {
+			skipped++
+		} else {
+			ran++
+		}
+	}
+	assert.Equal(t, 1, ran, "the first run fails and stops the rest")
+	assert.Equal(t, 2, skipped)
+	assert.Equal(t, 0.0, bad.PassRate)
+	assert.Equal(t, report.StoppedFailFast, sum.StoppedEarly)
+	assert.Equal(t, 1, sum.ExitCode())
+	assert.Contains(t, buf.String(), "stopped after the first failure (--fail-fast)")
+
+	// Quarantined failures do not stop the run.
+	s.Tests[0].Quarantine = &config.Quarantine{Reason: "SUP-1"}
+	o, _ = newOptions(t, s, &fakeProvider{})
+	o.Parallel = 1
+	o.FailFast = true
+	sum, err = Run(context.Background(), o)
+	require.NoError(t, err)
+	assert.Equal(t, "", sum.StoppedEarly)
+	assert.Len(t, sum.Tests[0].Runs, 3)
+	for _, r := range sum.Tests[0].Runs {
+		assert.NotEqual(t, report.KindSkipped, r.ErrorKind)
+	}
+}
+
 func TestRunRepeatsAndThreshold(t *testing.T) {
 	s := suite("flaky://agent", config.Test{Name: "flaky", Target: "api", Repeat: ptr(4), PassThreshold: ptr(0.5), Scenario: &config.Scenario{Goal: "g"}, Assert: []config.Assertion{{Contains: ptr("echo")}}})
 	o, _ := newOptions(t, s, &fakeProvider{})

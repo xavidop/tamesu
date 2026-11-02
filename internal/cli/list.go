@@ -26,8 +26,8 @@ func (a *app) newListCmd() *cobra.Command {
 		Use:   "list [paths...]",
 		Short: "List the tests of the suites",
 		Long: "List prints one line per test (suite, test, target, target type and tags) for the\n" +
-			"suites given, or the project's suites:. The same --filter, --tags and --target\n" +
-			"flags as run select tests.",
+			"suites given, or the project's suites:. The same --filter, --tags, --target and\n" +
+			"--shard flags as run select tests.",
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			filter, err := sel.compile()
@@ -47,7 +47,12 @@ func (a *app) newListCmd() *cobra.Command {
 				return err
 			}
 			nErr, _ := printErrors(cmd.ErrOrStderr(), perrs.Only())
+			shard, err := sel.shardOf()
+			if err != nil {
+				return usageError(err)
+			}
 			var items []listItem
+			k := 0
 			for _, f := range files {
 				e, _ := printErrors(cmd.ErrOrStderr(), f.Errs.Only())
 				nErr += e
@@ -55,6 +60,11 @@ func (a *app) newListCmd() *cobra.Command {
 					continue
 				}
 				for _, t := range f.Suite.SelectTests(filter, sel.tags, sel.target) {
+					keep := shard.Keeps(k)
+					k++
+					if !keep {
+						continue
+					}
 					target, _ := f.Suite.TargetOf(t)
 					items = append(items, listItem{Suite: f.Suite.Suite, File: f.Path, Name: t.Name, Target: t.Target, Type: target.Type, Tags: f.Suite.TagsOf(t)})
 				}
