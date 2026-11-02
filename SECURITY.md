@@ -34,6 +34,10 @@ module, so upgrade that module to its newest version.
 | --- | --- |
 | core (`github.com/xavidop/tamesu`) | latest release |
 | `cmd/tamesu` (the CLI) | latest release |
+| `llm`, `audio`, `targets/*`, `llm/plugins/*` | latest release |
+
+Third-party components the binary bundles or loads are listed in `THIRD_PARTY_NOTICES.md`; a
+vulnerability in one of them is handled by updating it in a new release.
 
 ## Scope
 

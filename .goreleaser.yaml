@@ -62,6 +62,8 @@ archives:
         formats: [zip]
     files:
       - LICENSE
+      - THIRD_PARTY_NOTICES.md
+      - THIRD_PARTY_LICENSES.csv
       - README.md
       - completions/*
   - id: tamesu-lite
@@ -72,6 +74,8 @@ archives:
         formats: [zip]
     files:
       - LICENSE
+      - THIRD_PARTY_NOTICES.md
+      - THIRD_PARTY_LICENSES.csv
       - README.md
       - completions/*
 
@@ -86,7 +90,7 @@ nfpms:
     vendor: Xavier Portilla Edo
     maintainer: Xavier Portilla Edo <xavi_tb@hotmail.com>
     homepage: "https://xavidop.github.io/tamesu/"
-    description: Put your web apps and AI agents to the test.
+    description: Your agents, tested like users would.
     license: MIT
     formats: [deb, rpm, apk]
     bindir: /usr/bin
@@ -172,12 +176,15 @@ dockers:
     goos: linux
     goarch: amd64
     dockerfile: Dockerfile
+    extra_files:
+      - THIRD_PARTY_NOTICES.md
+      - THIRD_PARTY_LICENSES.csv
     image_templates:
       - "ghcr.io/xavidop/tamesu:{{ .Version }}"
       - "ghcr.io/xavidop/tamesu:latest"
     build_flag_templates:
       - "--label=org.opencontainers.image.title=tamesu"
-      - "--label=org.opencontainers.image.description=Put your web apps and AI agents to the test."
+      - "--label=org.opencontainers.image.description=Your agents, tested like users would."
       - "--label=org.opencontainers.image.url=https://xavidop.github.io/tamesu/"
       - "--label=org.opencontainers.image.source=https://github.com/xavidop/tamesu"
       - "--label=org.opencontainers.image.version={{ .Version }}"
@@ -194,7 +201,7 @@ scoops:
       name: scoop-bucket
       token: "{{ .Env.SCOOP_BUCKET_TOKEN }}"
     homepage: "https://xavidop.github.io/tamesu/"
-    description: "Put your web apps and AI agents to the test"
+    description: "Your agents, tested like users would."
     license: MIT
 
 # The tap lives in a different repository, so this block needs its own token
@@ -213,7 +220,7 @@ homebrew_casks:
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     homepage: "https://xavidop.github.io/tamesu/"
     # Homebrew rejects a description that ends with a period.
-    description: "Put your web apps and AI agents to the test"
+    description: "Your agents, tested like users would."
     custom_block: |
       postflight_steps do
         on_macos do

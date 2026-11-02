@@ -13,7 +13,7 @@ MODULES := $(shell find . -name go.mod \
 GO ?= go
 export GOWORK = off
 
-.PHONY: all build test race vet lint lint-integration fmt tidy work-sync check-deps check-claims schema schema-check proto test-llmfake vet-llmfake lint-llmfake integration integration-sip genkit-ui site-dev site-build site-linkcheck demo clean help
+.PHONY: all build test race vet lint lint-integration fmt tidy work-sync check-deps check-claims schema schema-check proto notices test-llmfake vet-llmfake lint-llmfake integration integration-sip genkit-ui site-dev site-build site-linkcheck demo clean help
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -95,6 +95,11 @@ lint-llmfake: ## golangci-lint -tags llmfake for the fake-provider suites
 
 integration: ## Run the example suites end to end with the fake model provider (scripts/integration.sh): rest, livekit text and audio
 	@bash scripts/integration.sh
+
+notices: ## Regenerate THIRD_PARTY_LICENSES.csv (go-licenses on the CLI module)
+	@command -v go-licenses >/dev/null || { echo "go-licenses is not installed: go install github.com/google/go-licenses@latest"; exit 1; }
+	@(cd cmd/tamesu && GOWORK=off go-licenses report . --ignore github.com/xavidop/tamesu 2>/dev/null | sort) > THIRD_PARTY_LICENSES.csv
+	@echo "THIRD_PARTY_LICENSES.csv: $$(wc -l < THIRD_PARTY_LICENSES.csv | tr -d ' ') modules"
 
 proto: ## Regenerate the Go code of proto/ and the vendored Pipecat frames (protoc, protoc-gen-go and protoc-gen-go-grpc on the PATH)
 	@command -v protoc >/dev/null || { echo "protoc is not installed"; exit 1; }

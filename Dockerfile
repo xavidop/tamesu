@@ -6,6 +6,7 @@ RUN apt-get update \
 	&& rm -rf /var/lib/apt/lists/*
 ENV TAMESU_CHROMIUM=/usr/bin/chromium
 COPY tamesu /usr/local/bin/tamesu
+COPY THIRD_PARTY_NOTICES.md THIRD_PARTY_LICENSES.csv /usr/share/doc/tamesu/
 WORKDIR /work
 ENTRYPOINT ["tamesu"]
 CMD ["--help"]

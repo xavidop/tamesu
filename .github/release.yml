@@ -1,0 +1,16 @@
+# Categories of the GitHub release notes (the release workflow fills them from
+# merged pull requests by label).
+changelog:
+  exclude:
+    labels: [dependencies, skip-changelog]
+  categories:
+    - title: Breaking changes
+      labels: [breaking]
+    - title: New
+      labels: [feat, feature, target]
+    - title: Fixes
+      labels: [fix, bug]
+    - title: Docs
+      labels: [docs, documentation]
+    - title: Other
+      labels: ["*"]
