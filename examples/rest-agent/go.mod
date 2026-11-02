@@ -3,7 +3,7 @@ module github.com/xavidop/tamesu/examples/rest-agent
 go 1.27
 
 require (
-	github.com/coder/websocket v1.8.14
+	github.com/coder/websocket v1.8.15
 	github.com/firebase/genkit/go v1.14.0
 	github.com/xavidop/tamesu/targets/grpc v0.0.0
 	google.golang.org/grpc v1.85.0
