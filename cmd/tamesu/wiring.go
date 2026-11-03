@@ -31,12 +31,14 @@ func newProvider(ctx context.Context, cfg cli.ProviderConfig) (model.Provider, e
 			Simulator:         cfg.Models.Simulator,
 			BrowserAgent:      cfg.Models.BrowserAgent,
 			ScenarioGenerator: cfg.Models.ScenarioGenerator,
+			Embedder:          cfg.Models.Embedder,
 			Fallback: llm.Fallbacks{
 				Default:           cfg.Models.Fallback.Default,
 				Judge:             cfg.Models.Fallback.Judge,
 				Simulator:         cfg.Models.Fallback.Simulator,
 				BrowserAgent:      cfg.Models.Fallback.BrowserAgent,
 				ScenarioGenerator: cfg.Models.Fallback.ScenarioGenerator,
+				Embedder:          cfg.Models.Fallback.Embedder,
 			},
 		},
 		Retry: llm.Retry{Attempts: cfg.Models.Retry.Attempts, Backoff: cfg.Models.Retry.Backoff.Std(), MaxBackoff: cfg.Models.Retry.MaxBackoff.Std()},
@@ -49,6 +51,15 @@ func newProvider(ctx context.Context, cfg cli.ProviderConfig) (model.Provider, e
 		Budget:      llm.Budget{MaxCostUSD: cfg.MaxCostUSD, MaxTokens: cfg.MaxTokens},
 		Logger:      cfg.Logger,
 	})
+}
+
+// connectPolicy maps a target's connect block onto the policy every target
+// retries its connection with; nil is the default policy.
+func connectPolicy(t config.Target) target.ConnectPolicy {
+	if t.Connect == nil {
+		return target.ConnectPolicy{}
+	}
+	return target.ConnectPolicy{Attempts: t.Connect.Attempts, Backoff: t.Connect.Backoff.Std(), MaxBackoff: t.Connect.MaxBackoff.Std()}
 }
 
 // targetFactories are the target types this binary links.
@@ -82,7 +93,7 @@ func newModelTarget(_ context.Context, spec runner.TargetSpec) (target.Target, e
 // newRESTTarget maps a suite's rest target onto the rest module's config.
 func newRESTTarget(_ context.Context, spec runner.TargetSpec) (target.Target, error) {
 	t := spec.Config
-	cfg := rest.Config{URL: t.URL, Method: t.Method, Headers: t.Headers, Streaming: t.Streaming}
+	cfg := rest.Config{Connect: connectPolicy(t), URL: t.URL, Method: t.Method, Headers: t.Headers, Streaming: t.Streaming}
 	if t.Request != nil {
 		cfg.Body, cfg.Open = t.Request.Body, t.Request.Open
 	}
@@ -106,9 +117,9 @@ func checkModels(_ context.Context, env cli.DoctorEnv) []cli.DoctorResult {
 	}
 	jobs := []struct{ job, ref string }{
 		{"default", models.Default}, {"judge", models.Judge}, {"simulator", models.Simulator},
-		{"browser_agent", models.BrowserAgent}, {"scenario_generator", models.ScenarioGenerator},
+		{"browser_agent", models.BrowserAgent}, {"scenario_generator", models.ScenarioGenerator}, {"embedder", models.Embedder},
 	}
-	for _, job := range []string{"default", "judge", "simulator", "browser_agent", "scenario_generator"} {
+	for _, job := range []string{"default", "judge", "simulator", "browser_agent", "scenario_generator", "embedder"} {
 		for _, ref := range models.Fallback.Lists()[job] {
 			jobs = append(jobs, struct{ job, ref string }{job + ".fallback", ref})
 		}

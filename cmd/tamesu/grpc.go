@@ -16,7 +16,7 @@ func init() {
 // newGRPCTarget maps a suite's grpc target onto the grpc module's config.
 func newGRPCTarget(_ context.Context, spec runner.TargetSpec) (target.Target, error) {
 	t := spec.Config
-	cfg := tgrpc.Config{URL: t.URL, Headers: t.Headers, Timeout: t.TurnTimeout.Std()}
+	cfg := tgrpc.Config{Connect: connectPolicy(t), URL: t.URL, Headers: t.Headers, Timeout: t.TurnTimeout.Std()}
 	if t.Session != nil {
 		cfg.SessionID = t.Session.ID
 	}

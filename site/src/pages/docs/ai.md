@@ -44,7 +44,11 @@ credential resolved.
 
 The jobs: `models.simulator` plays the user, `models.judge` grades, `models.browser_agent` drives
 the browser, `models.scenario_generator` drafts suites, and `models.default` serves every job
-without a model of its own. Gemini, OpenAI and Anthropic models can take any of the roles; every
+without a model of its own. `models.embedder` is the embedding model behind
+[`similar_to`](/docs/assertions/) assertions (`googleai/text-embedding-004`,
+`googleai/gemini-embedding-001`, `openai/text-embedding-3-small`, ...); when unset, tamesu uses
+the usual embedder of the default model's provider, and Anthropic has none, so a suite that
+judges with Claude and compares meaning needs `embedder` set. Gemini, OpenAI and Anthropic models can take any of the roles; every
 flow asks the model for JSON in the shape its prompt declares, in the provider's
 structured-output mode.
 
@@ -76,7 +80,8 @@ moves straight to the first fallback, which gets its own attempts, and so on dow
 run's own limits are never worked around: a spent budget or a cancelled run stops at once.
 
 This covers every model call of every target: the simulated user and the judges of the
-conversational targets, the browser agent and its `expect` checks, the scenario generator, and
+conversational targets, the browser agent and its `expect` checks, the scenario generator, the
+embedder of `similar_to` (its own `fallback.embedder` list, since a chat model cannot embed), and
 the speech models of audio mode and the phone targets. A TTS fallback on another provider speaks
 with that provider's voice of the same description. The `model` target has its own
 [`fallback`](/docs/targets/model/) list, since the model under test is the suite's choice.

@@ -205,6 +205,9 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 	if r.o.Provider != nil {
 		rr.Judger = r.o.Provider
 		rr.Evaluator = r.o.Provider
+		if e, ok := r.o.Provider.(assert.Embedder); ok {
+			rr.Embedder = e
+		}
 	}
 	actx, acancel := context.WithTimeout(context.WithoutCancel(ctx), it.timeout)
 	defer acancel()

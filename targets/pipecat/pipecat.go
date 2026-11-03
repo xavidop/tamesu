@@ -65,6 +65,8 @@ type Config struct {
 	ToolResults map[string]any
 	// Client overrides the HTTP client of the handshake.
 	Client *http.Client
+	// Connect is how connecting to the bot is retried.
+	Connect target.ConnectPolicy
 }
 
 // New returns the target.
@@ -142,12 +144,17 @@ func (t *Target) Start(ctx context.Context, run *target.RunContext) (target.Sess
 		}
 		hdr.Set(k, rv)
 	}
-	dctx, cancel := context.WithTimeout(ctx, t.cfg.Timeout)
-	defer cancel()
-	conn, _, err := websocket.Dial(dctx, u, &websocket.DialOptions{HTTPClient: t.cfg.Client, HTTPHeader: hdr})
+	conn, err := target.Connect(ctx, t.cfg.Connect, run.Logger, "pipecat "+t.name, func(ctx context.Context) (*websocket.Conn, error) {
+		dctx, cancel := context.WithTimeout(ctx, t.cfg.Timeout)
+		defer cancel()
+		conn, resp, err := websocket.Dial(dctx, u, &websocket.DialOptions{HTTPClient: t.cfg.Client, HTTPHeader: hdr})
+		return conn, target.HandshakeError(err, resp)
+	})
 	if err != nil {
 		return nil, fmt.Errorf("pipecat %s: connect %s: %w", t.name, u, err)
 	}
+	dctx, cancel := context.WithTimeout(ctx, t.cfg.Timeout)
+	defer cancel()
 	conn.SetReadLimit(64 << 20)
 	s := &session{t: t, run: run, conn: conn, metrics: map[string]float64{}, events: make(chan event)}
 	readCtx, stop := context.WithCancel(context.WithoutCancel(ctx))

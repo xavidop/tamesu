@@ -22,6 +22,10 @@
           "type": "string",
           "description": "A regular expression no agent turn matches."
         },
+        "similar_to": {
+          "$ref": "#/$defs/Similar",
+          "description": "Some agent turn means the same as this text (embedding similarity of at least min)."
+        },
         "json_path": {
           "$ref": "#/$defs/JSONPathAssertion",
           "description": "rest only."
@@ -514,6 +518,13 @@
           },
           "type": "array",
           "description": "Models tried in order after the scenario generator's model failed."
+        },
+        "embedder": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Embedding models tried in order after embedder failed; the default list does not apply to embeddings."
         }
       },
       "additionalProperties": false,
@@ -553,6 +564,10 @@
         },
         "scenario_generator": {
           "type": "string"
+        },
+        "embedder": {
+          "type": "string",
+          "description": "The embedding model of similar_to assertions such as googleai/text-embedding-004 or openai/text-embedding-3-small; defaults to the usual embedder of default's provider."
         },
         "credentials": {
           "additionalProperties": {
@@ -682,6 +697,35 @@
         "address"
       ]
     },
+    "Similar": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "The text some agent turn should mean; the configured embedding model and a 0.8 minimum are the defaults."
+        },
+        {
+          "properties": {
+            "text": {
+              "type": "string",
+              "description": "What an agent turn should mean."
+            },
+            "min": {
+              "type": "number",
+              "description": "Minimum cosine similarity between the embeddings (0 to 1); default 0.8."
+            },
+            "model": {
+              "type": "string",
+              "description": "Embedding model (a Genkit reference); defaults to models.embedder."
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "text"
+          ]
+        }
+      ]
+    },
     "SlackConfig": {
       "properties": {
         "webhook": {
@@ -766,6 +810,10 @@
             "args": {
               "type": "object",
               "description": "Argument values that must match (a subset of the call's arguments)."
+            },
+            "schema": {
+              "type": "object",
+              "description": "tool_called: a JSON Schema every call's arguments must validate against."
             }
           },
           "additionalProperties": false,

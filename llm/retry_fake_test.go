@@ -108,3 +108,42 @@ func TestChatFallbackNamesTheModel(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "(tried fake/down 3 times)")
 }
+
+func TestEmbed(t *testing.T) {
+	c := client(t)
+	withConfig(t, c, Models{Default: "fake/text"}, c.cfg.Speech)
+	before := c.Usage()
+	resp, err := c.Embed(context.Background(), tassert.EmbedRequest{Texts: []string{
+		"Our return window is 30 days from delivery, so a return after 40 days is not possible.",
+		"The return window is 30 days from delivery; returning after 40 days is not possible.",
+		"The weather in Madrid is sunny this week.",
+	}})
+	require.NoError(t, err)
+	assert.Equal(t, "fake/embedding", resp.Model, "the default embedder of the default model's provider")
+	require.Len(t, resp.Vectors, 3)
+	assert.Greater(t, tassert.Cosine(resp.Vectors[0], resp.Vectors[1]), 0.8, "a paraphrase shares most words")
+	assert.Less(t, tassert.Cosine(resp.Vectors[0], resp.Vectors[2]), 0.2, "unrelated text shares none")
+	u := c.Usage()
+	assert.Equal(t, before.Calls+1, u.Calls, "one embedding call")
+	assert.Greater(t, u.InputTokens, before.InputTokens)
+
+	empty, err := c.Embed(context.Background(), tassert.EmbedRequest{})
+	require.NoError(t, err)
+	assert.Empty(t, empty.Vectors)
+
+	withConfig(t, c, Models{Default: "anthropic/claude-sonnet-4-6"}, c.cfg.Speech)
+	_, err = c.Embed(context.Background(), tassert.EmbedRequest{Texts: []string{"x"}})
+	assert.ErrorContains(t, err, "models.embedder", "a provider without embeddings needs an explicit one")
+
+	withConfig(t, c, Models{Default: "fake/text", Embedder: "fake/down", Fallback: Fallbacks{Embedder: []string{"fake/embedding"}}}, c.cfg.Speech)
+	resp, err = c.Embed(context.Background(), tassert.EmbedRequest{Texts: []string{"x"}})
+	require.NoError(t, err)
+	assert.Equal(t, "fake/embedding", resp.Model, "the embedder fallback list applies")
+}
+
+func TestDefaultEmbedder(t *testing.T) {
+	assert.Equal(t, "googleai/text-embedding-004", DefaultEmbedder("googleai"))
+	assert.Equal(t, "openai/text-embedding-3-small", DefaultEmbedder("openai"))
+	assert.Equal(t, "", DefaultEmbedder("anthropic"))
+	assert.Equal(t, "", DefaultEmbedder("ollama"))
+}

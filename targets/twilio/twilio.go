@@ -69,6 +69,8 @@ type Config struct {
 	Timeout time.Duration
 	// Client overrides the HTTP client of the handshake.
 	Client *http.Client
+	// Connect is how connecting to the agent is retried.
+	Connect target.ConnectPolicy
 }
 
 // New returns the target.
@@ -210,12 +212,17 @@ func (t *Target) Start(ctx context.Context, run *target.RunContext) (target.Sess
 	if t.cfg.To != "" {
 		params["To"] = t.cfg.To
 	}
-	dctx, cancel := context.WithTimeout(ctx, t.cfg.Timeout)
-	defer cancel()
-	conn, _, err := websocket.Dial(dctx, u, &websocket.DialOptions{HTTPClient: t.cfg.Client, HTTPHeader: hdr})
+	conn, err := target.Connect(ctx, t.cfg.Connect, run.Logger, "twilio "+t.name, func(ctx context.Context) (*websocket.Conn, error) {
+		dctx, cancel := context.WithTimeout(ctx, t.cfg.Timeout)
+		defer cancel()
+		conn, resp, err := websocket.Dial(dctx, u, &websocket.DialOptions{HTTPClient: t.cfg.Client, HTTPHeader: hdr})
+		return conn, target.HandshakeError(err, resp)
+	})
 	if err != nil {
 		return nil, fmt.Errorf("twilio %s: connect %s: %w", t.name, u, err)
 	}
+	dctx, cancel := context.WithTimeout(ctx, t.cfg.Timeout)
+	defer cancel()
 	conn.SetReadLimit(16 << 20)
 	s := &session{t: t, run: run, conn: conn, events: make(chan event, 64), metrics: map[string]float64{}, streamSid: "MZ" + randomHex(16), callSid: "CA" + randomHex(16)}
 	s.audio = &audioState{speech: run.Speech, start: time.Now()}

@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"maps"
 	"math"
 	"os"
@@ -19,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"unicode"
 
 	"github.com/firebase/genkit/go/ai"
 	"github.com/firebase/genkit/go/core/api"
@@ -55,8 +57,8 @@ type Script struct {
 	// ref numbers. The script restarts for every goal.
 	Browser []BrowserAction `json:"browser"`
 	// Fail makes the named fake model (simulator, judge, text, tts, stt,
-	// browser, expect, generate) answer its first N calls with a retryable
-	// error (UNAVAILABLE), then behave; what a flaky provider does.
+	// browser, expect, generate, embedding) answer its first N calls with a
+	// retryable error (UNAVAILABLE), then behave; what a flaky provider does.
 	Fail map[string]int `json:"fail,omitempty"`
 }
 
@@ -216,7 +218,59 @@ func (p *Plugin) Init(context.Context) []api.Action {
 		ai.NewModelAction(Name+"/generate", &ai.ModelOptions{Label: "fake scenario generator", Supports: &ai.ModelSupports{Multiturn: true, SystemRole: true, Output: []string{"json", "text"}}}, flaky(p, "generate", p.generate)),
 		ai.NewModelAction[any](Name+"/down", &ai.ModelOptions{Label: "fake outage", Supports: supports}, p.down),
 		ai.NewModelAction[any](Name+"/denied", &ai.ModelOptions{Label: "fake refused key", Supports: supports}, p.denied),
+		ai.NewEmbedderAction[any](Name+"/embedding", &ai.EmbedderOptions{Label: "fake embedding", Dimensions: EmbeddingDimensions}, p.embed),
 	}
+}
+
+// EmbeddingDimensions is the size of the vectors fake/embedding makes.
+const EmbeddingDimensions = 256
+
+// embed is a bag-of-words embedding: every content word, lower-cased and
+// crudely stemmed, adds one to a hashed dimension, so texts that share words
+// have a high cosine similarity and unrelated texts a low one. Good enough
+// for similar_to to be exercised; real embedders understand paraphrase.
+func (p *Plugin) embed(_ context.Context, req *ai.EmbedRequest, _ any) (*ai.EmbedResponse, error) {
+	if p.failing("embedding") {
+		return nil, status.Errorf(status.ErrUnavailable, "llmfake: fake/embedding is overloaded (scripted failure)")
+	}
+	out := &ai.EmbedResponse{}
+	for _, doc := range req.Input {
+		var text strings.Builder
+		for _, part := range doc.Content {
+			if part.IsText() {
+				text.WriteString(part.Text)
+				text.WriteByte(' ')
+			}
+		}
+		vec := make([]float32, EmbeddingDimensions)
+		for _, w := range contentWords(text.String()) {
+			h := fnv.New32a()
+			_, _ = h.Write([]byte(w))
+			vec[h.Sum32()%EmbeddingDimensions]++
+		}
+		out.Embeddings = append(out.Embeddings, &ai.Embedding{Embedding: vec})
+	}
+	return out, nil
+}
+
+// stopwords are left out of fake/embedding's bag of words.
+var stopwords = map[string]bool{"a": true, "an": true, "the": true, "is": true, "are": true, "was": true, "were": true, "be": true, "to": true, "of": true, "in": true, "on": true, "for": true, "so": true, "and": true, "or": true, "it": true, "that": true, "this": true, "from": true, "with": true, "our": true, "your": true, "you": true, "we": true, "i": true, "not": true, "no": true, "do": true, "can": true, "only": true, "after": true, "within": true}
+
+// contentWords lower-cases, strips punctuation and plural or -ing endings,
+// and drops stopwords.
+func contentWords(text string) []string {
+	var words []string
+	for _, w := range strings.FieldsFunc(strings.ToLower(text), func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) }) {
+		if stopwords[w] {
+			continue
+		}
+		w = strings.TrimSuffix(w, "ing")
+		if len(w) > 3 {
+			w = strings.TrimSuffix(w, "s")
+		}
+		words = append(words, w)
+	}
+	return words
 }
 
 // generate answers the scripted draft; a browser target gets steps instead

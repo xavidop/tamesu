@@ -38,6 +38,7 @@ type Models struct {
 	BrowserAgent      string            `yaml:"browser_agent,omitempty" json:"browser_agent,omitempty"`
 	Simulator         string            `yaml:"simulator,omitempty" json:"simulator,omitempty"`
 	ScenarioGenerator string            `yaml:"scenario_generator,omitempty" json:"scenario_generator,omitempty"`
+	Embedder          string            `yaml:"embedder,omitempty" json:"embedder,omitempty" jsonschema:"description=The embedding model of similar_to assertions such as googleai/text-embedding-004 or openai/text-embedding-3-small; defaults to the usual embedder of default's provider."`
 	Credentials       map[string]string `yaml:"credentials,omitempty" json:"credentials,omitempty" jsonschema:"description=Plugin name to {{secrets.NAME}} when the secret is not named conventionally."`
 	Fallback          ModelFallback     `yaml:"fallback,omitempty" json:"fallback,omitempty" jsonschema:"description=The models tried in order when a job's model keeps failing."`
 	Retry             ModelRetry        `yaml:"retry,omitempty" json:"retry,omitempty" jsonschema:"description=How a model call is retried before the next model is tried."`
@@ -51,6 +52,7 @@ type ModelFallback struct {
 	Simulator         []string `yaml:"simulator,omitempty" json:"simulator,omitempty" jsonschema:"description=Models tried in order after the simulator's model failed."`
 	BrowserAgent      []string `yaml:"browser_agent,omitempty" json:"browser_agent,omitempty" jsonschema:"description=Models tried in order after the browser agent's model failed."`
 	ScenarioGenerator []string `yaml:"scenario_generator,omitempty" json:"scenario_generator,omitempty" jsonschema:"description=Models tried in order after the scenario generator's model failed."`
+	Embedder          []string `yaml:"embedder,omitempty" json:"embedder,omitempty" jsonschema:"description=Embedding models tried in order after embedder failed; the default list does not apply to embeddings."`
 }
 
 // ModelRetry is how a model call is retried before the next model is tried.
@@ -62,7 +64,7 @@ type ModelRetry struct {
 
 // Lists reports every fallback list, by job.
 func (f ModelFallback) Lists() map[string][]string {
-	return map[string][]string{"default": f.Default, "judge": f.Judge, "simulator": f.Simulator, "browser_agent": f.BrowserAgent, "scenario_generator": f.ScenarioGenerator}
+	return map[string][]string{"default": f.Default, "judge": f.Judge, "simulator": f.Simulator, "browser_agent": f.BrowserAgent, "scenario_generator": f.ScenarioGenerator, "embedder": f.Embedder}
 }
 
 // Merge returns f with every non-empty list of o applied on top.
@@ -81,6 +83,9 @@ func (f ModelFallback) Merge(o ModelFallback) ModelFallback {
 	}
 	if len(o.ScenarioGenerator) > 0 {
 		f.ScenarioGenerator = o.ScenarioGenerator
+	}
+	if len(o.Embedder) > 0 {
+		f.Embedder = o.Embedder
 	}
 	return f
 }
@@ -276,6 +281,9 @@ func (m Models) Merge(o *Models) Models {
 	}
 	if o.ScenarioGenerator != "" {
 		m.ScenarioGenerator = o.ScenarioGenerator
+	}
+	if o.Embedder != "" {
+		m.Embedder = o.Embedder
 	}
 	m.Fallback = m.Fallback.Merge(o.Fallback)
 	m.Retry = m.Retry.Merge(o.Retry)

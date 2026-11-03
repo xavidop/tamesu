@@ -94,8 +94,9 @@ func (Judge) JSONSchema() *jsonschema.Schema {
 // ToolCall names a tool the agent must (or must not) have called, with
 // optional argument values that must match.
 type ToolCall struct {
-	Name string         `yaml:"name" json:"name" jsonschema:"required,description=Tool name as the target reports it."`
-	Args map[string]any `yaml:"args,omitempty" json:"args,omitempty" jsonschema:"description=Argument values that must match (a subset of the call's arguments)."`
+	Name   string         `yaml:"name" json:"name" jsonschema:"required,description=Tool name as the target reports it."`
+	Args   map[string]any `yaml:"args,omitempty" json:"args,omitempty" jsonschema:"description=Argument values that must match (a subset of the call's arguments)."`
+	Schema map[string]any `yaml:"schema,omitempty" json:"schema,omitempty" jsonschema:"description=tool_called: a JSON Schema every call's arguments must validate against."`
 }
 
 // UnmarshalYAML accepts a tool name or a mapping.
@@ -104,7 +105,7 @@ func (c *ToolCall) UnmarshalYAML(n *yaml.Node) error {
 		c.Name = n.Value
 		return nil
 	}
-	if err := checkKeys(n, "ToolCall", "name", "args"); err != nil {
+	if err := checkKeys(n, "ToolCall", "name", "args", "schema"); err != nil {
 		return err
 	}
 	type plain ToolCall
@@ -120,6 +121,38 @@ func (c *ToolCall) UnmarshalYAML(n *yaml.Node) error {
 func (ToolCall) JSONSchema() *jsonschema.Schema {
 	type plain ToolCall
 	return oneOfStringOr(&plain{}, "The tool name.")
+}
+
+// Similar is a semantic assertion: some agent turn means the same as Text,
+// by embedding similarity.
+type Similar struct {
+	Text  string  `yaml:"text" json:"text" jsonschema:"required,description=What an agent turn should mean."`
+	Min   float64 `yaml:"min,omitempty" json:"min,omitempty" jsonschema:"description=Minimum cosine similarity between the embeddings (0 to 1); default 0.8."`
+	Model string  `yaml:"model,omitempty" json:"model,omitempty" jsonschema:"description=Embedding model (a Genkit reference); defaults to models.embedder."`
+}
+
+// UnmarshalYAML accepts a text string or a mapping.
+func (sm *Similar) UnmarshalYAML(n *yaml.Node) error {
+	if n.Kind == yaml.ScalarNode {
+		sm.Text = n.Value
+		return nil
+	}
+	if err := checkKeys(n, "Similar", "text", "min", "model"); err != nil {
+		return err
+	}
+	type plain Similar
+	var p plain
+	if err := n.Decode(&p); err != nil {
+		return err
+	}
+	*sm = Similar(p)
+	return nil
+}
+
+// JSONSchema describes the string and object forms.
+func (Similar) JSONSchema() *jsonschema.Schema {
+	type plain Similar
+	return oneOfStringOr(&plain{}, "The text some agent turn should mean; the configured embedding model and a 0.8 minimum are the defaults.")
 }
 
 // Evaluator names a registered Genkit evaluator and the minimum score.

@@ -63,6 +63,9 @@ type Config struct {
 	Timeout time.Duration
 	// Client overrides the HTTP client.
 	Client *http.Client
+	// Connect is how a request that never reached the agent, or that the
+	// agent answered with 502, 503 or 504, is retried.
+	Connect target.ConnectPolicy
 }
 
 // New returns the target.
@@ -172,6 +175,43 @@ func (s *session) payload(body any, turn target.UserTurn) ([]byte, error) {
 	return json.Marshal(rendered)
 }
 
+// send performs the turn's request, retrying with the connect policy when
+// it never reached the agent (refused, reset, timed out) or the agent
+// answered 502, 503 or 504; the last such answer is returned as it came, so
+// a status assertion still sees it.
+func (s *session) send(ctx context.Context, url string, payload []byte, hdr http.Header) (*http.Response, error) {
+	tries := s.t.cfg.Connect.Tries()
+	for n := 1; ; n++ {
+		req, err := http.NewRequestWithContext(ctx, s.t.cfg.Method, url, bytes.NewReader(payload))
+		if err != nil {
+			return nil, fmt.Errorf("request: %w", err)
+		}
+		req.Header = hdr.Clone()
+		resp, err := s.t.cfg.Client.Do(req)
+		gateway := err == nil && (resp.StatusCode == http.StatusBadGateway || resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode == http.StatusGatewayTimeout)
+		if err == nil && !gateway {
+			return resp, nil
+		}
+		if ctx.Err() != nil || n >= tries {
+			if err != nil && tries > 1 {
+				return nil, fmt.Errorf("%w (after %d attempts)", err, n)
+			}
+			return resp, err
+		}
+		if gateway {
+			_ = resp.Body.Close()
+			err = fmt.Errorf("HTTP %d", resp.StatusCode)
+		}
+		wait := s.t.cfg.Connect.Wait(n + 1)
+		if s.run.Logger != nil {
+			s.run.Logger.Warn("connect failed, retrying", "what", "rest "+s.t.name, "attempt", n, "of", tries, "wait", wait.Round(time.Millisecond).String(), "err", err)
+		}
+		if !target.Sleep(ctx, wait) {
+			return nil, ctx.Err()
+		}
+	}
+}
+
 // Send performs the request for a user turn and keeps the agent's turn for
 // Receive.
 func (s *session) Send(ctx context.Context, turn target.UserTurn) error {
@@ -194,21 +234,18 @@ func (s *session) Send(ctx context.Context, turn target.UserTurn) error {
 	}
 	rctx, cancel := context.WithTimeout(ctx, s.t.cfg.Timeout)
 	defer cancel()
-	req, err := http.NewRequestWithContext(rctx, s.t.cfg.Method, url, bytes.NewReader(payload))
-	if err != nil {
-		return fmt.Errorf("rest: request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json, text/event-stream")
+	hdr := http.Header{}
+	hdr.Set("Content-Type", "application/json")
+	hdr.Set("Accept", "application/json, text/event-stream")
 	for k, v := range s.t.cfg.Headers {
 		rv, err := s.render(v, turn)
 		if err != nil {
 			return fmt.Errorf("rest: header %s: %w", k, err)
 		}
-		req.Header.Set(k, rv)
+		hdr.Set(k, rv)
 	}
 	started := time.Now()
-	resp, err := s.t.cfg.Client.Do(req)
+	resp, err := s.send(rctx, url, payload, hdr)
 	if err != nil {
 		return fmt.Errorf("rest: %s %s: %w", s.t.cfg.Method, url, err)
 	}

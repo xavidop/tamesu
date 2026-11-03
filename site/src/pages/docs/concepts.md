@@ -214,7 +214,8 @@ Metric names follow the pattern `name` or `name_p95`.
 
 A test runs `repeat` times (default 1); the fraction of runs that must pass is `pass_threshold`
 (default 1.0). `retries` re-runs a test whose infrastructure failed, never one whose assertions
-failed. Every run gets its own directory with `transcript.json`, `result.json` and the artifacts
+failed; before it comes to that, every target retries [reaching the agent](/docs/configuration/#reaching-the-agent)
+on its own. Every run gets its own directory with `transcript.json`, `result.json` and the artifacts
 of its target.
 
 | Code | Meaning |

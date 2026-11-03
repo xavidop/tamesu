@@ -22,7 +22,8 @@ func init() {
 func newLiveKitTarget(_ context.Context, spec runner.TargetSpec) (target.Target, error) {
 	t := spec.Config
 	cfg := livekit.Config{
-		URL: t.URL, APIKey: t.APIKey, APISecret: t.APISecret, Room: t.Room,
+		Connect: connectPolicy(t),
+		URL:     t.URL, APIKey: t.APIKey, APISecret: t.APISecret, Room: t.Room,
 		AgentIdentityPrefix: t.AgentIdentityPrefix, Mode: spec.Mode, DataTopic: t.DataTopic,
 		JoinTimeout: t.JoinTimeout.Std(),
 	}

@@ -65,6 +65,7 @@ tests:
 |---|---|---|---|
 | `type` | one of `browser`, `rest`, `livekit`, `sip`, `realtime`, `grpc`, `pipecat`, `model`, `twilio` | yes |  |
 | `url` | string |  | The page (browser) or endpoint (rest / realtime / pipecat / twilio) or grpc://host:port (grpc) or LiveKit server (livekit). |
+| `connect` | [ConnectConfig](#connectconfig) |  |  |
 | `browser` | [BrowserOptions](#browseroptions) |  |  |
 | `auth` | [BrowserAuth](#browserauth) |  |  |
 | `allowed_domains` | list of string |  | Domains the browser agent may navigate to; defaults to the url's domain. |
@@ -486,6 +487,7 @@ script:
 | `not_contains` | string |  |  |
 | `regex` | string |  | A regular expression the agent transcript matches. |
 | `not_regex` | string |  | A regular expression no agent turn matches. |
+| `similar_to` | [Similar](#similar) |  | Some agent turn means the same as this text (embedding similarity of at least min). |
 | `json_path` | [JSONPathAssertion](#jsonpathassertion) |  | rest only. |
 | `status` | integer |  | rest only: the HTTP status of every turn. |
 | `tool_called` | [ToolCall](#toolcall) |  |  |
@@ -546,6 +548,7 @@ Either a string (The tool name), or an object with:
 |---|---|---|---|
 | `name` | string | yes | Tool name as the target reports it. |
 | `args` | object (any keys) |  | Argument values that must match (a subset of the call's arguments). |
+| `schema` | object (any keys) |  | tool_called: a JSON Schema every call's arguments must validate against. |
 
 Example:
 
@@ -772,6 +775,7 @@ defaults:
 | `browser_agent` | string |  |  |
 | `simulator` | string |  |  |
 | `scenario_generator` | string |  |  |
+| `embedder` | string |  | The embedding model of similar_to assertions such as googleai/text-embedding-004 or openai/text-embedding-3-small; defaults to the usual embedder of default's provider. |
 | `credentials` | map of string to string |  | Plugin name to {{secrets.NAME}} when the secret is not named conventionally. |
 | `fallback` | [ModelFallback](#modelfallback) |  | The models tried in order when a job's model keeps failing. |
 | `retry` | [ModelRetry](#modelretry) |  | How a model call is retried before the next model is tried. |
@@ -814,6 +818,14 @@ Example:
 timeout: 90s
 ```
 
+## ConnectConfig
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `attempts` | integer |  | Tries to reach the agent when the connection is refused or the agent answers 5xx; default 3 and 1 retries nothing. |
+| `backoff` | [Duration](#duration) |  | The wait before the second try; default 500ms and doubled every try with jitter. |
+| `max_backoff` | [Duration](#duration) |  | The longest wait between tries; default 5s. |
+
 ## ModelFallback
 
 | Key | Type | Required | Description |
@@ -823,6 +835,7 @@ timeout: 90s
 | `simulator` | list of string |  | Models tried in order after the simulator's model failed. |
 | `browser_agent` | list of string |  | Models tried in order after the browser agent's model failed. |
 | `scenario_generator` | list of string |  | Models tried in order after the scenario generator's model failed. |
+| `embedder` | list of string |  | Embedding models tried in order after embedder failed; the default list does not apply to embeddings. |
 
 ## ModelRetry
 
@@ -838,4 +851,14 @@ timeout: 90s
 |---|---|---|---|
 | `reason` | string | yes | Why the test is quarantined; usually the ticket that tracks it. |
 | `until` | string |  | The last day (YYYY-MM-DD) of the quarantine; from the next day the test counts again. Without it the quarantine lasts until removed. |
+
+## Similar
+
+Either a string (The text some agent turn should mean; the configured embedding model and a 0.8 minimum are the defaults), or an object with:
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `text` | string | yes | What an agent turn should mean. |
+| `min` | number |  | Minimum cosine similarity between the embeddings (0 to 1); default 0.8. |
+| `model` | string |  | Embedding model (a Genkit reference); defaults to models.embedder. |
 

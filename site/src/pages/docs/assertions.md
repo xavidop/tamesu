@@ -19,6 +19,7 @@ and `result.json` show, so a failure reads like a code review comment.
 | `not_contains: text` | no agent turn contains `text`. |
 | `regex: pattern` | some agent turn matches the Go regular expression. |
 | `not_regex: pattern` | no agent turn matches the Go regular expression (the matched text is the evidence when one does). |
+| `similar_to: "text"` | some agent turn means the same as `text`: the cosine similarity of their embeddings is at least `min` (0.8). `similar_to: { text, min: 0.7, model }` sets the threshold and the embedding model; the default model is `models.embedder`, or the usual embedder of your default model's provider (Gemini `text-embedding-004`, OpenAI `text-embedding-3-small`). The closest turn and its score are the evidence either way, so a threshold is easy to tune. Use it where `contains` is too literal: the answer is right but worded its own way. |
 | `turns: { lte: 6 }` | the number of agent turns satisfies the one comparator (`lt`, `lte`, `gt`, `gte`, `eq`). |
 
 ## Responses (rest)
@@ -34,6 +35,7 @@ and `result.json` show, so a failure reads like a code review comment.
 |---|---|
 | `tool_called: name` | the agent called the tool at least once. |
 | `tool_called: { name: reschedule_booking, args: { day: saturday } }` | the agent called it with those argument values (a subset of the call's arguments). |
+| `tool_called: { name: reschedule_booking, schema: { type: object, required: [day], properties: { day: { enum: [saturday, sunday] } } } }` | the agent called it, and the arguments of **every** call to it validate against the JSON Schema (draft 2020-12): a call the agent made with a wrong type, a missing field or a value outside an enum fails the assertion, with the first violation as the reason. `args` and `schema` combine. `tamesu validate` checks the schema itself. |
 | `tool_not_called: name` (or with `args`) | the agent never called it (with those arguments). |
 | `tool_sequence: { calls: [lookup_order, refund], exact: false }` | the agent called those tools in that order: as a subsequence of its calls, or exactly that list with `exact`. |
 | `captured: { name: order_id, matches: "^ORD-" }` (or `equals`) | a value the test captured from the agent's turns exists and matches; see [capturing values](/docs/concepts/#capturing-values-across-turns). |

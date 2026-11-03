@@ -2,6 +2,7 @@ package config
 
 import (
 	"github.com/ohler55/ojg/jp"
+	"github.com/xavidop/tamesu/assert"
 	"github.com/xavidop/tamesu/target"
 	"time"
 
@@ -204,6 +205,14 @@ func (v *validator) suite() {
 
 func (v *validator) target(name string, t Target) {
 	tp := at("targets", name)
+	if c := t.Connect; c != nil {
+		if c.Attempts < 0 {
+			v.errorf(with(tp, "connect", "attempts"), "attempts cannot be negative")
+		}
+		if c.Backoff < 0 || c.MaxBackoff < 0 {
+			v.errorf(with(tp, "connect"), "backoff and max_backoff cannot be negative")
+		}
+	}
 	switch t.Type {
 	case "":
 		v.errorf(tp, "target needs a type (one of %s)", strings.Join(TargetTypes(), ", "))
@@ -376,6 +385,9 @@ func (v *validator) target(name string, t Target) {
 	}
 	for i := 0; i+1 < len(n.Content); i += 2 {
 		key := n.Content[i].Value
+		if key == "connect" && t.Type == TargetBrowser {
+			v.warnf(with(tp, key), "connect applies to the targets that reach an agent over the network; a browser target ignores it")
+		}
 		if want, ok := targetFieldTypes[key]; ok && !slices.Contains(want, t.Type) {
 			v.warnf(with(tp, key), "%s applies to %s targets only; this target is %s", key, strings.Join(want, " and "), t.Type)
 		}
@@ -623,11 +635,29 @@ func (v *validator) assertion(ap []string, a Assertion, ttype, mode string) {
 		var name string
 		if kind == "tool_called" {
 			name = a.ToolCalled.Name
+			if a.ToolCalled.Schema != nil {
+				if _, err := assert.CompileSchema(a.ToolCalled.Schema); err != nil {
+					v.errorf(with(kp, "schema"), "not a valid JSON Schema: %v", err)
+				}
+			}
 		} else {
 			name = a.ToolNotCalled.Name
+			if a.ToolNotCalled.Schema != nil {
+				v.warnf(with(kp, "schema"), "schema applies to tool_called only; tool_not_called ignores it")
+			}
 		}
 		if name == "" {
 			v.errorf(kp, "%s needs a tool name", kind)
+		}
+	case "similar_to":
+		if strings.TrimSpace(a.SimilarTo.Text) == "" {
+			v.errorf(kp, "similar_to needs a text")
+		}
+		if a.SimilarTo.Min < 0 || a.SimilarTo.Min > 1 {
+			v.errorf(with(kp, "min"), "similar_to.min is a cosine similarity between 0 and 1")
+		}
+		if a.SimilarTo.Model != "" && !strings.Contains(a.SimilarTo.Model, "/") {
+			v.warnf(with(kp, "model"), "model references look like provider/model, such as googleai/text-embedding-004")
 		}
 	case "dtmf_received":
 		if ttype != "" && ttype != TargetSIP && (ttype != TargetLiveKit || mode != "audio") {
@@ -750,7 +780,7 @@ func (v *validator) budgets(bp []string, b Budgets) {
 }
 
 func (v *validator) models(mp []string, m Models) {
-	for key, ref := range map[string]string{"default": m.Default, "judge": m.Judge, "browser_agent": m.BrowserAgent, "simulator": m.Simulator, "scenario_generator": m.ScenarioGenerator} {
+	for key, ref := range map[string]string{"default": m.Default, "judge": m.Judge, "browser_agent": m.BrowserAgent, "simulator": m.Simulator, "scenario_generator": m.ScenarioGenerator, "embedder": m.Embedder} {
 		if ref != "" && !strings.Contains(ref, "/") {
 			v.warnf(with(mp, key), "model references look like provider/model, such as googleai/gemini-2.5-flash")
 		}

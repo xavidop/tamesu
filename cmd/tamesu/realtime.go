@@ -18,7 +18,8 @@ func init() {
 func newRealtimeTarget(_ context.Context, spec runner.TargetSpec) (target.Target, error) {
 	t := spec.Config
 	return realtime.New(spec.Name, realtime.Config{
-		URL: t.URL, Model: t.Model, Headers: t.Headers, SessionUpdate: t.SessionUpdate,
+		Connect: connectPolicy(t),
+		URL:     t.URL, Model: t.Model, Headers: t.Headers, SessionUpdate: t.SessionUpdate,
 		Protocol: t.Protocol, Mode: spec.Mode, DoneTool: t.DoneTool, Timeout: t.TurnTimeout.Std(),
 		ToolResults: t.ToolResults, AudioFormat: t.AudioFormat,
 	}), nil

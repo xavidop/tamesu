@@ -23,6 +23,7 @@ models:                                     # every value is a Genkit model refe
   browser_agent: googleai/gemini-2.5-pro
   simulator: openai/gpt-4.1-mini
   scenario_generator: googleai/gemini-2.5-pro
+  embedder: googleai/text-embedding-004     # similar_to assertions; default: your provider's usual embedder
   fallback:                                 # models tried in order when a job's model keeps failing
     default: [openai/gpt-4.1-mini]          # for every job without a list of its own
     judge: [googleai/gemini-2.5-pro]
@@ -68,7 +69,7 @@ secrets:                                    # resolved with mamori, see below
 | `suites` | `["tests/**/*.yaml"]` | Globs (`**` allowed) of suite files, relative to `tamesu.yaml`. Paths on the command line win. |
 | `genkit.plugins` | none | Genkit plugins to initialise: `googlegenai`, `anthropic`, `openai`, `ollama`, `deepgram`, `elevenlabs`, `evaluators`. Credentials come from the secrets with the conventional names below. |
 | `genkit.dev_ui` | `false` | Export traces to the Genkit Developer UI. |
-| `models.*` | `default: googleai/gemini-2.5-flash` | The model for each job: `default`, `judge`, `browser_agent`, `simulator`, `scenario_generator`. `models.credentials` maps a plugin to `{{secrets.X}}` when the secret is not named conventionally. |
+| `models.*` | `default: googleai/gemini-2.5-flash` | The model for each job: `default`, `judge`, `browser_agent`, `simulator`, `scenario_generator`, and `embedder` for `similar_to` assertions. `models.fallback` and `models.retry` are the [retries and fallbacks](/docs/ai/#retries-and-fallbacks). `models.credentials` maps a plugin to `{{secrets.X}}` when the secret is not named conventionally. |
 | `speech.stt`, `speech.tts`, `speech.vad` | `vad: energy` | Speech models (Genkit references, with `language` and `voice` defaults) and the voice activity detector, for audio mode and sip. See [AI](/docs/ai/) for the speech models. |
 | `sip.*` | `max_concurrent_calls: 2`, `inbound_room: tamesu-sip-inbound` | The LiveKit SIP service, trunk ids and number, concurrency, the numbers tamesu may dial and the `trunk` block `tamesu sip setup` creates trunks from. See [SIP](/docs/targets/sip/) and [SIP setup](/docs/sip-setup/). |
 | `defaults.*` | `timeout: 3m`, `repeat: 1`, `retries: 0`, `pass_threshold: 1.0`, `max_goal_steps: 15` | Per-test defaults; a suite's `defaults:` and a test's own keys override them. `max_goal_steps` caps the browser agent's actions per goal step. |
@@ -174,6 +175,27 @@ answered, without printing a value. See [Security](/docs/security/) for redactio
   `{{faker.email}}` (also `faker.name`, `faker.phone`, `faker.uuid`) are rendered when a value is
   used. A REST `request.body` also takes `{{session}}` and `{{message}}`; a SIP inbound trigger
   takes `{{sip.inbound_number}}`.
+
+## Reaching the agent
+
+Every target but `browser` retries its connection to the agent: joining the websocket or the
+LiveKit room when a session starts, and for `rest` and `grpc` each request that never reached the
+agent (refused, reset, timed out) or that came back 502, 503 or 504. Three attempts with a 500ms
+backoff that doubles, up to 5s, is the default; `connect:` on the target changes it:
+
+```yaml
+targets:
+  api:
+    type: rest
+    url: https://staging.example.com/chat
+    connect: { attempts: 5, backoff: 1s, max_backoff: 10s }   # attempts: 1 retries nothing
+```
+
+A refused credential or a bad request (a 4xx handshake, an `Unauthenticated` RPC) is not retried.
+Every retry is a warning on stderr; when the attempts run out the error names their count, and
+the test is an infrastructure error (exit 3) that a test-level `retries` can re-run. This is
+separate from the model retries above: those cover tamesu's own model calls, this covers your
+agent.
 
 ## Suites override the project
 

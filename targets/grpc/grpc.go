@@ -43,6 +43,9 @@ type Config struct {
 	Timeout time.Duration
 	// DialOptions are added to the connection (tests).
 	DialOptions []grpc.DialOption
+	// Connect is how opening the session (and a Turn that found the agent
+	// unavailable) is retried.
+	Connect target.ConnectPolicy
 }
 
 // New returns the target.
@@ -118,37 +121,11 @@ func (t *Target) Start(ctx context.Context, run *target.RunContext) (target.Sess
 	sctx, cancel := context.WithCancel(metadata.NewOutgoingContext(context.WithoutCancel(ctx), md))
 	s := &session{t: t, run: run, conn: conn, client: turnv1.NewTurnServiceClient(conn), ctx: sctx, cancel: cancel, sessionID: sessionID}
 	start := &turnv1.SessionStart{SessionId: sessionID, Metadata: map[string]string{"test": run.TestName}}
-	octx, ocancel := context.WithTimeout(sctx, t.cfg.Timeout)
-	defer ocancel()
-	stream, err := s.client.Converse(sctx)
-	if err == nil {
-		err = stream.Send(&turnv1.ClientEvent{Event: &turnv1.ClientEvent_SessionStart{SessionStart: start}})
-	}
-	switch {
-	case err == nil:
-		s.stream = stream
-		s.events = make(chan serverEvent)
-		go s.read()
-		// A server without Converse fails the first Recv with Unimplemented;
-		// probe it now so the fallback is decided before the first turn.
-		select {
-		case ev := <-s.events:
-			if ev.err != nil && status.Code(ev.err) == codes.Unimplemented {
-				s.unary = true
-				s.stream = nil
-			} else if ev.err != nil {
-				_ = conn.Close()
-				cancel()
-				return nil, fmt.Errorf("grpc %s: converse: %w", t.name, ev.err)
-			} else {
-				s.unsolicited(ev.ev)
-			}
-		case <-time.After(200 * time.Millisecond):
-		case <-octx.Done():
-		}
-	case status.Code(err) == codes.Unimplemented:
-		s.unary = true
-	default:
+	// The client dials lazily, so an agent that is not there yet surfaces
+	// here, as Unavailable: that is what the connect policy retries.
+	if _, err := target.Connect(ctx, t.cfg.Connect, run.Logger, "grpc "+t.name, func(ctx context.Context) (struct{}, error) {
+		return struct{}{}, s.open(ctx, start)
+	}); err != nil {
 		_ = conn.Close()
 		cancel()
 		return nil, fmt.Errorf("grpc %s: connect %s: %w", t.name, addr, err)
@@ -274,8 +251,68 @@ func (s *session) streamTurn(ctx context.Context, turn target.UserTurn) (target.
 	}
 }
 
+// open starts the conversation: Converse when the agent has it, Turn when
+// it answers Unimplemented. Any other failure is returned for a retry, except
+// a refused credential or a bad request, which are final.
+func (s *session) open(ctx context.Context, start *turnv1.SessionStart) error {
+	octx, ocancel := context.WithTimeout(s.ctx, s.t.cfg.Timeout)
+	defer ocancel()
+	stream, err := s.client.Converse(s.ctx)
+	if err == nil {
+		err = stream.Send(&turnv1.ClientEvent{Event: &turnv1.ClientEvent_SessionStart{SessionStart: start}})
+	}
+	switch {
+	case err == nil:
+		events := make(chan serverEvent)
+		s.stream, s.events = stream, events
+		go s.read()
+		// A server without Converse fails the first Recv with Unimplemented;
+		// probe it now so the fallback is decided before the first turn.
+		select {
+		case ev := <-events:
+			switch {
+			case ev.err != nil && status.Code(ev.err) == codes.Unimplemented:
+				s.unary = true
+				s.stream, s.events = nil, nil
+			case ev.err != nil:
+				s.stream, s.events = nil, nil
+				return finalRPC(fmt.Errorf("converse: %w", ev.err))
+			default:
+				s.unsolicited(ev.ev)
+			}
+		case <-time.After(200 * time.Millisecond):
+		case <-octx.Done():
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		return nil
+	case status.Code(err) == codes.Unimplemented:
+		s.unary = true
+		return nil
+	default:
+		return finalRPC(err)
+	}
+}
+
+// finalRPC marks the RPC failures more tries will not fix.
+func finalRPC(err error) error {
+	switch status.Code(err) {
+	case codes.Unauthenticated, codes.PermissionDenied, codes.InvalidArgument, codes.NotFound, codes.Unimplemented:
+		return target.NoRetry(err)
+	}
+	return err
+}
+
 func (s *session) unaryTurn(ctx context.Context, turn target.UserTurn) (target.AgentTurn, error) {
-	resp, err := s.client.Turn(ctx, &turnv1.TurnRequest{SessionId: s.sessionID, Text: turn.Text, Metadata: map[string]string{"test": s.run.TestName}})
+	resp, err := target.Connect(ctx, s.t.cfg.Connect, s.run.Logger, "grpc "+s.t.name+" turn", func(ctx context.Context) (*turnv1.TurnResponse, error) {
+		resp, err := s.client.Turn(ctx, &turnv1.TurnRequest{SessionId: s.sessionID, Text: turn.Text, Metadata: map[string]string{"test": s.run.TestName}})
+		if err != nil && status.Code(err) != codes.Unavailable {
+			// Only an agent that cannot be reached is tried again; a turn it
+			// took and failed is not repeated.
+			return nil, target.NoRetry(err)
+		}
+		return resp, err
+	})
 	if err != nil {
 		return target.AgentTurn{}, fmt.Errorf("turn: %w", err)
 	}

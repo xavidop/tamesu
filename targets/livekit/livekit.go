@@ -95,6 +95,9 @@ type Config struct {
 	// target); nil for a plain room.
 	Call CallControl
 
+	// Connect is how joining the room is retried.
+	Connect target.ConnectPolicy
+
 	// connect overrides the SDK connection (tests).
 	connect connector
 }
@@ -220,7 +223,9 @@ func (t *Target) Start(ctx context.Context, run *target.RunContext) (target.Sess
 		onAudio:             s.agentAudio,
 		onDTMF:              s.dtmf,
 	}
-	r, err := t.cfg.connect(ctx, cc, ev)
+	r, err := target.Connect(ctx, t.cfg.Connect, run.Logger, "livekit "+t.name, func(ctx context.Context) (room, error) {
+		return t.cfg.connect(ctx, cc, ev)
+	})
 	if err != nil {
 		return nil, fmt.Errorf("livekit %s: join room %s at %s: %w", t.name, cc.Room, cc.URL, err)
 	}

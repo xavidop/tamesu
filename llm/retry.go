@@ -39,6 +39,9 @@ type Fallbacks struct {
 	Simulator         []string
 	BrowserAgent      []string
 	ScenarioGenerator []string
+	// Embedder is the only list that applies to the embedding model: the
+	// default list names chat models, which cannot embed.
+	Embedder []string
 }
 
 // ErrBadOutput marks a reply that was not the JSON the prompt asked for. It
@@ -85,6 +88,8 @@ func (c *Client) fallbacksFor(job string) []string {
 		list = f.BrowserAgent
 	case "scenario_generator":
 		list = f.ScenarioGenerator
+	case "embedder":
+		return f.Embedder
 	}
 	if len(list) == 0 {
 		list = f.Default

@@ -29,7 +29,7 @@ var ActionNames = []string{"navigate", "click", "fill", "press", "wait", "screen
 
 // AssertionKinds lists every assertion key, in documentation order.
 var AssertionKinds = []string{
-	"judge", "contains", "not_contains", "regex", "not_regex", "json_path", "status",
+	"judge", "contains", "not_contains", "regex", "not_regex", "similar_to", "json_path", "status",
 	"tool_called", "tool_not_called", "tool_sequence", "dtmf_received", "call_ended_by", "transferred_to",
 	"evaluator", "metric", "turns", "captured", "golden", "custom", "pack",
 }
@@ -56,6 +56,8 @@ type Suite struct {
 type Target struct {
 	Type string `yaml:"type" json:"type" jsonschema:"required,enum=browser,enum=rest,enum=livekit,enum=sip,enum=realtime,enum=grpc,enum=pipecat,enum=model,enum=twilio"`
 	URL  string `yaml:"url,omitempty" json:"url,omitempty" jsonschema:"description=The page (browser) or endpoint (rest / realtime / pipecat / twilio) or grpc://host:port (grpc) or LiveKit server (livekit)."`
+	// Connect is how the target retries reaching the agent (every type but browser).
+	Connect *ConnectConfig `yaml:"connect,omitempty" json:"connect,omitempty"`
 
 	// browser
 	Browser        *BrowserOptions `yaml:"browser,omitempty" json:"browser,omitempty"`
@@ -114,6 +116,14 @@ type Target struct {
 	MaxTokens     int       `yaml:"max_tokens,omitempty" json:"max_tokens,omitempty" jsonschema:"description=model: the most output tokens per call."`
 	MaxToolRounds int       `yaml:"max_tool_rounds,omitempty" json:"max_tool_rounds,omitempty" jsonschema:"description=model: the most call-and-answer rounds in one turn; default 5."`
 	Fallback      []string  `yaml:"fallback,omitempty" json:"fallback,omitempty" jsonschema:"description=model: Genkit model references tried in order when model fails; the run records which one answered."`
+}
+
+// ConnectConfig is how a target retries reaching the agent: joining the
+// room or websocket at the start of a session, sending a request.
+type ConnectConfig struct {
+	Attempts   int      `yaml:"attempts,omitempty" json:"attempts,omitempty" jsonschema:"description=Tries to reach the agent when the connection is refused or the agent answers 5xx; default 3 and 1 retries nothing."`
+	Backoff    Duration `yaml:"backoff,omitempty" json:"backoff,omitempty" jsonschema:"description=The wait before the second try; default 500ms and doubled every try with jitter."`
+	MaxBackoff Duration `yaml:"max_backoff,omitempty" json:"max_backoff,omitempty" jsonschema:"description=The longest wait between tries; default 5s."`
 }
 
 // ToolDef is a tool a model target offers to the model.
@@ -394,6 +404,7 @@ type Assertion struct {
 	NotContains   *string            `yaml:"not_contains,omitempty" json:"not_contains,omitempty"`
 	Regex         *string            `yaml:"regex,omitempty" json:"regex,omitempty" jsonschema:"description=A regular expression the agent transcript matches."`
 	NotRegex      *string            `yaml:"not_regex,omitempty" json:"not_regex,omitempty" jsonschema:"description=A regular expression no agent turn matches."`
+	SimilarTo     *Similar           `yaml:"similar_to,omitempty" json:"similar_to,omitempty" jsonschema:"description=Some agent turn means the same as this text (embedding similarity of at least min)."`
 	JSONPath      *JSONPathAssertion `yaml:"json_path,omitempty" json:"json_path,omitempty" jsonschema:"description=rest only."`
 	Status        *int               `yaml:"status,omitempty" json:"status,omitempty" jsonschema:"description=rest only: the HTTP status of every turn."`
 	ToolCalled    *ToolCall          `yaml:"tool_called,omitempty" json:"tool_called,omitempty"`
@@ -424,6 +435,7 @@ func (a Assertion) Kinds() []string {
 		"not_contains":    a.NotContains != nil,
 		"regex":           a.Regex != nil,
 		"not_regex":       a.NotRegex != nil,
+		"similar_to":      a.SimilarTo != nil,
 		"json_path":       a.JSONPath != nil,
 		"status":          a.Status != nil,
 		"tool_called":     a.ToolCalled != nil,

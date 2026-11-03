@@ -49,7 +49,8 @@ tests:
     assert:
       - judge: "The agent states the 30-day return policy and does not promise an exception"
       - not_contains: "I'm just an AI"
-      - tool_called: lookup_policy
+      - similar_to: { text: "The return window is 30 days from delivery, so returning after 40 days is not possible", min: 0.6 }
+      - tool_called: { name: lookup_policy, schema: { type: object, required: [topic], properties: { topic: { type: string } } } }
       - status: 200
       - json_path: { path: $.session_id }
       - metric: { name: turn_latency_ms_p95, lt: 4000 }

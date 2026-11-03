@@ -47,8 +47,10 @@ func buildKind(a config.Assertion) (assert.Assertion, error) {
 		return assert.JSONPath(a.JSONPath.Path, a.JSONPath.Equals)
 	case "status":
 		return assert.Status(*a.Status), nil
+	case "similar_to":
+		return assert.SimilarTo(a.SimilarTo.Text, a.SimilarTo.Min, a.SimilarTo.Model), nil
 	case "tool_called":
-		return assert.ToolCalled(a.ToolCalled.Name, a.ToolCalled.Args), nil
+		return assert.ToolCalledWithSchema(a.ToolCalled.Name, a.ToolCalled.Args, a.ToolCalled.Schema)
 	case "tool_not_called":
 		return assert.ToolNotCalled(a.ToolNotCalled.Name, a.ToolNotCalled.Args), nil
 	case "tool_sequence":

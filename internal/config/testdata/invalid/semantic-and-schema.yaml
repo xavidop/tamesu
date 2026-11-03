@@ -1,0 +1,17 @@
+suite: semantic-and-schema
+targets:
+  api:
+    type: rest
+    url: http://localhost/chat
+    response: { text: $.reply }
+    connect: { attempts: -1 }
+tests:
+  - name: t
+    target: api
+    persona: { name: A }
+    scenario: { goal: say hi }
+    assert:
+      - similar_to: { text: "Returns within 30 days", min: 2 }
+      - similar_to: ""
+      - tool_called: { name: book, schema: { type: nope } }
+      - tool_not_called: { name: book, schema: { type: object } }

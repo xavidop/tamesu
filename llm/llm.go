@@ -34,6 +34,9 @@ type Models struct {
 	Simulator         string
 	BrowserAgent      string
 	ScenarioGenerator string
+	// Embedder is the embedding model of the semantic assertions; "" picks
+	// the default embedder of Default's provider.
+	Embedder string
 	// Fallback lists the models tried, in order, after a job's model failed.
 	Fallback Fallbacks
 }
@@ -248,6 +251,23 @@ func (c *Client) modelFor(job string, override string) string {
 		m = c.cfg.Models.Default
 	}
 	return m
+}
+
+// recordEmbedding counts an embedding call: Genkit reports no usage for
+// them, so the tokens are estimated at four characters each and priced by
+// the model's input rate.
+func (c *Client) recordEmbedding(modelName string, chars int) error {
+	tokens := chars/4 + 1
+	cost := c.pricing.costOf(modelName, tokens, 0, 0, 0)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.usage.Calls++
+	c.usage.InputTokens += tokens
+	c.usage.CostUSD += cost
+	if (c.cfg.Budget.MaxCostUSD > 0 && c.usage.CostUSD > c.cfg.Budget.MaxCostUSD) || (c.cfg.Budget.MaxTokens > 0 && c.usage.Total() > c.cfg.Budget.MaxTokens) {
+		return ErrBudgetExceeded
+	}
+	return nil
 }
 
 // Judge is assert.Judge, re-exported so Go tests can write llm.Judge("...").

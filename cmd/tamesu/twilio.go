@@ -18,7 +18,8 @@ func init() {
 func newTwilioTarget(_ context.Context, spec runner.TargetSpec) (target.Target, error) {
 	t := spec.Config
 	return twilio.New(spec.Name, twilio.Config{
-		URL: t.URL, Headers: t.Headers, Parameters: t.Parameters, From: t.From, To: t.To,
+		Connect: connectPolicy(t),
+		URL:     t.URL, Headers: t.Headers, Parameters: t.Parameters, From: t.From, To: t.To,
 		Idle: t.Idle.Std(), Timeout: t.TurnTimeout.Std(),
 	}), nil
 }

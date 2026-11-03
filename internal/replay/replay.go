@@ -234,6 +234,15 @@ func (p *Provider) Chat(ctx context.Context, req target.ChatRequest) (target.Cha
 	return target.ChatResponse{}, errors.New("replay: the provider has no chat model")
 }
 
+// Embed forwards to the inner embedder. Embeddings are not cached: they are
+// cheap, and a similar_to assertion compares the agent's actual words.
+func (p *Provider) Embed(ctx context.Context, req assert.EmbedRequest) (assert.EmbedResponse, error) {
+	if e, ok := p.inner.(assert.Embedder); ok {
+		return e.Embed(ctx, req)
+	}
+	return assert.EmbedResponse{}, errors.New("replay: the provider has no embedding model")
+}
+
 // HasSpeech reports whether the inner provider has speech models.
 func (p *Provider) HasSpeech() bool { _, ok := p.inner.(target.Speech); return ok }
 

@@ -105,6 +105,8 @@ type Config struct {
 	Timeout time.Duration
 	// Client overrides the HTTP client of the handshake.
 	Client *http.Client
+	// Connect is how connecting to the agent is retried.
+	Connect target.ConnectPolicy
 }
 
 // New returns the target.
@@ -196,12 +198,17 @@ func (t *Target) Start(ctx context.Context, run *target.RunContext) (target.Sess
 	if t.cfg.Protocol == ProtocolBeta && hdr.Get("OpenAI-Beta") == "" {
 		hdr.Set("OpenAI-Beta", "realtime=v1")
 	}
-	dctx, cancel := context.WithTimeout(ctx, t.cfg.Timeout)
-	defer cancel()
-	conn, _, err := websocket.Dial(dctx, u, &websocket.DialOptions{HTTPClient: t.cfg.Client, HTTPHeader: hdr})
+	conn, err := target.Connect(ctx, t.cfg.Connect, run.Logger, "realtime "+t.name, func(ctx context.Context) (*websocket.Conn, error) {
+		dctx, cancel := context.WithTimeout(ctx, t.cfg.Timeout)
+		defer cancel()
+		conn, resp, err := websocket.Dial(dctx, u, &websocket.DialOptions{HTTPClient: t.cfg.Client, HTTPHeader: hdr})
+		return conn, target.HandshakeError(err, resp)
+	})
 	if err != nil {
 		return nil, fmt.Errorf("realtime %s: connect %s: %w", t.name, redactQuery(u), err)
 	}
+	dctx, cancel := context.WithTimeout(ctx, t.cfg.Timeout)
+	defer cancel()
 	conn.SetReadLimit(64 << 20)
 	s.conn = conn
 	s.events = make(chan event)

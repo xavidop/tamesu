@@ -46,6 +46,11 @@ func TestValidateInvalidSuites(t *testing.T) {
 		{file: "model-fallback.yaml", line: 4, msg: "model references look like provider/model", path: "models.fallback.judge[0]", warning: true},
 		{file: "model-fallback-target.yaml", line: 7, msg: "model references look like provider/model", path: "targets.prompt.fallback[0]", warning: true},
 		{file: "model-fallback-target.yaml", line: 12, msg: "fallback applies to model targets only; this target is rest", warning: true},
+		{file: "semantic-and-schema.yaml", line: 7, msg: "attempts cannot be negative", path: "targets.api.connect.attempts"},
+		{file: "semantic-and-schema.yaml", line: 14, msg: "similar_to.min is a cosine similarity between 0 and 1", path: `tests[0] "t".assert[0].similar_to.min`},
+		{file: "semantic-and-schema.yaml", line: 15, msg: "similar_to needs a text", path: `tests[0] "t".assert[1].similar_to`},
+		{file: "semantic-and-schema.yaml", line: 16, msg: "not a valid JSON Schema", path: `tests[0] "t".assert[2].tool_called.schema`},
+		{file: "semantic-and-schema.yaml", line: 17, msg: "schema applies to tool_called only", path: `tests[0] "t".assert[3].tool_not_called.schema`, warning: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.file+"/"+tt.msg, func(t *testing.T) {

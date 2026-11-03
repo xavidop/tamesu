@@ -44,10 +44,12 @@ type RunResult struct {
 	// Captures are the values the run captured from the agent's turns.
 	Captures map[string]string
 	Events   []target.Event
-	// Judger and Evaluator are the AI hooks the runner sets; nil means no
-	// model is available and judge or evaluator assertions fail.
+	// Judger, Evaluator and Embedder are the AI hooks the runner sets; nil
+	// means no model is available and judge, evaluator or similar_to
+	// assertions fail.
 	Judger    Judger
 	Evaluator Evaluator
+	Embedder  Embedder
 }
 
 // Turn is one line of the transcript.

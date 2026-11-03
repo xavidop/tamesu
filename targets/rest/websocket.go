@@ -52,17 +52,28 @@ func (s *session) dialWS(ctx context.Context) error {
 		}
 		hdr.Set(k, rv)
 	}
-	dctx, cancel := context.WithTimeout(ctx, s.t.cfg.Timeout)
-	defer cancel()
-	conn, resp, err := websocket.Dial(dctx, url, &websocket.DialOptions{HTTPClient: s.t.cfg.Client, HTTPHeader: hdr})
+	type dialed struct {
+		conn   *websocket.Conn
+		status int
+	}
+	d, err := target.Connect(ctx, s.t.cfg.Connect, s.run.Logger, "rest "+s.t.name+" websocket", func(ctx context.Context) (dialed, error) {
+		dctx, cancel := context.WithTimeout(ctx, s.t.cfg.Timeout)
+		defer cancel()
+		conn, resp, err := websocket.Dial(dctx, url, &websocket.DialOptions{HTTPClient: s.t.cfg.Client, HTTPHeader: hdr})
+		out := dialed{conn: conn}
+		if resp != nil {
+			out.status = resp.StatusCode
+		}
+		return out, target.HandshakeError(err, resp)
+	})
 	if err != nil {
 		return fmt.Errorf("rest %s: websocket %s: %w", s.t.name, url, err)
 	}
+	conn := d.conn
 	conn.SetReadLimit(16 << 20)
-	ws := &wsState{conn: conn, msgs: make(chan wsMessage)}
-	if resp != nil {
-		ws.status = resp.StatusCode
-	}
+	ws := &wsState{conn: conn, msgs: make(chan wsMessage), status: d.status}
+	dctx, cancel := context.WithTimeout(ctx, s.t.cfg.Timeout)
+	defer cancel()
 	readCtx, stop := context.WithCancel(context.WithoutCancel(ctx))
 	ws.cancel = stop
 	go func() {

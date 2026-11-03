@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -217,7 +218,7 @@ func TestNonJSONBodyAndErrors(t *testing.T) {
 		_, _ = fmt.Fprint(w, "upstream down")
 	}))
 	t.Cleanup(srv.Close)
-	tgt := New("api", Config{URL: srv.URL, TextPath: "$.reply"})
+	tgt := New("api", Config{URL: srv.URL, TextPath: "$.reply", Connect: target.ConnectPolicy{Attempts: 1}})
 	sess, err := tgt.Start(context.Background(), runCtx(t))
 	require.NoError(t, err)
 	require.NoError(t, sess.Send(context.Background(), target.UserTurn{Text: "hi"}))
@@ -229,7 +230,7 @@ func TestNonJSONBodyAndErrors(t *testing.T) {
 	_, err = New("api", Config{URL: srv.URL, TextPath: "$["}).Start(context.Background(), runCtx(t))
 	assert.ErrorContains(t, err, "response.text")
 
-	down := New("api", Config{URL: "http://127.0.0.1:1/chat", Timeout: time.Second})
+	down := New("api", Config{URL: "http://127.0.0.1:1/chat", Timeout: time.Second, Connect: target.ConnectPolicy{Attempts: 1}})
 	sess, err = down.Start(context.Background(), runCtx(t))
 	require.NoError(t, err)
 	assert.Error(t, sess.Send(context.Background(), target.UserTurn{Text: "hi"}))
@@ -246,4 +247,46 @@ func TestDefaultBody(t *testing.T) {
 	_, err = sess.Receive(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"message": "hello", "session_id": "fixed"}, a.requests[0])
+}
+
+func TestConnectRetries(t *testing.T) {
+	var hits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := hits.Add(1)
+		if n < 3 {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = fmt.Fprint(w, "warming up")
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintf(w, `{"reply":"ready after %d tries"}`, n)
+	}))
+	t.Cleanup(srv.Close)
+	fast := target.ConnectPolicy{Attempts: 3, Backoff: time.Millisecond, MaxBackoff: 2 * time.Millisecond}
+	tgt := New("api", Config{URL: srv.URL, TextPath: "$.reply", Connect: fast})
+	sess, err := tgt.Start(context.Background(), runCtx(t))
+	require.NoError(t, err)
+	require.NoError(t, sess.Send(context.Background(), target.UserTurn{Text: "hi"}))
+	turn, err := sess.Receive(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, 200, turn.Status, "the 503s were retried")
+	assert.Equal(t, "ready after 3 tries", turn.Text)
+	assert.Equal(t, int32(3), hits.Load())
+
+	// A 503 that outlasts the attempts is the turn's status, as it came.
+	hits.Store(-10)
+	require.NoError(t, sess.Send(context.Background(), target.UserTurn{Text: "again"}))
+	turn, err = sess.Receive(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, 503, turn.Status)
+	assert.Equal(t, "warming up", turn.Text)
+	assert.Equal(t, int32(-7), hits.Load(), "three attempts")
+
+	// A refused connection is retried too, then reported with the count.
+	down := New("api", Config{URL: "http://127.0.0.1:1/chat", Timeout: time.Second, Connect: fast})
+	sess, err = down.Start(context.Background(), runCtx(t))
+	require.NoError(t, err)
+	err = sess.Send(context.Background(), target.UserTurn{Text: "hi"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "(after 3 attempts)")
 }

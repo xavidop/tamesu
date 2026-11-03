@@ -97,9 +97,9 @@ func pluginForProvider(provider string) string {
 // modelRefs lists every configured model reference, fallbacks and speech
 // included.
 func (cfg Config) modelRefs() []string {
-	refs := []string{cfg.Models.Default, cfg.Models.Judge, cfg.Models.Simulator, cfg.Models.BrowserAgent, cfg.Models.ScenarioGenerator, cfg.Speech.TTS.Model, cfg.Speech.STT.Model}
+	refs := []string{cfg.Models.Default, cfg.Models.Judge, cfg.Models.Simulator, cfg.Models.BrowserAgent, cfg.Models.ScenarioGenerator, cfg.Models.Embedder, cfg.Speech.TTS.Model, cfg.Speech.STT.Model}
 	f := cfg.Models.Fallback
-	for _, list := range [][]string{f.Default, f.Judge, f.Simulator, f.BrowserAgent, f.ScenarioGenerator, cfg.Speech.TTS.Fallback, cfg.Speech.STT.Fallback} {
+	for _, list := range [][]string{f.Default, f.Judge, f.Simulator, f.BrowserAgent, f.ScenarioGenerator, f.Embedder, cfg.Speech.TTS.Fallback, cfg.Speech.STT.Fallback} {
 		refs = append(refs, list...)
 	}
 	return refs
