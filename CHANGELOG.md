@@ -2,6 +2,14 @@
 
 All notable changes to tamesu are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/). Each new release is added at the top, with notes generated from the commit messages.
 
+# [1.1.0](https://github.com/xavidop/tamesu/compare/v1.0.1...v1.1.0) (2026-11-03)
+
+
+### Features
+
+* **release:** Sigstore signatures for checksums.txt and the Docker image ([22c110c](https://github.com/xavidop/tamesu/commit/22c110c71ba8c7c846439864cea4c8dbd5a3706c))
+* tamesu merge and tamesu history, with a history section in the HTML report ([847a4ff](https://github.com/xavidop/tamesu/commit/847a4ff8a4e1cdd5a12a3e54913f14f7ce665f57))
+
 ## [1.0.1](https://github.com/xavidop/tamesu/compare/v1.0.0...v1.0.1) (2026-11-02)
 
 
