@@ -127,6 +127,29 @@ checksum:
 sboms:
   - artifacts: archive
 
+# Keyless signatures (Sigstore): checksums.txt is signed with cosign using the
+# workflow's OIDC identity, so verifying checksums.txt.sig against its
+# certificate proves every archive and package came from this repository's
+# Release workflow. The Docker image is signed by digest the same way.
+signs:
+  - cmd: cosign
+    artifacts: checksum
+    certificate: "${artifact}.pem"
+    signature: "${artifact}.sig"
+    args:
+      - sign-blob
+      - "--output-certificate=${certificate}"
+      - "--output-signature=${signature}"
+      - "${artifact}"
+      - "--yes"
+docker_signs:
+  - cmd: cosign
+    artifacts: images
+    args:
+      - sign
+      - "${artifact}@${digest}"
+      - "--yes"
+
 changelog:
   use: github
   sort: asc
@@ -168,6 +191,10 @@ release:
 
     The `tamesu_*` archives are the full build (audio mode and SIP); `tamesu-lite_*` and the
     packages are the pure-Go build.
+
+    **Verify:** `checksums.txt` is signed with Sigstore (`checksums.txt.sig`, `checksums.txt.pem`):
+    `cosign verify-blob --certificate checksums.txt.pem --signature checksums.txt.sig --certificate-identity-regexp 'https://github.com/xavidop/tamesu/' --certificate-oidc-issuer https://token.actions.githubusercontent.com checksums.txt`,
+    then `sha256sum -c checksums.txt --ignore-missing`. The image: `cosign verify ghcr.io/xavidop/tamesu:{{ .Version }} --certificate-identity-regexp 'https://github.com/xavidop/tamesu/' --certificate-oidc-issuer https://token.actions.githubusercontent.com`.
 
     **Docs:** https://xavidop.github.io/tamesu/
 

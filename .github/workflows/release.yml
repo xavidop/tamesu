@@ -72,6 +72,9 @@ jobs:
       - name: Install Syft (SBOM)
         uses: anchore/sbom-action/download-syft@v0
 
+      - name: Install cosign (signatures)
+        uses: sigstore/cosign-installer@v3
+
       - name: Log in to ghcr.io
         uses: docker/login-action@v4
         with:

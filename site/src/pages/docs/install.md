@@ -92,7 +92,23 @@ tamesu version
 
 Archives are `.tar.gz` on Linux and macOS and `.zip` on Windows, for amd64 and arm64. Each holds
 the binary, the license, the README and the shell completions under `completions/`. Each release
-also includes an SBOM per archive and SLSA provenance (`tamesu.intoto.jsonl`). The binaries are
+also includes an SBOM per archive, SLSA provenance (`tamesu.intoto.jsonl`) and a Sigstore
+signature of `checksums.txt` (`checksums.txt.sig` with its certificate `checksums.txt.pem`),
+made with the Release workflow's own identity, so nothing to download or trust beyond
+[cosign](https://docs.sigstore.dev/cosign/system_config/installation/):
+
+```sh
+cosign verify-blob checksums.txt \
+  --certificate checksums.txt.pem --signature checksums.txt.sig \
+  --certificate-identity-regexp 'https://github.com/xavidop/tamesu/' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+sha256sum -c checksums.txt --ignore-missing      # the archive you downloaded
+cosign verify ghcr.io/xavidop/tamesu:latest \
+  --certificate-identity-regexp 'https://github.com/xavidop/tamesu/' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+The binaries are
 not code-signed: on macOS, Gatekeeper may block a binary you download yourself until you clear
 the quarantine attribute (`xattr -d com.apple.quarantine tamesu`). The Homebrew cask does this
 for you.
