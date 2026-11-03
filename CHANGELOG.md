@@ -2,6 +2,13 @@
 
 All notable changes to tamesu are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/). Each new release is added at the top, with notes generated from the commit messages.
 
+# [1.4.0](https://github.com/xavidop/tamesu/compare/v1.3.0...v1.4.0) (2026-11-03)
+
+
+### Features
+
+* tool argument schemas, similar_to assertions and transport retries ([fc73d68](https://github.com/xavidop/tamesu/commit/fc73d6820e94286c6ffca9cc012053ed9bc10aa0))
+
 # [1.3.0](https://github.com/xavidop/tamesu/compare/v1.2.0...v1.3.0) (2026-11-03)
 
 
