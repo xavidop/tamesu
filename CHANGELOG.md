@@ -2,6 +2,15 @@
 
 All notable changes to tamesu are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/). Each new release is added at the top, with notes generated from the commit messages.
 
+# [1.2.0](https://github.com/xavidop/tamesu/compare/v1.1.0...v1.2.0) (2026-11-03)
+
+
+### Features
+
+* **browser:** port the browser target to chromedp 0.21 ([082d13c](https://github.com/xavidop/tamesu/commit/082d13cc68353e44f8013a4ab2b811179384cbd8))
+* **model:** the model target, a system prompt and tools tested directly against a model ([fb2f34e](https://github.com/xavidop/tamesu/commit/fb2f34e59a9eccc100e14d30535dff103387d7e2))
+* **twilio:** the Twilio Media Streams target ([134a7ad](https://github.com/xavidop/tamesu/commit/134a7ad492e13aa3211cac09b920407dbbeb45c1))
+
 # [1.1.0](https://github.com/xavidop/tamesu/compare/v1.0.1...v1.1.0) (2026-11-03)
 
 
