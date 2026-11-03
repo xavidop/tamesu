@@ -2,6 +2,13 @@
 
 All notable changes to tamesu are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/). Each new release is added at the top, with notes generated from the commit messages.
 
+# [1.5.0](https://github.com/xavidop/tamesu/compare/v1.4.0...v1.5.0) (2026-11-03)
+
+
+### Features
+
+* matrix runs, coverage, cost estimate, importers, languages, adversarial persona, barge-in and docs illustrations ([47efa09](https://github.com/xavidop/tamesu/commit/47efa09dfe79a375dc9d570497cf1e0dbb85f9f5))
+
 # [1.4.0](https://github.com/xavidop/tamesu/compare/v1.3.0...v1.4.0) (2026-11-03)
 
 
