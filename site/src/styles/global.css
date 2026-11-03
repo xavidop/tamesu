@@ -20,6 +20,10 @@
   --d-bg-2: #1c2342;
   --d-bg-3: #242c52;
   --d-code-bg: #181f3e;
+  --d-code-key: #9fb6ff;
+  --d-code-str: #8fd6a8;
+  --d-code-fn: #dcaeff;
+  --d-code-comment: #8e95b8;
   --d-rail: #9aaaf0;
   --d-rail-hi: #b3bff5;
   --d-rail-deep: #c6cffa;
@@ -48,7 +52,13 @@
   --bg: #f7f3ea;
   --bg-2: #fffdf8;
   --bg-3: #eee8da;
-  --code-bg: #f1ecdf;
+  --code-bg: #fdfbf5; /* lighter than the page, so a block reads as a card */
+  /* Code tokens: saturated enough to tell a key from a string on off-white,
+     each at AA against --code-bg. */
+  --code-key: #1b3fae;
+  --code-str: #176b3b;
+  --code-fn: #8a2fae;
+  --code-comment: #6c7390;
 
   /* Primary accent: the seal's indigo */
   --rail: #1e2a5a;
@@ -107,6 +117,10 @@
     --bg-2: var(--d-bg-2);
     --bg-3: var(--d-bg-3);
     --code-bg: var(--d-code-bg);
+    --code-key: var(--d-code-key);
+    --code-str: var(--d-code-str);
+    --code-fn: var(--d-code-fn);
+    --code-comment: var(--d-code-comment);
     --rail: var(--d-rail);
     --rail-hi: var(--d-rail-hi);
     --rail-deep: var(--d-rail-deep);
@@ -137,6 +151,10 @@
   --bg-2: var(--d-bg-2);
   --bg-3: var(--d-bg-3);
   --code-bg: var(--d-code-bg);
+  --code-key: var(--d-code-key);
+  --code-str: var(--d-code-str);
+  --code-fn: var(--d-code-fn);
+  --code-comment: var(--d-code-comment);
   --rail: var(--d-rail);
   --rail-hi: var(--d-rail-hi);
   --rail-deep: var(--d-rail-deep);
@@ -323,20 +341,21 @@ pre.code {
   color: var(--ink);
 }
 pre.code .k {
-  color: var(--rail-deep);
+  color: var(--code-key);
 } /* keyword */
 pre.code .s {
-  color: var(--ok);
+  color: var(--code-str);
 } /* string */
 pre.code .c {
-  color: var(--muted-2);
+  color: var(--code-comment);
   font-style: italic;
 } /* comment */
 pre.code .t {
-  color: var(--rail-deep);
+  color: var(--code-key);
 } /* identifier */
 pre.code .f {
-  color: var(--fn);
+  color: var(--code-fn);
+  font-weight: 600;
 } /* function */
 
 .badge {

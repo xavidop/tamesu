@@ -26,6 +26,21 @@ const targets = [
     title: "Phone agents",
     body: "Real calls through a LiveKit SIP service and your trunk: dial out or get called, press DTMF, follow IVR scripts, measure ring and setup time.",
   },
+  {
+    tag: "realtime",
+    title: "OpenAI Realtime",
+    body: "The Realtime protocol over a websocket, in text or audio: the API itself with your instructions and tools, or your own server speaking its events.",
+  },
+  {
+    tag: "grpc",
+    title: "gRPC agents",
+    body: "A small turn API (<code>Converse</code> stream or unary <code>Turn</code>) any gRPC service can implement, with the same latency metrics as REST.",
+  },
+  {
+    tag: "pipecat",
+    title: "Pipecat bots",
+    body: "The websocket transport of a Pipecat bot: protobuf audio frames and RTVI messages, text or real audio, with the bot's words and timing.",
+  },
 ];
 
 const pillars = [
@@ -95,8 +110,9 @@ ok   secret API_TOKEN: env (link 1 of 1)`;
         <p class="hero__install"><code>brew install xavidop/tap/tamesu</code></p>
         <p class="hero__note">Homebrew is macOS only; on Linux and Windows, use a package or a release binary.</p>
         <p class="hero__status">
-          One YAML schema for <code>browser</code>, <code>rest</code>, <code>livekit</code>,
-          <code>sip</code> and <code>realtime</code> targets, validated with file and line numbers.
+          One YAML schema for <code>browser</code>, <code>rest</code>, <code>grpc</code>,
+          <code>livekit</code>, <code>sip</code>, <code>realtime</code> and <code>pipecat</code>
+          targets, validated with file and line numbers.
           <code>tamesu doctor</code> resolves every secret through mamori and checks the setup.
         </p>
       </div>
@@ -121,8 +137,8 @@ ok   secret API_TOKEN: env (link 1 of 1)`;
   <section class="section">
     <div class="wrap">
       <div class="section__head">
-        <p class="eyebrow">Four targets, one model</p>
-        <h2>The same test for a chatbot, a voice agent, a phone line and a web flow</h2>
+        <p class="eyebrow">Seven targets, one model</p>
+        <h2>The same test for a chatbot, a voice agent, a phone line, a realtime API and a web flow</h2>
       </div>
       <div class="targets">
         {targets.map((p) => (
@@ -294,7 +310,7 @@ ok   secret API_TOKEN: env (link 1 of 1)`;
   /* Four target cards: two by two, then one column. */
   .targets {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 1.2rem;
   }
   @media (max-width: 600px) {

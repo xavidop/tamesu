@@ -116,8 +116,12 @@ export default defineConfig({
       // Shiki emits the second theme as a --shiki-dark custom property per
       // token; DocsLayout switches to it under the same three conditions the
       // rest of the palette uses.
+      // Light is catppuccin-latte rather than github-light: on the site's
+      // off-white code background github-light paints YAML keys and values in
+      // two close dark tones, latte keeps keys blue, strings green and
+      // numbers orange at AA contrast, matching the hand-highlighted blocks.
       themes: {
-        light: "github-light",
+        light: "catppuccin-latte",
         dark: "github-dark",
       },
       wrap: false,
