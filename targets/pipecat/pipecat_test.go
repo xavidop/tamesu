@@ -35,6 +35,12 @@ type fakeBot struct {
 	noReady    bool
 	noStop     bool // never send the stop message: the turn must end by idle
 	closeAfter int  // close the connection after this many turns
+	// slow streams every spoken reply as three seconds of audio at real
+	// time; yields makes the bot stop and send bot-interrupted when caller
+	// audio arrives mid-reply, as a pipeline with an interruption strategy does.
+	slow, yields bool
+	interrupted  int
+	gen, cutGen  int // the current reply and the one the caller cut
 
 	headers []http.Header
 	texts   []string // send-text contents
@@ -88,15 +94,39 @@ func (f *fakeBot) handle(w http.ResponseWriter, r *http.Request) {
 			}
 			rtvi("llm-function-call-in-progress", map[string]any{"function_name": "lookup_policy", "tool_call_id": "call_1", "arguments": map[string]any{"topic": "returns"}})
 		}
-		for _, w := range strings.SplitAfter(reply, " ") {
-			if spoken {
-				tone := audio.Tone(16000, 440, 60*time.Millisecond, 0.3)
+		if spoken && f.slow {
+			f.mu.Lock()
+			f.gen++
+			gen := f.gen
+			f.mu.Unlock()
+			tone := audio.Tone(16000, 440, 20*time.Millisecond, 0.3)
+			for i := 0; i < 150; i++ {
+				f.mu.Lock()
+				superseded, cut := f.gen != gen, f.cutGen == gen
+				f.mu.Unlock()
+				if superseded {
+					return
+				}
+				if cut {
+					rtvi("bot-interrupted", nil)
+					rtvi("bot-stopped-speaking", nil)
+					return
+				}
 				send(&frames.Frame{Frame: &frames.Frame_Audio{Audio: &frames.AudioRawFrame{Audio: bytesOf(tone.Samples), SampleRate: 16000, NumChannels: 1}}})
-				rtvi("bot-tts-text", map[string]any{"text": strings.TrimSpace(w)})
-			} else {
-				rtvi("bot-llm-text", map[string]any{"text": w})
+				time.Sleep(20 * time.Millisecond)
 			}
-			time.Sleep(2 * time.Millisecond)
+			rtvi("bot-tts-text", map[string]any{"text": reply})
+		} else {
+			for _, w := range strings.SplitAfter(reply, " ") {
+				if spoken {
+					tone := audio.Tone(16000, 440, 60*time.Millisecond, 0.3)
+					send(&frames.Frame{Frame: &frames.Frame_Audio{Audio: &frames.AudioRawFrame{Audio: bytesOf(tone.Samples), SampleRate: 16000, NumChannels: 1}}})
+					rtvi("bot-tts-text", map[string]any{"text": strings.TrimSpace(w)})
+				} else {
+					rtvi("bot-llm-text", map[string]any{"text": w})
+				}
+				time.Sleep(2 * time.Millisecond)
+			}
 		}
 		if f.noStop {
 			return
@@ -159,10 +189,21 @@ func (f *fakeBot) handle(w http.ResponseWriter, r *http.Request) {
 			}
 			if !silent {
 				speaking = true
+				f.mu.Lock()
+				if f.yields && f.gen > 0 && f.cutGen != f.gen {
+					f.cutGen = f.gen
+					f.interrupted++
+				}
+				f.mu.Unlock()
 			} else if speaking {
 				speaking = false
 				rtvi("user-stopped-speaking", nil)
-				answer("spoken turn", true)
+				if f.slow {
+					// Stream in the background so the caller's barge-in is heard.
+					go answer("spoken turn", true)
+				} else {
+					answer("spoken turn", true)
+				}
 			}
 		}
 	}
@@ -327,4 +368,50 @@ func TestDecodeAndRender(t *testing.T) {
 	stereo := bytesOf([]int16{100, 300, -100, -300})
 	assert.Equal(t, []int16{200, -200}, pcmOf(stereo, 2), "channels are mixed down")
 	assert.Equal(t, map[string]any{"a": "x 3"}, renderArgs(map[string]any{"a": "x {{args.n}}"}, map[string]any{"n": 3.0}))
+}
+
+func TestBargeIn(t *testing.T) {
+	ctx := context.Background()
+	for _, tc := range []struct {
+		name   string
+		yields bool
+	}{{"the bot yields", true}, {"the bot keeps talking", false}} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := &fakeBot{replies: []string{"a", "b", "c"}, slow: true, yields: tc.yields}
+			rc := runCtx(t)
+			rc.Speech = fakeSpeech{}
+			rc.Voice = &target.Voice{Hint: "en-US-female", Language: "en", InterruptProbability: 1, Seed: 7}
+			sess, err := newTarget(t, f, func(c *Config) { c.Mode = ModeAudio; c.Timeout = 8 * time.Second }).Start(ctx, rc)
+			require.NoError(t, err)
+
+			require.NoError(t, sess.Send(ctx, target.UserTurn{Text: "hello"}))
+			turn, err := sess.Receive(ctx)
+			require.NoError(t, err)
+			assert.True(t, turn.Interrupted, "the caller stopped listening partway through the long reply")
+
+			require.NoError(t, sess.Send(ctx, target.UserTurn{Text: "wait"}))
+			_, err = sess.Receive(ctx)
+			require.NoError(t, err)
+			arts, err := sess.Close(ctx)
+			require.NoError(t, err)
+			assert.Equal(t, 1.0, arts.Metrics["interruptions"], "%v", arts.Metrics)
+			stop, ok := arts.Metrics["interruption_stop_ms_p95"]
+			require.True(t, ok, "the stop time is measured: %v", arts.Metrics)
+			kinds := map[string]string{}
+			for _, e := range arts.Events {
+				kinds[e.Kind] = e.Detail
+			}
+			assert.Contains(t, kinds, "interrupting")
+			assert.Contains(t, kinds, "interruption")
+			assert.Contains(t, kinds, "interruption_stopped")
+			if tc.yields {
+				assert.Less(t, stop, 1500.0, "the bot yielded within a second of the caller speaking")
+				assert.Contains(t, kinds, "bot_interrupted")
+				assert.Contains(t, kinds["interruption_stopped"], "the bot yielded")
+			} else {
+				assert.Greater(t, stop, 500.0, "the audio already sent played out after the caller spoke")
+				assert.Contains(t, kinds["interruption_stopped"], "never yielded")
+			}
+		})
+	}
 }

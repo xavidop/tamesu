@@ -5,6 +5,8 @@ title: LiveKit target
 
 # LiveKit target
 
+![A room seen from above with a headset on one side and a sound wave crossing to a robot](/img/target-livekit.jpg)
+
 The `livekit` target tests a realtime voice agent by joining its LiveKit room as a simulated
 participant, whatever the agent was built with: LiveKit Agents, Voiceflow, Pipecat, a custom
 participant. **Text mode** exchanges text streams, so a text-capable agent is tested without
@@ -112,6 +114,9 @@ A greeting the agent sends before the first user turn is attached to the first r
 timestamps, plus in audio mode `audio_published`, `user_speech_start`/`_end`,
 `agent_speech_start`/`_end`, `interruption`, `interruption_stopped`, `dtmf_sent` and
 `transcript_source`; the sip target adds the call events to the same timeline.
+Leaving the room is bounded: if the LiveKit SDK stalls while it reconnects after a
+network blip, each step of the hang-up is abandoned after 5 seconds and a
+`close_timeout` event says which one, so the run still ends and the recording is written.
 
 ## Example
 

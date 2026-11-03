@@ -107,6 +107,8 @@ type event struct {
 	text  string // a TextFrame or TranscriptionFrame
 	kind  string // "message", "audio", "text", "transcription", "interruption", "unparsable"
 	err   error
+	// at is when the frame arrived, so a turn read after the fact keeps its timing.
+	at time.Time
 }
 
 type session struct {
@@ -156,7 +158,7 @@ func (t *Target) Start(ctx context.Context, run *target.RunContext) (target.Sess
 	dctx, cancel := context.WithTimeout(ctx, t.cfg.Timeout)
 	defer cancel()
 	conn.SetReadLimit(64 << 20)
-	s := &session{t: t, run: run, conn: conn, metrics: map[string]float64{}, events: make(chan event)}
+	s := &session{t: t, run: run, conn: conn, metrics: map[string]float64{}, events: make(chan event, 1024)}
 	readCtx, stop := context.WithCancel(context.WithoutCancel(ctx))
 	s.stop = stop
 	go s.read(readCtx)
@@ -201,6 +203,7 @@ func (s *session) read(ctx context.Context) {
 			return
 		}
 		ev := decode(typ, data)
+		ev.at = time.Now()
 		select {
 		case s.events <- ev:
 		case <-ctx.Done():
@@ -290,9 +293,22 @@ func (s *session) Send(ctx context.Context, turn target.UserTurn) error {
 	started := time.Now()
 	var spoken *spokenTurn
 	if s.t.cfg.Mode == ModeAudio {
+		a := s.audio
+		s.mu.Lock()
+		interrupting := a.interruptNext && !a.first.IsZero() && a.played > time.Since(a.first)
+		if a.interruptNext && !interrupting {
+			s.evs = append(s.evs, target.Event{At: started, Kind: "interrupt_missed", Detail: "the bot had finished before the caller spoke"})
+		}
+		a.interruptNext = false
+		s.mu.Unlock()
 		var err error
 		if spoken, err = s.speak(tctx, turn, started); err != nil {
 			return err
+		}
+		spoken.startedAt = started
+		spoken.interrupting = interrupting
+		if interrupting {
+			s.event("interruption", "the caller spoke over the bot")
 		}
 	} else {
 		msg := newRTVI("send-text", map[string]any{"content": turn.Text, "options": map[string]any{"run_immediately": true, "audio_response": false}})
@@ -344,11 +360,19 @@ func (s *session) readTurn(ctx context.Context, spoken *spokenTurn) (target.Agen
 	var last time.Time // the bot's last sign of life this turn
 	idle := time.NewTimer(s.t.cfg.Timeout)
 	defer idle.Stop()
+	var plan *interruptPlan
+	if s.audio != nil && spoken != nil && !spoken.interrupting {
+		plan = s.audio.planInterrupt()
+	}
+	var stoppedAt time.Time // the bot's first sign of yielding to the caller
 	finish := func() (target.AgentTurn, error) {
 		agent.Text = text.String()
 		agent.Raw = raw
 		if s.audio != nil {
 			s.finishAudio(ctx, spoken, &agent, agent.Text == "")
+			if spoken != nil && spoken.interrupting {
+				s.recordInterruption(spoken, stoppedAt)
+			}
 		}
 		return agent, nil
 	}
@@ -379,6 +403,16 @@ func (s *session) readTurn(ctx context.Context, spoken *spokenTurn) (target.Agen
 				}
 				if s.audio != nil {
 					s.agentAudio(ev, spoken)
+					if plan != nil && plan.due(spoken) {
+						// The caller will talk over the bot: the turn ends here and
+						// the next Send speaks while the bot's audio still plays.
+						agent.Interrupted = true
+						s.mu.Lock()
+						s.audio.interruptNext = true
+						s.mu.Unlock()
+						s.event("interrupting", "the caller will speak over the bot")
+						return finish()
+					}
 				}
 			case "text":
 				raw = append(raw, map[string]any{"text": ev.text})
@@ -391,6 +425,9 @@ func (s *session) readTurn(ctx context.Context, spoken *spokenTurn) (target.Agen
 				s.event("user_transcript", ev.text)
 				alive = false
 			case "interruption":
+				if stoppedAt.IsZero() {
+					stoppedAt = ev.at
+				}
 				s.event("bot_interrupted", "")
 			case "message":
 				m := ev.msg
@@ -429,6 +466,9 @@ func (s *session) readTurn(ctx context.Context, spoken *spokenTurn) (target.Agen
 				case "bot-stopped-speaking":
 					return finish()
 				case "bot-interrupted":
+					if stoppedAt.IsZero() {
+						stoppedAt = ev.at
+					}
 					s.event("bot_interrupted", "")
 				case "error":
 					return agent, errors.New(errorOf(*m))

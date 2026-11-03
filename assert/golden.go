@@ -74,7 +74,7 @@ func goldenJudge(ctx context.Context, r *RunResult, reference []string) Result {
 	for i, ref := range reference {
 		fmt.Fprintf(&b, "Reference for agent turn %d: %s\n", i+1, ref)
 	}
-	v, err := r.Judger.Judge(ctx, JudgeRequest{Rubric: b.String(), Scale: "binary", Transcript: r.Transcript, ToolCalls: r.ToolCalls, Metrics: r.Metrics})
+	v, err := r.Judger.Judge(ctx, JudgeRequest{Rubric: b.String(), Scale: "binary", Transcript: r.Transcript, ToolCalls: r.ToolCalls, Metrics: r.Metrics, Language: r.Language})
 	if err != nil {
 		return Result{Pass: false, Reason: "judge failed: " + err.Error()}
 	}

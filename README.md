@@ -102,10 +102,11 @@ The commands:
 tamesu init [dir]                scaffold tamesu.yaml and examples/ (--force)
 tamesu validate [paths...]       schema-validate suites (--strict)
 tamesu list [paths...]           list tests (--json, --filter, --tags, --target, --shard)
-tamesu run [paths...]            run suites (--filter, --tags, --target, --shard, --fail-fast, --parallel, --repeat, --load, --mode, --replay, --baseline, --label, --out, --reporter)
+tamesu run [paths...]            run suites (--filter, --tags, --target, --shard, --fail-fast, --parallel, --repeat, --load, --mode, --replay, --baseline, --label, --out, --reporter, --estimate, --matrix)
 tamesu doctor [paths...]         check config, suites, secrets, models, speech, Chromium, LiveKit and SIP
 tamesu report <run-dir>          rebuild report.html from a run directory
 tamesu merge <run-dir>...        combine shards or repeated runs into one run directory and verdict (--out)
+tamesu coverage <run-dir>        what a run exercised: targets, tags, tools (and tools never called), assertion kinds (--json)
 tamesu history                   each test's results and p95 over the last runs; flaky tests (--runs-dir, --last, --flaky, --json)
 tamesu baseline save <run-dir>   keep a run as the baseline (--dir)
 tamesu compare <base> <run>      compare a run with a baseline; exit 1 on a regression

@@ -18,6 +18,8 @@ Rubric:
 {{rubric}}
 
 Scale: {{scale}}.{{#if min}} The conversation passes when the score is at least {{min}}.{{/if}}
+{{#if language}}
+The conversation is in {{language}} on purpose: judge the agent's wording in that language, and never penalise it for not answering in English.{{/if}}
 
 Rules:
 - Base the verdict only on the transcript, the tool calls and the metrics below.

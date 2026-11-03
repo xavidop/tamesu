@@ -1,0 +1,20 @@
+suite: languages-adversarial
+targets:
+  api:
+    type: rest
+    url: http://localhost/chat
+    response: { text: $.reply }
+tests:
+  - name: t
+    target: api
+    languages: [en, ""]
+    persona: { name: Eve, adversarial: true, tactics: ["role-play", ""] }
+    scenario: { max_turns: 4, script: [{ say: hi }] }
+    assert:
+      - contains: hi
+  - name: u
+    target: api
+    persona: { name: Ann, tactics: [role-play] }
+    scenario: { goal: say hi }
+    assert:
+      - contains: hi

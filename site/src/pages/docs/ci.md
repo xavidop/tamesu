@@ -5,6 +5,8 @@ title: CI
 
 # CI
 
+![Chat bubbles on a conveyor belt passing under a scanner that stamps them with checks](/img/ci.jpg)
+
 tamesu is built for pipelines: deterministic exit codes, `file:line` errors, secrets that come
 from your CI's secret store through mamori rather than from the environment, JUnit output your
 CI's test reporter reads, and a Docker image with Chromium preinstalled. This page shows how to

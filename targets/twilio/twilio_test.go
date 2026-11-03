@@ -32,13 +32,20 @@ type fakeAgent struct {
 	i          int
 	greet      bool
 	closeAfter int
+	// longReply makes every reply a tone of this length, streamed at real
+	// time in 20 ms chunks; clearOnSpeech makes the agent send clear (and
+	// stop) when caller media arrives mid-reply, as a barge-in aware agent does.
+	longReply     time.Duration
+	clearOnSpeech bool
+	cleared       int
 
-	starts  []message
-	headers []http.Header
-	chunks  int
-	dtmf    []string
-	marks   []string // marks the caller acknowledged
-	stopped bool
+	starts   []message
+	headers  []http.Header
+	chunks   int
+	dtmf     []string
+	marks    []string // marks the caller acknowledged
+	stopped  bool
+	speaking bool // a reply is being streamed
 }
 
 func replyTone(i int) []int16 {
@@ -70,10 +77,28 @@ func (f *fakeAgent) handle(w http.ResponseWriter, r *http.Request) {
 		closeNow := f.closeAfter > 0 && turns >= f.closeAfter
 		f.mu.Unlock()
 		pcm := replyTone(i)
+		if f.longReply > 0 {
+			pcm = audio.Tone(Rate, 440, f.longReply, 0.3).Samples
+		}
+		f.mu.Lock()
+		f.speaking = true
+		f.mu.Unlock()
 		for off := 0; off < len(pcm); off += 160 {
 			end := min(off+160, len(pcm))
+			f.mu.Lock()
+			cut := !f.speaking
+			f.mu.Unlock()
+			if cut {
+				break
+			}
 			send(message{Event: "media", StreamSid: streamSid, Media: &mediaPayload{Payload: base64.StdEncoding.EncodeToString(g711.EncodeMuLaw(pcm[off:end]))}})
+			if f.longReply > 0 {
+				time.Sleep(20 * time.Millisecond)
+			}
 		}
+		f.mu.Lock()
+		f.speaking = false
+		f.mu.Unlock()
 		send(message{Event: "mark", StreamSid: streamSid, Mark: &markPayload{Name: "turn-" + string(rune('a'+i))}})
 		if closeNow {
 			_ = conn.Close(websocket.StatusNormalClosure, "bye")
@@ -101,7 +126,15 @@ func (f *fakeAgent) handle(w http.ResponseWriter, r *http.Request) {
 		case "media":
 			f.mu.Lock()
 			f.chunks++
+			bargeIn := f.speaking && f.clearOnSpeech
+			if bargeIn {
+				f.speaking = false
+				f.cleared++
+			}
 			f.mu.Unlock()
+			if bargeIn {
+				send(message{Event: "clear", StreamSid: streamSid})
+			}
 			if silence != nil {
 				silence.Stop()
 			}
@@ -254,4 +287,53 @@ func TestErrors(t *testing.T) {
 		err = sess.Send(ctx, target.UserTurn{Text: ""})
 		assert.ErrorContains(t, err, "did not answer")
 	})
+}
+
+func TestBargeIn(t *testing.T) {
+	ctx := context.Background()
+	for _, tc := range []struct {
+		name   string
+		clears bool
+	}{{"the agent clears", true}, {"the agent keeps talking", false}} {
+		t.Run(tc.name, func(t *testing.T) {
+			replies := []string{"a", "b", "c"}
+			f := &fakeAgent{replies: replies, longReply: 3 * time.Second, clearOnSpeech: tc.clears}
+			rc := runCtx(t, replies)
+			rc.Voice.InterruptProbability = 1
+			rc.Voice.Seed = 7
+			sess, err := newTarget(t, f, func(c *Config) { c.Timeout = 8 * time.Second }).Start(ctx, rc)
+			require.NoError(t, err)
+
+			require.NoError(t, sess.Send(ctx, target.UserTurn{Text: "hello"}))
+			turn, err := sess.Receive(ctx)
+			require.NoError(t, err)
+			assert.True(t, turn.Interrupted, "the caller stopped listening partway through the long reply")
+
+			require.NoError(t, sess.Send(ctx, target.UserTurn{Text: "wait"}))
+			_, err = sess.Receive(ctx)
+			require.NoError(t, err)
+			arts, err := sess.Close(ctx)
+			require.NoError(t, err)
+			assert.Equal(t, 1.0, arts.Metrics["interruptions"], "%v", arts.Metrics)
+			stop, ok := arts.Metrics["interruption_stop_ms_p95"]
+			require.True(t, ok, "the stop time is measured: %v", arts.Metrics)
+			kinds := map[string]string{}
+			for _, e := range arts.Events {
+				kinds[e.Kind] = e.Detail
+			}
+			assert.Contains(t, kinds, "interrupting")
+			assert.Contains(t, kinds, "interruption")
+			assert.Contains(t, kinds, "interruption_stopped")
+			if tc.clears {
+				assert.Less(t, stop, 1500.0, "the agent cleared within a second of the caller speaking")
+				assert.Contains(t, kinds["interruption_stopped"], "cleared its audio")
+				f.mu.Lock()
+				assert.GreaterOrEqual(t, f.cleared, 1)
+				f.mu.Unlock()
+			} else {
+				assert.Greater(t, stop, 500.0, "the queued audio played out after the caller spoke")
+				assert.Contains(t, kinds["interruption_stopped"], "never cleared")
+			}
+		})
+	}
 }

@@ -66,7 +66,10 @@ type Outcome struct {
 	// reported one.
 	FirstTokenMs []float64
 	TraceIDs     []string
-	StopReason   string
+	// Events are what the conversation itself recorded: the tactic of each
+	// adversarial turn.
+	Events     []target.Event
+	StopReason string
 	// ScriptError is set when a scripted step failed (a wait_for that was
 	// never heard); the conversation ends there and the run fails.
 	ScriptError *ScriptError
@@ -126,6 +129,9 @@ func (l *Loop) Run(ctx context.Context, sess target.Session) (*Outcome, error) {
 		}
 		if sim.TraceID != "" {
 			out.TraceIDs = append(out.TraceIDs, sim.TraceID)
+		}
+		if sim.Tactic != "" {
+			out.Events = append(out.Events, target.Event{At: now(), Kind: "tactic", Detail: fmt.Sprintf("turn %d: %s", turn, sim.Tactic)})
 		}
 		if sim.Say == "" && sim.DTMF == "" {
 			out.StopReason = stopReason(sim, StopSimulator)

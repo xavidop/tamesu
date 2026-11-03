@@ -41,6 +41,8 @@ type SimOutput struct {
 	Stop bool `json:"stop"`
 	// Reason explains Stop or HangUp.
 	Reason string `json:"reason,omitempty"`
+	// Tactic is what an adversarial persona tried this turn.
+	Tactic string `json:"tactic,omitempty"`
 	// TraceID is the Genkit trace of the call, for the report.
 	TraceID string `json:"trace_id,omitempty"`
 }

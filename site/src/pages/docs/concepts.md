@@ -5,6 +5,8 @@ title: Concepts
 
 # Concepts
 
+![A persona, a target and a checklist joined by one line that ends in a check mark](/img/concepts.jpg)
+
 tamesu has a small vocabulary that is the same for every kind of target. This page defines it,
 then shows how a conversational test flows and how a result is graded.
 

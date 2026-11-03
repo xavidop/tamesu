@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -98,6 +99,8 @@ func (a *app) newRunCmd() *cobra.Command {
 		maxCostUSD   float64
 		load         int
 		loadFor      time.Duration
+		estimateOnly bool
+		matrixFlags  []string
 	)
 	cmd := &cobra.Command{
 		Use:   "run [paths...]",
@@ -141,214 +144,255 @@ func (a *app) newRunCmd() *cobra.Command {
 					flagLabels["shard"] = shard.String()
 				}
 			}
-			p, perrs, err := a.loadProject(cmd, true)
-			if err != nil {
-				return err
-			}
-			paths, err := a.suitePaths(args, p)
-			if err != nil {
-				return err
-			}
-			files, err := a.loadSuites(paths, p, true)
-			if err != nil {
-				return err
-			}
-			nErr, _ := printErrors(cmd.ErrOrStderr(), perrs.Only())
-			var suites []*config.Suite
-			for _, f := range files {
-				e, _ := printErrors(cmd.ErrOrStderr(), f.Errs.Only())
-				nErr += e
-				if e == 0 && f.Suite != nil {
-					suites = append(suites, f.Suite)
-				}
-			}
-			if nErr > 0 {
-				return silentExit(ExitConfig)
-			}
-
-			// Reporters.
-			if len(reporters) == 0 {
-				reporters = p.Reporters
-			}
-			if !slices.Contains(reporters, "json") {
-				reporters = append(reporters, "json")
-			}
 			if out == "" {
 				out = filepath.Join(".tamesu", "runs", a.deps.Now().Format("2006-01-02T15-04-05"))
 			}
-			var reps report.Multi
-			wantSlack := false
-			for _, r := range reporters {
-				switch r {
-				case "console":
-					reps = append(reps, report.NewConsole(cmd.OutOrStdout(), a.verbose))
-				case "json":
-					reps = append(reps, report.NewJSON(out))
-				case "junit":
-					reps = append(reps, report.NewJUnit(out))
-				case "html":
-					html := report.NewHTML(out)
-					if report.IsRunsDir(out) {
-						html = html.WithHistory(filepath.Dir(out), DefaultHistoryRuns)
+			variants, err := parseMatrixFlags(matrixFlags)
+			if err != nil {
+				return usageError(err)
+			}
+			// runOnce runs the selection into outDir with a matrix variant's
+			// values applied (none for a plain run) and returns the summary and
+			// its exit code.
+			runOnce := func(outDir string, variant matrixVariant) (*report.Summary, int, error) {
+				out := outDir
+				p, perrs, err := a.loadProject(cmd, true)
+				if err != nil {
+					return nil, 0, err
+				}
+				paths, err := a.suitePaths(args, p)
+				if err != nil {
+					return nil, 0, err
+				}
+				files, err := a.loadSuites(paths, p, true)
+				if err != nil {
+					return nil, 0, err
+				}
+				nErr, _ := printErrors(cmd.ErrOrStderr(), perrs.Only())
+				var suites []*config.Suite
+				for _, f := range files {
+					e, _ := printErrors(cmd.ErrOrStderr(), f.Errs.Only())
+					nErr += e
+					if e == 0 && f.Suite != nil {
+						suites = append(suites, f.Suite)
 					}
-					reps = append(reps, html)
-				case "markdown":
-					reps = append(reps, report.NewMarkdown(out))
-				case "github":
-					reps = append(reps, report.NewGitHub(out, cmd.OutOrStdout()))
-				case "slack":
-					wantSlack = true
-				default:
-					return usageError(fmt.Errorf("--reporter: unknown reporter %q (have %s)", r, strings.Join(supportedReporters, ", ")))
 				}
-			}
+				if nErr > 0 {
+					return nil, ExitConfig, nil
+				}
+				if err := applyMatrix(&p, suites, variant); err != nil {
+					return nil, 0, usageError(err)
+				}
 
-			// Selection and secrets: only what the selected tests use.
-			selection := runner.Selection{Filter: filter, Tags: sel.tags, Target: sel.target, Shard: shard}
-			refs := map[string]string{}
-			refVars := map[string]string{}
-			selected := 0
-			models := p.Models
-			for _, s := range suites {
-				tests := s.SelectTests(filter, sel.tags, sel.target)
-				selected += len(tests)
-				if len(tests) == 0 {
-					continue
+				// Reporters.
+				if len(reporters) == 0 {
+					reporters = p.Reporters
 				}
-				for k, v := range secrets.Collect(p, s, tests) {
-					refs[k] = v
+				if !slices.Contains(reporters, "json") {
+					reporters = append(reporters, "json")
 				}
-				for k, v := range s.Vars {
-					refVars[k] = v
+				var reps report.Multi
+				wantSlack := false
+				for _, r := range reporters {
+					switch r {
+					case "console":
+						reps = append(reps, report.NewConsole(cmd.OutOrStdout(), a.verbose))
+					case "json":
+						reps = append(reps, report.NewJSON(out))
+					case "junit":
+						reps = append(reps, report.NewJUnit(out))
+					case "html":
+						html := report.NewHTML(out)
+						if report.IsRunsDir(out) {
+							html = html.WithHistory(filepath.Dir(out), DefaultHistoryRuns)
+						}
+						reps = append(reps, html)
+					case "markdown":
+						reps = append(reps, report.NewMarkdown(out))
+					case "github":
+						reps = append(reps, report.NewGitHub(out, cmd.OutOrStdout()))
+					case "slack":
+						wantSlack = true
+					default:
+						return nil, 0, usageError(fmt.Errorf("--reporter: unknown reporter %q (have %s)", r, strings.Join(supportedReporters, ", ")))
+					}
 				}
-				models = s.EffectiveModels(p)
-			}
-			if selected == 0 {
-				return configError(fmt.Errorf("no tests match the selection in %s", plural(len(suites), "suite")))
-			}
-			if wantSlack {
-				declared := secrets.Declared(p, nil)
-				for _, tmpl := range []string{p.Slack.Webhook, p.Slack.Link} {
-					for _, name := range config.SecretRefs(tmpl) {
-						if ref, ok := declared[name]; ok {
-							refs[name] = ref
+
+				// Selection and secrets: only what the selected tests use.
+				selection := runner.Selection{Filter: filter, Tags: sel.tags, Target: sel.target, Shard: shard}
+				refs := map[string]string{}
+				refVars := map[string]string{}
+				selected := 0
+				models := p.Models
+				for _, s := range suites {
+					tests := s.SelectTests(filter, sel.tags, sel.target)
+					selected += len(tests)
+					if len(tests) == 0 {
+						continue
+					}
+					for k, v := range secrets.Collect(p, s, tests) {
+						refs[k] = v
+					}
+					for k, v := range s.Vars {
+						refVars[k] = v
+					}
+					models = s.EffectiveModels(p)
+				}
+				if selected == 0 {
+					return nil, 0, configError(fmt.Errorf("no tests match the selection in %s", plural(len(suites), "suite")))
+				}
+				if estimateOnly {
+					// The runs next to this one: .tamesu/runs by default, the
+					// parent of --out otherwise.
+					h, _ := report.LoadHistory(filepath.Dir(out), DefaultHistoryRuns, "")
+					seen := 0
+					if h != nil {
+						seen = len(h.Runs)
+					}
+					budget := maxCostUSD
+					if budget <= 0 {
+						budget = p.Budgets.MaxCostUSD
+					}
+					printEstimate(cmd.OutOrStdout(), estimateCost(p, suites, filter, sel.tags, sel.target, repeat, h), seen, budget)
+					return nil, ExitOK, nil
+				}
+				if wantSlack {
+					declared := secrets.Declared(p, nil)
+					for _, tmpl := range []string{p.Slack.Webhook, p.Slack.Link} {
+						for _, name := range config.SecretRefs(tmpl) {
+							if ref, ok := declared[name]; ok {
+								refs[name] = ref
+							}
 						}
 					}
 				}
-			}
-			flagVars, err := a.refVars(nil)
-			if err != nil {
-				return err
-			}
-			if err := checkAllowedNumbers(p, suites, filter, sel.tags, sel.target, flagVars, a.env()); err != nil {
-				return configError(err)
-			}
-			for k, v := range flagVars {
-				refVars[k] = v
-			}
-			store, err := secrets.Resolve(ctx, refs, secrets.Options{RefVars: refVars, EnvFile: a.envFile, Providers: a.deps.Providers})
-			if err != nil {
-				return err
-			}
-			for _, name := range store.Names() {
-				if v, ok := store.Lookup(name); ok {
-					a.redactor.Add(name, v)
-				}
-			}
-			if wantSlack {
-				if p.Slack.Webhook == "" {
-					return configError(errors.New("the slack reporter needs slack.webhook in tamesu.yaml (a {{secrets.NAME}})"))
-				}
-				sc := config.Scope{Env: a.env(), Vars: refVars, Secrets: store.Lookup}
-				hook, err := config.Render(p.Slack.Webhook, sc)
+				flagVars, err := a.refVars(nil)
 				if err != nil {
-					return configError(fmt.Errorf("slack.webhook: %w", err))
+					return nil, 0, err
 				}
-				sl := report.NewSlack(hook, p.Slack.OnlyFailures)
-				if sl.Link, err = config.Render(p.Slack.Link, sc); err != nil {
-					return configError(fmt.Errorf("slack.link: %w", err))
+				if err := checkAllowedNumbers(p, suites, filter, sel.tags, sel.target, flagVars, a.env()); err != nil {
+					return nil, 0, configError(err)
 				}
-				reps = append(reps, sl)
-			}
-			logger := a.logger()
-			slog.SetDefault(logger)
-
-			budget := maxCostUSD
-			if budget <= 0 {
-				budget = p.Budgets.MaxCostUSD
-			}
-			var provider model.Provider
-			if a.deps.NewProvider != nil {
-				provider, err = a.deps.NewProvider(ctx, ProviderConfig{Project: p, Models: models, Secrets: store, Logger: logger, MaxCostUSD: budget, MaxTokens: p.Budgets.MaxTokens})
+				for k, v := range flagVars {
+					refVars[k] = v
+				}
+				store, err := secrets.Resolve(ctx, refs, secrets.Options{RefVars: refVars, EnvFile: a.envFile, Providers: a.deps.Providers})
 				if err != nil {
-					return infraError(fmt.Errorf("model provider: %w", err))
+					return nil, 0, err
 				}
-				defer func() { _ = provider.Close(context.WithoutCancel(ctx)) }()
-			}
-			var llmCache func() report.CacheStats
-			if provider != nil && p.Cache.LLMCacheOn() {
-				mode := replay.ModeAuto
-				switch {
-				case replayOnly:
-					mode = replay.ModeReplay
-				case updateCache:
-					mode = replay.ModeUpdate
+				for _, name := range store.Names() {
+					if v, ok := store.Lookup(name); ok {
+						a.redactor.Add(name, v)
+					}
 				}
-				cacheDir := p.Cache.Dir
-				if cacheDir == "" {
-					cacheDir = runner.DefaultCacheDir
+				if wantSlack {
+					if p.Slack.Webhook == "" {
+						return nil, 0, configError(errors.New("the slack reporter needs slack.webhook in tamesu.yaml (a {{secrets.NAME}})"))
+					}
+					sc := config.Scope{Env: a.env(), Vars: refVars, Secrets: store.Lookup}
+					hook, err := config.Render(p.Slack.Webhook, sc)
+					if err != nil {
+						return nil, 0, configError(fmt.Errorf("slack.webhook: %w", err))
+					}
+					sl := report.NewSlack(hook, p.Slack.OnlyFailures)
+					if sl.Link, err = config.Render(p.Slack.Link, sc); err != nil {
+						return nil, 0, configError(fmt.Errorf("slack.link: %w", err))
+					}
+					reps = append(reps, sl)
 				}
-				rp := replay.New(provider, cacheDir, mode)
-				provider = rp
-				llmCache = func() report.CacheStats { s := rp.Stats(); return report.CacheStats{Hits: s.Hits, Misses: s.Misses} }
-			}
+				logger := a.logger()
+				slog.SetDefault(logger)
 
-			labels, err := runLabels(p.Labels, flagLabels, a.env())
-			if err != nil {
-				return configError(err)
+				budget := maxCostUSD
+				if budget <= 0 {
+					budget = p.Budgets.MaxCostUSD
+				}
+				var provider model.Provider
+				if a.deps.NewProvider != nil {
+					provider, err = a.deps.NewProvider(ctx, ProviderConfig{Project: p, Models: models, Secrets: store, Logger: logger, MaxCostUSD: budget, MaxTokens: p.Budgets.MaxTokens})
+					if err != nil {
+						return nil, 0, infraError(fmt.Errorf("model provider: %w", err))
+					}
+					defer func() { _ = provider.Close(context.WithoutCancel(ctx)) }()
+				}
+				var llmCache func() report.CacheStats
+				if provider != nil && p.Cache.LLMCacheOn() {
+					mode := replay.ModeAuto
+					switch {
+					case replayOnly:
+						mode = replay.ModeReplay
+					case updateCache:
+						mode = replay.ModeUpdate
+					}
+					cacheDir := p.Cache.Dir
+					if cacheDir == "" {
+						cacheDir = runner.DefaultCacheDir
+					}
+					rp := replay.New(provider, cacheDir, mode)
+					provider = rp
+					llmCache = func() report.CacheStats { s := rp.Stats(); return report.CacheStats{Hits: s.Hits, Misses: s.Misses} }
+				}
+
+				variantLabels := maps.Clone(flagLabels)
+				maps.Copy(variantLabels, variant.Labels())
+				labels, err := runLabels(p.Labels, variantLabels, a.env())
+				if err != nil {
+					return nil, 0, configError(err)
+				}
+				summary, err := runner.Run(ctx, runner.Options{
+					Project: p, Suites: suites, Select: selection, OutDir: out, Parallel: parallel, Repeat: repeat, Mode: mode,
+					Load: load, LoadDuration: loadFor, FailFast: failFast,
+					MaxCostUSD: budget, Headed: headed, Replay: replayOnly, UpdateCache: updateCache, CacheDir: p.Cache.Dir, UpdateGolden: updateGolden, UpdateVisual: updateVisual, LLMCache: llmCache, Labels: labels,
+					Targets: a.targetFactory(), Provider: provider, Secrets: store, Vars: flagVars, Env: a.env(),
+					Limits:   map[string]int{config.TargetLiveKit: p.LiveKit.MaxConcurrentRooms, config.TargetSIP: p.SIP.MaxConcurrentCalls},
+					Reporter: reps, Logger: logger, Now: a.deps.Now, Version: a.info.Version,
+				})
+				if err != nil {
+					if errors.Is(err, runner.ErrEmptyShard) {
+						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "shard %s: no tests fall into this shard (%d selected); nothing to run\n", shard, selected)
+						return nil, ExitOK, nil
+					}
+					if errors.Is(err, runner.ErrNoTests) {
+						return nil, 0, configError(err)
+					}
+					return nil, 0, infraError(err)
+				}
+				code := summary.ExitCode()
+				if cerr := report.WriteCoverage(out, report.BuildCoverage(summary, declaredTools(suites))); cerr != nil {
+					logger.Warn("writing the coverage report failed", "error", cerr)
+				}
+				if baseline || baselineDir != "" {
+					dir := baselineDir
+					if dir == "" {
+						dir = p.Baseline.EffectiveDir()
+					}
+					c, cerr := compareWithBaseline(cmd.OutOrStdout(), dir, out, summary, thresholdsOf(p.Baseline))
+					if cerr != nil {
+						return nil, 0, configError(cerr)
+					}
+					// The summary now carries the comparison; rewrite the files
+					// that show it.
+					_ = report.NewJSON(out).Finish(ctx, summary)
+					if slices.Contains(reporters, "html") {
+						_ = report.WriteHTML(out, summary)
+					}
+					if c.Regressed && code == ExitOK {
+						code = ExitFailed
+					}
+				}
+				return summary, code, nil
 			}
-			summary, err := runner.Run(ctx, runner.Options{
-				Project: p, Suites: suites, Select: selection, OutDir: out, Parallel: parallel, Repeat: repeat, Mode: mode,
-				Load: load, LoadDuration: loadFor, FailFast: failFast,
-				MaxCostUSD: budget, Headed: headed, Replay: replayOnly, UpdateCache: updateCache, CacheDir: p.Cache.Dir, UpdateGolden: updateGolden, UpdateVisual: updateVisual, LLMCache: llmCache, Labels: labels,
-				Targets: a.targetFactory(), Provider: provider, Secrets: store, Vars: flagVars, Env: a.env(),
-				Limits:   map[string]int{config.TargetLiveKit: p.LiveKit.MaxConcurrentRooms, config.TargetSIP: p.SIP.MaxConcurrentCalls},
-				Reporter: reps, Logger: logger, Now: a.deps.Now, Version: a.info.Version,
-			})
-			if err != nil {
-				if errors.Is(err, runner.ErrEmptyShard) {
-					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "shard %s: no tests fall into this shard (%d selected); nothing to run\n", shard, selected)
-					return nil
+			if len(variants) == 0 {
+				_, code, err := runOnce(out, nil)
+				if err != nil {
+					return err
 				}
-				if errors.Is(err, runner.ErrNoTests) {
-					return configError(err)
+				if code != ExitOK {
+					return silentExit(code)
 				}
-				return infraError(err)
+				return nil
 			}
-			code := summary.ExitCode()
-			if baseline || baselineDir != "" {
-				dir := baselineDir
-				if dir == "" {
-					dir = p.Baseline.EffectiveDir()
-				}
-				c, cerr := compareWithBaseline(cmd.OutOrStdout(), dir, out, summary, thresholdsOf(p.Baseline))
-				if cerr != nil {
-					return configError(cerr)
-				}
-				// The summary now carries the comparison; rewrite the files
-				// that show it.
-				_ = report.NewJSON(out).Finish(ctx, summary)
-				if slices.Contains(reporters, "html") {
-					_ = report.WriteHTML(out, summary)
-				}
-				if c.Regressed && code == ExitOK {
-					code = ExitFailed
-				}
-			}
-			if code != ExitOK {
-				return silentExit(code)
-			}
-			return nil
+			return a.runMatrix(cmd, out, variants, runOnce)
 		},
 	}
 	sel.add(cmd)
@@ -370,6 +414,8 @@ func (a *app) newRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&out, "out", "", "run output directory (default .tamesu/runs/<timestamp>)")
 	cmd.Flags().StringSliceVar(&reporters, "reporter", nil, "reporters: console, json, junit, html, markdown, github, slack (default from tamesu.yaml)")
 	cmd.Flags().Float64Var(&maxCostUSD, "max-cost-usd", 0, "stop the run once tamesu's own model spend exceeds this (default budgets.max_cost_usd)")
+	cmd.Flags().BoolVar(&estimateOnly, "estimate", false, "price the selected tests from the last runs' usage (median cost per run, times repeat) and exit without running")
+	cmd.Flags().StringArrayVar(&matrixFlags, "matrix", nil, "run every combination of KEY=value1,value2 (repeatable): models.<job>, speech.tts.model, speech.stt.model, vars.<name> or targets.<name>.<model|system|system_file|url|mode|streaming>; each variant runs into its own directory under --out, then they are compared")
 	return cmd
 }
 

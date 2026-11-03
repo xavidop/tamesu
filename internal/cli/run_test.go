@@ -285,3 +285,60 @@ func TestRunShardAndFailFast(t *testing.T) {
 	assert.Equal(t, cli.ExitFailed, code, stdout)
 	assert.Contains(t, stdout, "stopped after the first failure (--fail-fast)")
 }
+
+func TestRunMatrixEstimateAndCoverage(t *testing.T) {
+	deps, _, _ := runDeps(t)
+	dir := writeProject(t, map[string]string{"tamesu.yaml": "version: 1\nsuites: [\"s/**/*.yaml\"]\nbudgets: { max_cost_usd: 2 }\n", "s/suite.yaml": runSuite})
+	cfg := filepath.Join(dir, "tamesu.yaml")
+	env := map[string]string{"TOKEN": "t"}
+
+	// --estimate with no history prices nothing and runs nothing.
+	code, stdout, _ := run(t, env, deps, "run", "--config", cfg, "--filter", "good", "--estimate", "--out", filepath.Join(dir, "never"))
+	assert.Equal(t, cli.ExitOK, code, stdout)
+	assert.Contains(t, stdout, "estimate: $0.0000 for 1 test from 0 past runs")
+	assert.Contains(t, stdout, "1 test has no history")
+	assert.Contains(t, stdout, "within the budget of $2.00")
+	_, err := os.Stat(filepath.Join(dir, "never"))
+	assert.True(t, os.IsNotExist(err), "an estimate writes no run directory")
+
+	// --matrix runs each variant into its own directory and compares them.
+	out := filepath.Join(dir, "matrix")
+	code, stdout, stderr := run(t, env, deps, "run", "--config", cfg, "--filter", "good", "--matrix", "vars.who=marta,ken", "--out", out)
+	assert.Equal(t, cli.ExitOK, code, stdout+stderr)
+	assert.Contains(t, stdout, "==> matrix 1/2: vars.who=marta")
+	assert.Contains(t, stdout, "==> matrix 2/2: vars.who=ken")
+	assert.Contains(t, stdout, "matrix: 2 variants in "+out)
+	for _, slug := range []string{"who-marta", "who-ken"} {
+		b, err := os.ReadFile(filepath.Join(out, slug, "summary.json"))
+		require.NoError(t, err, slug)
+		assert.Contains(t, string(b), `"vars.who": "`+strings.TrimPrefix(slug, "who-")+`"`, "the variant is a run label")
+		_, err = os.Stat(filepath.Join(out, slug, "coverage.md"))
+		assert.NoError(t, err, "every run writes its coverage")
+	}
+	md, err := os.ReadFile(filepath.Join(out, "matrix.md"))
+	require.NoError(t, err)
+	assert.Contains(t, string(md), "| `vars.who=marta` | 1 | 0 | 0 |")
+	_, err = os.Stat(filepath.Join(out, "matrix.json"))
+	assert.NoError(t, err)
+
+	// The estimate now has history to price from.
+	code, stdout, _ = run(t, env, deps, "run", "--config", cfg, "--filter", "good", "--repeat", "2", "--estimate", "--out", filepath.Join(out, "who-marta"))
+	assert.Equal(t, cli.ExitOK, code, stdout)
+	assert.Contains(t, stdout, "from 2 past runs", "the parent of --out is the runs directory read")
+
+	// tamesu coverage reads a run directory.
+	code, stdout, _ = run(t, nil, deps, "coverage", "--config", cfg, filepath.Join(out, "who-ken"))
+	assert.Equal(t, cli.ExitOK, code, stdout)
+	assert.Contains(t, stdout, "coverage: 1 tests, 1 runs")
+	assert.Contains(t, stdout, "api (rest)")
+	assert.Contains(t, stdout, "judge")
+	code, stdout, _ = run(t, nil, deps, "coverage", "--json", filepath.Join(out, "who-ken"))
+	assert.Equal(t, cli.ExitOK, code)
+	assert.Contains(t, stdout, `"assertions"`)
+	code, _, stderr = run(t, nil, deps, "coverage", filepath.Join(dir, "nope"))
+	assert.Equal(t, cli.ExitConfig, code, stderr)
+
+	code, _, stderr = run(t, env, deps, "run", "--config", cfg, "--matrix", "nope=1,2")
+	assert.Equal(t, cli.ExitConfig, code)
+	assert.Contains(t, stderr, "the key is one of")
+}

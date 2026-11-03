@@ -159,7 +159,7 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 	out.Captures = caps.snapshot()
 	out.TraceIDs = append(out.TraceIDs, lo.TraceIDs...)
 	out.StopReason = lo.StopReason
-	out.Events = arts.Events
+	out.Events = append(append([]target.Event(nil), lo.Events...), arts.Events...)
 	for k, v := range arts.Files {
 		if out.Artifacts == nil {
 			out.Artifacts = map[string]string{}
@@ -199,8 +199,11 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 
 	rr := &assert.RunResult{
 		TestName: it.test.Name, Target: it.test.Target, Transcript: lo.Transcript, ToolCalls: out.ToolCalls,
-		Metrics: out.Metrics, Artifacts: arts, Status: statuses, Responses: responses, Events: arts.Events,
+		Metrics: out.Metrics, Artifacts: arts, Status: statuses, Responses: responses, Events: out.Events,
 		Captures: out.Captures,
+	}
+	if it.test.Persona != nil {
+		rr.Language = it.test.Persona.Language
 	}
 	if r.o.Provider != nil {
 		rr.Judger = r.o.Provider

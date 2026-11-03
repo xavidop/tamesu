@@ -71,6 +71,14 @@ type fakeAudioRoom struct {
 	closedPub    bool
 	level        float64
 	dtmfOut      string
+	hang         chan struct{} // when set, Close and Disconnect block on it (a deadlocked SDK)
+}
+
+func (r *fakeAudioRoom) Disconnect() {
+	if r.hang != nil {
+		<-r.hang
+	}
+	r.fakeRoom.Disconnect()
 }
 
 func (r *fakeAudioRoom) connect(ctx context.Context, cfg connectConfig, ev events) (room, error) {
@@ -86,6 +94,9 @@ func (r *fakeAudioRoom) PublishAudio(context.Context) (audioPublisher, error) {
 }
 
 func (r *fakeAudioRoom) Close() error {
+	if r.hang != nil {
+		<-r.hang
+	}
 	r.amu.Lock()
 	r.closedPub = true
 	r.amu.Unlock()
@@ -252,6 +263,44 @@ func TestAudioTurn(t *testing.T) {
 		kinds = append(kinds, e.Kind)
 	}
 	assert.Equal(t, []string{"joined", "agent_joined", "audio_published", "user_speech_start", "user_speech_end", "agent_speech_start", "agent_speech_end", "transcript_source"}, kinds[:8])
+}
+
+// TestCloseIsBounded: the LiveKit SDK can deadlock while it reconnects after
+// a network blip (its engine lock stays held, so UnpublishTrack and
+// Disconnect never return). Close must still end the run, within the grace
+// period per step, and say so.
+func TestCloseIsBounded(t *testing.T) {
+	old := closeGrace
+	closeGrace = 50 * time.Millisecond
+	t.Cleanup(func() { closeGrace = old })
+	r := newAudioRoom("Hi there")
+	r.hang = make(chan struct{})
+	t.Cleanup(func() { close(r.hang) })
+	sess, err := newAudioTarget(r).Start(context.Background(), audioRunCtx(t, &fakeSpeech{}, &target.Voice{Seed: 1}))
+	require.NoError(t, err)
+	sess.(*session).run.Dir = t.TempDir()
+
+	done := make(chan target.Artifacts, 1)
+	go func() {
+		arts, err := sess.Close(context.Background())
+		assert.NoError(t, err)
+		done <- arts
+	}()
+	select {
+	case arts := <-done:
+		var timeouts []string
+		for _, e := range arts.Events {
+			if e.Kind == "close_timeout" {
+				timeouts = append(timeouts, e.Detail)
+			}
+		}
+		require.Len(t, timeouts, 2, "unpublishing and leaving both overran: %v", timeouts)
+		assert.Contains(t, timeouts[0], "unpublishing the audio track")
+		assert.Contains(t, timeouts[1], "leaving the room")
+		assert.Equal(t, map[string]string{WAVFile: WAVFile}, arts.Files, "the recording is still written")
+	case <-time.After(2 * time.Second):
+		t.Fatal("Close hung on a stuck SDK")
+	}
 }
 
 func TestAudioSTTFallbackAndForced(t *testing.T) {

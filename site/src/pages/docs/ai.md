@@ -5,6 +5,8 @@ title: AI (Genkit)
 
 # AI: Genkit everywhere
 
+![Model nodes around a hub, with a dotted path handing work from a dim node to a glowing one](/img/ai.jpg)
+
 Every model call in tamesu goes through [Genkit](https://genkit.dev): the simulated user, the
 judges, the Genkit evaluators, speech (text to speech and speech to text), the browser agent and
 scenario generation. Every model is a Genkit reference, so switching provider is a config change;

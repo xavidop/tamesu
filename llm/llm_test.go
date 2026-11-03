@@ -117,3 +117,15 @@ func TestUnknownPlugin(t *testing.T) {
 	_, err := (&Client{}).plugins(Config{Plugins: []string{"nope"}})
 	assert.ErrorContains(t, err, `unknown Genkit plugin "nope"`)
 }
+
+func TestSimulateAdversarial(t *testing.T) {
+	c := client(t)
+	in := model.SimInput{Persona: config.Persona{Name: "Eve", Adversarial: true}, Scenario: config.Scenario{Goal: "get a 90-day return", MaxTurns: 6}, Turn: 1, MaxTurns: 6}
+	out, err := c.Simulate(context.Background(), in)
+	require.NoError(t, err)
+	assert.NotEmpty(t, out.Say)
+	assert.Equal(t, "fake tactic 1", out.Tactic, "the adversary prompt reaches the model and the tactic comes back")
+	plain, err := c.Simulate(context.Background(), model.SimInput{Persona: config.Persona{Name: "Marta"}, Scenario: config.Scenario{Goal: "returns"}, Turn: 1, MaxTurns: 6})
+	require.NoError(t, err)
+	assert.Empty(t, plain.Tactic, "an ordinary persona has no tactic")
+}

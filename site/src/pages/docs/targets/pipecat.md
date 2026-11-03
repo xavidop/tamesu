@@ -5,6 +5,8 @@ title: Pipecat target
 
 # Pipecat target
 
+![A pipeline of pipes with a sound wave flowing through and a cat sitting on top](/img/target-pipecat.jpg)
+
 The `pipecat` target tests a [Pipecat](https://pipecat.ai) agent through its **websocket
 transport** with the protobuf frame serializer, the transport most Pipecat bots expose for
 browser and native clients. tamesu connects as the client: in **text mode** it types each user
@@ -87,3 +89,24 @@ Text mode leaves the transcript and `result.json` like any conversational test, 
 message of each turn in the turn's raw payload. Audio mode adds `audio.wav`, a stereo file at
 `sample_rate` with the simulated user on the left and the bot on the right, which the HTML report
 plays.
+
+## Barge-in
+
+In audio mode, `behaviors.interrupt_probability` on the persona makes the caller talk over the
+bot: tamesu stops listening partway through a bot turn (after 0.6 to 2 seconds of its audio, at
+random, repeatable with the test's `seed`) and speaks its next line while the bot's audio is
+still playing. A Pipecat pipeline with an interruption strategy answers with an interruption
+frame or `bot-interrupted` (and `bot-stopped-speaking`); `interruption_stop_ms` is the time from
+the caller's first word to that signal, or, when the bot never yields, until the audio it had
+already sent would have played out. `interruptions` counts them; the cut-short turn is marked
+`interrupted`, and the events read `interrupting`, `interruption`, `bot_interrupted` and
+`interruption_stopped` with the measured time. An `interrupt_missed` event means the bot had
+finished before the caller got to speak.
+
+```yaml
+persona:
+  name: Marta
+  behaviors: { interrupt_probability: 0.5 }
+assert:
+  - metric: { name: interruption_stop_ms_p95, lt: 800 }
+```

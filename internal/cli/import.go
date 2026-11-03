@@ -15,6 +15,7 @@ import (
 )
 
 func (a *app) newImportCmd() *cobra.Command {
+	var format string
 	var targetName, typ, out, goldenDir, goldenMode string
 	var tags []string
 	cmd := &cobra.Command{
@@ -44,7 +45,7 @@ func (a *app) newImportCmd() *cobra.Command {
 			if err != nil {
 				return configError(err)
 			}
-			convs, err := generate.ParseConversations(args[0], data)
+			convs, err := generate.ParseConversationsAs(args[0], data, format)
 			if err != nil {
 				return configError(fmt.Errorf("%s: %w", args[0], err))
 			}
@@ -96,6 +97,7 @@ func (a *app) newImportCmd() *cobra.Command {
 			return a.validateDraft(cmd, p, res.Suite, out)
 		},
 	}
+	cmd.Flags().StringVar(&format, "format", generate.FormatAuto, "the file's format: "+strings.Join(generate.ImportFormats, ", ")+" (auto recognises the LangSmith, Langfuse and Voiceflow exports by their keys)")
 	cmd.Flags().StringVar(&targetName, "target", "", "the target name the tests use")
 	cmd.Flags().StringVar(&typ, "type", "rest", "the target's type: "+strings.Join(conversationalTypes(), ", "))
 	cmd.Flags().StringVar(&out, "out", "", "write the suite here (default: print it)")

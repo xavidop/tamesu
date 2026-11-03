@@ -5,6 +5,8 @@ title: Importing conversations
 
 # Importing conversations
 
+![A stack of transcripts sliding into a funnel that outputs one tidy document](/img/import.jpg)
+
 `tamesu import` turns conversations your agent already had with real people into tests. Each
 conversation becomes a test that says the user's lines, in order, and compares the agent's
 answers with the ones it gave back then. Run it after a prompt change, a model upgrade or a
@@ -32,6 +34,26 @@ Roles are normalised: `user`, `human`, `customer` and `caller` are the user; `ag
 left out. Consecutive lines by the same side are merged into one turn. An opening agent greeting
 before the first user line is not part of the reference, since a text agent only answers.
 Conversations without a user line followed by an agent answer are skipped and listed.
+
+### Exports from LangSmith, Langfuse and Voiceflow
+
+The exports of the usual observability tools are read as they come, so a conversation that
+happened in production is a test in one command. `--format` names the export; without it the
+file's keys tell them apart.
+
+| Format | What tamesu reads |
+|---|---|
+| `langsmith` | A runs export (JSON or JSON Lines). Each run's `inputs` carry the conversation so far (`messages`, or a single `input`) and its `outputs` the answer (`output`, `messages`, `generations`). Runs sharing a thread (`thread_id`, `session_id` or `conversation_id` in the metadata) are one conversation, taken from the run with the longest history; a run without one is a conversation of its own. LangChain's serialised messages (`HumanMessage`, `AIMessage`) are understood. |
+| `langfuse` | A traces export, or a page of the traces API (`data: [...]`). A trace's `input` is the conversation so far (a messages list or a prompt) and its `output` the answer; when the trace has neither, the last `GENERATION` observation serves. Traces sharing a `sessionId` are one conversation. |
+| `voiceflow` | A transcript's dialog turns (the Dialog Manager transcript API): `request` turns are what the user said (`payload.payload.query`, or the intent's label), `text` and `speak` turns what the agent answered (`payload.message`, or the Slate rich text). A list of transcripts that each carry `turns` imports them all. |
+
+```bash
+tamesu import runs.jsonl --format langsmith --target api --out tests/from-langsmith.yaml --golden-dir golden
+```
+
+Whatever the source, system and tool messages are dropped, consecutive lines of one side are
+merged, and an opening greeting the user never prompted is left out, so the script starts with
+the user.
 
 ## What you get
 

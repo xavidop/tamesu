@@ -5,6 +5,8 @@ title: gRPC target
 
 # gRPC target
 
+![Two meshing gears with a stream of packets passing between them](/img/target-grpc.jpg)
+
 The `grpc` target tests an agent behind **tamesu's turn API**, a small gRPC service you implement
 in front of your agent in any language:
 [`proto/tamesu/turn/v1/turn.proto`](https://github.com/xavidop/tamesu/blob/main/proto/tamesu/turn/v1/turn.proto).

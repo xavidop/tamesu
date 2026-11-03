@@ -5,6 +5,8 @@ title: Judges
 
 # Judges
 
+![A balance scale weighing a speech bubble against a rubric card](/img/judges.jpg)
+
 A judge is an LLM that grades a finished conversation against a rubric you write in plain
 language. It is the assertion for everything a regular expression cannot express: "states the
 return policy and does not promise an exception", "confirmed the new date and did not invent

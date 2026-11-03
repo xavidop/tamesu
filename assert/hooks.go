@@ -13,7 +13,9 @@ type JudgeRequest struct {
 	Scale string  `json:"scale,omitempty"`
 	Min   float64 `json:"min,omitempty"`
 	// Model overrides the configured judge model (a Genkit reference).
-	Model      string             `json:"model,omitempty"`
+	Model string `json:"model,omitempty"`
+	// Language is the conversation's language (BCP 47), when the persona has one.
+	Language   string             `json:"language,omitempty"`
 	Transcript []Turn             `json:"transcript,omitempty"`
 	ToolCalls  []target.ToolCall  `json:"tool_calls,omitempty"`
 	Metrics    map[string]float64 `json:"metrics,omitempty"`

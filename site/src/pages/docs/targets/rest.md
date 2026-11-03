@@ -5,6 +5,8 @@ title: REST target
 
 # REST target
 
+![Two servers exchanging envelopes along looping arrows](/img/target-rest.jpg)
+
 The `rest` target tests an agent that answers one user turn per HTTP request: a chatbot
 endpoint, a webhook-style bot, an agent framework's HTTP API. tamesu sends each user turn from a
 body template and reads the agent's turn back from the response with JSONPaths, from a plain

@@ -11,6 +11,7 @@ import (
 	"github.com/firebase/genkit/go/genkit"
 
 	"github.com/xavidop/tamesu/assert"
+	"github.com/xavidop/tamesu/internal/config"
 	"github.com/xavidop/tamesu/internal/model"
 )
 
@@ -52,9 +53,20 @@ func (c *Client) simulate(ctx context.Context, in model.SimInput) (model.SimOutp
 		"history":   formatHistory(in.History),
 		"seed":      in.Seed,
 	}
+	// An adversarial persona runs the attacker prompt, which adds the tactic
+	// it used to every turn.
+	promptName := "simulator"
+	if in.Persona.Adversarial {
+		promptName = "adversary"
+		tactics := in.Persona.Tactics
+		if len(tactics) == 0 {
+			tactics = config.AdversarialTactics
+		}
+		input["tactics"] = "- " + strings.Join(tactics, "\n- ")
+	}
 	models := chain(c.modelFor("simulator", ""), c.fallbacksFor("simulator"))
 	return attempt(ctx, c, "simulator", models, func(ctx context.Context, modelName string) (model.SimOutput, error) {
-		resp, err := c.executePrompt(ctx, "simulator", input, modelName)
+		resp, err := c.executePrompt(ctx, promptName, input, modelName)
 		budgetErr := c.record(modelName, resp, err)
 		if err != nil {
 			return model.SimOutput{}, fmt.Errorf("llm: %s with %s: %w", FlowSimulateUserTurn, modelName, err)
@@ -88,6 +100,7 @@ func (c *Client) judge(ctx context.Context, req assert.JudgeRequest) (assert.Jud
 		"transcript": formatHistory(req.Transcript),
 		"tool_calls": formatToolCalls(req),
 		"metrics":    formatMetrics(req.Metrics),
+		"language":   req.Language,
 	}
 	models := chain(c.modelFor("judge", req.Model), c.fallbacksFor("judge"))
 	return attempt(ctx, c, "judge", models, func(ctx context.Context, modelName string) (assert.JudgeVerdict, error) {

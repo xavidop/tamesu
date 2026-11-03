@@ -5,6 +5,8 @@ title: Introduction
 
 # tamesu
 
+![A tamesu seal character shaking hands with a chat robot over a ticked checklist](/img/docs-hero.jpg)
+
 `tamesu` (試す, "to try, to test") is an open-source, agentic testing framework and
 CLI written in Go. You describe a test the way you would brief a colleague: a **persona**, a
 **goal**, and what a good outcome looks like. A simulated user then talks to your agent or drives

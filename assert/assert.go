@@ -44,6 +44,9 @@ type RunResult struct {
 	// Captures are the values the run captured from the agent's turns.
 	Captures map[string]string
 	Events   []target.Event
+	// Language is the persona's language, so judges know the conversation
+	// is not in English on purpose.
+	Language string
 	// Judger, Evaluator and Embedder are the AI hooks the runner sets; nil
 	// means no model is available and judge, evaluator or similar_to
 	// assertions fail.

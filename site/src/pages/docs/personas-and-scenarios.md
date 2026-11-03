@@ -5,6 +5,8 @@ title: Personas and scenarios
 
 # Personas and scenarios
 
+![Four different people figures with speech bubbles, one holding a telephone](/img/personas.jpg)
+
 A conversational test (rest, grpc, livekit, sip, realtime, pipecat) is driven by a simulated user: a **persona** (who is
 talking) with a **scenario** (what they want and when to stop). The simulator reads the persona,
 the scenario and the conversation so far and produces the next user turn, or decides to stop; in
@@ -42,12 +44,14 @@ tests:
 | `behaviors.silence_after_turn_ms` | Audio: `[min, max]` milliseconds of silence after the agent's turn before answering. |
 | `behaviors.background_noise` | Audio: a noise preset (`cafe`, `street`, `office`, `white`) or a `.wav` file mixed under the caller's voice, at `behaviors.background_noise_snr_db` (default 20 dB). |
 | `behaviors.line_quality` | Audio and sip: `pstn` (8 kHz μ-law), `mobile_poor` (A-law with loss and jitter) or `voip_good` applied to the caller's audio. |
+| `adversarial` | Red team: the persona is an attacker that pursues the goal with a different tactic every turn and records each one; see [the adversarial persona](/docs/red-team/#the-adversarial-persona). `tactics` replaces the built-in list. |
 
 Give the persona what the agent will ask for: a name, an order reference in the goal, a date. The
 simulator invents plausible details that fit the persona when it must, and never gives a real
 secret, card number or password. The audio behaviours take effect in livekit audio mode and on
-sip calls (`interrupt_probability` also in realtime audio mode); pipecat audio mode and text mode
-ignore them. A test's `seed` drives the behaviour RNG, so a run
+sip calls; `interrupt_probability` also in realtime, pipecat and twilio audio mode (the barge-in
+test: the caller talks over the agent and `interruption_stop_ms` measures how long it kept
+talking). Text mode ignores them. A test's `seed` drives the behaviour RNG, so a run
 with the same seed pauses and interrupts at the same points.
 
 ## Scenario
@@ -63,6 +67,28 @@ The conversation stops when the simulator says the goal or the stop condition is
 the agent cannot help), when the persona hangs up, when the agent ends the session
 (`response.done` for rest), when `max_turns` is reached, or when a script with no goal has played
 out. `result.json` records which (`stop_reason`).
+
+## One test, several languages
+
+A bilingual agent is tested one language at a time; `languages` runs the same test in each:
+
+```yaml
+tests:
+  - name: refund policy question
+    target: api
+    languages: [en, es, de]
+    persona: { name: Marta, style: "polite, slightly confused" }
+    scenario: { goal: "Find out if you can return shoes bought 40 days ago", max_turns: 6 }
+    assert:
+      - judge: "The agent states the 30-day return policy, in the customer's language"
+      - similar_to: "{{vars.language_hint}}"
+```
+
+The test becomes `refund policy question [en]`, `[es]` and `[de]`, each tagged `lang:<code>`
+(`--tags lang:es` runs one), with the persona speaking that language and `{{vars.language}}` set
+to it. The judges are told the language, so a correct answer in Spanish is not marked down for
+not being English. `languages` combines with `cases`: a parameterised test runs once per case
+and language.
 
 ## Templates
 

@@ -5,6 +5,8 @@ title: Reports
 
 # Reports
 
+![A report sheet with bar charts and a sparkline, a flag planted on one bar](/img/reports.jpg)
+
 Every `tamesu run` writes a run directory and feeds the reporters named in `reporters:` (or
 `--reporter`): `console`, `json`, `junit` and `html`.
 
@@ -15,6 +17,8 @@ Every `tamesu run` writes a run directory and feeds the reporters named in `repo
   summary.json
   junit.xml
   report.html          (html reporter, or tamesu report <run-dir>)
+  coverage.md          what the run exercised: targets, tags, tools, assertion kinds (also coverage.json; tamesu coverage prints it)
+  matrix.md            (tamesu run --matrix: the variants compared; each variant's run directory sits next to it)
   tests/<test-slug>/run-<n>/
     transcript.json      the turns, the tool calls and why the conversation stopped
     result.json          everything about the run: assertions with reasons, metrics, trace ids, events, steps
@@ -141,6 +145,16 @@ support / cancel order     5     40%        ✓✓✗✗✗                    f
 A test that flips is a quarantine candidate; a p95 that climbs run after run is a regression a
 single baseline comparison would not catch until it crossed the limit. `--flaky` lists the
 candidates, `--json` feeds a dashboard.
+
+## Coverage
+
+Every run writes `coverage.md` and `coverage.json`: the targets and tags the tests reached (with
+how many passed), every tool the agent called (calls and tests, and whether a suite declared it),
+the assertion kinds used, how the conversations ended and, for adversarial personas, the tactics
+tried. Tools the suites declare (a `model` target's `tools`, the names in `tool_called` and
+`tool_sequence` assertions) that no test made the agent call are listed as never called: the
+cheapest way to see that a suite stopped exercising a tool after a prompt change.
+`tamesu coverage <run-dir>` prints the same for any run directory.
 
 ## Comparing with a baseline
 

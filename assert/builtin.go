@@ -424,6 +424,7 @@ func Judge(rubric string, opts ...JudgeOption) Assertion {
 		req.Transcript = r.Transcript
 		req.ToolCalls = r.ToolCalls
 		req.Metrics = r.Metrics
+		req.Language = r.Language
 		v, err := r.Judger.Judge(ctx, req)
 		if err != nil {
 			return Result{Pass: false, Reason: "judge failed: " + err.Error()}

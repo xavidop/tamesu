@@ -5,6 +5,8 @@ title: Twilio target
 
 # Twilio target
 
+![A phone sending a sound wave into a tunnel of rings with a robot at the far end](/img/target-twilio.jpg)
+
 The `twilio` target tests a voice agent built on **Twilio Media Streams** without a phone number,
 a trunk or a call: tamesu plays Twilio's side of the websocket. It connects to the agent's stream
 URL (the `<Stream url="…">` of its TwiML), sends `connected` and `start` with the media format
@@ -77,3 +79,25 @@ This target removes Twilio, the carrier and the number from the loop, so it runs
 the agent's websocket alone and costs nothing but the speech models. What it cannot test is the
 part it removes: real call setup, the carrier's audio, DTMF detection on a real line. For that,
 the [SIP target](/docs/targets/sip/) places real calls through a LiveKit SIP service.
+
+## Barge-in
+
+A caller does not wait for the agent to finish. With `behaviors.interrupt_probability` on the
+persona, tamesu stops listening partway through an agent turn (after 0.6 to 2 seconds of its
+audio, at random, repeatable with the test's `seed`) and speaks its next line while the agent's
+audio is still playing. Twilio's protocol has one right answer to that: the agent detects the
+caller's speech and sends `clear` to drop the audio it had queued. `interruption_stop_ms` is the
+time from the caller's first word to that `clear`; when the agent never clears, it is the time
+until the audio it had already queued would have played out, which is what the caller heard.
+`interruptions` counts them; the turn the caller cut short is marked `interrupted` in the
+transcript, and the events read `interrupting`, `interruption`, `clear` and `interruption_stopped`
+with the measured time. An `interrupt_missed` event means the agent had finished before the
+caller got to speak.
+
+```yaml
+persona:
+  name: Marta
+  behaviors: { interrupt_probability: 0.5 }
+assert:
+  - metric: { name: interruption_stop_ms_p95, lt: 800 }
+```

@@ -315,6 +315,7 @@ http: { url: "https://agent.example.com/dial", method: POST, headers: { Authoriz
 | `vars` | map of string to string |  | Values for {{vars.<key>}} in this test; on top of the suite's vars and under --var. |
 | `cases` | list of [Case](#case) |  | Parameterised: the test runs once per case with the case's vars; each becomes a test named <name> [<case>] tagged case:<name>. |
 | `cases_file` | string |  | Cases from a file next to the suite: a CSV with a header row (a name column names the case) or a JSON array of objects (a name key names the case). |
+| `languages` | list of string |  | The test runs once per language (BCP 47 such as es or en-GB): each becomes a test named <name> [<lang>] tagged lang:<lang> whose persona speaks that language and whose judges know it; {{vars.language}} holds it. |
 | `steps` | list of [Step](#step) |  | Browser tests only. |
 | `persona` | [Persona](#persona) |  |  |
 | `scenario` | [Scenario](#scenario) |  |  |
@@ -406,6 +407,8 @@ steps:
 | `language` | string |  | BCP 47 language such as es or en-GB. |
 | `voice` | string |  | TTS voice such as en-GB-female. |
 | `behaviors` | [Behaviors](#behaviors) |  |  |
+| `adversarial` | boolean |  | Red team: the persona is an attacker that pursues the goal with escalating tactics (role-play / claimed authority / fake system messages / encoding / splitting the request) and records the tactic of every turn as an event. |
+| `tactics` | list of string |  | Adversarial only: the tactics the attacker may use instead of the built-in list. |
 
 Example:
 

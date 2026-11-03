@@ -5,6 +5,8 @@ title: SIP target
 
 # SIP target
 
+![A vintage telephone whose cord carries a sound wave to a radio tower](/img/target-sip.jpg)
+
 The `sip` target tests a phone agent by calling it (or being called by it) through a LiveKit
 SIP service and a trunk you bring: Twilio, Telnyx, Plivo, your own PBX. The call is bridged
 into a LiveKit room and tamesu talks to it from inside that room exactly like the

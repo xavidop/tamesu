@@ -5,6 +5,8 @@ title: Model target
 
 # Model target
 
+![A single glowing cube on a desk being questioned by a figure with a clipboard](/img/target-model.jpg)
+
 The `model` target tests a **system prompt and its tools directly against a model**, with no
 agent server in between. The simulated user's turns go to the model with your prompt; when the
 model calls a tool, tamesu answers from the result you configured and lets it continue; the text

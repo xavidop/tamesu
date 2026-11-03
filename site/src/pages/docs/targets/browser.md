@@ -5,6 +5,8 @@ title: Browser target
 
 # Browser target
 
+![A browser window with a pointer about to click a button and a magnifying glass over the page](/img/target-browser.jpg)
+
 The `browser` target tests a web app the way a person would: Chromium (headless by default) over
 the DevTools protocol, driven step by step. A `goal` step hands the **browser agent** a sentence
 in plain language and lets it act until the goal is met; an `expect` step asks the model whether

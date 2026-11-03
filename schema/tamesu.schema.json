@@ -749,6 +749,17 @@
         },
         "behaviors": {
           "$ref": "#/$defs/Behaviors"
+        },
+        "adversarial": {
+          "type": "boolean",
+          "description": "Red team: the persona is an attacker that pursues the goal with escalating tactics (role-play / claimed authority / fake system messages / encoding / splitting the request) and records the tactic of every turn as an event."
+        },
+        "tactics": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Adversarial only: the tactics the attacker may use instead of the built-in list."
         }
       },
       "additionalProperties": false,
@@ -1206,6 +1217,13 @@
         "cases_file": {
           "type": "string",
           "description": "Cases from a file next to the suite: a CSV with a header row (a name column names the case) or a JSON array of objects (a name key names the case)."
+        },
+        "languages": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "The test runs once per language (BCP 47 such as es or en-GB): each becomes a test named \u003cname\u003e [\u003clang\u003e] tagged lang:\u003clang\u003e whose persona speaks that language and whose judges know it; {{vars.language}} holds it."
         },
         "steps": {
           "items": {

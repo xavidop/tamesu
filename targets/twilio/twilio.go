@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	mrand "math/rand/v2"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -147,6 +148,9 @@ type event struct {
 	msg   *message
 	audio []int16
 	err   error
+	// at is when the message arrived, so a turn read after the fact keeps
+	// its timing.
+	at time.Time
 }
 
 type session struct {
@@ -224,11 +228,8 @@ func (t *Target) Start(ctx context.Context, run *target.RunContext) (target.Sess
 	dctx, cancel := context.WithTimeout(ctx, t.cfg.Timeout)
 	defer cancel()
 	conn.SetReadLimit(16 << 20)
-	s := &session{t: t, run: run, conn: conn, events: make(chan event, 64), metrics: map[string]float64{}, streamSid: "MZ" + randomHex(16), callSid: "CA" + randomHex(16)}
-	s.audio = &audioState{speech: run.Speech, start: time.Now()}
-	if run.Voice != nil {
-		s.audio.voice = *run.Voice
-	}
+	s := &session{t: t, run: run, conn: conn, events: make(chan event, 1024), metrics: map[string]float64{}, streamSid: "MZ" + randomHex(16), callSid: "CA" + randomHex(16)}
+	s.audio = newAudioState(run)
 	readCtx, stopRead := context.WithCancel(context.WithoutCancel(ctx))
 	s.stop = stopRead
 	go s.read(readCtx)
@@ -297,7 +298,7 @@ func (s *session) read(ctx context.Context) {
 		if json.Unmarshal(data, &m) != nil {
 			continue
 		}
-		ev := event{msg: &m}
+		ev := event{msg: &m, at: time.Now()}
 		if m.Event == "media" && m.Media != nil {
 			if raw, err := base64.StdEncoding.DecodeString(m.Media.Payload); err == nil {
 				ev.audio = g711.DecodeMuLaw(raw)
@@ -325,6 +326,14 @@ func (s *session) Send(ctx context.Context, turn target.UserTurn) error {
 	tctx, cancel := context.WithTimeout(ctx, s.t.cfg.Timeout)
 	defer cancel()
 	started := time.Now()
+	a := s.audio
+	s.mu.Lock()
+	interrupting := a.interruptNext && !s.first.IsZero() && s.played > time.Since(s.first)
+	if a.interruptNext && !interrupting {
+		s.evs = append(s.evs, target.Event{At: started, Kind: "interrupt_missed", Detail: "the agent had finished before the caller spoke"})
+	}
+	a.interruptNext = false
+	s.mu.Unlock()
 	for _, d := range turn.DTMF {
 		if err := s.send(tctx, message{Event: "dtmf", DTMF: &dtmfPayload{Track: "inbound_track", Digit: string(d)}}); err != nil {
 			return fmt.Errorf("twilio: dtmf: %w", err)
@@ -334,6 +343,11 @@ func (s *session) Send(ctx context.Context, turn target.UserTurn) error {
 	spoken, err := s.speak(tctx, turn, started)
 	if err != nil {
 		return err
+	}
+	spoken.startedAt = started
+	spoken.interrupting = interrupting
+	if interrupting {
+		s.event("interruption", "the caller spoke over the agent")
 	}
 	agent, err := s.readTurn(tctx, spoken, false)
 	if err != nil {
@@ -360,8 +374,17 @@ func (s *session) readTurn(ctx context.Context, spoken *spokenTurn, greeting boo
 	var last time.Time
 	idle := time.NewTimer(s.t.cfg.Timeout)
 	defer idle.Stop()
+	a := s.audio
+	var plan *interruptPlan
+	if spoken != nil && !greeting && !spoken.interrupting {
+		plan = a.planInterrupt()
+	}
+	var clearedAt time.Time
 	finish := func() (target.AgentTurn, error) {
 		s.finishAudio(ctx, spoken, &agent)
+		if spoken != nil && spoken.interrupting {
+			s.recordInterruption(spoken, clearedAt)
+		}
 		return agent, nil
 	}
 	for {
@@ -396,6 +419,16 @@ func (s *session) readTurn(ctx context.Context, spoken *spokenTurn, greeting boo
 				}
 				s.agentAudio(ev.audio, spoken)
 				alive = true
+				if plan != nil && plan.due(spoken) {
+					// The caller will talk over the agent: the turn ends here and
+					// the next Send speaks while the agent's audio still plays.
+					agent.Interrupted = true
+					s.mu.Lock()
+					a.interruptNext = true
+					s.mu.Unlock()
+					s.event("interrupting", "the caller will speak over the agent")
+					return finish()
+				}
 			case "mark":
 				if ev.msg.Mark != nil {
 					s.answerMark(ev.msg.Mark.Name)
@@ -406,6 +439,9 @@ func (s *session) readTurn(ctx context.Context, spoken *spokenTurn, greeting boo
 				s.clears++
 				s.played = 0
 				s.mu.Unlock()
+				if clearedAt.IsZero() {
+					clearedAt = ev.at
+				}
 				s.event("clear", "the agent cleared its audio")
 			default:
 				s.event("unsolicited", ev.msg.Event)
@@ -525,6 +561,7 @@ func randomHex(n int) string {
 type audioState struct {
 	speech target.Speech
 	voice  target.Voice
+	rng    *mrand.Rand
 	start  time.Time
 	user   []int16
 	agent  []int16
@@ -532,11 +569,73 @@ type audioState struct {
 	ttfa   []float64
 	userMs float64
 	agMs   float64
+	// interrupts are the barge-in stop times: from the caller speaking over
+	// the agent to the agent's clear (or to the end of the audio it had
+	// queued, when it never cleared).
+	interrupts []float64
+	// interruptNext asks the next Send to speak while the agent still plays.
+	interruptNext bool
+}
+
+func newAudioState(run *target.RunContext) *audioState {
+	a := &audioState{speech: run.Speech, start: time.Now()}
+	if run.Voice != nil {
+		a.voice = *run.Voice
+	}
+	seed := uint64(a.voice.Seed)
+	if seed == 0 {
+		seed = uint64(time.Now().UnixNano())
+	}
+	a.rng = mrand.New(mrand.NewPCG(seed, seed^0x5a5a5a5a))
+	return a
+}
+
+// interruptPlan is one turn's decision to talk over the agent: once it has
+// spoken for `after`, the caller stops listening and speaks next.
+type interruptPlan struct{ after time.Duration }
+
+// planInterrupt rolls the persona's interrupt_probability for the coming
+// turn; nil when the caller will listen to the end.
+func (a *audioState) planInterrupt() *interruptPlan {
+	if a.voice.InterruptProbability <= 0 || a.rng.Float64() >= a.voice.InterruptProbability {
+		return nil
+	}
+	return &interruptPlan{after: 600*time.Millisecond + time.Duration(a.rng.Float64()*float64(1400*time.Millisecond))}
+}
+
+// due reports whether the agent has spoken long enough to be interrupted.
+func (p *interruptPlan) due(sp *spokenTurn) bool {
+	return sp != nil && !sp.firstAudio.IsZero() && time.Since(sp.firstAudio) >= p.after
+}
+
+// recordInterruption measures how long the agent kept talking after the
+// caller spoke over it: until its clear, or until the audio it had already
+// queued would have finished playing.
+func (s *session) recordInterruption(sp *spokenTurn, clearedAt time.Time) {
+	a := s.audio
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var stop time.Duration
+	how := "the agent cleared its audio"
+	switch {
+	case !clearedAt.IsZero():
+		stop = clearedAt.Sub(sp.startedAt)
+	case !s.first.IsZero():
+		stop = s.first.Add(s.played).Sub(sp.startedAt)
+		how = "the agent never cleared; its queued audio played out"
+	}
+	stop = max(stop, 0)
+	a.interrupts = append(a.interrupts, float64(stop.Microseconds())/1000)
+	s.evs = append(s.evs, target.Event{At: time.Now(), Kind: "interruption_stopped", Detail: fmt.Sprintf("%s after %d ms", how, stop.Milliseconds())})
 }
 
 type spokenTurn struct {
 	endedAt    time.Time
 	firstAudio time.Time
+	// startedAt is when the caller began speaking; interrupting marks a
+	// turn spoken over the agent.
+	startedAt    time.Time
+	interrupting bool
 }
 
 // speak synthesises the turn and streams it as 20 ms μ-law media events,
@@ -645,6 +744,8 @@ func (s *session) closeAudioLocked(files map[string]string) {
 	metrics.Summarize(s.metrics, metrics.TimeToFirstAudioMs, a.ttfa)
 	s.metrics["agent_speech_ms"] = a.agMs
 	s.metrics["user_speech_ms"] = a.userMs
+	s.metrics["interruptions"] = float64(len(a.interrupts))
+	metrics.Summarize(s.metrics, metrics.InterruptionStopMs, a.interrupts)
 }
 
 func padTo(samples []int16, n int) []int16 {

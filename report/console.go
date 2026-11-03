@@ -171,6 +171,9 @@ func plural(n int, word string) string {
 	return fmt.Sprintf("%d %ss", n, word)
 }
 
+// FormatDuration prints a duration the way the console does.
+func FormatDuration(d time.Duration) string { return fmtDuration(d) }
+
 func fmtDuration(d time.Duration) string {
 	switch {
 	case d < time.Second:

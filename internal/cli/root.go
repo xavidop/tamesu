@@ -129,6 +129,7 @@ func NewRoot(info BuildInfo, streams Streams, deps Deps) *cobra.Command {
 		a.newReportCmd(),
 		a.newMergeCmd(),
 		a.newHistoryCmd(),
+		a.newCoverageCmd(),
 		a.newBaselineCmd(),
 		a.newCompareCmd(),
 		a.newRecordCmd(),

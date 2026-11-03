@@ -5,6 +5,8 @@ title: Realtime target
 
 # Realtime target
 
+![A microphone and a loudspeaker exchanging a continuous sound wave, a stopwatch above](/img/target-realtime.jpg)
+
 The `realtime` target tests an agent that speaks the **OpenAI Realtime protocol** over a
 websocket: the Realtime API itself, with your instructions and tools as the agent under test, or a
 server that fronts your own agent with the same events (many voice stacks expose it). **Text

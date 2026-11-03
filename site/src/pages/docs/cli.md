@@ -109,7 +109,7 @@ reported on stderr and makes the command exit `2`; warnings are not printed.
 ## tamesu run
 
 ```text
-tamesu run [paths...] [--filter <regex>] [--tags a,b] [--target <name>] [--parallel N] [--repeat N] [--load N [--load-duration D]] [--mode text|audio] [--headed] [--replay | --update-cache] [--update-golden] [--update-visual] [--baseline | --baseline-dir <dir>] [--label k=v] [--shard i/n] [--fail-fast] [--out <dir>] [--reporter console,json,junit,html,markdown,github,slack] [--max-cost-usd X]
+tamesu run [paths...] [--filter <regex>] [--tags a,b] [--target <name>] [--parallel N] [--repeat N] [--load N [--load-duration D]] [--mode text|audio] [--headed] [--replay | --update-cache] [--update-golden] [--update-visual] [--baseline | --baseline-dir <dir>] [--label k=v] [--shard i/n] [--fail-fast] [--out <dir>] [--reporter console,json,junit,html,markdown,github,slack] [--max-cost-usd X] [--estimate] [--matrix KEY=v1,v2]
 ```
 
 Runs the selected tests. `tamesu.yaml` and the suites are loaded with `${VAR}` required; the
@@ -207,6 +207,54 @@ are written there. Labels are the union of the inputs, with differing values joi
 `tamesu compare`, `tamesu baseline save` and `tamesu report`. Exit codes are those of
 `tamesu run`, for the merged result, so a pipeline gets one verdict after its shards.
 
+### Estimating the spend
+
+`--estimate` prices the selected tests from the last runs under `.tamesu/runs` (or the parent of
+`--out`): each test's median llm cost per run, times its repeat count, with a total and the
+budget verdict, then exits without running. Tests the history never saw are listed without a
+price. A new suite has no history: run it once, then estimate.
+
+```text
+suite / test                         runs seen  per run  repeat  estimate
+support / refund policy question     12         $0.0021  3       $0.0063
+support / new scenario               0          ?        1       ?
+
+estimate: $0.0063 for 2 tests from 12 past runs · 1 test has no history and is not priced · within the budget of $5.00
+```
+
+### Comparing models and prompts
+
+`--matrix KEY=value1,value2` runs the selection once per value, and with several `--matrix`
+flags once per combination. A key is a job's model (`models.judge`, `models.simulator`,
+`models.default`, `models.browser_agent`, `models.scenario_generator`, `models.embedder`), a
+speech model (`speech.tts.model`, `speech.stt.model`), a suite var (`vars.<name>`) or a field of
+a target in the suites (`targets.<name>.model`, `.system_file`, `.system`, `.url`, `.mode`,
+`.streaming`). Each variant runs into its own directory under `--out`
+(`judge-googleai-gemini-2.5-flash/`), labelled with its values, with its own reports; a
+comparison table follows (passed, failed, errors, model calls, cost, duration, exit code) and is
+written as `matrix.md` and `matrix.json` next to the variant directories. The exit code is the
+worst variant's.
+
+```bash
+tamesu run --matrix models.judge=googleai/gemini-2.5-flash,anthropic/claude-sonnet-4-6
+tamesu run --matrix targets.prompt.system_file=prompts/v1.md,prompts/v2.md --matrix targets.prompt.model=googleai/gemini-2.5-flash,openai/gpt-4.1-mini
+```
+
+## tamesu coverage
+
+```text
+tamesu coverage <run-dir> [--json]
+```
+
+What a run exercised, from its `summary.json`: the targets and tags (tests and passes per
+item), every tool the agent called (calls, tests, and whether a suite declared it), the
+assertion kinds used, how the conversations ended (`stop_reason`), and the tactics of
+adversarial personas. When `tamesu.yaml` and the suites load, the tools the suites know about (a
+`model` target's `tools`, the names in `tool_called` and `tool_sequence` assertions) that no
+test made the agent call are listed as never called. `tamesu run` writes the same report into
+the run directory as `coverage.md` and `coverage.json`. `--json` prints it as JSON. Exit `0`, or
+`2` when the directory has no summary.
+
 ## tamesu history
 
 ```text
@@ -290,13 +338,15 @@ usage or config error, `3` when the model failed. See [Generating tests](/docs/g
 ## tamesu import
 
 ```text
-tamesu import <conversations.json|.jsonl|.csv> --target <name> [--type rest|grpc|livekit|sip|twilio|realtime|pipecat|model] [--out suite.yaml] [--golden-dir <dir>] [--golden-mode exact|similar|judge] [--tags a,b]
+tamesu import <conversations.json|.jsonl|.csv> --target <name> [--format auto|generic|langsmith|langfuse|voiceflow] [--type rest|grpc|livekit|sip|twilio|realtime|pipecat|model] [--out suite.yaml] [--golden-dir <dir>] [--golden-mode exact|similar|judge] [--tags a,b]
 ```
 
 Turns recorded conversations into a suite that replays them: one test per conversation, whose
 scenario `script` says the user's lines in order and whose `golden` assertion holds the agent's
 recorded answers. The input is a JSON array of conversations (or of messages with a
-conversation id), JSON Lines, or a CSV with conversation, role and text columns. `--golden-dir`
+conversation id), JSON Lines, or a CSV with conversation, role and text columns, or an export
+from LangSmith (runs), Langfuse (traces) or Voiceflow (transcript turns), recognised by their
+keys or named with `--format`. `--golden-dir`
 writes the answers to `<dir>/<test>.json` next to the suite (it needs `--out`); without it they
 are inline `turns`. `--golden-mode` is `similar` by default. `--tags` sets the tests' tags
 (`imported`). The target is a stub to point at your agent; the suite is validated as it is

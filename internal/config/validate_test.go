@@ -51,6 +51,10 @@ func TestValidateInvalidSuites(t *testing.T) {
 		{file: "semantic-and-schema.yaml", line: 15, msg: "similar_to needs a text", path: `tests[0] "t".assert[1].similar_to`},
 		{file: "semantic-and-schema.yaml", line: 16, msg: "not a valid JSON Schema", path: `tests[0] "t".assert[2].tool_called.schema`},
 		{file: "semantic-and-schema.yaml", line: 17, msg: "schema applies to tool_called only", path: `tests[0] "t".assert[3].tool_not_called.schema`, warning: true},
+		{file: "languages-adversarial.yaml", line: 10, msg: "a language is empty", path: `tests[0] "t".languages[1]`},
+		{file: "languages-adversarial.yaml", line: 11, msg: "a tactic is empty", path: `tests[0] "t".persona.tactics[1]`},
+		{file: "languages-adversarial.yaml", line: 11, msg: "an adversarial persona needs scenario.goal", path: `tests[0] "t".persona.adversarial`},
+		{file: "languages-adversarial.yaml", line: 17, msg: "tactics applies to an adversarial persona only", path: `tests[1] "u".persona.tactics`, warning: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.file+"/"+tt.msg, func(t *testing.T) {

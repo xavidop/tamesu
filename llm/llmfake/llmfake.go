@@ -469,6 +469,15 @@ func (p *Plugin) simulator(_ context.Context, req *ai.ModelRequest, _ any, _ ai.
 	}
 	out := p.script.Simulator[min(idx, len(p.script.Simulator)-1)]
 	p.mu.Unlock()
+	if strings.Contains(promptText(req), "Tactics you may use") {
+		// The adversary prompt: the scripted turn, plus the tactic it claims.
+		withTactic := make(map[string]any, len(out)+1)
+		for k, v := range out {
+			withTactic[k] = v
+		}
+		withTactic["tactic"] = fmt.Sprintf("fake tactic %d", idx+1)
+		out = withTactic
+	}
 	return respond(req, out)
 }
 

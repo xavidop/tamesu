@@ -221,7 +221,10 @@ lk_pid=""
 lk_container=""
 start_livekit() {
 	if command -v livekit-server >/dev/null; then
-		livekit-server --dev --port "$lk_port" >"$out/livekit-server.log" 2>&1 &
+		# LIVEKIT_NODE_IP pins the address the server advertises for media: set it
+		# to a LAN interface when a VPN owns the default route and ICE cannot
+		# connect to the auto-detected one.
+		livekit-server --dev --port "$lk_port" ${LIVEKIT_NODE_IP:+--node-ip "$LIVEKIT_NODE_IP"} >"$out/livekit-server.log" 2>&1 &
 		lk_pid=$!
 	elif command -v docker >/dev/null && docker info >/dev/null 2>&1; then
 		lk_container=$(docker run -d --rm -p "$lk_port:7880" livekit/livekit-server --dev --bind 0.0.0.0)

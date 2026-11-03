@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"math/rand/v2"
 	"path/filepath"
 	"strings"
 	"time"
@@ -29,6 +30,7 @@ const silenceTail = 500 * time.Millisecond
 type audioState struct {
 	speech target.Speech
 	voice  target.Voice
+	rng    *rand.Rand
 	rate   int
 	start  time.Time
 	user   []int16
@@ -37,11 +39,25 @@ type audioState struct {
 	ttfa   []float64
 	userMs float64
 	agMs   float64
+	// first and played are the playback clock: the bot's audio arrives as
+	// it is made, and plays out from first for played.
+	first  time.Time
+	played time.Duration
+	// interrupts are the barge-in stop times: from the caller speaking over
+	// the bot to the bot's interruption signal (or to the end of the audio it
+	// had sent, when it never yielded).
+	interrupts []float64
+	// interruptNext asks the next Send to speak while the bot still plays.
+	interruptNext bool
 }
 
 type spokenTurn struct {
 	endedAt    time.Time
 	firstAudio time.Time
+	// startedAt is when the caller began speaking; interrupting marks a
+	// turn spoken over the bot.
+	startedAt    time.Time
+	interrupting bool
 }
 
 func (s *session) startAudio(run *target.RunContext) {
@@ -49,7 +65,51 @@ func (s *session) startAudio(run *target.RunContext) {
 	if run.Voice != nil {
 		a.voice = *run.Voice
 	}
+	seed := uint64(a.voice.Seed)
+	if seed == 0 {
+		seed = uint64(time.Now().UnixNano())
+	}
+	a.rng = rand.New(rand.NewPCG(seed, seed^0x5a5a5a5a))
 	s.audio = a
+}
+
+// interruptPlan is one turn's decision to talk over the bot: once it has
+// spoken for `after`, the caller stops listening and speaks next.
+type interruptPlan struct{ after time.Duration }
+
+// planInterrupt rolls the persona's interrupt_probability for the coming
+// turn; nil when the caller will listen to the end.
+func (a *audioState) planInterrupt() *interruptPlan {
+	if a.voice.InterruptProbability <= 0 || a.rng.Float64() >= a.voice.InterruptProbability {
+		return nil
+	}
+	return &interruptPlan{after: 600*time.Millisecond + time.Duration(a.rng.Float64()*float64(1400*time.Millisecond))}
+}
+
+// due reports whether the bot has spoken long enough to be interrupted.
+func (p *interruptPlan) due(sp *spokenTurn) bool {
+	return sp != nil && !sp.firstAudio.IsZero() && time.Since(sp.firstAudio) >= p.after
+}
+
+// recordInterruption measures how long the bot kept talking after the
+// caller spoke over it: until its interruption signal, or until the audio
+// it had already sent would have finished playing.
+func (s *session) recordInterruption(sp *spokenTurn, stoppedAt time.Time) {
+	a := s.audio
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var stop time.Duration
+	how := "the bot yielded"
+	switch {
+	case !stoppedAt.IsZero():
+		stop = stoppedAt.Sub(sp.startedAt)
+	case !a.first.IsZero():
+		stop = a.first.Add(a.played).Sub(sp.startedAt)
+		how = "the bot never yielded; its audio played out"
+	}
+	stop = max(stop, 0)
+	a.interrupts = append(a.interrupts, float64(stop.Microseconds())/1000)
+	s.evs = append(s.evs, target.Event{At: time.Now(), Kind: "interruption_stopped", Detail: fmt.Sprintf("%s after %d ms", how, stop.Milliseconds())})
 }
 
 // speak synthesises the turn and streams it as 20 ms AudioRawFrames at the
@@ -104,8 +164,14 @@ func (s *session) agentAudio(ev event, sp *spokenTurn) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	now := time.Now()
+	if a.first.IsZero() || a.played-now.Sub(a.first) < 0 {
+		// The playback had drained: it restarts now.
+		a.first, a.played = now, 0
+	}
+	a.played += audio.Duration(len(pcm), a.rate)
 	if sp != nil && sp.firstAudio.IsZero() {
-		sp.firstAudio = time.Now()
+		sp.firstAudio = now
 		a.ttfa = append(a.ttfa, float64(sp.firstAudio.Sub(sp.endedAt).Microseconds())/1000)
 		a.agent = padTo(a.agent, max(audio.SampleCount(sp.firstAudio.Sub(a.start), a.rate), len(a.user)))
 	}
@@ -149,6 +215,8 @@ func (s *session) closeAudioLocked(files map[string]string) {
 	metrics.Summarize(s.metrics, metrics.TimeToFirstAudioMs, a.ttfa)
 	s.metrics["agent_speech_ms"] = a.agMs
 	s.metrics["user_speech_ms"] = a.userMs
+	s.metrics["interruptions"] = float64(len(a.interrupts))
+	metrics.Summarize(s.metrics, metrics.InterruptionStopMs, a.interrupts)
 }
 
 func padTo(samples []int16, n int) []int16 {

@@ -506,8 +506,12 @@ func (s *session) closeAudio(dir string) map[string]string {
 	s.mu.Unlock()
 	if !stopped {
 		close(a.stop)
-		<-a.done
-		_ = a.pub.Close()
+		if !within(closeGrace, func() { <-a.done }) {
+			s.event("close_timeout", fmt.Sprintf("the audio publisher did not stop within %s", closeGrace))
+		}
+		if !within(closeGrace, func() { _ = a.pub.Close() }) {
+			s.event("close_timeout", fmt.Sprintf("unpublishing the audio track did not finish within %s", closeGrace))
+		}
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -102,6 +102,7 @@ func LoadSuiteWithProject(path string, p Project, o LoadOptions) (*Suite, Errors
 	}
 	errs = append(errs, Validate(s, p, root)...)
 	errs = append(errs, ExpandCases(s, path)...)
+	ExpandLanguages(s)
 	return s, errs.Sorted(), nil
 }
 

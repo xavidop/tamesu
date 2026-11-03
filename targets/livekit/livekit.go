@@ -621,8 +621,8 @@ func (s *session) Close(ctx context.Context) (target.Artifacts, error) {
 	if s.call != nil && !already {
 		s.hangup(ctx)
 	}
-	if !already && s.room != nil {
-		s.room.Disconnect()
+	if !already && s.room != nil && !within(closeGrace, s.room.Disconnect) {
+		s.event("close_timeout", fmt.Sprintf("leaving the room did not finish within %s", closeGrace))
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -631,6 +631,29 @@ func (s *session) Close(ctx context.Context) (target.Artifacts, error) {
 		m[k] = v
 	}
 	return target.Artifacts{Files: files, Metrics: m, Events: append([]target.Event(nil), s.events...)}, nil
+}
+
+// closeGrace bounds each step of Close: the SDK can deadlock while it
+// reconnects after a network blip (its engine lock stays held), and a run
+// must end even then. A step that overruns is abandoned in its goroutine and
+// recorded as a close_timeout event.
+var closeGrace = 5 * time.Second
+
+// within runs f and reports whether it finished within d.
+func within(d time.Duration, f func()) bool {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		f()
+	}()
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-done:
+		return true
+	case <-timer.C:
+		return false
+	}
 }
 
 // parseToolCalls reads {"name","args"} or a list of them.

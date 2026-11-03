@@ -441,6 +441,27 @@ func (v *validator) test(i int, t Test) {
 	if ttype == TargetSIP {
 		mode = "audio"
 	}
+	for j, lang := range t.Languages {
+		if strings.TrimSpace(lang) == "" {
+			v.errorf(with(tp, "languages", idx(j)), "a language is empty")
+		}
+	}
+	if len(t.Languages) > 0 && ok && ttype == TargetBrowser {
+		v.errorf(with(tp, "languages"), "languages applies to conversational tests; %q is a browser target", t.Target)
+	}
+	if p := t.Persona; p != nil {
+		if !p.Adversarial && len(p.Tactics) > 0 {
+			v.warnf(with(tp, "persona", "tactics"), "tactics applies to an adversarial persona only")
+		}
+		for j, tac := range p.Tactics {
+			if strings.TrimSpace(tac) == "" {
+				v.errorf(with(tp, "persona", "tactics", idx(j)), "a tactic is empty")
+			}
+		}
+		if p.Adversarial && (t.Scenario == nil || strings.TrimSpace(t.Scenario.Goal) == "") {
+			v.errorf(with(tp, "persona", "adversarial"), "an adversarial persona needs scenario.goal: what the attacker is after")
+		}
+	}
 	if t.Mode != "" {
 		if ok && ttype != TargetLiveKit && ttype != TargetSIP && ttype != TargetRealtime && ttype != TargetPipecat {
 			v.errorf(with(tp, "mode"), "mode applies to livekit, sip, realtime and pipecat tests only; %q is a %s target", t.Target, ttype)
