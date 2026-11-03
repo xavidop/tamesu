@@ -187,7 +187,11 @@ func (a *app) newRunCmd() *cobra.Command {
 				case "junit":
 					reps = append(reps, report.NewJUnit(out))
 				case "html":
-					reps = append(reps, report.NewHTML(out))
+					html := report.NewHTML(out)
+					if report.IsRunsDir(out) {
+						html = html.WithHistory(filepath.Dir(out), DefaultHistoryRuns)
+					}
+					reps = append(reps, html)
 				case "markdown":
 					reps = append(reps, report.NewMarkdown(out))
 				case "github":

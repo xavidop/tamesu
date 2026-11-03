@@ -91,8 +91,22 @@ jobs:
           path: out/junit.xml
 ```
 
-`tamesu list --shard 2/4` prints the tests a shard would run. Shards compare against a baseline
-one by one, so save a baseline per shard or compare the whole suite from a single job.
+`tamesu list --shard 2/4` prints the tests a shard would run. A final job downloads the shards'
+run directories and merges them into one result, which is what you compare with the baseline:
+
+```yaml
+  verdict:
+    needs: tamesu
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: run-*
+          path: runs
+      - run: tamesu merge runs/* --out merged && tamesu compare .tamesu/baseline merged
+```
+
+(upload each shard's whole `--out` directory as `run-${{ matrix.shard }}` for that to work).
 
 For a quick local loop, `tamesu run --fail-fast` stops starting new tests after the first
 failure; the tests that never ran are reported as skipped and the exit code is still `1`.

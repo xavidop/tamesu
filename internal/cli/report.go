@@ -21,11 +21,16 @@ func (a *app) newReportCmd() *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dir := args[0]
+			// A run under .tamesu/runs gets a history section from its siblings.
 			s, err := report.LoadSummary(dir)
 			if err != nil {
 				return configError(err)
 			}
-			if err := report.WriteHTML(dir, s); err != nil {
+			var hist *report.History
+			if report.IsRunsDir(dir) {
+				hist = report.HistoryFor(filepath.Dir(dir), DefaultHistoryRuns, dir, s)
+			}
+			if err := report.WriteHTMLWithHistory(dir, s, hist); err != nil {
 				return infraError(fmt.Errorf("write report: %w", err))
 			}
 			passed, failed, errored := s.Counts()

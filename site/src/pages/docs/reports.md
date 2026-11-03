@@ -108,6 +108,40 @@ quarantined (`QUAR` in the console, a `skipped` element in JUnit, a warning anno
 its own count in the Markdown, Slack and HTML summaries) and is not a regression in a baseline
 comparison. See [quarantining a flaky test](/docs/concepts#quarantining-a-flaky-test).
 
+## Merging shards and repeated runs
+
+`tamesu merge` turns several run directories into one: the shards of a suite
+(`tamesu run --shard 1/4` to `4/4` in parallel jobs), or repeated runs of the same tests, whose
+runs are joined into one outcome with its pass rate recomputed. The run directories are copied
+under the merged one, every report is written again, labels are the union of the inputs, and the
+exit code is the merged verdict, so a pipeline gets a single result after its shards and can
+compare it with a baseline or save it as one.
+
+```sh
+tamesu merge out/shard-1 out/shard-2 out/shard-3 out/shard-4 --out out/all
+tamesu compare .tamesu/baseline out/all
+```
+
+## History
+
+Every run under `.tamesu/runs` (the default output directory) adds a History section to its
+`report.html`: one row per test with a square per run over the last 20, the pass rate, a p95
+latency sparkline, a `flaky` mark when the verdict changed two or more times, and the current
+streak. `tamesu history` prints the same from the terminal:
+
+```text
+5 runs, 2026-11-03 09:00 to 2026-11-03 13:00
+
+TEST                       RUNS  PASS RATE  RESULTS  P95             NOTE
+support / refund policy    5     100%       ✓✓✓✓✓    820 → 960 ms
+support / booking          5     60%        ✓✗✓✗✓    1100 → 1250 ms  flaky (4 flips)
+support / cancel order     5     40%        ✓✓✗✗✗                    fail 3× in a row
+```
+
+A test that flips is a quarantine candidate; a p95 that climbs run after run is a regression a
+single baseline comparison would not catch until it crossed the limit. `--flaky` lists the
+candidates, `--json` feeds a dashboard.
+
 ## Comparing with a baseline
 
 A run on its own says whether the tests passed; against a baseline it says whether anything got

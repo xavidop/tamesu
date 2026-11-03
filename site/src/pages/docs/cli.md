@@ -192,6 +192,36 @@ relative to itself. The `html` reporter writes the same file during `tamesu run`
 (`reporters: [console, junit, html]`, or `--reporter html`). Exit `2` when the directory has no
 `summary.json`. See [Reports](/docs/reports/).
 
+## tamesu merge
+
+```text
+tamesu merge <run-dir> [<run-dir>...] [--out <dir>]
+```
+
+Combines run directories into one run: the shards of a suite side by side, or the same tests from
+repeated runs as one test with more runs (its pass rate and threshold are recomputed over all of
+them). The run directories are copied under `--out` (default `.tamesu/runs/<timestamp>-merged`)
+so `report.html` keeps its links, and `summary.json`, `junit.xml`, `report.html` and `summary.md`
+are written there. Labels are the union of the inputs, with differing values joined by a comma
+(`shard=1/4,2/4,3/4,4/4`); usage and cache counts add up. The merged directory works with
+`tamesu compare`, `tamesu baseline save` and `tamesu report`. Exit codes are those of
+`tamesu run`, for the merged result, so a pipeline gets one verdict after its shards.
+
+## tamesu history
+
+```text
+tamesu history [--runs-dir .tamesu/runs] [--last N] [--filter <regex>] [--flaky] [--json]
+```
+
+Reads the summaries under the runs directory, oldest first, and prints one line per test: how
+many runs it was in, its pass rate, every verdict as a dot (`✓` pass, `✗` fail, `!` error, `~`
+quarantined, `·` skipped), the p95 latency from the first run to the last, and a note when it is
+flaky (its verdict changed two or more times) or has failed several runs in a row. `--last`
+reads the latest N runs (default 20, 0 for all), `--filter` narrows by test name, `--flaky`
+keeps only the flaky ones, `--json` prints the runs and the tests as JSON. The same view is the
+History section of `report.html` when a run lives under `.tamesu/runs`. See
+[History](/docs/reports/#history).
+
 ## tamesu baseline
 
 ```text

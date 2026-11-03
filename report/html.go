@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -25,10 +26,21 @@ const HTMLFile = "report.html"
 // HTML writes report.html into the run directory when the run finishes: one
 // self-contained page with the transcripts, assertions, metrics, events, the
 // screenshots and an audio player, linking the artifacts relative to itself.
-type HTML struct{ dir string }
+type HTML struct {
+	dir     string
+	runsDir string
+	last    int
+}
 
 // NewHTML returns the HTML reporter for the run directory.
 func NewHTML(dir string) *HTML { return &HTML{dir: dir} }
+
+// WithHistory makes the report show each test's results and latency over
+// the last n runs under runsDir (the run being reported is the newest point).
+func (h *HTML) WithHistory(runsDir string, n int) *HTML {
+	h.runsDir, h.last = runsDir, n
+	return h
+}
 
 func (*HTML) RunStarted(RunInfo)                    {}
 func (*HTML) TestStarted(*TestOutcome)              {}
@@ -37,16 +49,36 @@ func (*HTML) TestFinished(*TestOutcome)             {}
 
 // Finish writes report.html.
 func (h *HTML) Finish(_ context.Context, s *Summary) error {
-	return WriteHTML(h.dir, s)
+	var hist *History
+	if h.runsDir != "" {
+		hist = HistoryFor(h.runsDir, h.last, h.dir, s)
+	}
+	return WriteHTMLWithHistory(h.dir, s, hist)
+}
+
+// HistoryFor loads the last n runs under runsDir other than dir and appends
+// s as the newest point; nil when the directory cannot be read or holds no
+// other run.
+func HistoryFor(runsDir string, n int, dir string, s *Summary) *History {
+	hist, err := LoadHistory(runsDir, n-1, dir)
+	if err != nil || len(hist.Runs) == 0 {
+		return nil
+	}
+	hist.Append(dir, s)
+	return hist
 }
 
 // WriteHTML renders the summary into dir/report.html.
-func WriteHTML(dir string, s *Summary) error {
+func WriteHTML(dir string, s *Summary) error { return WriteHTMLWithHistory(dir, s, nil) }
+
+// WriteHTMLWithHistory renders the summary, and the history when given, into
+// dir/report.html.
+func WriteHTMLWithHistory(dir string, s *Summary, hist *History) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
 	var buf bytes.Buffer
-	if err := RenderHTML(&buf, s, dir); err != nil {
+	if err := RenderHTMLWithHistory(&buf, s, dir, hist); err != nil {
 		return err
 	}
 	return os.WriteFile(filepath.Join(dir, HTMLFile), buf.Bytes(), 0o644)
@@ -76,6 +108,84 @@ type htmlData struct {
 	Summary                                       *Summary
 	Passed, Failed, Errored, Quarantined, Skipped int
 	Tests                                         []htmlTest
+	// History is the tests over the last runs, when the report has one.
+	History *htmlHistory
+}
+
+// htmlHistory is the history section: one row per test with a dot per run
+// and a latency sparkline.
+type htmlHistory struct {
+	Runs  int
+	Since string
+	Rows  []htmlHistoryRow
+}
+
+type htmlHistoryRow struct {
+	T        TestHistory
+	Dots     []HistoryPoint
+	PassRate float64
+	Spark    string // an SVG polyline of the P95 points, "" when none
+	P95      string // "820 → 960 ms"
+}
+
+// sparkline draws the p95 points as an SVG polyline, 120x24.
+func sparkline(points []HistoryPoint) string {
+	var vals []float64
+	for _, p := range points {
+		if p.P95 > 0 {
+			vals = append(vals, p.P95)
+		}
+	}
+	if len(vals) < 2 {
+		return ""
+	}
+	lo, hi := vals[0], vals[0]
+	for _, v := range vals {
+		lo, hi = math.Min(lo, v), math.Max(hi, v)
+	}
+	w, h := 120.0, 24.0
+	var b strings.Builder
+	for i, v := range vals {
+		x := 2 + (w-4)*float64(i)/float64(len(vals)-1)
+		y := h - 2
+		if hi > lo {
+			y = 2 + (h-4)*(1-(v-lo)/(hi-lo))
+		}
+		if i > 0 {
+			b.WriteByte(' ')
+		}
+		fmt.Fprintf(&b, "%.1f,%.1f", x, y)
+	}
+	return b.String()
+}
+
+func historyView(h *History) *htmlHistory {
+	if h == nil || len(h.Runs) < 2 {
+		return nil
+	}
+	v := &htmlHistory{Runs: len(h.Runs)}
+	if !h.Runs[0].StartedAt.IsZero() {
+		v.Since = h.Runs[0].StartedAt.Local().Format("2006-01-02 15:04")
+	}
+	for _, t := range h.Tests {
+		row := htmlHistoryRow{T: t, PassRate: t.PassRate, Spark: sparkline(t.Points)}
+		// One cell per run, with a gap where the test did not run.
+		cells := make([]HistoryPoint, len(h.Runs))
+		for i := range cells {
+			cells[i] = HistoryPoint{Run: i, Status: "none"}
+		}
+		for _, p := range t.Points {
+			if p.Run >= 0 && p.Run < len(cells) {
+				cells[p.Run] = p
+			}
+		}
+		row.Dots = cells
+		if t.P95First > 0 && t.P95Last > 0 {
+			row.P95 = fmt.Sprintf("%.0f → %.0f ms", t.P95First, t.P95Last)
+		}
+		v.Rows = append(v.Rows, row)
+	}
+	return v
 }
 
 type htmlTest struct {
@@ -195,11 +305,17 @@ var htmlFuncs = template.FuncMap{
 
 // RenderHTML writes the report for s to w; links are made relative to dir.
 func RenderHTML(w io.Writer, s *Summary, dir string) error {
+	return RenderHTMLWithHistory(w, s, dir, nil)
+}
+
+// RenderHTMLWithHistory is RenderHTML with a history section when hist has
+// at least two runs.
+func RenderHTMLWithHistory(w io.Writer, s *Summary, dir string, hist *History) error {
 	tmpl, err := template.New("report").Funcs(htmlFuncs).Parse(htmlTemplate)
 	if err != nil {
 		return err
 	}
-	data := htmlData{Summary: s}
+	data := htmlData{Summary: s, History: historyView(hist)}
 	data.Passed, data.Failed, data.Errored = s.Counts()
 	data.Quarantined = len(s.Quarantined())
 	data.Skipped = len(s.Skipped())
