@@ -2,6 +2,13 @@
 
 All notable changes to tamesu are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/). Each new release is added at the top, with notes generated from the commit messages.
 
+# [1.3.0](https://github.com/xavidop/tamesu/compare/v1.2.0...v1.3.0) (2026-11-03)
+
+
+### Features
+
+* **llm:** retry model calls and fall back to other models ([86f1a6e](https://github.com/xavidop/tamesu/commit/86f1a6ed09ec1b42063ae44a47728f395537157f))
+
 # [1.2.0](https://github.com/xavidop/tamesu/compare/v1.1.0...v1.2.0) (2026-11-03)
 
 
