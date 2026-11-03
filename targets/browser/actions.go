@@ -46,7 +46,7 @@ func (s *session) Do(ctx context.Context, action map[string]any) (string, error)
 		if !ok {
 			return "", fmt.Errorf("click wants a CSS selector or a ref")
 		}
-		if err := s.do(ctx, chromedp.WaitVisible(sel, chromedp.ByQuery), chromedp.Click(sel, chromedp.ByQuery)); err != nil {
+		if err := s.do(ctx, chromedp.WaitVisible(chromedp.CSS(sel)), chromedp.Click(chromedp.CSS(sel))); err != nil {
 			return "", fmt.Errorf("click %q: %w", sel, err)
 		}
 		s.settle(ctx)
@@ -70,7 +70,7 @@ func (s *session) Do(ctx context.Context, action map[string]any) (string, error)
 		if sel == "" {
 			return "", fmt.Errorf("fill wants selector or ref")
 		}
-		if err := s.do(ctx, chromedp.WaitVisible(sel, chromedp.ByQuery), chromedp.Clear(sel, chromedp.ByQuery), chromedp.SendKeys(sel, text, chromedp.ByQuery)); err != nil {
+		if err := s.do(ctx, chromedp.WaitVisible(chromedp.CSS(sel)), chromedp.Clear(chromedp.CSS(sel)), chromedp.SendKeys(chromedp.CSS(sel), text)); err != nil {
 			return "", fmt.Errorf("fill %q: %w", sel, err)
 		}
 		s.event("fill", sel)
@@ -87,7 +87,7 @@ func (s *session) Do(ctx context.Context, action map[string]any) (string, error)
 		}
 		m, _ := arg.(map[string]any)
 		if sel, _ := m["selector"].(string); sel != "" {
-			if err := s.do(ctx, chromedp.WaitVisible(sel, chromedp.ByQuery)); err != nil {
+			if err := s.do(ctx, chromedp.WaitVisible(chromedp.CSS(sel))); err != nil {
 				return "", fmt.Errorf("wait for %q: %w", sel, err)
 			}
 			return "waited for " + sel, nil
@@ -146,7 +146,7 @@ func (s *session) Do(ctx context.Context, action map[string]any) (string, error)
 		var text string
 		m, isMap := arg.(map[string]any)
 		if sel, _ := m["selector"].(string); isMap && sel != "" {
-			if err := s.do(ctx, chromedp.Text(sel, &text, chromedp.ByQuery)); err != nil {
+			if err := s.do(ctx, into(chromedp.Text(chromedp.CSS(sel)), &text)); err != nil {
 				return "", fmt.Errorf("assert_text %q: %w", sel, err)
 			}
 		} else if text, err = s.Text(ctx); err != nil {

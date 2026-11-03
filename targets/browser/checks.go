@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	_ "embed"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -20,7 +19,6 @@ import (
 	"github.com/bmatcuk/doublestar/v4"
 	"github.com/chromedp/cdproto/fetch"
 	"github.com/chromedp/cdproto/network"
-	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
 
 	"github.com/xavidop/tamesu/target"
@@ -70,7 +68,7 @@ func (s *session) enableMocks(ctx context.Context) error {
 	if on {
 		return nil
 	}
-	return s.do(ctx, fetch.Enable().WithPatterns([]*fetch.RequestPattern{{URLPattern: "*", RequestStage: fetch.RequestStageRequest}}))
+	return s.do(ctx, call(fetch.Enable, fetch.EnableParams{Patterns: []*fetch.RequestPattern{{URLPattern: "*", RequestStage: fetch.RequestStageRequest}}}))
 }
 
 // onRequestPaused answers a paused request from the first matching mock or
@@ -88,7 +86,7 @@ func (s *session) onRequestPaused(ev *fetch.EventRequestPaused) {
 	}
 	go func() {
 		if hit == nil {
-			_ = chromedp.Run(s.ctx, fetch.ContinueRequest(ev.RequestID))
+			_ = chromedp.Do(s.ctx, call(fetch.ContinueRequest, fetch.ContinueRequestParams{RequestID: ev.RequestID}))
 			return
 		}
 		if hit.DelayMs > 0 {
@@ -104,7 +102,7 @@ func (s *session) onRequestPaused(ev *fetch.EventRequestPaused) {
 		s.har.mocked(ev.NetworkID)
 		s.event("mock", ev.Request.Method+" "+ev.Request.URL)
 		if hit.Abort {
-			_ = chromedp.Run(s.ctx, fetch.FailRequest(ev.RequestID, network.ErrorReasonBlockedByClient))
+			_ = chromedp.Do(s.ctx, call(fetch.FailRequest, fetch.FailRequestParams{RequestID: ev.RequestID, ErrorReason: network.ErrorReasonBlockedByClient}))
 			return
 		}
 		status := hit.Status
@@ -119,11 +117,11 @@ func (s *session) onRequestPaused(ev *fetch.EventRequestPaused) {
 		for k, v := range hit.Headers {
 			headers = append(headers, &fetch.HeaderEntry{Name: k, Value: v})
 		}
-		req := fetch.FulfillRequest(ev.RequestID, int64(status)).WithBody(base64.StdEncoding.EncodeToString(body))
+		req := fetch.FulfillRequestParams{RequestID: ev.RequestID, ResponseCode: int64(status), Body: body}
 		if len(headers) > 0 {
-			req = req.WithResponseHeaders(headers)
+			req.ResponseHeaders = headers
 		}
-		_ = chromedp.Run(s.ctx, req)
+		_ = chromedp.Do(s.ctx, call(fetch.FulfillRequest, req))
 	}()
 }
 
@@ -200,11 +198,11 @@ func (s *session) a11y(ctx context.Context, arg any) (string, error) {
 		return "", fmt.Errorf("a11y impact must be minor, moderate, serious or critical")
 	}
 	var loaded bool
-	if err := s.do(ctx, chromedp.Evaluate(`typeof window.axe !== "undefined"`, &loaded)); err != nil {
+	if err := s.do(ctx, into(chromedp.Evaluate[bool](`typeof window.axe !== "undefined"`), &loaded)); err != nil {
 		return "", fmt.Errorf("a11y: %w", err)
 	}
 	if !loaded {
-		if err := s.do(ctx, chromedp.Evaluate(axeSource, nil)); err != nil {
+		if err := s.do(ctx, eval(axeSource)); err != nil {
 			return "", fmt.Errorf("a11y: inject axe-core: %w", err)
 		}
 	}
@@ -215,7 +213,7 @@ func (s *session) a11y(ctx context.Context, arg any) (string, error) {
 	}
 	var raw string
 	js := fmt.Sprintf(`axe.run(%s, {resultTypes: ["violations"]}).then(r => JSON.stringify(r.violations.map(v => ({id: v.id, impact: v.impact || "minor", help: v.help, nodes: v.nodes.length}))))`, ctxArg)
-	if err := s.do(ctx, chromedp.Evaluate(js, &raw, func(p *runtime.EvaluateParams) *runtime.EvaluateParams { return p.WithAwaitPromise(true) })); err != nil {
+	if err := s.do(ctx, into(chromedp.Evaluate[string](js, chromedp.EvalAwaitPromise), &raw)); err != nil {
 		return "", fmt.Errorf("a11y: %w", err)
 	}
 	var all []a11yViolation
@@ -359,7 +357,7 @@ func (s *session) maskRects(ctx context.Context, selectors []string) ([]image.Re
 		b, _ := json.Marshal(sel)
 		var rects [][]float64
 		js := fmt.Sprintf(`Array.from(document.querySelectorAll(%s)).map(e => { const r = e.getBoundingClientRect(); return [r.x, r.y, r.width, r.height]; })`, b)
-		if err := s.do(ctx, chromedp.Evaluate(js, &rects)); err != nil {
+		if err := s.do(ctx, into(chromedp.Evaluate[[][]float64](js), &rects)); err != nil {
 			return nil, fmt.Errorf("visual: mask %q: %w", sel, err)
 		}
 		for _, r := range rects {

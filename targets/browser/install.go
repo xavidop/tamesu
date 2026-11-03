@@ -266,5 +266,3 @@ func unzip(src, dst string) error {
 	}
 	return nil
 }
-
-func epoch(secs float64) time.Time { return time.Unix(int64(secs), 0) }

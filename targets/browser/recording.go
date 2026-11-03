@@ -2,7 +2,6 @@ package browser
 
 import (
 	"bytes"
-	"encoding/base64"
 	"fmt"
 	"image"
 	"image/color"
@@ -63,8 +62,9 @@ type screencast struct {
 // add keeps one screencast event, skipping a frame identical to the last so
 // a still page costs nothing.
 func (r *screencast) add(e *page.EventScreencastFrame) {
-	data, err := base64.StdEncoding.DecodeString(e.Data)
-	if err != nil || len(data) == 0 {
+	// The protocol carries the frame as base64; the decoder already undid it.
+	data := e.Data
+	if len(data) == 0 {
 		return
 	}
 	r.mu.Lock()
@@ -92,19 +92,19 @@ func (s *session) startRecording(w int) error {
 		maxW = recordingMaxWidth
 	}
 	s.rec = &screencast{}
-	return chromedp.Run(s.ctx, page.StartScreencast().
-		WithFormat(page.ScreencastFormatJpeg).
-		WithQuality(recordingQuality).
-		WithMaxWidth(int64(maxW)).
-		WithMaxHeight(int64(maxW*4)).
-		WithEveryNthFrame(1))
+	return chromedp.Do(s.ctx, call(page.StartScreencast, page.StartScreencastParams{
+		Format: page.StartScreencastFormatJpeg, Quality: ptr(int64(recordingQuality)),
+		MaxWidth: int64(maxW), MaxHeight: int64(maxW * 4), EveryNthFrame: 1,
+	}))
 }
 
 // onFrame stores a screencast frame and acknowledges it so the next one
 // comes; the ack runs off the event goroutine, which must not block.
 func (s *session) onFrame(e *page.EventScreencastFrame) {
 	s.rec.add(e)
-	go func() { _ = chromedp.Run(s.ctx, page.ScreencastFrameAck(e.SessionID)) }()
+	go func() {
+		_ = chromedp.Do(s.ctx, call(page.ScreencastFrameAck, page.ScreencastFrameAckParams{SessionID: e.SessionID}))
+	}()
 }
 
 // resolveRecordingFormat turns Config.Recording into the format to write.

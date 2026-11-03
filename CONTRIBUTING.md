@@ -76,8 +76,8 @@ This is a multi-module repository tied together by a `go.work` file:
   or a server fronting your agent with its events), its own module on `coder/websocket`: text mode
   (conversation items and text deltas) and audio mode (PCM16 in, audio and transcript deltas out,
   a stereo WAV), function calls recorded and a done tool that ends the session.
-- `targets/browser`: the browser target, its own module on chromedp (pinned to the v0.16 line,
-  the last with the classic action API): Chromium discovery and download, the accessibility-tree
+- `targets/browser`: the browser target, its own module on chromedp (the typed `Action[T]` API of
+  v0.17 and later): Chromium discovery and download, the accessibility-tree
   observation with stable refs, the page actions the browser agent's tools call, the
   deterministic step actions, screenshots, the session recording, the HAR and the console log.
 - `audio`: the audio pipeline, its own module: PCM buffers and resampling, WAV, the energy VAD

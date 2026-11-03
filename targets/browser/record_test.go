@@ -21,7 +21,7 @@ func TestRecord(t *testing.T) {
 	steps, err := Record(ctx, srv.URL+"/", RecordOptions{Headless: true, Timeout: 30 * time.Second, Log: func(s map[string]any) { logged = append(logged, s) }, OnReady: func(bctx context.Context) {
 		// A person types a username, a password, picks a size, presses Enter
 		// in the password field and clicks "Add to cart".
-		err := chromedp.Run(bctx, chromedp.Evaluate(`(() => {
+		err := chromedp.Do(bctx, eval(`(() => {
 			const fire = (el, type, init) => el.dispatchEvent(new (type === 'keydown' ? KeyboardEvent : Event)(type, Object.assign({bubbles: true}, init || {})));
 			const user = document.getElementById('user'); user.value = 'mar'; fire(user, 'change'); user.value = 'marta'; fire(user, 'change');
 			const pass = document.getElementById('pass'); pass.value = 'hunter2'; fire(pass, 'change');
@@ -30,7 +30,7 @@ func TestRecord(t *testing.T) {
 			document.getElementById('add').click();
 			document.querySelector('#login button').click();
 			return true;
-		})()`, nil))
+		})()`))
 		if err != nil {
 			t.Error(err)
 		}

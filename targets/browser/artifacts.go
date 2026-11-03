@@ -115,8 +115,8 @@ func (h *har) request(e *network.EventRequestWillBeSent) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	now := time.Now()
-	if e.WallTime != nil {
-		now = e.WallTime.Time()
+	if e.WallTime != 0 {
+		now = time.Unix(0, int64(e.WallTime.Float64()*float64(time.Second)))
 	}
 	entry := &harEntry{
 		StartedDateTime: now.UTC().Format(time.RFC3339Nano), started: now, wall: now,

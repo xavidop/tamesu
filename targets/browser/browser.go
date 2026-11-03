@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/fetch"
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/cdproto/page"
@@ -140,10 +141,17 @@ func (t *Target) Start(ctx context.Context, run *target.RunContext) (target.Sess
 		allowed: allowed, refs: map[int]refNode{}, byNode: map[int64]int{}, startedAt: time.Now(),
 		har: newHAR(), files: map[string]string{}, mocks: append([]Mock(nil), t.cfg.Mocks...),
 	}
-	s.listen()
 	sctx, cancel := context.WithTimeout(ctx, t.cfg.StepTimeout)
 	defer cancel()
-	if err := s.runCtx(sctx, chromedp.Run(bctx, network.Enable(), runtime.Enable(), chromedp.EmulateViewport(int64(w), int64(h)))); err != nil {
+	// Open the tab first: the event subscriptions and the first action would
+	// otherwise race to open one each, and the listeners would watch a tab
+	// nothing navigates.
+	if err := s.runCtx(sctx, chromedp.Do(bctx, chromedp.Sleep(0))); err != nil {
+		s.cancel()
+		return nil, fmt.Errorf("browser %s: start chromium (%s): %w", t.name, exec, err)
+	}
+	s.listen()
+	if err := s.runCtx(sctx, chromedp.Do(bctx, call(network.Enable, network.EnableParams{}), call(runtime.Enable, cdp.Empty{}), chromedp.EmulateViewport(int64(w), int64(h)))); err != nil {
 		s.cancel()
 		return nil, fmt.Errorf("browser %s: start chromium (%s): %w", t.name, exec, err)
 	}
@@ -274,12 +282,12 @@ func (s *session) runCtx(ctx context.Context, err error) error {
 }
 
 // do runs chromedp actions bounded by ctx (or the step timeout).
-func (s *session) do(ctx context.Context, actions ...chromedp.Action) error {
+func (s *session) do(ctx context.Context, actions ...chromedp.Action[chromedp.Void]) error {
 	tctx, cancel := context.WithTimeout(s.ctx, s.t.cfg.StepTimeout)
 	defer cancel()
 	stop := context.AfterFunc(ctx, cancel)
 	defer stop()
-	if err := chromedp.Run(tctx, actions...); err != nil {
+	if err := chromedp.Do(tctx, actions...); err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
@@ -288,52 +296,89 @@ func (s *session) do(ctx context.Context, actions ...chromedp.Action) error {
 	return nil
 }
 
-// listen captures console messages, exceptions and network traffic.
+// into turns an action with a result into one that stores it in dst.
+func into[T any](a chromedp.Action[T], dst *T) chromedp.Action[chromedp.Void] {
+	return func(ctx context.Context, t *chromedp.Target) (chromedp.Void, error) {
+		v, err := a(ctx, t)
+		if err != nil {
+			return chromedp.Void{}, err
+		}
+		*dst = v
+		return chromedp.Void{}, nil
+	}
+}
+
+// call runs one protocol command as an action, dropping its result.
+func call[P, R any](cmd cdp.Command[P, R], params P) chromedp.Action[chromedp.Void] {
+	return func(ctx context.Context, t *chromedp.Target) (chromedp.Void, error) {
+		_, err := cdp.Call(ctx, t, cmd, params)
+		return chromedp.Void{}, err
+	}
+}
+
+// eval runs JavaScript for its effects.
+func eval(js string, opts ...chromedp.EvaluateOption) chromedp.Action[chromedp.Void] {
+	return chromedp.Evaluate[chromedp.Void](js, opts...)
+}
+
+// watch delivers every event of one kind to fn until ctx ends.
+func watch[E any](ctx context.Context, ev cdp.Event[E], fn func(*E)) {
+	for e, err := range chromedp.Events(ctx, ev) {
+		if err != nil {
+			return
+		}
+		e := e
+		fn(&e)
+	}
+}
+
+func ptr[T any](v T) *T { return &v }
+
+// listen captures console messages, exceptions, network traffic, screencast
+// frames and paused requests. The subscriptions start before the domains are
+// enabled, so nothing is missed.
 func (s *session) listen() {
-	chromedp.ListenTarget(s.ctx, func(ev any) {
-		switch e := ev.(type) {
-		case *runtime.EventConsoleAPICalled:
-			if e.Type != runtime.APITypeError && e.Type != runtime.APITypeWarning && e.Type != runtime.APITypeAssert {
-				return
-			}
-			var parts []string
-			for _, a := range e.Args {
-				parts = append(parts, remoteString(a))
-			}
-			s.mu.Lock()
-			s.console = append(s.console, fmt.Sprintf("%s %s: %s", time.Now().Format(time.RFC3339), e.Type, strings.Join(parts, " ")))
-			s.mu.Unlock()
-		case *runtime.EventExceptionThrown:
-			msg := e.ExceptionDetails.Text
-			if e.ExceptionDetails.Exception != nil {
-				msg += " " + remoteString(e.ExceptionDetails.Exception)
-			}
-			s.mu.Lock()
-			s.console = append(s.console, fmt.Sprintf("%s exception: %s", time.Now().Format(time.RFC3339), strings.TrimSpace(msg)))
-			s.mu.Unlock()
-		case *network.EventRequestWillBeSent:
-			s.har.request(e)
-		case *network.EventResponseReceived:
-			s.har.response(e)
-		case *network.EventLoadingFinished:
-			s.har.finished(e)
-		case *network.EventLoadingFailed:
-			s.har.failed(e)
-		case *page.EventScreencastFrame:
-			if s.rec != nil {
-				s.onFrame(e)
-			}
-		case *fetch.EventRequestPaused:
-			s.onRequestPaused(e)
+	go watch(s.ctx, runtime.ConsoleAPICalled, func(e *runtime.EventConsoleAPICalled) {
+		if e.Type != runtime.ConsoleAPICalledTypeError && e.Type != runtime.ConsoleAPICalledTypeWarning && e.Type != runtime.ConsoleAPICalledTypeAssert {
+			return
+		}
+		var parts []string
+		for _, a := range e.Args {
+			parts = append(parts, remoteString(a))
+		}
+		s.mu.Lock()
+		s.console = append(s.console, fmt.Sprintf("%s %s: %s", time.Now().Format(time.RFC3339), e.Type, strings.Join(parts, " ")))
+		s.mu.Unlock()
+	})
+	go watch(s.ctx, runtime.ExceptionThrown, func(e *runtime.EventExceptionThrown) {
+		msg := e.ExceptionDetails.Text
+		if e.ExceptionDetails.Exception != nil {
+			msg += " " + remoteString(e.ExceptionDetails.Exception)
+		}
+		s.mu.Lock()
+		s.console = append(s.console, fmt.Sprintf("%s exception: %s", time.Now().Format(time.RFC3339), strings.TrimSpace(msg)))
+		s.mu.Unlock()
+	})
+	go watch(s.ctx, network.RequestWillBeSent, s.har.request)
+	go watch(s.ctx, network.ResponseReceived, s.har.response)
+	go watch(s.ctx, network.LoadingFinished, s.har.finished)
+	go watch(s.ctx, network.LoadingFailed, s.har.failed)
+	go watch(s.ctx, page.ScreencastFrame, func(e *page.EventScreencastFrame) {
+		s.mu.Lock()
+		rec := s.rec
+		s.mu.Unlock()
+		if rec != nil {
+			s.onFrame(e)
 		}
 	})
+	go watch(s.ctx, fetch.RequestPaused, s.onRequestPaused)
 }
 
 func remoteString(o *runtime.RemoteObject) string {
 	if o == nil {
 		return ""
 	}
-	if o.Description != "" && o.Type == runtime.TypeObject {
+	if o.Description != "" && o.Type == runtime.RemoteObjectTypeObject {
 		return o.Description
 	}
 	if len(o.Value) > 0 {

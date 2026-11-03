@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
@@ -132,42 +133,45 @@ func Record(ctx context.Context, rawURL string, opts RecordOptions) ([]map[strin
 	defer cancelBrowser()
 
 	rec := &recorder{}
-	chromedp.ListenTarget(bctx, func(ev any) {
-		switch e := ev.(type) {
-		case *runtime.EventBindingCalled:
-			if e.Name != recorderBinding {
-				return
-			}
-			var r recorded
-			if json.Unmarshal([]byte(e.Payload), &r) == nil {
-				rec.add(r, opts.Log)
-			}
-		case *page.EventFrameNavigated:
-			if e.Frame != nil && e.Frame.ParentID == "" {
-				rec.navigated(e.Frame.URL, opts.Log)
-			}
+	// Open the tab before subscribing, so the subscriptions watch the tab
+	// the actions drive.
+	if err := chromedp.Do(bctx, chromedp.Sleep(0)); err != nil {
+		return nil, fmt.Errorf("record: start chromium (%s): %w", exec, err)
+	}
+	go watch(bctx, runtime.BindingCalled, func(e *runtime.EventBindingCalled) {
+		if e.Name != recorderBinding {
+			return
+		}
+		var r recorded
+		if json.Unmarshal([]byte(e.Payload), &r) == nil {
+			rec.add(r, opts.Log)
 		}
 	})
-	start := []chromedp.Action{
-		runtime.Enable(),
-		page.Enable(),
-		chromedp.ActionFunc(func(ctx context.Context) error {
-			if err := runtime.AddBinding(recorderBinding).Do(ctx); err != nil {
-				return err
+	go watch(bctx, page.FrameNavigated, func(e *page.EventFrameNavigated) {
+		if e.Frame != nil && e.Frame.ParentID == "" {
+			rec.navigated(e.Frame.URL, opts.Log)
+		}
+	})
+	start := []chromedp.Action[chromedp.Void]{
+		call(runtime.Enable, cdp.Empty{}),
+		call(page.Enable, page.EnableParams{}),
+		func(ctx context.Context, t *chromedp.Target) (chromedp.Void, error) {
+			if _, err := cdp.Call(ctx, t, runtime.AddBinding, runtime.AddBindingParams{Name: recorderBinding}); err != nil {
+				return chromedp.Void{}, err
 			}
-			_, err := page.AddScriptToEvaluateOnNewDocument(recorderJS).Do(ctx)
-			return err
-		}),
+			_, err := cdp.Call(ctx, t, page.AddScriptToEvaluateOnNewDocument, page.AddScriptToEvaluateOnNewDocumentParams{Source: recorderJS})
+			return chromedp.Void{}, err
+		},
 	}
-	if err := chromedp.Run(bctx, start...); err != nil {
+	if err := chromedp.Do(bctx, start...); err != nil {
 		return nil, fmt.Errorf("record: start chromium (%s): %w", exec, err)
 	}
 	rec.expectNavigation(rawURL)
-	if err := chromedp.Run(bctx, chromedp.Navigate(rawURL), chromedp.WaitReady("body")); err != nil {
+	if err := chromedp.Do(bctx, chromedp.Navigate(rawURL), chromedp.WaitReady(chromedp.CSS("body"))); err != nil {
 		return nil, fmt.Errorf("record: open %s: %w", rawURL, err)
 	}
 	// Documents that were loading before the binding existed get the script too.
-	_ = chromedp.Run(bctx, chromedp.Evaluate(recorderJS, nil))
+	_ = chromedp.Do(bctx, eval(recorderJS))
 	if opts.OnReady != nil {
 		go opts.OnReady(bctx)
 	}

@@ -53,7 +53,7 @@ var interactiveRoles = map[string]bool{
 // URL returns the current location.
 func (s *session) URL(ctx context.Context) (string, error) {
 	var loc string
-	if err := s.do(ctx, chromedp.Location(&loc)); err != nil {
+	if err := s.do(ctx, into(chromedp.Location(), &loc)); err != nil {
 		return "", err
 	}
 	return loc, nil
@@ -65,13 +65,13 @@ func (s *session) Observe(ctx context.Context, withScreenshot bool) (target.Obse
 	var nodes []*accessibility.Node
 	var title string
 	err := s.do(ctx,
-		chromedp.Location(&obs.URL),
-		chromedp.Title(&title),
-		chromedp.ActionFunc(func(ctx context.Context) error {
-			var err error
-			nodes, err = accessibility.GetFullAXTree().Do(ctx)
-			return err
-		}),
+		into(chromedp.Location(), &obs.URL),
+		into(chromedp.Title(), &title),
+		func(ctx context.Context, t *chromedp.Target) (chromedp.Void, error) {
+			res, err := cdp.Call(ctx, t, accessibility.GetFullAXTree, accessibility.GetFullAXTreeParams{})
+			nodes = res.Nodes
+			return chromedp.Void{}, err
+		},
 	)
 	if err != nil {
 		return obs, fmt.Errorf("observe: %w", err)
@@ -219,27 +219,27 @@ func (s *session) Click(ctx context.Context, ref int) error {
 	if err != nil {
 		return err
 	}
-	err = s.do(ctx, chromedp.ActionFunc(func(ctx context.Context) error {
-		_ = dom.ScrollIntoViewIfNeeded().WithBackendNodeID(n.backend).Do(ctx)
-		quads, err := dom.GetContentQuads().WithBackendNodeID(n.backend).Do(ctx)
-		if err != nil || len(quads) == 0 || len(quads[0]) < 8 {
+	err = s.do(ctx, func(ctx context.Context, t *chromedp.Target) (chromedp.Void, error) {
+		_, _ = cdp.Call(ctx, t, dom.ScrollIntoViewIfNeeded, dom.ScrollIntoViewIfNeededParams{BackendNodeID: n.backend})
+		res, err := cdp.Call(ctx, t, dom.GetContentQuads, dom.GetContentQuadsParams{BackendNodeID: n.backend})
+		if err != nil || len(res.Quads) == 0 || len(res.Quads[0]) < 8 {
 			// Not laid out (hidden, or no box): click through the DOM.
-			return s.callOn(ctx, n.backend, "function() { this.click(); }", nil)
+			return chromedp.Void{}, s.callOn(ctx, t, n.backend, "function() { this.click(); }", nil)
 		}
-		q := quads[0]
+		q := res.Quads[0]
 		x := (q[0] + q[2] + q[4] + q[6]) / 4
 		y := (q[1] + q[3] + q[5] + q[7]) / 4
-		for _, t := range []input.MouseType{input.MouseMoved, input.MousePressed, input.MouseReleased} {
-			p := input.DispatchMouseEvent(t, x, y)
-			if t != input.MouseMoved {
-				p = p.WithButton(input.Left).WithClickCount(1)
+		for _, typ := range []input.DispatchMouseEventType{input.DispatchMouseEventTypeMouseMoved, input.DispatchMouseEventTypeMousePressed, input.DispatchMouseEventTypeMouseReleased} {
+			p := input.DispatchMouseEventParams{Type: typ, X: x, Y: y}
+			if typ != input.DispatchMouseEventTypeMouseMoved {
+				p.Button, p.ClickCount = input.MouseButtonLeft, 1
 			}
-			if err := p.Do(ctx); err != nil {
-				return err
+			if _, err := cdp.Call(ctx, t, input.DispatchMouseEvent, p); err != nil {
+				return chromedp.Void{}, err
 			}
 		}
-		return nil
-	}))
+		return chromedp.Void{}, nil
+	})
 	if err != nil {
 		return fmt.Errorf("click [%d] %s %q: %w", ref, n.role, n.name, err)
 	}
@@ -260,15 +260,16 @@ func (s *session) Type(ctx context.Context, ref int, text string) error {
 			return fmt.Errorf("type [%d]: %w", ref, err)
 		}
 	}
-	err = s.do(ctx, chromedp.ActionFunc(func(ctx context.Context) error {
-		if err := dom.Focus().WithBackendNodeID(n.backend).Do(ctx); err != nil {
-			return err
+	err = s.do(ctx, func(ctx context.Context, t *chromedp.Target) (chromedp.Void, error) {
+		if _, err := cdp.Call(ctx, t, dom.Focus, dom.FocusParams{BackendNodeID: n.backend}); err != nil {
+			return chromedp.Void{}, err
 		}
-		if err := s.callOn(ctx, n.backend, `function() { if ('value' in this) { this.value = ''; this.dispatchEvent(new Event('input', {bubbles: true})); } else if (this.isContentEditable) { this.textContent = ''; } }`, nil); err != nil {
-			return err
+		if err := s.callOn(ctx, t, n.backend, `function() { if ('value' in this) { this.value = ''; this.dispatchEvent(new Event('input', {bubbles: true})); } else if (this.isContentEditable) { this.textContent = ''; } }`, nil); err != nil {
+			return chromedp.Void{}, err
 		}
-		return input.InsertText(text).Do(ctx)
-	}))
+		_, err := cdp.Call(ctx, t, input.InsertText, input.InsertTextParams{Text: text})
+		return chromedp.Void{}, err
+	})
 	if err != nil {
 		return fmt.Errorf("type into [%d] %s %q: %w", ref, n.role, n.name, err)
 	}
@@ -283,14 +284,14 @@ func (s *session) Select(ctx context.Context, ref int, value string) error {
 		return err
 	}
 	var picked bool
-	err = s.do(ctx, chromedp.ActionFunc(func(ctx context.Context) error {
-		return s.callOn(ctx, n.backend, `function(v) {
+	err = s.do(ctx, func(ctx context.Context, t *chromedp.Target) (chromedp.Void, error) {
+		return chromedp.Void{}, s.callOn(ctx, t, n.backend, `function(v) {
 			const el = this.tagName === 'SELECT' ? this : this.closest('select');
 			if (!el) return false;
 			for (const o of el.options) { if (o.value === v || o.text.trim() === v) { el.value = o.value;
 				el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); return true; } }
 			return false; }`, &picked, value)
-	}))
+	})
 	if err != nil {
 		return fmt.Errorf("select %q in [%d]: %w", value, ref, err)
 	}
@@ -311,7 +312,7 @@ func (s *session) Scroll(ctx context.Context, direction string) error {
 	if js == "" {
 		return fmt.Errorf("scroll: direction must be up, down, top or bottom, not %q", direction)
 	}
-	if err := s.do(ctx, chromedp.Evaluate(js, nil)); err != nil {
+	if err := s.do(ctx, eval(js)); err != nil {
 		return fmt.Errorf("scroll %s: %w", direction, err)
 	}
 	s.event("scroll", direction)
@@ -328,7 +329,7 @@ func (s *session) Navigate(ctx context.Context, raw string) error {
 		s.event("navigation_refused", raw)
 		return fmt.Errorf("navigate: %s is outside allowed_domains %v; refusing", u.Hostname(), s.allowed)
 	}
-	if err := s.do(ctx, chromedp.Navigate(raw), chromedp.WaitReady("body")); err != nil {
+	if err := s.do(ctx, chromedp.Navigate(raw), chromedp.WaitReady(chromedp.CSS("body"))); err != nil {
 		return fmt.Errorf("navigate to %s: %w", raw, err)
 	}
 	s.event("navigate", raw)
@@ -375,7 +376,7 @@ func (s *session) Wait(ctx context.Context, d time.Duration) error {
 // Screenshot captures the viewport as PNG.
 func (s *session) Screenshot(ctx context.Context) ([]byte, error) {
 	var png []byte
-	if err := s.do(ctx, chromedp.CaptureScreenshot(&png)); err != nil {
+	if err := s.do(ctx, into(chromedp.CaptureScreenshot(), &png)); err != nil {
 		return nil, fmt.Errorf("screenshot: %w", err)
 	}
 	return png, nil
@@ -384,7 +385,7 @@ func (s *session) Screenshot(ctx context.Context) ([]byte, error) {
 // Eval runs JavaScript.
 func (s *session) Eval(ctx context.Context, js string) (any, error) {
 	var out any
-	if err := s.do(ctx, chromedp.Evaluate(js, &out)); err != nil {
+	if err := s.do(ctx, into(chromedp.Evaluate[any](js), &out)); err != nil {
 		return nil, fmt.Errorf("eval: %w", err)
 	}
 	return out, nil
@@ -393,7 +394,7 @@ func (s *session) Eval(ctx context.Context, js string) (any, error) {
 // Text is the page's visible text.
 func (s *session) Text(ctx context.Context) (string, error) {
 	var text string
-	if err := s.do(ctx, chromedp.Evaluate("document.body ? document.body.innerText : ''", &text)); err != nil {
+	if err := s.do(ctx, into(chromedp.Evaluate[string]("document.body ? document.body.innerText : ''"), &text)); err != nil {
 		return "", fmt.Errorf("text: %w", err)
 	}
 	return text, nil
@@ -401,11 +402,12 @@ func (s *session) Text(ctx context.Context) (string, error) {
 
 // callOn calls a JS function with the node as `this`, decoding a by-value
 // result into out when out is not nil.
-func (s *session) callOn(ctx context.Context, id cdp.BackendNodeID, fn string, out any, args ...any) error {
-	obj, err := dom.ResolveNode().WithBackendNodeID(id).Do(ctx)
+func (s *session) callOn(ctx context.Context, t *chromedp.Target, id cdp.BackendNodeID, fn string, out any, args ...any) error {
+	resolved, err := cdp.Call(ctx, t, dom.ResolveNode, dom.ResolveNodeParams{BackendNodeID: id})
 	if err != nil {
 		return err
 	}
+	obj := resolved.Object
 	if obj == nil || obj.ObjectID == "" {
 		return errors.New("node is gone")
 	}
@@ -417,14 +419,14 @@ func (s *session) callOn(ctx context.Context, id cdp.BackendNodeID, fn string, o
 		}
 		cargs = append(cargs, &runtime.CallArgument{Value: b})
 	}
-	res, exc, err := runtime.CallFunctionOn(fn).WithObjectID(obj.ObjectID).WithArguments(cargs).WithReturnByValue(true).Do(ctx)
+	called, err := cdp.Call(ctx, t, runtime.CallFunctionOn, runtime.CallFunctionOnParams{FunctionDeclaration: fn, ObjectID: obj.ObjectID, Arguments: cargs, ReturnByValue: ptr(true)})
 	if err != nil {
 		return err
 	}
-	if exc != nil {
-		return fmt.Errorf("page script: %s", exc.Text)
+	if called.ExceptionDetails != nil {
+		return fmt.Errorf("page script: %s", called.ExceptionDetails.Text)
 	}
-	if out != nil && res != nil && len(res.Value) > 0 {
+	if res := called.Result; out != nil && res != nil && len(res.Value) > 0 {
 		return json.Unmarshal(res.Value, out)
 	}
 	return nil
@@ -432,5 +434,5 @@ func (s *session) callOn(ctx context.Context, id cdp.BackendNodeID, fn string, o
 
 // settle gives the page a moment after an action that may navigate.
 func (s *session) settle(ctx context.Context) {
-	_ = s.do(ctx, chromedp.Sleep(150*time.Millisecond), chromedp.WaitReady("body"))
+	_ = s.do(ctx, chromedp.Sleep(150*time.Millisecond), chromedp.WaitReady(chromedp.CSS("body")))
 }
