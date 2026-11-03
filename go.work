@@ -8,8 +8,10 @@ use (
 	./examples/rest-agent
 	./examples/webapp
 	./llm
+	./llm/plugins/cartesia
 	./llm/plugins/deepgram
 	./llm/plugins/elevenlabs
+	./llm/plugins/soniox
 	./targets/browser
 	./targets/grpc
 	./targets/pipecat

@@ -28,7 +28,8 @@ const (
 // SpeechModel is a speech model with its defaults (design.md §4 speech:).
 type SpeechModel struct {
 	// Model is a Genkit model reference: googleai/gemini-2.5-flash-preview-tts,
-	// elevenlabs/eleven_flash_v2_5, deepgram/nova-3, googleai/gemini-2.5-flash.
+	// elevenlabs/eleven_flash_v2_5, cartesia/sonic-3.6, deepgram/nova-3,
+	// cartesia/ink-whisper, soniox/stt-async-v6, googleai/gemini-2.5-flash.
 	Model    string
 	Language string
 	Voice    string
@@ -160,6 +161,12 @@ func ttsConfig(provider, voice, lang string) map[string]any {
 		return cfg
 	case "openai":
 		return map[string]any{"voice": voice, "response_format": "pcm"}
+	case "cartesia":
+		cfg := map[string]any{"voice": voice}
+		if lang != "" {
+			cfg["language"] = lang
+		}
+		return cfg
 	}
 	cfg := map[string]any{"voice": voice}
 	if lang != "" {
@@ -216,7 +223,7 @@ func transcribePrompt(lang string) string {
 func sttConfig(provider, lang string) map[string]any {
 	cfg := map[string]any{}
 	switch provider {
-	case "deepgram", "fake":
+	case "deepgram", "cartesia", "soniox", "fake":
 		if lang != "" {
 			cfg["language"] = lang
 		}

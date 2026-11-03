@@ -8,8 +8,10 @@ require (
 	github.com/stretchr/testify v1.12.1
 	github.com/xavidop/tamesu v0.0.0
 	github.com/xavidop/tamesu/audio v0.0.0
+	github.com/xavidop/tamesu/llm/plugins/cartesia v0.0.0
 	github.com/xavidop/tamesu/llm/plugins/deepgram v0.0.0
 	github.com/xavidop/tamesu/llm/plugins/elevenlabs v0.0.0
+	github.com/xavidop/tamesu/llm/plugins/soniox v0.0.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -87,3 +89,7 @@ replace github.com/xavidop/tamesu/audio => ../audio
 replace github.com/xavidop/tamesu/llm/plugins/deepgram => ./plugins/deepgram
 
 replace github.com/xavidop/tamesu/llm/plugins/elevenlabs => ./plugins/elevenlabs
+
+replace github.com/xavidop/tamesu/llm/plugins/cartesia => ./plugins/cartesia
+
+replace github.com/xavidop/tamesu/llm/plugins/soniox => ./plugins/soniox

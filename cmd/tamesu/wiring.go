@@ -249,6 +249,10 @@ func credentialFor(provider string, custom map[string]string) (name string, need
 		return "DEEPGRAM_API_KEY", true
 	case "elevenlabs":
 		return "ELEVENLABS_API_KEY", true
+	case "cartesia":
+		return "CARTESIA_API_KEY", true
+	case "soniox":
+		return "SONIOX_API_KEY", true
 	case "ollama", "fake":
 		return "", false
 	}

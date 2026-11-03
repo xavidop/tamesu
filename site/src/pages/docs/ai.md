@@ -36,6 +36,8 @@ secrets:
 | `ollama` | `ollama/llama3.1`, any local model | none (`OLLAMA_URL` for a remote server) |
 | `deepgram` | `deepgram/nova-3`, `deepgram/nova-2` (speech to text) | `DEEPGRAM_API_KEY` |
 | `elevenlabs` | `elevenlabs/eleven_flash_v2_5`, `elevenlabs/eleven_multilingual_v2`, `elevenlabs/eleven_v3` (text to speech) | `ELEVENLABS_API_KEY` |
+| `cartesia` | `cartesia/sonic-3.6`, `cartesia/sonic-3` (text to speech), `cartesia/ink-whisper` (speech to text) | `CARTESIA_API_KEY` |
+| `soniox` | `soniox/stt-async-v6` (speech to text) | `SONIOX_API_KEY` |
 | `evaluators` | the evaluators `genkitEval/deep_equal`, `genkitEval/regex`, `genkitEval/jsonata` | none |
 | `fake` | `fake/simulator`, `fake/judge`, `fake/text`, `fake/tts`, `fake/stt` | none; only in a build with `-tags llmfake` |
 
@@ -117,20 +119,23 @@ speech:
 ```
 
 Text to speech is a Genkit model that answers with audio: Gemini TTS
-(`googleai/gemini-2.5-flash-preview-tts`, `googleai/gemini-2.5-pro-preview-tts`) or ElevenLabs
-through the bundled `elevenlabs` plugin. Speech to text is a Genkit model that takes the agent's
-audio and answers with text: Gemini (`googleai/gemini-2.5-flash`) or Deepgram through the bundled
-`deepgram` plugin. Switching provider is a config change, and `fallback: [...]` on either names
-the models that take over when the first fails (see [retries and fallbacks](#retries-and-fallbacks)).
+(`googleai/gemini-2.5-flash-preview-tts`, `googleai/gemini-2.5-pro-preview-tts`), ElevenLabs
+through the bundled `elevenlabs` plugin or Cartesia Sonic (`cartesia/sonic-3.6`) through the
+bundled `cartesia` plugin. Speech to text is a Genkit model that takes the agent's audio and
+answers with text: Gemini (`googleai/gemini-2.5-flash`), Deepgram (`deepgram/nova-3`), Cartesia
+Ink (`cartesia/ink-whisper`) or Soniox (`soniox/stt-async-v6`) through their bundled plugins.
+Switching provider is a config change, and `fallback: [...]` on either names the models that
+take over when the first fails (see [retries and fallbacks](#retries-and-fallbacks)).
 
 A persona's `voice` is a hint, `<language>-<gender>` such as `en-GB-female`, `es-ES-male` or
 just `female`, mapped to each provider's voices (Gemini `Kore`/`Puck`, ElevenLabs
-`Rachel`/`Adam`, OpenAI `nova`/`onyx`); a provider voice name or ID passes through. The hint's
-language is also the TTS language when `speech.tts.language` is not set.
+`Rachel`/`Adam`, OpenAI `nova`/`onyx`); a provider voice name or ID passes through. Cartesia
+voices are IDs from its voice library, so name one in the hint or `speech.tts.voice`; without
+one every persona speaks with the same library voice. The hint's language is also the TTS
+language when `speech.tts.language` is not set.
 
-The two plugins, `github.com/xavidop/tamesu/llm/plugins/deepgram` and
-`github.com/xavidop/tamesu/llm/plugins/elevenlabs`, are ordinary Genkit model plugins and work
-in any Genkit Go app. Speech is priced too, TTS per character and STT per minute of audio,
+The four plugins under `github.com/xavidop/tamesu/llm/plugins/` (`deepgram`, `elevenlabs`,
+`cartesia` and `soniox`) are ordinary Genkit model plugins and work in any Genkit Go app. Speech is priced too, TTS per character and STT per minute of audio,
 into the same budget. `tamesu doctor` has a `speech` check: the models and their credentials, the
 voice activity detector and whether this build has audio support.
 

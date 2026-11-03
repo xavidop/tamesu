@@ -89,6 +89,18 @@ updates:
     schedule: { interval: weekly }
     labels: [dependencies, go, ai]
 
+  # Cartesia TTS and STT Genkit plugin (own go.mod; Genkit only)
+  - package-ecosystem: gomod
+    directory: "/llm/plugins/cartesia"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, ai]
+
+  # Soniox STT Genkit plugin (own go.mod; Genkit only)
+  - package-ecosystem: gomod
+    directory: "/llm/plugins/soniox"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, ai]
+
   # Audio pipeline (own go.mod; onnxruntime_go behind -tags onnx, libopus via cgo)
   - package-ecosystem: gomod
     directory: "/audio"

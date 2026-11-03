@@ -39,7 +39,7 @@ var (
 	CallEnders        = []string{"agent", "caller", "timeout", "error", "no_answer", "busy"}
 	LineQualities     = []string{"pstn", "mobile_poor", "voip_good"}
 	ReporterNames     = []string{"console", "junit", "json", "html", "markdown", "github", "slack"}
-	GenkitPlugins     = []string{"googlegenai", "anthropic", "openai", "ollama", "deepgram", "elevenlabs", "evaluators"}
+	GenkitPlugins     = []string{"googlegenai", "anthropic", "openai", "ollama", "deepgram", "elevenlabs", "cartesia", "soniox", "evaluators"}
 	ScriptStepKinds   = []string{"wait_for", "dtmf", "say"}
 	// SIPTransports are the sip.trunk.transport values.
 	SIPTransports = []string{"auto", "udp", "tcp", "tls"}

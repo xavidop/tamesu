@@ -3,12 +3,14 @@ package llm
 import (
 	"slices"
 	"strings"
+
+	"github.com/xavidop/tamesu/llm/plugins/cartesia"
 )
 
 // Voice is a resolved voice hint.
 type Voice struct {
 	// Name is what the provider wants: a Gemini prebuilt voice, an ElevenLabs
-	// voice name or ID, an OpenAI voice.
+	// voice name or ID, a Cartesia voice ID, an OpenAI voice.
 	Name string
 	// Language is the BCP-47 tag the hint carried, if any (en-GB).
 	Language string
@@ -29,6 +31,7 @@ var defaultVoices = map[string]map[string]string{
 	"googleai":   {"female": "Kore", "male": "Puck", "": "Kore"},
 	"vertexai":   {"female": "Kore", "male": "Puck", "": "Kore"},
 	"elevenlabs": {"female": "Rachel", "male": "Adam", "": "Rachel"},
+	"cartesia":   {"female": cartesia.DefaultVoice, "male": cartesia.DefaultVoice, "": cartesia.DefaultVoice},
 	"openai":     {"female": "nova", "male": "onyx", "": "alloy"},
 	"fake":       {"female": "female", "male": "male", "": "neutral"},
 }

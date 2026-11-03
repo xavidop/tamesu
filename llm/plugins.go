@@ -13,12 +13,14 @@ import (
 	"github.com/firebase/genkit/go/plugins/googlegenai"
 	"github.com/firebase/genkit/go/plugins/ollama"
 
+	"github.com/xavidop/tamesu/llm/plugins/cartesia"
 	"github.com/xavidop/tamesu/llm/plugins/deepgram"
 	"github.com/xavidop/tamesu/llm/plugins/elevenlabs"
+	"github.com/xavidop/tamesu/llm/plugins/soniox"
 )
 
 // KnownPlugins are the plugin names tamesu.yaml may list.
-var KnownPlugins = []string{"googlegenai", "anthropic", "openai", "ollama", "deepgram", "elevenlabs", "evaluators", "fake"}
+var KnownPlugins = []string{"googlegenai", "anthropic", "openai", "ollama", "deepgram", "elevenlabs", "cartesia", "soniox", "evaluators", "fake"}
 
 // fakePlugin builds the fake provider; a build with -tags llmfake sets it.
 var fakePlugin func() api.Plugin
@@ -76,6 +78,10 @@ func (c *Client) plugins(cfg Config) ([]api.Plugin, error) {
 			out = append(out, &deepgram.Deepgram{APIKey: cred("DEEPGRAM_API_KEY")})
 		case "elevenlabs":
 			out = append(out, &elevenlabs.ElevenLabs{APIKey: cred("ELEVENLABS_API_KEY")})
+		case "cartesia":
+			out = append(out, &cartesia.Cartesia{APIKey: cred("CARTESIA_API_KEY")})
+		case "soniox":
+			out = append(out, &soniox.Soniox{APIKey: cred("SONIOX_API_KEY")})
 		default:
 			return nil, fmt.Errorf("llm: unknown Genkit plugin %q (known: %s)", name, strings.Join(KnownPlugins, ", "))
 		}
@@ -88,7 +94,7 @@ func pluginForProvider(provider string) string {
 	switch provider {
 	case "googleai", "vertexai":
 		return "googlegenai"
-	case "anthropic", "openai", "ollama", "deepgram", "elevenlabs", "fake":
+	case "anthropic", "openai", "ollama", "deepgram", "elevenlabs", "cartesia", "soniox", "fake":
 		return provider
 	}
 	return ""

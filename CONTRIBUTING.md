@@ -51,9 +51,10 @@ This is a multi-module repository tied together by a `go.work` file:
   the simulated user and judge flows, the dotprompt files under `llm/prompts/`, cost accounting,
   Genkit evaluators, the `synthesize`/`transcribe` speech flows, the `tamesu mcp` tools on
   Genkit's MCP server and, behind `-tags llmfake`, the fake provider CI runs with.
-- `llm/plugins/deepgram` and `llm/plugins/elevenlabs`: Genkit model plugins for Deepgram speech to
-  text and ElevenLabs text to speech, each its own module on Genkit alone, so any Genkit Go app can
-  use them.
+- `llm/plugins/deepgram`, `llm/plugins/elevenlabs`, `llm/plugins/cartesia` and
+  `llm/plugins/soniox`: Genkit model plugins for Deepgram and Soniox speech to text, ElevenLabs
+  text to speech and Cartesia both ways, each its own module on Genkit alone, so any Genkit Go app
+  can use them.
 - `targets/rest`: the REST target (HTTP, SSE), its own module; it passes the `targettest`
   conformance suite of the root module.
 - `targets/livekit`: the LiveKit target (text and audio mode), its own module on the LiveKit Go
