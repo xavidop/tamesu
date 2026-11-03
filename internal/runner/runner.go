@@ -414,7 +414,7 @@ func (r *run) collect() (items []*item, selected int, err error) {
 			if r.o.Mode != "" && (tgt.Type == config.TargetLiveKit || tgt.Type == config.TargetSIP || tgt.Type == config.TargetRealtime || tgt.Type == config.TargetPipecat) {
 				it.mode = r.o.Mode
 			}
-			if tgt.Type == config.TargetSIP {
+			if tgt.Type == config.TargetSIP || tgt.Type == config.TargetTwilio {
 				it.mode = "audio"
 			}
 			if t.Seed != nil {

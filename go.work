@@ -18,4 +18,5 @@ use (
 	./targets/realtime
 	./targets/rest
 	./targets/sip
+	./targets/twilio
 )

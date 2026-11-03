@@ -64,6 +64,9 @@ This is a multi-module repository tied together by a `go.work` file:
   the allowed-numbers guard and `tamesu sip setup`; the API sits behind an interface with a fake.
 - `targets/pipecat`: the target for Pipecat's websocket transport (protobuf frames, vendored in
   `frames/`, and RTVI messages), its own module on `coder/websocket`; text and audio.
+- `targets/twilio`: the Twilio Media Streams target, its own module on `coder/websocket` and the
+  audio module: tamesu plays Twilio's side of the stream (connected, start, μ-law media, dtmf,
+  marks, clear, stop) against the agent's websocket.
 - `targets/model`: the model target, its own module with no provider dependency: a system prompt
   and tool definitions run through `target.ChatModel`, which the llm module implements, with the
   tool calls answered from the suite.

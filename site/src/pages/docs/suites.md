@@ -63,13 +63,13 @@ tests:
 
 | Key | Type | Required | Description |
 |---|---|---|---|
-| `type` | one of `browser`, `rest`, `livekit`, `sip`, `realtime`, `grpc`, `pipecat`, `model` | yes |  |
-| `url` | string |  | The page (browser) or endpoint (rest / realtime / pipecat) or grpc://host:port (grpc) or LiveKit server (livekit). |
+| `type` | one of `browser`, `rest`, `livekit`, `sip`, `realtime`, `grpc`, `pipecat`, `model`, `twilio` | yes |  |
+| `url` | string |  | The page (browser) or endpoint (rest / realtime / pipecat / twilio) or grpc://host:port (grpc) or LiveKit server (livekit). |
 | `browser` | [BrowserOptions](#browseroptions) |  |  |
 | `auth` | [BrowserAuth](#browserauth) |  |  |
 | `allowed_domains` | list of string |  | Domains the browser agent may navigate to; defaults to the url's domain. |
 | `method` | string |  | HTTP method; defaults to POST. |
-| `headers` | map of string to string |  | Request (rest) or handshake (realtime and pipecat) headers or call metadata (grpc); put credentials here as {{secrets.NAME}}. |
+| `headers` | map of string to string |  | Request (rest) or handshake (realtime / pipecat / twilio) headers or call metadata (grpc); put credentials here as {{secrets.NAME}}. |
 | `request` | [RESTRequest](#restrequest) |  |  |
 | `response` | [RESTResponse](#restresponse) |  |  |
 | `streaming` | one of `none`, `sse`, `websocket` |  |  |
@@ -84,8 +84,8 @@ tests:
 | `join_timeout` | [Duration](#duration) |  |  |
 | `transcript_source` | one of `auto`, `agent`, `stt` |  | Audio mode: where the agent's words come from; auto (default) takes the agent's own transcription when it publishes one and transcribes its audio otherwise. |
 | `direction` | one of `outbound`, `inbound` |  |  |
-| `to` | string |  | The agent's phone number in E.164 (outbound). |
-| `from` | string |  | Caller ID presented by the trunk. |
+| `to` | string |  | The agent's phone number in E.164 (outbound); twilio: the To the agent sees in customParameters. |
+| `from` | string |  | Caller ID presented by the trunk; twilio: the From the agent sees in customParameters. |
 | `trunk_id` | string |  | LiveKit SIP trunk; defaults to sip.outbound_trunk_id. |
 | `ring_timeout` | [Duration](#duration) |  |  |
 | `max_call_duration` | [Duration](#duration) |  |  |
@@ -98,7 +98,8 @@ tests:
 | `tool_results` | object (any keys) |  | realtime and pipecat: answers to the agent's function calls by function name. The value (any JSON; string leaves may use {{args.<key>}}) goes back as the function's output and the response continues. Unlisted functions and done_tool are recorded only. |
 | `audio_format` | one of `pcm16`, `g711_ulaw`, `g711_alaw` |  | realtime audio mode: the agent's output audio; pcm16 (default) or G.711 at 8 kHz. |
 | `sample_rate` | integer |  | pipecat audio mode: the transport's sample rate in Hz; default 16000. |
-| `idle` | [Duration](#duration) |  | pipecat: silence after the agent's last message or audio that ends a turn when no bot-stopped-speaking / bot-llm-stopped arrives; default 2s. |
+| `idle` | [Duration](#duration) |  | pipecat and twilio: silence after the agent's last message or audio that ends a turn; default 2s. |
+| `parameters` | map of string to string |  | twilio: the customParameters of the start event (the Parameter elements of the TwiML Stream); values render {{vars.x}} and {{secrets.X}}. |
 | `system` | string |  | model: the system prompt under test; {{vars.x}} and {{secrets.X}} render. |
 | `system_file` | string |  | model: a file next to the suite holding the system prompt (instead of system). |
 | `tools` | list of [ToolDef](#tooldef) |  | model: the tools offered to the model and the result tamesu answers each call with. |
@@ -113,6 +114,11 @@ targets:
   web:  { type: browser, url: "https://shop.example.com", browser: { viewport: 1280x800 } }
   api:  { type: rest, url: "https://api.example.com/chat", response: { text: "$.reply", done: "$.end_session" } }
   grpc: { type: grpc, url: "grpc://agent.internal:9090" }
+  phone:
+    type: twilio
+    url: "${AGENT_STREAM_URL:-wss://agent.example.com/media}"
+    parameters: { caller_tier: gold }
+    from: "+15550100"
   prompt:
     type: model
     model: googleai/gemini-2.5-flash

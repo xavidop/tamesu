@@ -48,15 +48,15 @@ var (
 // belongs to, so a field on the wrong kind of target earns a warning.
 var targetFieldTypes = map[string][]string{
 	"browser": {TargetBrowser}, "auth": {TargetBrowser}, "allowed_domains": {TargetBrowser},
-	"method": {TargetREST}, "headers": {TargetREST, TargetRealtime, TargetGRPC, TargetPipecat}, "request": {TargetREST}, "response": {TargetREST}, "streaming": {TargetREST}, "session": {TargetREST, TargetGRPC},
+	"method": {TargetREST}, "headers": {TargetREST, TargetRealtime, TargetGRPC, TargetPipecat, TargetTwilio}, "request": {TargetREST}, "response": {TargetREST}, "streaming": {TargetREST}, "session": {TargetREST, TargetGRPC},
 	"api_key": {TargetLiveKit}, "api_secret": {TargetLiveKit}, "room": {TargetLiveKit}, "dispatch": {TargetLiveKit},
 	"agent_identity_prefix": {TargetLiveKit}, "mode": {TargetLiveKit, TargetRealtime, TargetPipecat}, "data_topic": {TargetLiveKit}, "join_timeout": {TargetLiveKit},
 	"transcript_source": {TargetLiveKit},
-	"direction":         {TargetSIP}, "to": {TargetSIP}, "from": {TargetSIP}, "trunk_id": {TargetSIP}, "ring_timeout": {TargetSIP},
+	"direction":         {TargetSIP}, "to": {TargetSIP, TargetTwilio}, "from": {TargetSIP, TargetTwilio}, "trunk_id": {TargetSIP}, "ring_timeout": {TargetSIP},
 	"max_call_duration": {TargetSIP}, "trigger": {TargetSIP},
-	"model": {TargetRealtime, TargetModel}, "session_update": {TargetRealtime}, "protocol": {TargetRealtime}, "done_tool": {TargetRealtime, TargetModel}, "turn_timeout": {TargetRealtime, TargetGRPC, TargetPipecat},
+	"model": {TargetRealtime, TargetModel}, "session_update": {TargetRealtime}, "protocol": {TargetRealtime}, "done_tool": {TargetRealtime, TargetModel}, "turn_timeout": {TargetRealtime, TargetGRPC, TargetPipecat, TargetTwilio},
 	"tool_results": {TargetRealtime, TargetPipecat}, "audio_format": {TargetRealtime},
-	"sample_rate": {TargetPipecat}, "idle": {TargetPipecat},
+	"sample_rate": {TargetPipecat}, "idle": {TargetPipecat, TargetTwilio}, "parameters": {TargetTwilio},
 	"system": {TargetModel}, "system_file": {TargetModel}, "tools": {TargetModel}, "temperature": {TargetModel}, "max_tokens": {TargetModel}, "max_tool_rounds": {TargetModel},
 }
 
@@ -290,6 +290,15 @@ func (v *validator) target(name string, t Target) {
 		}
 		if t.SampleRate < 0 || (t.SampleRate > 0 && t.SampleRate < 8000) {
 			v.errorf(with(tp, "sample_rate"), "sample_rate must be 8000 Hz or more")
+		}
+	case TargetTwilio:
+		if t.URL == "" {
+			v.errorf(tp, "twilio target needs url (the agent's Media Streams websocket, the Stream url of its TwiML)")
+		} else if !strings.Contains(t.URL, "{{") && !strings.Contains(t.URL, "${") && !realtimeURLRe.MatchString(t.URL) {
+			v.errorf(with(tp, "url"), "twilio url must be a websocket URL (ws://, wss://, http:// or https://)")
+		}
+		if t.Idle < 0 {
+			v.errorf(with(tp, "idle"), "idle cannot be negative")
 		}
 	case TargetModel:
 		if strings.TrimSpace(t.System) == "" && t.SystemFile == "" {

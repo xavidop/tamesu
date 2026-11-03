@@ -71,6 +71,7 @@ const ORDER = [
   "/docs/targets/grpc",
   "/docs/targets/pipecat",
   "/docs/targets/model",
+  "/docs/targets/twilio",
   "/docs/sip-setup",
   "/docs/cli",
   "/docs/reports",

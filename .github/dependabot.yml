@@ -68,6 +68,12 @@ updates:
     schedule: { interval: weekly }
     labels: [dependencies, go, target]
 
+  # Twilio target (own go.mod; coder/websocket and the audio module)
+  - package-ecosystem: gomod
+    directory: "/targets/twilio"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, target]
+
   # Model target (own go.mod; only the root module)
   - package-ecosystem: gomod
     directory: "/targets/model"

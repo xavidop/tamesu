@@ -33,9 +33,9 @@ OpenAI Realtime API and a web checkout.
   <img src="site/public/demo.gif" alt="tamesu init, validate, list and doctor in a terminal" width="900" />
 </p>
 
-- **Eight targets, one model.** `browser`, `rest`, `grpc`, `livekit`, `sip`, `realtime`,
-  `pipecat` and `model` (a prompt with no server yet) share the schema, the assertions, the
-  metrics and the reports.
+- **Nine targets, one model.** `browser`, `rest`, `grpc`, `livekit`, `sip`, `twilio`,
+  `realtime`, `pipecat` and `model` (a prompt with no server yet) share the schema, the
+  assertions, the metrics and the reports.
 - **Judges you can trust.** Rubrics with structured output, versioned prompts recorded in every
   result, replayable verdicts, and `tamesu judge calibrate` to measure a judge against
   transcripts people have already marked.
@@ -135,6 +135,7 @@ runs the same tests from `go test`.
 | `grpc` | the turn API in [`proto/tamesu/turn/v1`](proto/tamesu/turn/v1/turn.proto) | text | [`examples/rest-agent`](examples/rest-agent/) with `--grpc` |
 | `pipecat` | the websocket transport of a Pipecat bot (protobuf frames and RTVI) | text, audio | any bot with an RTVI observer |
 | `model` | a system prompt and tool definitions, directly against a model: no agent server, tool calls answered from the suite | text | [`examples/model-prompt`](examples/model-prompt/) |
+| `twilio` | a Twilio Media Streams agent, with tamesu playing Twilio's side of the websocket: μ-law media, DTMF, marks and clear, no phone number needed | audio | any agent behind a `<Stream url>` |
 
 Audio tests speak through TTS, hear through VAD and STT, interrupt, add background noise and
 degrade the line, and measure time to first audio, interruption stop time, talk-over and silence

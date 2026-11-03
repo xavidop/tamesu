@@ -804,12 +804,13 @@
             "realtime",
             "grpc",
             "pipecat",
-            "model"
+            "model",
+            "twilio"
           ]
         },
         "url": {
           "type": "string",
-          "description": "The page (browser) or endpoint (rest / realtime / pipecat) or grpc://host:port (grpc) or LiveKit server (livekit)."
+          "description": "The page (browser) or endpoint (rest / realtime / pipecat / twilio) or grpc://host:port (grpc) or LiveKit server (livekit)."
         },
         "browser": {
           "$ref": "#/$defs/BrowserOptions"
@@ -833,7 +834,7 @@
             "type": "string"
           },
           "type": "object",
-          "description": "Request (rest) or handshake (realtime and pipecat) headers or call metadata (grpc); put credentials here as {{secrets.NAME}}."
+          "description": "Request (rest) or handshake (realtime / pipecat / twilio) headers or call metadata (grpc); put credentials here as {{secrets.NAME}}."
         },
         "request": {
           "$ref": "#/$defs/RESTRequest"
@@ -904,11 +905,11 @@
         },
         "to": {
           "type": "string",
-          "description": "The agent's phone number in E.164 (outbound)."
+          "description": "The agent's phone number in E.164 (outbound); twilio: the To the agent sees in customParameters."
         },
         "from": {
           "type": "string",
-          "description": "Caller ID presented by the trunk."
+          "description": "Caller ID presented by the trunk; twilio: the From the agent sees in customParameters."
         },
         "trunk_id": {
           "type": "string",
@@ -966,7 +967,14 @@
         },
         "idle": {
           "$ref": "#/$defs/Duration",
-          "description": "pipecat: silence after the agent's last message or audio that ends a turn when no bot-stopped-speaking / bot-llm-stopped arrives; default 2s."
+          "description": "pipecat and twilio: silence after the agent's last message or audio that ends a turn; default 2s."
+        },
+        "parameters": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "twilio: the customParameters of the start event (the Parameter elements of the TwiML Stream); values render {{vars.x}} and {{secrets.X}}."
         },
         "system": {
           "type": "string",

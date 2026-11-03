@@ -23,6 +23,7 @@ require (
 	github.com/xavidop/tamesu/targets/realtime v0.0.0
 	github.com/xavidop/tamesu/targets/rest v0.0.0
 	github.com/xavidop/tamesu/targets/sip v0.0.0
+	github.com/xavidop/tamesu/targets/twilio v0.0.0
 )
 
 require (
@@ -307,6 +308,8 @@ replace github.com/xavidop/tamesu/llm/plugins/elevenlabs => ../../llm/plugins/el
 replace github.com/xavidop/tamesu/targets/rest => ../../targets/rest
 
 replace github.com/xavidop/tamesu/targets/model => ../../targets/model
+
+replace github.com/xavidop/tamesu/targets/twilio => ../../targets/twilio
 
 replace github.com/xavidop/tamesu/targets/realtime => ../../targets/realtime
 

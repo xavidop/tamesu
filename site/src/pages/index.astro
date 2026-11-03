@@ -42,6 +42,11 @@ const targets = [
     body: "The websocket transport of a Pipecat bot: protobuf audio frames and RTVI messages, text or real audio, with the bot's words and timing.",
   },
   {
+    tag: "twilio",
+    title: "Twilio agents",
+    body: "tamesu plays Twilio's side of Media Streams: μ-law media, DTMF, marks and clear against your stream URL, so a phone agent is tested with no number, trunk or call.",
+  },
+  {
     tag: "model",
     title: "Prompts, no server yet",
     body: "A system prompt and its tool definitions straight against a model; tool calls are answered from the suite, so a prompt is regression-tested before the agent exists.",
@@ -116,8 +121,8 @@ ok   secret API_TOKEN: env (link 1 of 1)`;
         <p class="hero__note">Homebrew is macOS only; on Linux and Windows, use a package or a release binary.</p>
         <p class="hero__status">
           One YAML schema for <code>browser</code>, <code>rest</code>, <code>grpc</code>,
-          <code>livekit</code>, <code>sip</code>, <code>realtime</code>, <code>pipecat</code> and
-          <code>model</code> targets, validated with file and line numbers.
+          <code>livekit</code>, <code>sip</code>, <code>twilio</code>, <code>realtime</code>,
+          <code>pipecat</code> and <code>model</code> targets, validated with file and line numbers.
           <code>tamesu doctor</code> resolves every secret through mamori and checks the setup.
         </p>
       </div>
@@ -142,7 +147,7 @@ ok   secret API_TOKEN: env (link 1 of 1)`;
   <section class="section">
     <div class="wrap">
       <div class="section__head">
-        <p class="eyebrow">Eight targets, one model</p>
+        <p class="eyebrow">Nine targets, one model</p>
         <h2>The same test for a prompt, a chatbot, a voice agent, a phone line, a realtime API and a web flow</h2>
       </div>
       <div class="targets">

@@ -12,11 +12,12 @@ const (
 	TargetGRPC     = "grpc"
 	TargetPipecat  = "pipecat"
 	TargetModel    = "model"
+	TargetTwilio   = "twilio"
 )
 
 // TargetTypes lists the target types a suite may declare, in documentation order.
 func TargetTypes() []string {
-	return []string{TargetBrowser, TargetREST, TargetLiveKit, TargetSIP, TargetRealtime, TargetGRPC, TargetPipecat, TargetModel}
+	return []string{TargetBrowser, TargetREST, TargetLiveKit, TargetSIP, TargetRealtime, TargetGRPC, TargetPipecat, TargetModel, TargetTwilio}
 }
 
 // IsConversational reports whether a target type talks in turns (everything
@@ -53,8 +54,8 @@ type Suite struct {
 
 // Target is a system under test. Type selects which of the other fields apply.
 type Target struct {
-	Type string `yaml:"type" json:"type" jsonschema:"required,enum=browser,enum=rest,enum=livekit,enum=sip,enum=realtime,enum=grpc,enum=pipecat,enum=model"`
-	URL  string `yaml:"url,omitempty" json:"url,omitempty" jsonschema:"description=The page (browser) or endpoint (rest / realtime / pipecat) or grpc://host:port (grpc) or LiveKit server (livekit)."`
+	Type string `yaml:"type" json:"type" jsonschema:"required,enum=browser,enum=rest,enum=livekit,enum=sip,enum=realtime,enum=grpc,enum=pipecat,enum=model,enum=twilio"`
+	URL  string `yaml:"url,omitempty" json:"url,omitempty" jsonschema:"description=The page (browser) or endpoint (rest / realtime / pipecat / twilio) or grpc://host:port (grpc) or LiveKit server (livekit)."`
 
 	// browser
 	Browser        *BrowserOptions `yaml:"browser,omitempty" json:"browser,omitempty"`
@@ -63,7 +64,7 @@ type Target struct {
 
 	// rest (headers also realtime)
 	Method    string            `yaml:"method,omitempty" json:"method,omitempty" jsonschema:"description=HTTP method; defaults to POST."`
-	Headers   map[string]string `yaml:"headers,omitempty" json:"headers,omitempty" jsonschema:"description=Request (rest) or handshake (realtime and pipecat) headers or call metadata (grpc); put credentials here as {{secrets.NAME}}."`
+	Headers   map[string]string `yaml:"headers,omitempty" json:"headers,omitempty" jsonschema:"description=Request (rest) or handshake (realtime / pipecat / twilio) headers or call metadata (grpc); put credentials here as {{secrets.NAME}}."`
 	Request   *RESTRequest      `yaml:"request,omitempty" json:"request,omitempty"`
 	Response  *RESTResponse     `yaml:"response,omitempty" json:"response,omitempty"`
 	Streaming string            `yaml:"streaming,omitempty" json:"streaming,omitempty" jsonschema:"enum=none,enum=sse,enum=websocket"`
@@ -82,8 +83,8 @@ type Target struct {
 
 	// sip
 	Direction       string   `yaml:"direction,omitempty" json:"direction,omitempty" jsonschema:"enum=outbound,enum=inbound"`
-	To              string   `yaml:"to,omitempty" json:"to,omitempty" jsonschema:"description=The agent's phone number in E.164 (outbound)."`
-	From            string   `yaml:"from,omitempty" json:"from,omitempty" jsonschema:"description=Caller ID presented by the trunk."`
+	To              string   `yaml:"to,omitempty" json:"to,omitempty" jsonschema:"description=The agent's phone number in E.164 (outbound); twilio: the To the agent sees in customParameters."`
+	From            string   `yaml:"from,omitempty" json:"from,omitempty" jsonschema:"description=Caller ID presented by the trunk; twilio: the From the agent sees in customParameters."`
 	TrunkID         string   `yaml:"trunk_id,omitempty" json:"trunk_id,omitempty" jsonschema:"description=LiveKit SIP trunk; defaults to sip.outbound_trunk_id."`
 	RingTimeout     Duration `yaml:"ring_timeout,omitempty" json:"ring_timeout,omitempty"`
 	MaxCallDuration Duration `yaml:"max_call_duration,omitempty" json:"max_call_duration,omitempty"`
@@ -100,7 +101,10 @@ type Target struct {
 
 	// pipecat (a Pipecat websocket transport with the protobuf frame serializer; url, headers, mode, turn_timeout and tool_results apply too)
 	SampleRate int      `yaml:"sample_rate,omitempty" json:"sample_rate,omitempty" jsonschema:"description=pipecat audio mode: the transport's sample rate in Hz; default 16000."`
-	Idle       Duration `yaml:"idle,omitempty" json:"idle,omitempty" jsonschema:"description=pipecat: silence after the agent's last message or audio that ends a turn when no bot-stopped-speaking / bot-llm-stopped arrives; default 2s."`
+	Idle       Duration `yaml:"idle,omitempty" json:"idle,omitempty" jsonschema:"description=pipecat and twilio: silence after the agent's last message or audio that ends a turn; default 2s."`
+
+	// twilio (Twilio Media Streams: url, headers, from, to, idle and turn_timeout apply too)
+	Parameters map[string]string `yaml:"parameters,omitempty" json:"parameters,omitempty" jsonschema:"description=twilio: the customParameters of the start event (the Parameter elements of the TwiML Stream); values render {{vars.x}} and {{secrets.X}}."`
 
 	// model (a system prompt and tools tested directly against a model; model and done_tool apply too)
 	System        string    `yaml:"system,omitempty" json:"system,omitempty" jsonschema:"description=model: the system prompt under test; {{vars.x}} and {{secrets.X}} render."`

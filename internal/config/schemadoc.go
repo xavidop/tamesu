@@ -41,6 +41,11 @@ tests:
   web:  { type: browser, url: "https://shop.example.com", browser: { viewport: 1280x800 } }
   api:  { type: rest, url: "https://api.example.com/chat", response: { text: "$.reply", done: "$.end_session" } }
   grpc: { type: grpc, url: "grpc://agent.internal:9090" }
+  phone:
+    type: twilio
+    url: "${AGENT_STREAM_URL:-wss://agent.example.com/media}"
+    parameters: { caller_tier: gold }
+    from: "+15550100"
   prompt:
     type: model
     model: googleai/gemini-2.5-flash

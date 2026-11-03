@@ -136,6 +136,12 @@ func targetStub(typ string) *yaml.Node {
 				key("description"), scalar("Call when the user has no more questions"),
 			)}},
 		)
+	case config.TargetTwilio:
+		return mapping(
+			key("type"), scalar("twilio"),
+			key("url"), scalar("${AGENT_STREAM_URL:-wss://localhost:8080/media}"),
+			key("parameters"), mapping(key("caller_tier"), scalar("gold")),
+		)
 	case config.TargetSIP:
 		return mapping(
 			key("type"), scalar("sip"),
