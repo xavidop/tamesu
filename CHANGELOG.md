@@ -2,6 +2,13 @@
 
 All notable changes to tamesu are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/). Each new release is added at the top, with notes generated from the commit messages.
 
+# [1.6.0](https://github.com/xavidop/tamesu/compare/v1.5.0...v1.6.0) (2026-11-03)
+
+
+### Features
+
+* **llm:** Cartesia and Soniox speech plugins ([87bed88](https://github.com/xavidop/tamesu/commit/87bed88a430c1c207621e1c31806fafc8bf80e07))
+
 # [1.5.0](https://github.com/xavidop/tamesu/compare/v1.4.0...v1.5.0) (2026-11-03)
 
 
