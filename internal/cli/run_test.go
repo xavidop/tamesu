@@ -55,10 +55,20 @@ func (p *fakeModel) Usage() model.Usage {
 
 func (p *fakeModel) Close(context.Context) error { return nil }
 
+// authBox records the last rendered Authorization header; runs of several
+// tests start targets in parallel, so it locks.
+type authBox struct {
+	mu sync.Mutex
+	v  string
+}
+
+func (a *authBox) set(v string) { a.mu.Lock(); a.v = v; a.mu.Unlock() }
+func (a *authBox) get() string  { a.mu.Lock(); defer a.mu.Unlock(); return a.v }
+
 // echoTarget answers "echo: <text>" and records the rendered Authorization header.
 type echoTarget struct {
 	spec runner.TargetSpec
-	auth *string
+	auth *authBox
 }
 
 func (e *echoTarget) Name() string { return e.spec.Name }
@@ -71,7 +81,7 @@ func (e *echoTarget) Start(_ context.Context, rc *target.RunContext) (target.Ses
 	if err != nil {
 		return nil, err
 	}
-	*e.auth = auth
+	e.auth.set(auth)
 	return &echoSession{}, nil
 }
 
@@ -128,10 +138,10 @@ tests:
     scenario: { goal: say hi }
 `
 
-func runDeps(t *testing.T) (cli.Deps, *fakeModel, *string) {
+func runDeps(t *testing.T) (cli.Deps, *fakeModel, *authBox) {
 	t.Helper()
 	p := &fakeModel{}
-	auth := new(string)
+	auth := &authBox{}
 	deps := cli.Deps{
 		Providers: []mamori.Provider{&fakeProvider{values: map[string]string{"token": "s3cret-token"}}},
 		NewProvider: func(_ context.Context, cfg cli.ProviderConfig) (model.Provider, error) {
@@ -157,7 +167,7 @@ func TestRunEndToEnd(t *testing.T) {
 	assert.Equal(t, cli.ExitOK, code, stderr)
 	assert.Contains(t, stdout, "PASS   run-suite / good")
 	assert.Contains(t, stdout, "1 passed, 0 failed, 0 errors")
-	assert.Equal(t, "Bearer s3cret-token", *auth, "secrets are revealed inside the transport")
+	assert.Equal(t, "Bearer s3cret-token", auth.get(), "secrets are revealed inside the transport")
 	assert.NotContains(t, stdout, "s3cret-token")
 	for _, f := range []string{"summary.json", "junit.xml", "tests/good/run-1/result.json", "tests/good/run-1/transcript.json"} {
 		_, err := os.Stat(filepath.Join(out, f))
