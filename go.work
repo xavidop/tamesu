@@ -14,6 +14,7 @@ use (
 	./targets/grpc
 	./targets/pipecat
 	./targets/livekit
+	./targets/model
 	./targets/realtime
 	./targets/rest
 	./targets/sip

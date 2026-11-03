@@ -1,0 +1,11 @@
+version: 1
+suites: ["suite.yaml"]
+genkit:
+  plugins: [googlegenai]
+models:
+  default: googleai/gemini-2.5-flash
+  judge: googleai/gemini-2.5-pro
+secrets:
+  GEMINI_API_KEY: env:GEMINI_API_KEY
+budgets: { max_cost_usd: 1 }
+reporters: [console, junit, html]

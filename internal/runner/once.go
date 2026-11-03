@@ -111,6 +111,9 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 		return fail(r.classify(tctx, err), fmt.Errorf("target %s: %w", it.test.Target, err))
 	}
 	rc := &target.RunContext{TestName: it.test.Name, RunIndex: idx, Dir: dir, Vars: vars, Render: render, Logger: logger, SuiteDir: filepath.Dir(it.suite.Path), UpdateBaselines: r.o.UpdateVisual}
+	if cm, ok := r.o.Provider.(target.ChatModel); ok {
+		rc.Chat = cm
+	}
 	if it.mode == "audio" {
 		if sp, ok := r.o.Provider.(target.Speech); ok {
 			rc.Speech = sp

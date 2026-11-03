@@ -64,6 +64,9 @@ This is a multi-module repository tied together by a `go.work` file:
   the allowed-numbers guard and `tamesu sip setup`; the API sits behind an interface with a fake.
 - `targets/pipecat`: the target for Pipecat's websocket transport (protobuf frames, vendored in
   `frames/`, and RTVI messages), its own module on `coder/websocket`; text and audio.
+- `targets/model`: the model target, its own module with no provider dependency: a system prompt
+  and tool definitions run through `target.ChatModel`, which the llm module implements, with the
+  tool calls answered from the suite.
 - `targets/grpc`: the target for agents behind the turn API of `proto/tamesu/turn/v1`, its own
   module on grpc-go; `turnv1` is the generated code (`make proto` regenerates it).
 - `targets/realtime`: the target for agents speaking the OpenAI Realtime protocol (the API itself

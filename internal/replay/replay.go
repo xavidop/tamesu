@@ -224,6 +224,16 @@ func (p *Provider) Transcribe(ctx context.Context, req target.TranscribeRequest)
 	return target.Transcript{}, errors.New("replay: the provider has no speech models")
 }
 
+// Chat forwards to the inner provider's chat model (the model target). Its
+// answers are the agent's, so they are never cached: a cached answer would
+// hide the very change the suite tests.
+func (p *Provider) Chat(ctx context.Context, req target.ChatRequest) (target.ChatResponse, error) {
+	if cm, ok := p.inner.(target.ChatModel); ok {
+		return cm.Chat(ctx, req)
+	}
+	return target.ChatResponse{}, errors.New("replay: the provider has no chat model")
+}
+
 // HasSpeech reports whether the inner provider has speech models.
 func (p *Provider) HasSpeech() bool { _, ok := p.inner.(target.Speech); return ok }
 

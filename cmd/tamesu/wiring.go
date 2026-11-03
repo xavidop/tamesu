@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -15,6 +17,7 @@ import (
 	"github.com/xavidop/tamesu/internal/secrets"
 	"github.com/xavidop/tamesu/llm"
 	"github.com/xavidop/tamesu/target"
+	modeltarget "github.com/xavidop/tamesu/targets/model"
 	"github.com/xavidop/tamesu/targets/rest"
 )
 
@@ -42,7 +45,30 @@ func newProvider(ctx context.Context, cfg cli.ProviderConfig) (model.Provider, e
 
 // targetFactories are the target types this binary links.
 var targetFactories = map[string]cli.TargetFactory{
-	config.TargetREST: newRESTTarget,
+	config.TargetREST:  newRESTTarget,
+	config.TargetModel: newModelTarget,
+}
+
+// newModelTarget maps a suite's model target onto the model module's config;
+// system_file is read relative to the suite.
+func newModelTarget(_ context.Context, spec runner.TargetSpec) (target.Target, error) {
+	t := spec.Config
+	cfg := modeltarget.Config{Model: t.Model, System: t.System, DoneTool: t.DoneTool, Temperature: t.Temperature, MaxTokens: t.MaxTokens, MaxToolRounds: t.MaxToolRounds}
+	if t.SystemFile != "" {
+		path := t.SystemFile
+		if !filepath.IsAbs(path) && spec.Suite != nil {
+			path = filepath.Join(filepath.Dir(spec.Suite.Path), path)
+		}
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("model %s: system_file: %w", spec.Name, err)
+		}
+		cfg.System = string(b)
+	}
+	for _, tl := range t.Tools {
+		cfg.Tools = append(cfg.Tools, modeltarget.Tool{Name: tl.Name, Description: tl.Description, Parameters: tl.Parameters, Result: tl.Result})
+	}
+	return modeltarget.New(spec.Name, cfg), nil
 }
 
 // newRESTTarget maps a suite's rest target onto the rest module's config.

@@ -40,7 +40,7 @@ tests:
     target: api
     persona:
       name: Marta
-      style: polite, slightly confused
+      style: "polite, slightly confused"
       language: en
     scenario:
       goal: "Find out if you can return shoes bought 40 days ago"

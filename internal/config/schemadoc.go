@@ -11,7 +11,7 @@ import (
 // definitionOrder is the reading order of the suite reference page; anything
 // not listed follows alphabetically.
 var definitionOrder = []string{
-	"Target", "BrowserOptions", "BrowserMock", "BrowserAuth", "RESTRequest", "RESTResponse", "RESTSession", "Dispatch", "Trigger", "HTTPTrigger",
+	"Target", "ToolDef", "BrowserOptions", "BrowserMock", "BrowserAuth", "RESTRequest", "RESTResponse", "RESTSession", "Dispatch", "Trigger", "HTTPTrigger",
 	"Test", "Case", "Capture", "Step", "Persona", "Behaviors", "Scenario", "ScriptStep",
 	"Assertion", "Judge", "ToolCall", "ToolSequence", "Evaluator", "JSONPathAssertion", "DTMFAssertion", "Matches", "MetricAssertion", "IntCompare", "CapturedAssertion", "GoldenAssertion", "OnTurn", "StringList",
 	"Hooks", "Hook", "Defaults", "Models", "Budgets", "Duration",
@@ -41,6 +41,15 @@ tests:
   web:  { type: browser, url: "https://shop.example.com", browser: { viewport: 1280x800 } }
   api:  { type: rest, url: "https://api.example.com/chat", response: { text: "$.reply", done: "$.end_session" } }
   grpc: { type: grpc, url: "grpc://agent.internal:9090" }
+  prompt:
+    type: model
+    model: googleai/gemini-2.5-flash
+    system_file: prompts/support.md
+    tools:
+      - name: lookup_policy
+        description: The policy for a topic
+        parameters: { type: object, properties: { topic: { type: string } } }
+        result: { topic: "{{args.topic}}", window_days: 30 }
   voice: { type: livekit, url: "${LIVEKIT_URL}", api_key: "{{secrets.LIVEKIT_API_KEY}}", api_secret: "{{secrets.LIVEKIT_API_SECRET}}", mode: audio }
   phone: { type: sip, direction: outbound, to: "+15550001", from: "+15550002" }
   rt:   { type: realtime, model: gpt-realtime, headers: { Authorization: "Bearer {{secrets.OPENAI_API_KEY}}" }, mode: text }
@@ -89,6 +98,13 @@ tests:
     scenario: { goal: "Ask where the refund for order 1234 is", max_turns: 3 }
     assert:
       - judge: "The agent gives a refund date or asks for the order"`,
+	"ToolDef": `tools:
+  - name: lookup_policy
+    description: The return policy for a topic
+    parameters: { type: object, properties: { topic: { type: string } }, required: [topic] }
+    result: { topic: "{{args.topic}}", window_days: 30 }
+  - name: end_session
+    description: Call when the customer has no more questions`,
 	"Case": `cases:
   - { name: late, vars: { days: "40", expect: "not possible" } }
   - { name: early, vars: { days: "10", expect: "can return" } }`,
@@ -103,7 +119,7 @@ tests:
   - action: { visual: { name: cart, mask: ["#date"] } }`,
 	"Persona": `persona:
   name: Marta
-  style: polite, slightly confused
+  style: "polite, slightly confused"
   language: es-ES
   voice: es-ES-female
   behaviors: { interrupt_probability: 0.2, background_noise: cafe }`,

@@ -126,6 +126,16 @@ func targetStub(typ string) *yaml.Node {
 			key("session_update"), mapping(key("instructions"), scalar("You are the agent under test.")),
 			key("mode"), scalar("text"),
 		)
+	case config.TargetModel:
+		return mapping(
+			key("type"), scalar("model"),
+			key("model"), scalar("googleai/gemini-2.5-flash"),
+			key("system_file"), scalar("prompts/system.md"),
+			key("tools"), &yaml.Node{Kind: yaml.SequenceNode, Content: []*yaml.Node{mapping(
+				key("name"), scalar("end_session"),
+				key("description"), scalar("Call when the user has no more questions"),
+			)}},
+		)
 	case config.TargetSIP:
 		return mapping(
 			key("type"), scalar("sip"),

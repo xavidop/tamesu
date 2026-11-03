@@ -11,11 +11,12 @@ const (
 	TargetRealtime = "realtime"
 	TargetGRPC     = "grpc"
 	TargetPipecat  = "pipecat"
+	TargetModel    = "model"
 )
 
 // TargetTypes lists the target types a suite may declare, in documentation order.
 func TargetTypes() []string {
-	return []string{TargetBrowser, TargetREST, TargetLiveKit, TargetSIP, TargetRealtime, TargetGRPC, TargetPipecat}
+	return []string{TargetBrowser, TargetREST, TargetLiveKit, TargetSIP, TargetRealtime, TargetGRPC, TargetPipecat, TargetModel}
 }
 
 // IsConversational reports whether a target type talks in turns (everything
@@ -52,7 +53,7 @@ type Suite struct {
 
 // Target is a system under test. Type selects which of the other fields apply.
 type Target struct {
-	Type string `yaml:"type" json:"type" jsonschema:"required,enum=browser,enum=rest,enum=livekit,enum=sip,enum=realtime,enum=grpc,enum=pipecat"`
+	Type string `yaml:"type" json:"type" jsonschema:"required,enum=browser,enum=rest,enum=livekit,enum=sip,enum=realtime,enum=grpc,enum=pipecat,enum=model"`
 	URL  string `yaml:"url,omitempty" json:"url,omitempty" jsonschema:"description=The page (browser) or endpoint (rest / realtime / pipecat) or grpc://host:port (grpc) or LiveKit server (livekit)."`
 
 	// browser
@@ -89,10 +90,10 @@ type Target struct {
 	Trigger         *Trigger `yaml:"trigger,omitempty" json:"trigger,omitempty"`
 
 	// realtime (the OpenAI Realtime protocol over a websocket; url, headers and mode apply too)
-	Model         string         `yaml:"model,omitempty" json:"model,omitempty" jsonschema:"description=realtime: added as ?model= to the url (such as gpt-realtime)."`
+	Model         string         `yaml:"model,omitempty" json:"model,omitempty" jsonschema:"description=realtime: added as ?model= to the url (such as gpt-realtime). model: the Genkit model reference the prompt runs on (default models.default)."`
 	SessionUpdate map[string]any `yaml:"session_update,omitempty" json:"session_update,omitempty" jsonschema:"description=realtime: merged into the session.update event (instructions / tools / voice / output modalities)."`
 	Protocol      string         `yaml:"protocol,omitempty" json:"protocol,omitempty" jsonschema:"enum=ga,enum=beta,description=realtime: the event dialect; ga (default) or beta (modalities and the OpenAI-Beta header)."`
-	DoneTool      string         `yaml:"done_tool,omitempty" json:"done_tool,omitempty" jsonschema:"description=realtime: a function call with this name ends the session; default end_session."`
+	DoneTool      string         `yaml:"done_tool,omitempty" json:"done_tool,omitempty" jsonschema:"description=realtime and model: a function call with this name ends the session; default end_session."`
 	TurnTimeout   Duration       `yaml:"turn_timeout,omitempty" json:"turn_timeout,omitempty" jsonschema:"description=realtime / grpc / pipecat: how long to wait for the end of a turn; default 60s."`
 	ToolResults   map[string]any `yaml:"tool_results,omitempty" json:"tool_results,omitempty" jsonschema:"description=realtime and pipecat: answers to the agent's function calls by function name. The value (any JSON; string leaves may use {{args.<key>}}) goes back as the function's output and the response continues. Unlisted functions and done_tool are recorded only."`
 	AudioFormat   string         `yaml:"audio_format,omitempty" json:"audio_format,omitempty" jsonschema:"enum=pcm16,enum=g711_ulaw,enum=g711_alaw,description=realtime audio mode: the agent's output audio; pcm16 (default) or G.711 at 8 kHz."`
@@ -100,6 +101,22 @@ type Target struct {
 	// pipecat (a Pipecat websocket transport with the protobuf frame serializer; url, headers, mode, turn_timeout and tool_results apply too)
 	SampleRate int      `yaml:"sample_rate,omitempty" json:"sample_rate,omitempty" jsonschema:"description=pipecat audio mode: the transport's sample rate in Hz; default 16000."`
 	Idle       Duration `yaml:"idle,omitempty" json:"idle,omitempty" jsonschema:"description=pipecat: silence after the agent's last message or audio that ends a turn when no bot-stopped-speaking / bot-llm-stopped arrives; default 2s."`
+
+	// model (a system prompt and tools tested directly against a model; model and done_tool apply too)
+	System        string    `yaml:"system,omitempty" json:"system,omitempty" jsonschema:"description=model: the system prompt under test; {{vars.x}} and {{secrets.X}} render."`
+	SystemFile    string    `yaml:"system_file,omitempty" json:"system_file,omitempty" jsonschema:"description=model: a file next to the suite holding the system prompt (instead of system)."`
+	Tools         []ToolDef `yaml:"tools,omitempty" json:"tools,omitempty" jsonschema:"description=model: the tools offered to the model and the result tamesu answers each call with."`
+	Temperature   *float64  `yaml:"temperature,omitempty" json:"temperature,omitempty" jsonschema:"description=model: sampling temperature; the provider's default when unset."`
+	MaxTokens     int       `yaml:"max_tokens,omitempty" json:"max_tokens,omitempty" jsonschema:"description=model: the most output tokens per call."`
+	MaxToolRounds int       `yaml:"max_tool_rounds,omitempty" json:"max_tool_rounds,omitempty" jsonschema:"description=model: the most call-and-answer rounds in one turn; default 5."`
+}
+
+// ToolDef is a tool a model target offers to the model.
+type ToolDef struct {
+	Name        string         `yaml:"name" json:"name" jsonschema:"required"`
+	Description string         `yaml:"description,omitempty" json:"description,omitempty"`
+	Parameters  map[string]any `yaml:"parameters,omitempty" json:"parameters,omitempty" jsonschema:"description=A JSON schema of the arguments (an object schema); none means no arguments."`
+	Result      any            `yaml:"result,omitempty" json:"result,omitempty" jsonschema:"description=What the call returns to the model (any JSON; string leaves may use {{args.<key>}}). Without it the model gets an error object."`
 }
 
 // RealtimeAudioFormats are the values of a realtime target's audio_format.

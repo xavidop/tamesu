@@ -68,6 +68,12 @@ updates:
     schedule: { interval: weekly }
     labels: [dependencies, go, target]
 
+  # Model target (own go.mod; only the root module)
+  - package-ecosystem: gomod
+    directory: "/targets/model"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, target]
+
   # gRPC target (own go.mod; grpc-go and protobuf)
   - package-ecosystem: gomod
     directory: "/targets/grpc"

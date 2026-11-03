@@ -18,6 +18,7 @@ require (
 	github.com/xavidop/tamesu/targets/browser v0.0.0
 	github.com/xavidop/tamesu/targets/grpc v0.0.0
 	github.com/xavidop/tamesu/targets/livekit v0.0.0
+	github.com/xavidop/tamesu/targets/model v0.0.0
 	github.com/xavidop/tamesu/targets/pipecat v0.0.0
 	github.com/xavidop/tamesu/targets/realtime v0.0.0
 	github.com/xavidop/tamesu/targets/rest v0.0.0
@@ -304,6 +305,8 @@ replace github.com/xavidop/tamesu/llm/plugins/deepgram => ../../llm/plugins/deep
 replace github.com/xavidop/tamesu/llm/plugins/elevenlabs => ../../llm/plugins/elevenlabs
 
 replace github.com/xavidop/tamesu/targets/rest => ../../targets/rest
+
+replace github.com/xavidop/tamesu/targets/model => ../../targets/model
 
 replace github.com/xavidop/tamesu/targets/realtime => ../../targets/realtime
 

@@ -33,8 +33,9 @@ OpenAI Realtime API and a web checkout.
   <img src="site/public/demo.gif" alt="tamesu init, validate, list and doctor in a terminal" width="900" />
 </p>
 
-- **Seven targets, one model.** `browser`, `rest`, `grpc`, `livekit`, `sip`, `realtime` and
-  `pipecat` share the schema, the assertions, the metrics and the reports.
+- **Eight targets, one model.** `browser`, `rest`, `grpc`, `livekit`, `sip`, `realtime`,
+  `pipecat` and `model` (a prompt with no server yet) share the schema, the assertions, the
+  metrics and the reports.
 - **Judges you can trust.** Rubrics with structured output, versioned prompts recorded in every
   result, replayable verdicts, and `tamesu judge calibrate` to measure a judge against
   transcripts people have already marked.
@@ -87,7 +88,7 @@ targets:
 tests:
   - name: refund policy question
     target: api
-    persona: { name: Marta, style: polite, slightly confused }
+    persona: { name: Marta, style: "polite, slightly confused" }
     scenario: { goal: "Find out if you can return shoes bought 40 days ago", max_turns: 8 }
     assert:
       - judge: "The agent states the 30-day return policy and does not promise an exception"
@@ -133,6 +134,7 @@ runs the same tests from `go test`.
 | `realtime` | the OpenAI Realtime protocol: the API, or your server speaking its events | text, audio | your `session_update` and tools |
 | `grpc` | the turn API in [`proto/tamesu/turn/v1`](proto/tamesu/turn/v1/turn.proto) | text | [`examples/rest-agent`](examples/rest-agent/) with `--grpc` |
 | `pipecat` | the websocket transport of a Pipecat bot (protobuf frames and RTVI) | text, audio | any bot with an RTVI observer |
+| `model` | a system prompt and tool definitions, directly against a model: no agent server, tool calls answered from the suite | text | [`examples/model-prompt`](examples/model-prompt/) |
 
 Audio tests speak through TTS, hear through VAD and STT, interrupt, add background noise and
 degrade the line, and measure time to first audio, interruption stop time, talk-over and silence

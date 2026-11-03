@@ -54,9 +54,10 @@ var targetFieldTypes = map[string][]string{
 	"transcript_source": {TargetLiveKit},
 	"direction":         {TargetSIP}, "to": {TargetSIP}, "from": {TargetSIP}, "trunk_id": {TargetSIP}, "ring_timeout": {TargetSIP},
 	"max_call_duration": {TargetSIP}, "trigger": {TargetSIP},
-	"model": {TargetRealtime}, "session_update": {TargetRealtime}, "protocol": {TargetRealtime}, "done_tool": {TargetRealtime}, "turn_timeout": {TargetRealtime, TargetGRPC, TargetPipecat},
+	"model": {TargetRealtime, TargetModel}, "session_update": {TargetRealtime}, "protocol": {TargetRealtime}, "done_tool": {TargetRealtime, TargetModel}, "turn_timeout": {TargetRealtime, TargetGRPC, TargetPipecat},
 	"tool_results": {TargetRealtime, TargetPipecat}, "audio_format": {TargetRealtime},
 	"sample_rate": {TargetPipecat}, "idle": {TargetPipecat},
+	"system": {TargetModel}, "system_file": {TargetModel}, "tools": {TargetModel}, "temperature": {TargetModel}, "max_tokens": {TargetModel}, "max_tool_rounds": {TargetModel},
 }
 
 // RealtimeProtocols are the event dialects of the realtime target.
@@ -289,6 +290,42 @@ func (v *validator) target(name string, t Target) {
 		}
 		if t.SampleRate < 0 || (t.SampleRate > 0 && t.SampleRate < 8000) {
 			v.errorf(with(tp, "sample_rate"), "sample_rate must be 8000 Hz or more")
+		}
+	case TargetModel:
+		if strings.TrimSpace(t.System) == "" && t.SystemFile == "" {
+			v.errorf(tp, "model target needs system (the prompt under test) or system_file")
+		}
+		if t.System != "" && t.SystemFile != "" {
+			v.errorf(with(tp, "system_file"), "system and system_file exclude each other")
+		}
+		if t.URL != "" {
+			v.warnf(with(tp, "url"), "url does not apply to a model target: the model is called through the configured provider")
+		}
+		if t.Temperature != nil && (*t.Temperature < 0 || *t.Temperature > 2) {
+			v.errorf(with(tp, "temperature"), "temperature must be between 0 and 2")
+		}
+		if t.MaxTokens < 0 {
+			v.errorf(with(tp, "max_tokens"), "max_tokens cannot be negative")
+		}
+		if t.MaxToolRounds < 0 {
+			v.errorf(with(tp, "max_tool_rounds"), "max_tool_rounds cannot be negative")
+		}
+		seen := map[string]bool{}
+		for i, tl := range t.Tools {
+			p := with(tp, "tools", idx(i))
+			if strings.TrimSpace(tl.Name) == "" {
+				v.errorf(p, "a tool needs a name")
+				continue
+			}
+			if seen[tl.Name] {
+				v.errorf(with(p, "name"), "tool %q is declared twice", tl.Name)
+			}
+			seen[tl.Name] = true
+			if tl.Parameters != nil {
+				if typ, _ := tl.Parameters["type"].(string); typ != "" && typ != "object" {
+					v.errorf(with(p, "parameters"), "parameters must be an object schema (type: object)")
+				}
+			}
 		}
 	case TargetSIP:
 		switch t.Direction {

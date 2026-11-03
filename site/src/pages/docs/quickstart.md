@@ -63,7 +63,7 @@ targets:
 tests:
   - name: refund policy question
     target: api
-    persona: { name: Marta, style: polite, slightly confused, language: en }
+    persona: { name: Marta, style: "polite, slightly confused", language: en }
     scenario:
       goal: "Find out if you can return shoes bought 40 days ago"
       max_turns: 8

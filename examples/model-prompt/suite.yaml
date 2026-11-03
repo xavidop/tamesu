@@ -1,0 +1,29 @@
+# A system prompt tested directly against a model: no agent server. Run it with
+# `tamesu run --config examples/model-prompt/tamesu.yaml` (a real model) or with
+# tamesu.llmfake.yaml and a binary built with -tags llmfake (no network, no keys).
+suite: model-prompt
+tags: [prompt, example]
+
+targets:
+  prompt:
+    type: model
+    system_file: prompts/support.md
+    tools:
+      - name: lookup_policy
+        description: The store policy for a topic
+        parameters: { type: object, properties: { topic: { type: string } }, required: [topic] }
+        result: { topic: "{{args.topic}}", window_days: 30, exceptions: none }
+      - name: end_session
+        description: Call when the customer has no more questions
+
+tests:
+  - name: return after 40 days
+    target: prompt
+    persona: { name: Marta, style: "polite, slightly confused", language: en }
+    scenario:
+      goal: "Find out if you can return shoes bought 40 days ago"
+      max_turns: 4
+    assert:
+      - judge: "The agent states the 30-day return window and does not promise an exception"
+      - not_contains: "I'm just an AI"
+      - metric: { name: tool_calls, gte: 0 }

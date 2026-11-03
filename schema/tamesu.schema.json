@@ -803,7 +803,8 @@
             "sip",
             "realtime",
             "grpc",
-            "pipecat"
+            "pipecat",
+            "model"
           ]
         },
         "url": {
@@ -924,7 +925,7 @@
         },
         "model": {
           "type": "string",
-          "description": "realtime: added as ?model= to the url (such as gpt-realtime)."
+          "description": "realtime: added as ?model= to the url (such as gpt-realtime). model: the Genkit model reference the prompt runs on (default models.default)."
         },
         "session_update": {
           "type": "object",
@@ -940,7 +941,7 @@
         },
         "done_tool": {
           "type": "string",
-          "description": "realtime: a function call with this name ends the session; default end_session."
+          "description": "realtime and model: a function call with this name ends the session; default end_session."
         },
         "turn_timeout": {
           "$ref": "#/$defs/Duration",
@@ -966,6 +967,33 @@
         "idle": {
           "$ref": "#/$defs/Duration",
           "description": "pipecat: silence after the agent's last message or audio that ends a turn when no bot-stopped-speaking / bot-llm-stopped arrives; default 2s."
+        },
+        "system": {
+          "type": "string",
+          "description": "model: the system prompt under test; {{vars.x}} and {{secrets.X}} render."
+        },
+        "system_file": {
+          "type": "string",
+          "description": "model: a file next to the suite holding the system prompt (instead of system)."
+        },
+        "tools": {
+          "items": {
+            "$ref": "#/$defs/ToolDef"
+          },
+          "type": "array",
+          "description": "model: the tools offered to the model and the result tamesu answers each call with."
+        },
+        "temperature": {
+          "type": "number",
+          "description": "model: sampling temperature; the provider's default when unset."
+        },
+        "max_tokens": {
+          "type": "integer",
+          "description": "model: the most output tokens per call."
+        },
+        "max_tool_rounds": {
+          "type": "integer",
+          "description": "model: the most call-and-answer rounds in one turn; default 5."
         }
       },
       "additionalProperties": false,
@@ -1093,6 +1121,28 @@
             "name"
           ]
         }
+      ]
+    },
+    "ToolDef": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "parameters": {
+          "type": "object",
+          "description": "A JSON schema of the arguments (an object schema); none means no arguments."
+        },
+        "result": {
+          "description": "What the call returns to the model (any JSON; string leaves may use {{args.\u003ckey\u003e}}). Without it the model gets an error object."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name"
       ]
     },
     "ToolSequence": {

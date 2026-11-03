@@ -63,7 +63,7 @@ tests:
 
 | Key | Type | Required | Description |
 |---|---|---|---|
-| `type` | one of `browser`, `rest`, `livekit`, `sip`, `realtime`, `grpc`, `pipecat` | yes |  |
+| `type` | one of `browser`, `rest`, `livekit`, `sip`, `realtime`, `grpc`, `pipecat`, `model` | yes |  |
 | `url` | string |  | The page (browser) or endpoint (rest / realtime / pipecat) or grpc://host:port (grpc) or LiveKit server (livekit). |
 | `browser` | [BrowserOptions](#browseroptions) |  |  |
 | `auth` | [BrowserAuth](#browserauth) |  |  |
@@ -90,15 +90,21 @@ tests:
 | `ring_timeout` | [Duration](#duration) |  |  |
 | `max_call_duration` | [Duration](#duration) |  |  |
 | `trigger` | [Trigger](#trigger) |  |  |
-| `model` | string |  | realtime: added as ?model= to the url (such as gpt-realtime). |
+| `model` | string |  | realtime: added as ?model= to the url (such as gpt-realtime). model: the Genkit model reference the prompt runs on (default models.default). |
 | `session_update` | object (any keys) |  | realtime: merged into the session.update event (instructions / tools / voice / output modalities). |
 | `protocol` | one of `ga`, `beta` |  | realtime: the event dialect; ga (default) or beta (modalities and the OpenAI-Beta header). |
-| `done_tool` | string |  | realtime: a function call with this name ends the session; default end_session. |
+| `done_tool` | string |  | realtime and model: a function call with this name ends the session; default end_session. |
 | `turn_timeout` | [Duration](#duration) |  | realtime / grpc / pipecat: how long to wait for the end of a turn; default 60s. |
 | `tool_results` | object (any keys) |  | realtime and pipecat: answers to the agent's function calls by function name. The value (any JSON; string leaves may use {{args.<key>}}) goes back as the function's output and the response continues. Unlisted functions and done_tool are recorded only. |
 | `audio_format` | one of `pcm16`, `g711_ulaw`, `g711_alaw` |  | realtime audio mode: the agent's output audio; pcm16 (default) or G.711 at 8 kHz. |
 | `sample_rate` | integer |  | pipecat audio mode: the transport's sample rate in Hz; default 16000. |
 | `idle` | [Duration](#duration) |  | pipecat: silence after the agent's last message or audio that ends a turn when no bot-stopped-speaking / bot-llm-stopped arrives; default 2s. |
+| `system` | string |  | model: the system prompt under test; {{vars.x}} and {{secrets.X}} render. |
+| `system_file` | string |  | model: a file next to the suite holding the system prompt (instead of system). |
+| `tools` | list of [ToolDef](#tooldef) |  | model: the tools offered to the model and the result tamesu answers each call with. |
+| `temperature` | number |  | model: sampling temperature; the provider's default when unset. |
+| `max_tokens` | integer |  | model: the most output tokens per call. |
+| `max_tool_rounds` | integer |  | model: the most call-and-answer rounds in one turn; default 5. |
 
 Example:
 
@@ -107,10 +113,40 @@ targets:
   web:  { type: browser, url: "https://shop.example.com", browser: { viewport: 1280x800 } }
   api:  { type: rest, url: "https://api.example.com/chat", response: { text: "$.reply", done: "$.end_session" } }
   grpc: { type: grpc, url: "grpc://agent.internal:9090" }
+  prompt:
+    type: model
+    model: googleai/gemini-2.5-flash
+    system_file: prompts/support.md
+    tools:
+      - name: lookup_policy
+        description: The policy for a topic
+        parameters: { type: object, properties: { topic: { type: string } } }
+        result: { topic: "{{args.topic}}", window_days: 30 }
   voice: { type: livekit, url: "${LIVEKIT_URL}", api_key: "{{secrets.LIVEKIT_API_KEY}}", api_secret: "{{secrets.LIVEKIT_API_SECRET}}", mode: audio }
   phone: { type: sip, direction: outbound, to: "+15550001", from: "+15550002" }
   rt:   { type: realtime, model: gpt-realtime, headers: { Authorization: "Bearer {{secrets.OPENAI_API_KEY}}" }, mode: text }
   bot:  { type: pipecat, url: "wss://bot.example.com/ws", mode: audio }
+```
+
+## ToolDef
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `name` | string | yes |  |
+| `description` | string |  |  |
+| `parameters` | object (any keys) |  | A JSON schema of the arguments (an object schema); none means no arguments. |
+| `result` | any |  | What the call returns to the model (any JSON; string leaves may use {{args.<key>}}). Without it the model gets an error object. |
+
+Example:
+
+```yaml
+tools:
+  - name: lookup_policy
+    description: The return policy for a topic
+    parameters: { type: object, properties: { topic: { type: string } }, required: [topic] }
+    result: { topic: "{{args.topic}}", window_days: 30 }
+  - name: end_session
+    description: Call when the customer has no more questions
 ```
 
 ## BrowserOptions
@@ -368,7 +404,7 @@ Example:
 ```yaml
 persona:
   name: Marta
-  style: polite, slightly confused
+  style: "polite, slightly confused"
   language: es-ES
   voice: es-ES-female
   behaviors: { interrupt_probability: 0.2, background_noise: cafe }

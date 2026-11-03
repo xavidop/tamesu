@@ -95,6 +95,10 @@ print("shards: %d + %d tests" % (len(names[0]), len(names[1])))
 PY
 stop_agent "$agent"
 
+echo "==> model target: the prompt example must pass against the fake model, with no agent process"
+./bin/tamesu-llmfake run --config examples/model-prompt/tamesu.llmfake.yaml --out "$out/model-prompt"
+grep -q '"agent_input_tokens"' "$out"/model-prompt/tests/*/run-1/result.json || { echo "the model target recorded no token metrics" >&2; exit 1; }
+
 echo "==> judge calibrate: the fake judge must agree with every label"
 ./bin/tamesu-llmfake judge calibrate examples/rest-agent/labels.yaml --config examples/rest-agent/tamesu.llmfake.yaml --out "$out/calibration.json"
 grep -q '"agreement": 1' "$out/calibration.json" || { echo "calibration.json does not report full agreement" >&2; cat "$out/calibration.json" >&2; exit 1; }

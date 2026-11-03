@@ -290,7 +290,7 @@ usage or config error, `3` when the model failed. See [Generating tests](/docs/g
 ## tamesu import
 
 ```text
-tamesu import <conversations.json|.jsonl|.csv> --target <name> [--type rest|grpc|livekit|sip|realtime|pipecat] [--out suite.yaml] [--golden-dir <dir>] [--golden-mode exact|similar|judge] [--tags a,b]
+tamesu import <conversations.json|.jsonl|.csv> --target <name> [--type rest|grpc|livekit|sip|realtime|pipecat|model] [--out suite.yaml] [--golden-dir <dir>] [--golden-mode exact|similar|judge] [--tags a,b]
 ```
 
 Turns recorded conversations into a suite that replays them: one test per conversation, whose

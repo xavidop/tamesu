@@ -1,0 +1,13 @@
+# Project configuration for CI: the fake model provider, which needs a tamesu
+# binary built with -tags llmfake. The fake text model plays the prompt.
+version: 1
+suites: ["suite.yaml"]
+genkit:
+  plugins: [fake]
+models:
+  default: fake/text
+  simulator: fake/simulator
+  judge: fake/judge
+defaults: { timeout: 1m }
+budgets: { max_cost_usd: 1 }
+reporters: [console, junit]
