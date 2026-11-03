@@ -22,6 +22,9 @@ type scriptedChat struct {
 	replies []string
 	i       int
 	reqs    []target.ChatRequest
+	// model names the model every answer claims to come from ("" for the
+	// one asked for).
+	model string
 }
 
 func (c *scriptedChat) Chat(_ context.Context, req target.ChatRequest) (target.ChatResponse, error) {
@@ -46,7 +49,7 @@ func (c *scriptedChat) Chat(_ context.Context, req target.ChatRequest) (target.C
 	}
 	text := c.replies[c.i]
 	c.i++
-	resp := target.ChatResponse{Text: text, InputTokens: 20, OutputTokens: 5, FinishReason: "stop"}
+	resp := target.ChatResponse{Text: text, InputTokens: 20, OutputTokens: 5, FinishReason: "stop", Model: c.model}
 	if c.i == len(c.replies) {
 		// The last reply ends the session, as the conformance suite expects.
 		resp.ToolCalls = []target.ChatToolCall{{Name: "end_session"}}
@@ -156,4 +159,27 @@ func TestUnknownToolAndRoundLimit(t *testing.T) {
 	assert.ErrorIs(t, err, ErrNoModel)
 	_, err = sess.Receive(ctx)
 	assert.ErrorContains(t, err, "without a Send")
+}
+
+func TestFallbackModelIsRecorded(t *testing.T) {
+	chat := &scriptedChat{replies: []string{"Hello from the fallback"}, model: "openai/gpt-4.1-mini"}
+	tgt, rc := newTarget(chat)
+	tgt.cfg.Fallback = []string{"openai/gpt-4.1-mini"}
+	sess, err := tgt.Start(context.Background(), rc)
+	require.NoError(t, err)
+	ctx := context.Background()
+	require.NoError(t, sess.Send(ctx, target.UserTurn{Text: "hi"}))
+	turn, err := sess.Receive(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, "Hello from the fallback", turn.Text)
+	assert.Equal(t, []string{"openai/gpt-4.1-mini"}, chat.reqs[0].Fallback, "the target's list travels with every request")
+	arts, _ := sess.Close(ctx)
+	var found bool
+	for _, e := range arts.Events {
+		if e.Kind == "model_fallback" {
+			found = true
+			assert.Equal(t, "openai/gpt-4.1-mini answered for fake/text", e.Detail)
+		}
+	}
+	assert.True(t, found, "a turn answered by a fallback model is an event: %v", arts.Events)
 }

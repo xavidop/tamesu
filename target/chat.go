@@ -39,7 +39,9 @@ type ChatMessage struct {
 // so far, with the system prompt and the tools.
 type ChatRequest struct {
 	// Model is a Genkit model reference; "" uses the configured default.
-	Model       string
+	Model string
+	// Fallback lists the models tried, in order, when Model fails.
+	Fallback    []string
 	System      string
 	Messages    []ChatMessage
 	Tools       []ChatTool
@@ -55,6 +57,8 @@ type ChatResponse struct {
 	InputTokens  int
 	OutputTokens int
 	FinishReason string
+	// Model is the model that answered: the one asked for, or a fallback.
+	Model string
 }
 
 // ChatModel is a chat completion with tools, for the model target: the

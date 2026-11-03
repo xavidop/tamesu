@@ -1,0 +1,19 @@
+suite: model-fallback-target
+targets:
+  prompt:
+    type: model
+    model: googleai/gemini-2.5-flash
+    system: You help.
+    fallback: [gpt-4.1-mini]
+  api:
+    type: rest
+    url: http://localhost/chat
+    response: { text: $.reply }
+    fallback: [openai/gpt-4.1-mini]
+tests:
+  - name: t
+    target: prompt
+    persona: { name: A }
+    scenario: { goal: say hi }
+    assert:
+      - contains: hi

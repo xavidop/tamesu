@@ -1,8 +1,10 @@
 // Package llmfake is a Genkit model plugin with deterministic models for CI:
 // fake/simulator and fake/judge replay a script instead of calling a
 // provider, fake/tts speaks a tone and fake/stt replays transcripts, so
-// tamesu's whole pipeline is tested without network or keys. It is linked
-// only by builds with -tags llmfake.
+// tamesu's whole pipeline is tested without network or keys. fake/down and
+// fake/denied never answer (an outage and a refused key), and a script can
+// make any fake model fail its first calls, so retries and fallbacks are
+// tested the same way. It is linked only by builds with -tags llmfake.
 package llmfake
 
 import (
@@ -10,6 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"math"
 	"os"
 	"regexp"
@@ -19,6 +22,7 @@ import (
 
 	"github.com/firebase/genkit/go/ai"
 	"github.com/firebase/genkit/go/core/api"
+	"github.com/firebase/genkit/go/core/status"
 )
 
 // TTSRate is the sample rate fake/tts speaks at.
@@ -50,6 +54,10 @@ type Script struct {
 	// line of the latest page that contains the text, so scripts need no
 	// ref numbers. The script restarts for every goal.
 	Browser []BrowserAction `json:"browser"`
+	// Fail makes the named fake model (simulator, judge, text, tts, stt,
+	// browser, expect, generate) answer its first N calls with a retryable
+	// error (UNAVAILABLE), then behave; what a flaky provider does.
+	Fail map[string]int `json:"fail,omitempty"`
 }
 
 // BrowserAction is one scripted tool call of fake/browser.
@@ -88,6 +96,8 @@ type Plugin struct {
 	txtIdx     int
 	sttIdx     int
 	browserIdx int
+	// fails is how many failures each model still owes (Script.Fail).
+	fails map[string]int
 }
 
 // New returns the plugin with the script from ScriptEnv or the default.
@@ -115,14 +125,20 @@ func New() *Plugin {
 				if s.Generate != nil {
 					p.script.Generate = s.Generate
 				}
+				p.script.Fail = s.Fail
 			}
 		}
 	}
+	p.fails = maps.Clone(p.script.Fail)
 	return p
 }
 
 // WithScript returns a plugin replaying s (tests).
-func WithScript(s Script) *Plugin { return &Plugin{script: s} }
+func WithScript(s Script) *Plugin {
+	p := &Plugin{}
+	p.SetScript(s)
+	return p
+}
 
 // SetScript replaces the script and restarts every cycle (tests).
 func (p *Plugin) SetScript(s Script) {
@@ -148,6 +164,39 @@ func (p *Plugin) SetScript(s Script) {
 	if p.script.Generate == nil {
 		p.script.Generate = DefaultScript.Generate
 	}
+	p.fails = maps.Clone(p.script.Fail)
+}
+
+// failing reports whether model still owes a scripted failure, and uses one.
+func (p *Plugin) failing(model string) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.fails[model] <= 0 {
+		return false
+	}
+	p.fails[model]--
+	return true
+}
+
+// flaky wraps a model so it fails its scripted first calls (Script.Fail).
+func flaky[C any](p *Plugin, model string, fn func(context.Context, *ai.ModelRequest, C, ai.ModelStreamCallback) (*ai.ModelResponse, error)) func(context.Context, *ai.ModelRequest, C, ai.ModelStreamCallback) (*ai.ModelResponse, error) {
+	return func(ctx context.Context, req *ai.ModelRequest, cfg C, cb ai.ModelStreamCallback) (*ai.ModelResponse, error) {
+		if p.failing(model) {
+			return nil, status.Errorf(status.ErrUnavailable, "llmfake: fake/%s is overloaded (scripted failure)", model)
+		}
+		return fn(ctx, req, cfg, cb)
+	}
+}
+
+// down never answers: every call is an UNAVAILABLE error, the retryable kind.
+func (p *Plugin) down(context.Context, *ai.ModelRequest, any, ai.ModelStreamCallback) (*ai.ModelResponse, error) {
+	return nil, status.Errorf(status.ErrUnavailable, "llmfake: fake/down is down")
+}
+
+// denied never answers: every call is an UNAUTHENTICATED error, which no
+// retry fixes.
+func (p *Plugin) denied(context.Context, *ai.ModelRequest, any, ai.ModelStreamCallback) (*ai.ModelResponse, error) {
+	return nil, status.Errorf(status.ErrUnauthenticated, "llmfake: fake/denied refused the key")
 }
 
 // Name implements api.Plugin.
@@ -157,14 +206,16 @@ func (p *Plugin) Name() string { return Name }
 func (p *Plugin) Init(context.Context) []api.Action {
 	supports := &ai.ModelSupports{Multiturn: true, SystemRole: true, Tools: true, Output: []string{"json", "text"}}
 	return []api.Action{
-		ai.NewModelAction[any](Name+"/simulator", &ai.ModelOptions{Label: "fake simulator", Supports: supports}, p.simulator),
-		ai.NewModelAction[any](Name+"/judge", &ai.ModelOptions{Label: "fake judge", Supports: supports}, p.judge),
-		ai.NewModelAction[any](Name+"/text", &ai.ModelOptions{Label: "fake text", Supports: supports}, p.text),
-		ai.NewModelAction(Name+"/tts", &ai.ModelOptions{Label: "fake tts", Supports: &ai.ModelSupports{Output: []string{"media"}}}, p.tts),
-		ai.NewModelAction(Name+"/stt", &ai.ModelOptions{Label: "fake stt", Supports: &ai.ModelSupports{Media: true, Output: []string{"text"}}}, p.stt),
-		ai.NewModelAction[any](Name+"/browser", &ai.ModelOptions{Label: "fake browser agent", Supports: &ai.ModelSupports{Multiturn: true, SystemRole: true, Tools: true, Media: true, Output: []string{"text"}}}, p.browser),
-		ai.NewModelAction[any](Name+"/expect", &ai.ModelOptions{Label: "fake expect", Supports: &ai.ModelSupports{Multiturn: true, SystemRole: true, Output: []string{"json", "text"}}}, p.expect),
-		ai.NewModelAction[any](Name+"/generate", &ai.ModelOptions{Label: "fake scenario generator", Supports: &ai.ModelSupports{Multiturn: true, SystemRole: true, Output: []string{"json", "text"}}}, p.generate),
+		ai.NewModelAction(Name+"/simulator", &ai.ModelOptions{Label: "fake simulator", Supports: supports}, flaky(p, "simulator", p.simulator)),
+		ai.NewModelAction(Name+"/judge", &ai.ModelOptions{Label: "fake judge", Supports: supports}, flaky(p, "judge", p.judge)),
+		ai.NewModelAction(Name+"/text", &ai.ModelOptions{Label: "fake text", Supports: supports}, flaky(p, "text", p.text)),
+		ai.NewModelAction(Name+"/tts", &ai.ModelOptions{Label: "fake tts", Supports: &ai.ModelSupports{Output: []string{"media"}}}, flaky(p, "tts", p.tts)),
+		ai.NewModelAction(Name+"/stt", &ai.ModelOptions{Label: "fake stt", Supports: &ai.ModelSupports{Media: true, Output: []string{"text"}}}, flaky(p, "stt", p.stt)),
+		ai.NewModelAction(Name+"/browser", &ai.ModelOptions{Label: "fake browser agent", Supports: &ai.ModelSupports{Multiturn: true, SystemRole: true, Tools: true, Media: true, Output: []string{"text"}}}, flaky(p, "browser", p.browser)),
+		ai.NewModelAction(Name+"/expect", &ai.ModelOptions{Label: "fake expect", Supports: &ai.ModelSupports{Multiturn: true, SystemRole: true, Output: []string{"json", "text"}}}, flaky(p, "expect", p.expect)),
+		ai.NewModelAction(Name+"/generate", &ai.ModelOptions{Label: "fake scenario generator", Supports: &ai.ModelSupports{Multiturn: true, SystemRole: true, Output: []string{"json", "text"}}}, flaky(p, "generate", p.generate)),
+		ai.NewModelAction[any](Name+"/down", &ai.ModelOptions{Label: "fake outage", Supports: supports}, p.down),
+		ai.NewModelAction[any](Name+"/denied", &ai.ModelOptions{Label: "fake refused key", Supports: supports}, p.denied),
 	}
 }
 

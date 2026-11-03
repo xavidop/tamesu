@@ -43,6 +43,9 @@ type Tool struct {
 type Config struct {
 	// Model is a Genkit model reference; "" uses the project's default.
 	Model string
+	// Fallback lists the models tried, in order, when Model fails; a turn
+	// answered by one records a model_fallback event.
+	Fallback []string
 	// System is the prompt under test; {{vars.x}} and {{secrets.X}} render.
 	System string
 	Tools  []Tool
@@ -149,11 +152,16 @@ func (s *session) Receive(ctx context.Context) (target.AgentTurn, error) {
 	var raw []target.ChatResponse
 	for round := 0; ; round++ {
 		s.mu.Lock()
-		req := target.ChatRequest{Model: s.t.cfg.Model, System: s.system, Messages: append([]target.ChatMessage(nil), s.history...), Tools: s.tools, Temperature: s.t.cfg.Temperature, MaxTokens: s.t.cfg.MaxTokens}
+		req := target.ChatRequest{Model: s.t.cfg.Model, Fallback: s.t.cfg.Fallback, System: s.system, Messages: append([]target.ChatMessage(nil), s.history...), Tools: s.tools, Temperature: s.t.cfg.Temperature, MaxTokens: s.t.cfg.MaxTokens}
 		s.mu.Unlock()
 		resp, err := s.run.Chat.Chat(ctx, req)
 		if err != nil {
 			return out, fmt.Errorf("model %s: %w", s.t.name, err)
+		}
+		if resp.Model != "" && s.t.cfg.Model != "" && resp.Model != s.t.cfg.Model {
+			s.mu.Lock()
+			s.evs = append(s.evs, target.Event{At: time.Now(), Kind: "model_fallback", Detail: resp.Model + " answered for " + s.t.cfg.Model})
+			s.mu.Unlock()
 		}
 		if out.FirstTokenAt.IsZero() {
 			out.FirstTokenAt = time.Now()

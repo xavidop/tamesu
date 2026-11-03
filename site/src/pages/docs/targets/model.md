@@ -17,6 +17,7 @@ targets:
   prompt:
     type: model
     model: googleai/gemini-2.5-flash          # any Genkit model reference; default models.default
+    fallback: [googleai/gemini-2.5-pro]       # tried in order when model keeps failing (optional)
     system_file: prompts/support.md           # or system: "You are ..."
     tools:
       - name: lookup_policy
@@ -40,6 +41,12 @@ The model runs through the provider configured in `tamesu.yaml` (`genkit.plugins
 `models.*`), with the same credentials, pricing and budget as the simulated user and the judges:
 every call the prompt makes is counted in the run's usage and can stop the run at
 `budgets.max_cost_usd`. Switching the prompt to another provider is the `model` line.
+
+A call that hits a rate limit, a timeout or an outage is retried the way every model call is
+(`models.retry`, three attempts with backoff by default). `fallback` names the models that take
+over when `model` keeps failing; `models.fallback` does not apply here, because the model under
+test is the suite's choice, not tamesu's. A turn answered by a fallback is a `model_fallback`
+event in the result, so a passing run that silently tested another model cannot go unnoticed.
 
 ## Keys
 

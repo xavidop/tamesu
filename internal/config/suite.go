@@ -113,6 +113,7 @@ type Target struct {
 	Temperature   *float64  `yaml:"temperature,omitempty" json:"temperature,omitempty" jsonschema:"description=model: sampling temperature; the provider's default when unset."`
 	MaxTokens     int       `yaml:"max_tokens,omitempty" json:"max_tokens,omitempty" jsonschema:"description=model: the most output tokens per call."`
 	MaxToolRounds int       `yaml:"max_tool_rounds,omitempty" json:"max_tool_rounds,omitempty" jsonschema:"description=model: the most call-and-answer rounds in one turn; default 5."`
+	Fallback      []string  `yaml:"fallback,omitempty" json:"fallback,omitempty" jsonschema:"description=model: Genkit model references tried in order when model fails; the run records which one answered."`
 }
 
 // ToolDef is a tool a model target offers to the model.

@@ -57,7 +57,7 @@ var targetFieldTypes = map[string][]string{
 	"model": {TargetRealtime, TargetModel}, "session_update": {TargetRealtime}, "protocol": {TargetRealtime}, "done_tool": {TargetRealtime, TargetModel}, "turn_timeout": {TargetRealtime, TargetGRPC, TargetPipecat, TargetTwilio},
 	"tool_results": {TargetRealtime, TargetPipecat}, "audio_format": {TargetRealtime},
 	"sample_rate": {TargetPipecat}, "idle": {TargetPipecat, TargetTwilio}, "parameters": {TargetTwilio},
-	"system": {TargetModel}, "system_file": {TargetModel}, "tools": {TargetModel}, "temperature": {TargetModel}, "max_tokens": {TargetModel}, "max_tool_rounds": {TargetModel},
+	"system": {TargetModel}, "system_file": {TargetModel}, "tools": {TargetModel}, "temperature": {TargetModel}, "max_tokens": {TargetModel}, "max_tool_rounds": {TargetModel}, "fallback": {TargetModel},
 }
 
 // RealtimeProtocols are the event dialects of the realtime target.
@@ -319,6 +319,7 @@ func (v *validator) target(name string, t Target) {
 		if t.MaxToolRounds < 0 {
 			v.errorf(with(tp, "max_tool_rounds"), "max_tool_rounds cannot be negative")
 		}
+		v.modelList(with(tp, "fallback"), t.Fallback)
 		seen := map[string]bool{}
 		for i, tl := range t.Tools {
 			p := with(tp, "tools", idx(i))
@@ -752,6 +753,27 @@ func (v *validator) models(mp []string, m Models) {
 	for key, ref := range map[string]string{"default": m.Default, "judge": m.Judge, "browser_agent": m.BrowserAgent, "simulator": m.Simulator, "scenario_generator": m.ScenarioGenerator} {
 		if ref != "" && !strings.Contains(ref, "/") {
 			v.warnf(with(mp, key), "model references look like provider/model, such as googleai/gemini-2.5-flash")
+		}
+	}
+	for key, list := range m.Fallback.Lists() {
+		v.modelList(with(mp, "fallback", key), list)
+	}
+	if m.Retry.Attempts < 0 {
+		v.errorf(with(mp, "retry", "attempts"), "attempts cannot be negative")
+	}
+	if m.Retry.Backoff < 0 || m.Retry.MaxBackoff < 0 {
+		v.errorf(with(mp, "retry"), "backoff and max_backoff cannot be negative")
+	}
+	if m.Retry.Backoff > 0 && m.Retry.MaxBackoff > 0 && m.Retry.MaxBackoff < m.Retry.Backoff {
+		v.warnf(with(mp, "retry", "max_backoff"), "max_backoff is shorter than backoff; the first retry waits max_backoff")
+	}
+}
+
+// modelList warns on a fallback list entry that is not a provider/model.
+func (v *validator) modelList(lp []string, list []string) {
+	for i, ref := range list {
+		if !strings.Contains(ref, "/") {
+			v.warnf(with(lp, idx(i)), "model references look like provider/model, such as googleai/gemini-2.5-flash")
 		}
 	}
 }

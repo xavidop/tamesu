@@ -94,9 +94,15 @@ func pluginForProvider(provider string) string {
 	return ""
 }
 
-// modelRefs lists every configured model reference, speech included.
+// modelRefs lists every configured model reference, fallbacks and speech
+// included.
 func (cfg Config) modelRefs() []string {
-	return []string{cfg.Models.Default, cfg.Models.Judge, cfg.Models.Simulator, cfg.Models.BrowserAgent, cfg.Models.ScenarioGenerator, cfg.Speech.TTS.Model, cfg.Speech.STT.Model}
+	refs := []string{cfg.Models.Default, cfg.Models.Judge, cfg.Models.Simulator, cfg.Models.BrowserAgent, cfg.Models.ScenarioGenerator, cfg.Speech.TTS.Model, cfg.Speech.STT.Model}
+	f := cfg.Models.Fallback
+	for _, list := range [][]string{f.Default, f.Judge, f.Simulator, f.BrowserAgent, f.ScenarioGenerator, cfg.Speech.TTS.Fallback, cfg.Speech.STT.Fallback} {
+		refs = append(refs, list...)
+	}
+	return refs
 }
 
 // afterInit defines what plugins cannot define on their own: Ollama models

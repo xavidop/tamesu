@@ -39,6 +39,64 @@ type Models struct {
 	Simulator         string            `yaml:"simulator,omitempty" json:"simulator,omitempty"`
 	ScenarioGenerator string            `yaml:"scenario_generator,omitempty" json:"scenario_generator,omitempty"`
 	Credentials       map[string]string `yaml:"credentials,omitempty" json:"credentials,omitempty" jsonschema:"description=Plugin name to {{secrets.NAME}} when the secret is not named conventionally."`
+	Fallback          ModelFallback     `yaml:"fallback,omitempty" json:"fallback,omitempty" jsonschema:"description=The models tried in order when a job's model keeps failing."`
+	Retry             ModelRetry        `yaml:"retry,omitempty" json:"retry,omitempty" jsonschema:"description=How a model call is retried before the next model is tried."`
+}
+
+// ModelFallback lists the models tried, in order, after a job's model
+// failed: the job's own list, or Default for the jobs without one.
+type ModelFallback struct {
+	Default           []string `yaml:"default,omitempty" json:"default,omitempty" jsonschema:"description=Models tried in order after a job's model failed; for every job without a list of its own."`
+	Judge             []string `yaml:"judge,omitempty" json:"judge,omitempty" jsonschema:"description=Models tried in order after the judge's model failed."`
+	Simulator         []string `yaml:"simulator,omitempty" json:"simulator,omitempty" jsonschema:"description=Models tried in order after the simulator's model failed."`
+	BrowserAgent      []string `yaml:"browser_agent,omitempty" json:"browser_agent,omitempty" jsonschema:"description=Models tried in order after the browser agent's model failed."`
+	ScenarioGenerator []string `yaml:"scenario_generator,omitempty" json:"scenario_generator,omitempty" jsonschema:"description=Models tried in order after the scenario generator's model failed."`
+}
+
+// ModelRetry is how a model call is retried before the next model is tried.
+type ModelRetry struct {
+	Attempts   int      `yaml:"attempts,omitempty" json:"attempts,omitempty" jsonschema:"description=Tries per model on a rate limit or an outage or a timeout before the next fallback; default 3 and 1 retries nothing."`
+	Backoff    Duration `yaml:"backoff,omitempty" json:"backoff,omitempty" jsonschema:"description=The wait before the second try; default 500ms and doubled every try with jitter."`
+	MaxBackoff Duration `yaml:"max_backoff,omitempty" json:"max_backoff,omitempty" jsonschema:"description=The longest wait between tries; default 10s."`
+}
+
+// Lists reports every fallback list, by job.
+func (f ModelFallback) Lists() map[string][]string {
+	return map[string][]string{"default": f.Default, "judge": f.Judge, "simulator": f.Simulator, "browser_agent": f.BrowserAgent, "scenario_generator": f.ScenarioGenerator}
+}
+
+// Merge returns f with every non-empty list of o applied on top.
+func (f ModelFallback) Merge(o ModelFallback) ModelFallback {
+	if len(o.Default) > 0 {
+		f.Default = o.Default
+	}
+	if len(o.Judge) > 0 {
+		f.Judge = o.Judge
+	}
+	if len(o.Simulator) > 0 {
+		f.Simulator = o.Simulator
+	}
+	if len(o.BrowserAgent) > 0 {
+		f.BrowserAgent = o.BrowserAgent
+	}
+	if len(o.ScenarioGenerator) > 0 {
+		f.ScenarioGenerator = o.ScenarioGenerator
+	}
+	return f
+}
+
+// Merge returns r with every non-zero field of o applied on top.
+func (r ModelRetry) Merge(o ModelRetry) ModelRetry {
+	if o.Attempts != 0 {
+		r.Attempts = o.Attempts
+	}
+	if o.Backoff != 0 {
+		r.Backoff = o.Backoff
+	}
+	if o.MaxBackoff != 0 {
+		r.MaxBackoff = o.MaxBackoff
+	}
+	return r
 }
 
 // CacheConfig locates the action cache of browser goals.
@@ -87,9 +145,10 @@ type Speech struct {
 
 // SpeechModel is a Genkit speech model reference with its options.
 type SpeechModel struct {
-	Model    string `yaml:"model,omitempty" json:"model,omitempty" jsonschema:"description=Genkit model reference such as deepgram/nova-3 or googleai/gemini-2.5-flash-preview-tts."`
-	Language string `yaml:"language,omitempty" json:"language,omitempty"`
-	Voice    string `yaml:"voice,omitempty" json:"voice,omitempty"`
+	Model    string   `yaml:"model,omitempty" json:"model,omitempty" jsonschema:"description=Genkit model reference such as deepgram/nova-3 or googleai/gemini-2.5-flash-preview-tts."`
+	Language string   `yaml:"language,omitempty" json:"language,omitempty"`
+	Voice    string   `yaml:"voice,omitempty" json:"voice,omitempty"`
+	Fallback []string `yaml:"fallback,omitempty" json:"fallback,omitempty" jsonschema:"description=Models tried in order after model failed; another provider speaks with its own voice of the same description."`
 }
 
 // VADConfig selects the voice activity detector.
@@ -218,6 +277,8 @@ func (m Models) Merge(o *Models) Models {
 	if o.ScenarioGenerator != "" {
 		m.ScenarioGenerator = o.ScenarioGenerator
 	}
+	m.Fallback = m.Fallback.Merge(o.Fallback)
+	m.Retry = m.Retry.Merge(o.Retry)
 	if len(o.Credentials) > 0 {
 		creds := make(map[string]string, len(m.Credentials)+len(o.Credentials))
 		for k, v := range m.Credentials {

@@ -86,6 +86,12 @@ func TestConsole(t *testing.T) {
 	assert.NotContains(t, out, "START", "verbose lines are off by default")
 
 	buf.Reset()
+	retried := sampleSummary()
+	retried.Usage.Retries, retried.Usage.Fallbacks = 1, 2
+	require.NoError(t, NewConsole(&buf, false).Finish(context.Background(), retried))
+	assert.Contains(t, buf.String(), "7 model calls, 3210 tokens, $0.0123, 1 retry, 2 fallbacks\n", "repeated and handed-over calls are counted after the spend")
+
+	buf.Reset()
 	NewConsole(&buf, true).TestStarted(s.Tests[0])
 	assert.Contains(t, buf.String(), "START  support / refund (api, 1 run)")
 }

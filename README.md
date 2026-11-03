@@ -48,7 +48,7 @@ OpenAI Realtime API and a web checkout.
 - **Secrets through [mamori](https://github.com/xavidop/mamori), AI through
   [Genkit](https://genkit.dev).** Keys are refs (`env:`, `aws-sm://`, `vault://`, `op://`),
   revealed only at the moment of use and redacted everywhere else; models are a one-line config
-  change.
+  change, with retries and fallback models when a provider has a bad day.
 
 ## Install
 

@@ -197,7 +197,6 @@ func (c *Client) browserStep(ctx context.Context, in goalInput) (goalOutput, err
 	if err != nil {
 		return goalOutput{}, err
 	}
-	modelName := c.modelFor("browser_agent", in.Model)
 	prompt := genkit.LookupPrompt(c.g, "browser_agent")
 	if prompt == nil {
 		return goalOutput{}, fmt.Errorf("llm: prompt browser_agent is not loaded")
@@ -206,45 +205,47 @@ func (c *Client) browserStep(ctx context.Context, in goalInput) (goalOutput, err
 	if maxSteps <= 0 {
 		maxSteps = DefaultMaxSteps
 	}
-	obs, err := st.page.Observe(ctx, in.Screenshots)
-	if err != nil {
-		return goalOutput{}, fmt.Errorf("llm: %s: observe: %w", FlowBrowserStep, err)
-	}
-	st.tree = obs.Tree
-	input := map[string]any{
-		"goal": in.Goal, "max_steps": maxSteps, "observation": formatObservation(obs),
-		"allowed_domains": strings.Join(in.AllowedDomains, ", "), "open": "{{", "close": "}}",
-	}
-	opts := []ai.PromptExecuteOption{ai.WithInput(input), ai.WithModelName(modelName), ai.WithTools(c.tools...), ai.WithMaxTurns(maxSteps + 2)}
-	if in.Screenshots && len(obs.Screenshot) > 0 {
-		shot := &ai.Document{Content: []*ai.Part{ai.NewMediaPart("image/png", "data:image/png;base64,"+base64.StdEncoding.EncodeToString(obs.Screenshot))}, Metadata: map[string]any{"name": "screenshot"}}
-		opts = append(opts, ai.WithDocs(shot))
-	}
-	resp, err := prompt.Execute(ctx, opts...)
-	budgetErr := c.record(modelName, resp)
-	out := goalOutput{Steps: st.steps, Actions: st.actions, TraceID: tracing.SpanTraceInfo(ctx).TraceID}
-	if err != nil {
-		if st.done != nil {
-			// done was called and the loop ended on the step budget: keep the verdict.
+	// A retry or a fallback observes the page again: the steps already taken
+	// stand, and the next model carries on from where the page is.
+	models := chain(c.modelFor("browser_agent", in.Model), c.fallbacksFor("browser_agent"))
+	return attempt(ctx, c, "browser_agent", models, func(ctx context.Context, modelName string) (goalOutput, error) {
+		obs, err := st.page.Observe(ctx, in.Screenshots)
+		if err != nil {
+			return goalOutput{}, fmt.Errorf("llm: %s: observe: %w", FlowBrowserStep, err)
+		}
+		st.tree = obs.Tree
+		input := map[string]any{
+			"goal": in.Goal, "max_steps": maxSteps, "observation": formatObservation(obs),
+			"allowed_domains": strings.Join(in.AllowedDomains, ", "), "open": "{{", "close": "}}",
+		}
+		opts := []ai.PromptExecuteOption{ai.WithInput(input), ai.WithModelName(modelName), ai.WithTools(c.tools...), ai.WithMaxTurns(maxSteps + 2)}
+		if in.Screenshots && len(obs.Screenshot) > 0 {
+			shot := &ai.Document{Content: []*ai.Part{ai.NewMediaPart("image/png", "data:image/png;base64,"+base64.StdEncoding.EncodeToString(obs.Screenshot))}, Metadata: map[string]any{"name": "screenshot"}}
+			opts = append(opts, ai.WithDocs(shot))
+		}
+		resp, err := prompt.Execute(ctx, opts...)
+		budgetErr := c.record(modelName, resp, err)
+		out := goalOutput{Steps: st.steps, Actions: st.actions, TraceID: tracing.SpanTraceInfo(ctx).TraceID}
+		if err != nil {
+			if st.done != nil {
+				// done was called and the loop ended on the step budget: keep the verdict.
+				out.Success, out.Reason = st.done.Success, st.done.Reason
+				return out, nil
+			}
+			return out, fmt.Errorf("llm: %s with %s: %w", FlowBrowserStep, modelName, err)
+		}
+		switch {
+		case st.done != nil:
 			out.Success, out.Reason = st.done.Success, st.done.Reason
-			return out, nil
+		default:
+			out.Success = false
+			out.Reason = "the agent stopped without calling done: " + short(resp.Text())
+			if st.steps >= maxSteps {
+				out.Reason = fmt.Sprintf("the agent used its %d steps without reaching the goal", maxSteps)
+			}
 		}
-		return out, fmt.Errorf("llm: %s with %s: %w", FlowBrowserStep, modelName, err)
-	}
-	switch {
-	case st.done != nil:
-		out.Success, out.Reason = st.done.Success, st.done.Reason
-	default:
-		out.Success = false
-		out.Reason = "the agent stopped without calling done: " + short(resp.Text())
-		if st.steps >= maxSteps {
-			out.Reason = fmt.Sprintf("the agent used its %d steps without reaching the goal", maxSteps)
-		}
-	}
-	if budgetErr != nil {
 		return out, budgetErr
-	}
-	return out, nil
+	})
 }
 
 // CheckExpect implements model.BrowserAgent through the checkExpect flow.
@@ -265,25 +266,25 @@ func (c *Client) checkExpect(ctx context.Context, in expectInput) (expectOutput,
 	if err != nil {
 		return expectOutput{}, err
 	}
-	modelName := c.modelFor("browser_agent", in.Model)
 	obs, err := st.page.Observe(ctx, false)
 	if err != nil {
 		return expectOutput{}, fmt.Errorf("llm: %s: observe: %w", FlowCheckExpect, err)
 	}
-	resp, err := c.executePrompt(ctx, "expect", map[string]any{"expectation": in.Expectation, "observation": formatObservation(obs)}, modelName)
-	budgetErr := c.record(modelName, resp)
-	if err != nil {
-		return expectOutput{}, fmt.Errorf("llm: %s with %s: %w", FlowCheckExpect, modelName, err)
-	}
-	var out expectOutput
-	if err := resp.Output(&out); err != nil {
-		return expectOutput{}, fmt.Errorf("llm: %s: the model did not return the expected JSON: %w (text: %s)", FlowCheckExpect, err, short(resp.Text()))
-	}
-	out.TraceID = tracing.SpanTraceInfo(ctx).TraceID
-	if budgetErr != nil {
+	input := map[string]any{"expectation": in.Expectation, "observation": formatObservation(obs)}
+	models := chain(c.modelFor("browser_agent", in.Model), c.fallbacksFor("browser_agent"))
+	return attempt(ctx, c, "browser_agent", models, func(ctx context.Context, modelName string) (expectOutput, error) {
+		resp, err := c.executePrompt(ctx, "expect", input, modelName)
+		budgetErr := c.record(modelName, resp, err)
+		if err != nil {
+			return expectOutput{}, fmt.Errorf("llm: %s with %s: %w", FlowCheckExpect, modelName, err)
+		}
+		var out expectOutput
+		if err := resp.Output(&out); err != nil {
+			return expectOutput{}, badOutput(FlowCheckExpect, modelName, err, resp.Text())
+		}
+		out.TraceID = tracing.SpanTraceInfo(ctx).TraceID
 		return out, budgetErr
-	}
-	return out, nil
+	})
 }
 
 // elementLine returns the `role "name"` of a ref's line in the tree.

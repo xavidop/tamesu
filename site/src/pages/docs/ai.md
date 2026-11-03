@@ -43,9 +43,50 @@ initialised even when `plugins` forgets it. `tamesu doctor` reports each model a
 credential resolved.
 
 The jobs: `models.simulator` plays the user, `models.judge` grades, `models.browser_agent` drives
-the browser, `models.scenario_generator` drafts suites, and `models.default` is the fallback for
-all of them. Gemini, OpenAI and Anthropic models can take any of the roles; every flow asks the
-model for JSON in the shape its prompt declares, in the provider's structured-output mode.
+the browser, `models.scenario_generator` drafts suites, and `models.default` serves every job
+without a model of its own. Gemini, OpenAI and Anthropic models can take any of the roles; every
+flow asks the model for JSON in the shape its prompt declares, in the provider's
+structured-output mode.
+
+## Retries and fallbacks
+
+A provider that rate-limits, times out or is briefly down should not fail a test, and a
+provider that is down for the afternoon should not fail the run. Every model call tamesu makes
+is retried, and can hand over to another model:
+
+```yaml
+models:
+  default: googleai/gemini-2.5-flash
+  judge: anthropic/claude-sonnet-4-6
+  fallback:
+    default: [openai/gpt-4.1-mini]           # for every job without a list of its own
+    judge: [googleai/gemini-2.5-pro, openai/gpt-4.1]
+  retry: { attempts: 3, backoff: 500ms, max_backoff: 10s }   # the defaults
+speech:
+  tts: { model: googleai/gemini-2.5-flash-preview-tts, fallback: [elevenlabs/eleven_flash_v2_5] }
+  stt: { model: deepgram/nova-3, fallback: [googleai/gemini-2.5-flash] }
+```
+
+A call is tried `attempts` times on its model when the failure is one the model may not repeat:
+a rate limit (429), an overloaded or unavailable provider (5xx), a timeout, a dropped
+connection, or a reply that was not the JSON the prompt asked for. The wait starts at `backoff`
+and doubles each time, with jitter, up to `max_backoff`; `attempts: 1` retries nothing. A failure
+the model will repeat (a bad request, an unknown model, a refused key) is not retried: the call
+moves straight to the first fallback, which gets its own attempts, and so on down the list. The
+run's own limits are never worked around: a spent budget or a cancelled run stops at once.
+
+This covers every model call of every target: the simulated user and the judges of the
+conversational targets, the browser agent and its `expect` checks, the scenario generator, and
+the speech models of audio mode and the phone targets. A TTS fallback on another provider speaks
+with that provider's voice of the same description. The `model` target has its own
+[`fallback`](/docs/targets/model/) list, since the model under test is the suite's choice.
+A test's `retries` setting is a different thing: it re-runs a whole test whose infrastructure
+failed.
+
+Every retry and every handover is a warning on stderr with the job, the model and the error,
+and the run's summary line and `summary.json` count them (`3 retries, 1 fallback`) next to the
+model calls, so a provider having a bad day is visible without reading logs. `tamesu doctor`
+lists the fallback models with their credentials like any other model.
 
 ## Flows
 
@@ -72,7 +113,8 @@ Text to speech is a Genkit model that answers with audio: Gemini TTS
 (`googleai/gemini-2.5-flash-preview-tts`, `googleai/gemini-2.5-pro-preview-tts`) or ElevenLabs
 through the bundled `elevenlabs` plugin. Speech to text is a Genkit model that takes the agent's
 audio and answers with text: Gemini (`googleai/gemini-2.5-flash`) or Deepgram through the bundled
-`deepgram` plugin. Switching provider is a config change.
+`deepgram` plugin. Switching provider is a config change, and `fallback: [...]` on either names
+the models that take over when the first fails (see [retries and fallbacks](#retries-and-fallbacks)).
 
 A persona's `voice` is a hint, `<language>-<gender>` such as `en-GB-female`, `es-ES-male` or
 just `female`, mapped to each provider's voices (Gemini `Kore`/`Puck`, ElevenLabs

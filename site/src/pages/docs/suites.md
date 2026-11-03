@@ -106,6 +106,7 @@ tests:
 | `temperature` | number |  | model: sampling temperature; the provider's default when unset. |
 | `max_tokens` | integer |  | model: the most output tokens per call. |
 | `max_tool_rounds` | integer |  | model: the most call-and-answer rounds in one turn; default 5. |
+| `fallback` | list of string |  | model: Genkit model references tried in order when model fails; the run records which one answered. |
 
 Example:
 
@@ -772,6 +773,8 @@ defaults:
 | `simulator` | string |  |  |
 | `scenario_generator` | string |  |  |
 | `credentials` | map of string to string |  | Plugin name to {{secrets.NAME}} when the secret is not named conventionally. |
+| `fallback` | [ModelFallback](#modelfallback) |  | The models tried in order when a job's model keeps failing. |
+| `retry` | [ModelRetry](#modelretry) |  | How a model call is retried before the next model is tried. |
 
 Example:
 
@@ -780,6 +783,10 @@ models:
   default: googleai/gemini-2.5-flash
   judge: anthropic/claude-sonnet-4-6
   simulator: openai/gpt-4.1-mini
+  fallback:
+    default: [openai/gpt-4.1-mini]
+    judge: [googleai/gemini-2.5-pro]
+  retry: { attempts: 3, backoff: 500ms, max_backoff: 10s }
 ```
 
 ## Budgets
@@ -806,6 +813,24 @@ Example:
 ```yaml
 timeout: 90s
 ```
+
+## ModelFallback
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `default` | list of string |  | Models tried in order after a job's model failed; for every job without a list of its own. |
+| `judge` | list of string |  | Models tried in order after the judge's model failed. |
+| `simulator` | list of string |  | Models tried in order after the simulator's model failed. |
+| `browser_agent` | list of string |  | Models tried in order after the browser agent's model failed. |
+| `scenario_generator` | list of string |  | Models tried in order after the scenario generator's model failed. |
+
+## ModelRetry
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `attempts` | integer |  | Tries per model on a rate limit or an outage or a timeout before the next fallback; default 3 and 1 retries nothing. |
+| `backoff` | [Duration](#duration) |  | The wait before the second try; default 500ms and doubled every try with jitter. |
+| `max_backoff` | [Duration](#duration) |  | The longest wait between tries; default 10s. |
 
 ## Quarantine
 

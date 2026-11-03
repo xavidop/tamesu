@@ -44,7 +44,7 @@ func RenderMarkdown(s *Summary) string {
 		fmt.Fprintf(&b, " · `%s`", l)
 	}
 	if s.Usage.Calls > 0 {
-		fmt.Fprintf(&b, " · %d model calls, %d tokens, $%.4f", s.Usage.Calls, s.Usage.Total(), s.Usage.CostUSD)
+		fmt.Fprintf(&b, " · %d model calls, %d tokens, $%.4f%s", s.Usage.Calls, s.Usage.Total(), s.Usage.CostUSD, retriesSuffix(s.Usage))
 	}
 	if s.BudgetExceeded {
 		b.WriteString(" · **budget exceeded, the run was stopped**")

@@ -31,10 +31,18 @@ func newProvider(ctx context.Context, cfg cli.ProviderConfig) (model.Provider, e
 			Simulator:         cfg.Models.Simulator,
 			BrowserAgent:      cfg.Models.BrowserAgent,
 			ScenarioGenerator: cfg.Models.ScenarioGenerator,
+			Fallback: llm.Fallbacks{
+				Default:           cfg.Models.Fallback.Default,
+				Judge:             cfg.Models.Fallback.Judge,
+				Simulator:         cfg.Models.Fallback.Simulator,
+				BrowserAgent:      cfg.Models.Fallback.BrowserAgent,
+				ScenarioGenerator: cfg.Models.Fallback.ScenarioGenerator,
+			},
 		},
+		Retry: llm.Retry{Attempts: cfg.Models.Retry.Attempts, Backoff: cfg.Models.Retry.Backoff.Std(), MaxBackoff: cfg.Models.Retry.MaxBackoff.Std()},
 		Speech: llm.SpeechConfig{
-			TTS: llm.SpeechModel{Model: cfg.Project.Speech.TTS.Model, Language: cfg.Project.Speech.TTS.Language, Voice: cfg.Project.Speech.TTS.Voice},
-			STT: llm.SpeechModel{Model: cfg.Project.Speech.STT.Model, Language: cfg.Project.Speech.STT.Language, Voice: cfg.Project.Speech.STT.Voice},
+			TTS: llm.SpeechModel{Model: cfg.Project.Speech.TTS.Model, Language: cfg.Project.Speech.TTS.Language, Voice: cfg.Project.Speech.TTS.Voice, Fallback: cfg.Project.Speech.TTS.Fallback},
+			STT: llm.SpeechModel{Model: cfg.Project.Speech.STT.Model, Language: cfg.Project.Speech.STT.Language, Voice: cfg.Project.Speech.STT.Voice, Fallback: cfg.Project.Speech.STT.Fallback},
 		},
 		Credentials: cfg.Credentials,
 		DevUI:       cfg.Project.Genkit.DevUI,
@@ -53,7 +61,7 @@ var targetFactories = map[string]cli.TargetFactory{
 // system_file is read relative to the suite.
 func newModelTarget(_ context.Context, spec runner.TargetSpec) (target.Target, error) {
 	t := spec.Config
-	cfg := modeltarget.Config{Model: t.Model, System: t.System, DoneTool: t.DoneTool, Temperature: t.Temperature, MaxTokens: t.MaxTokens, MaxToolRounds: t.MaxToolRounds}
+	cfg := modeltarget.Config{Model: t.Model, Fallback: t.Fallback, System: t.System, DoneTool: t.DoneTool, Temperature: t.Temperature, MaxTokens: t.MaxTokens, MaxToolRounds: t.MaxToolRounds}
 	if t.SystemFile != "" {
 		path := t.SystemFile
 		if !filepath.IsAbs(path) && spec.Suite != nil {
@@ -100,6 +108,11 @@ func checkModels(_ context.Context, env cli.DoctorEnv) []cli.DoctorResult {
 		{"default", models.Default}, {"judge", models.Judge}, {"simulator", models.Simulator},
 		{"browser_agent", models.BrowserAgent}, {"scenario_generator", models.ScenarioGenerator},
 	}
+	for _, job := range []string{"default", "judge", "simulator", "browser_agent", "scenario_generator"} {
+		for _, ref := range models.Fallback.Lists()[job] {
+			jobs = append(jobs, struct{ job, ref string }{job + ".fallback", ref})
+		}
+	}
 	var details []string
 	status := cli.StatusOK
 	for _, j := range jobs {
@@ -143,7 +156,14 @@ func checkSpeech(_ context.Context, env cli.DoctorEnv) []cli.DoctorResult {
 	}
 	var details []string
 	status := cli.StatusOK
-	for _, j := range []struct{ job, ref string }{{"tts", sp.TTS.Model}, {"stt", sp.STT.Model}} {
+	jobs := []struct{ job, ref string }{{"tts", sp.TTS.Model}, {"stt", sp.STT.Model}}
+	for _, ref := range sp.TTS.Fallback {
+		jobs = append(jobs, struct{ job, ref string }{"tts.fallback", ref})
+	}
+	for _, ref := range sp.STT.Fallback {
+		jobs = append(jobs, struct{ job, ref string }{"stt.fallback", ref})
+	}
+	for _, j := range jobs {
 		if j.ref == "" {
 			details = append(details, j.job+" not configured")
 			status = cli.StatusWarn

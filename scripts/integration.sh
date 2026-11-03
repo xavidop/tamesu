@@ -65,6 +65,41 @@ echo "==> generate: a draft suite from the PRD must validate"
 ./bin/tamesu-llmfake generate --config examples/rest-agent/tamesu.llmfake.yaml --from examples/rest-agent/PRD.md --target rt --type realtime --out "$out/generated-realtime.yaml"
 ./bin/tamesu-llmfake validate --config examples/rest-agent/tamesu.llmfake.yaml "$out/generated-realtime.yaml"
 
+echo "==> retries and fallbacks: a down judge and a flaky simulator must not fail the suite"
+./bin/rest-agent --scripted --addr "127.0.0.1:$port" --grpc "127.0.0.1:$grpc_port" &
+agent=$!
+wait_for
+mkdir -p "$out/fallback"
+cat > "$out/fallback/tamesu.yaml" <<YAML
+version: 1
+suites: ["../../../examples/rest-agent/suite.yaml"]   # relative to this file
+genkit: { plugins: [fake] }
+models:
+  default: fake/text
+  simulator: fake/simulator
+  judge: fake/down                        # never answers: every judge call falls back
+  fallback: { judge: [fake/judge] }
+  retry: { attempts: 2, backoff: 1ms, max_backoff: 2ms }
+cache: { llm: false }                     # every verdict must reach the model
+defaults: { timeout: 1m, repeat: 1 }
+budgets: { max_cost_usd: 1 }
+reporters: [console, json]
+YAML
+echo '{"fail": {"simulator": 1}}' > "$out/fallback/script.json"
+TAMESU_LLMFAKE_SCRIPT="$PWD/$out/fallback/script.json" ./bin/tamesu-llmfake run --config "$out/fallback/tamesu.yaml" --out "$out/fallback/run" 2> "$out/fallback/stderr.log"
+stop_agent "$agent"
+python3 - "$out/fallback/run/summary.json" "$out/fallback/stderr.log" <<'PY'
+import json, sys
+s = json.load(open(sys.argv[1]))
+assert all(t["passed"] for t in s["tests"]), [(t["name"], t["passed"]) for t in s["tests"]]
+u = s["usage"]
+assert u.get("retries", 0) >= 2, "the down judge was not retried: %s" % u
+assert u.get("fallbacks", 0) >= 1, "the judge did not fall back: %s" % u
+log = open(sys.argv[2]).read()
+assert "retrying" in log and "fallback" in log, "no retry or fallback warning on stderr:\n" + log
+print("retries and fallbacks: %d retries, %d fallbacks, every test passed" % (u["retries"], u["fallbacks"]))
+PY
+
 echo "==> import: recorded conversations must replay against the scripted agent, with no simulator"
 ./bin/rest-agent --scripted --addr "127.0.0.1:$port" --grpc "127.0.0.1:$grpc_port" &
 agent=$!

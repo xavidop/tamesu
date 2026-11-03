@@ -23,9 +23,13 @@ models:                                     # every value is a Genkit model refe
   browser_agent: googleai/gemini-2.5-pro
   simulator: openai/gpt-4.1-mini
   scenario_generator: googleai/gemini-2.5-pro
+  fallback:                                 # models tried in order when a job's model keeps failing
+    default: [openai/gpt-4.1-mini]          # for every job without a list of its own
+    judge: [googleai/gemini-2.5-pro]
+  retry: { attempts: 3, backoff: 500ms, max_backoff: 10s }   # per model, on rate limits, outages and timeouts
 speech:                                     # audio mode and sip; still Genkit models
-  stt: { model: deepgram/nova-3, language: en }          # or googleai/gemini-2.5-flash (audio input)
-  tts: { model: googleai/gemini-2.5-flash-preview-tts }  # or elevenlabs/eleven_flash_v2_5, openai/gpt-4o-mini-tts
+  stt: { model: deepgram/nova-3, language: en, fallback: [googleai/gemini-2.5-flash] }
+  tts: { model: googleai/gemini-2.5-flash-preview-tts, fallback: [elevenlabs/eleven_flash_v2_5] }
   vad: { provider: energy }                 # energy (default) or silero (the neural detector; needs onnxruntime)
 sip:
   livekit_url: ${LIVEKIT_URL}               # LiveKit server with the SIP service enabled

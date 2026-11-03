@@ -1,0 +1,16 @@
+suite: model-fallback
+models:
+  retry: { attempts: -1 }
+  fallback: { judge: [claude-sonnet-4-6] }
+targets:
+  prompt:
+    type: model
+    model: googleai/gemini-2.5-flash
+    system: You help.
+tests:
+  - name: t
+    target: prompt
+    persona: { name: A }
+    scenario: { goal: say hi }
+    assert:
+      - contains: hi

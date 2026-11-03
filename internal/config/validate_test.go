@@ -42,6 +42,10 @@ func TestValidateInvalidSuites(t *testing.T) {
 		{file: "duplicate-test.yaml", line: 8, msg: `duplicate test name "same" (also tests[0])`},
 		{file: "bad-secret-ref.yaml", line: 3, msg: "invalid secret ref"},
 		{file: "syntax.yaml", line: 2, msg: "did not find expected"},
+		{file: "model-fallback.yaml", line: 3, msg: "attempts cannot be negative", path: "models.retry.attempts"},
+		{file: "model-fallback.yaml", line: 4, msg: "model references look like provider/model", path: "models.fallback.judge[0]", warning: true},
+		{file: "model-fallback-target.yaml", line: 7, msg: "model references look like provider/model", path: "targets.prompt.fallback[0]", warning: true},
+		{file: "model-fallback-target.yaml", line: 12, msg: "fallback applies to model targets only; this target is rest", warning: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.file+"/"+tt.msg, func(t *testing.T) {

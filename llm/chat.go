@@ -16,14 +16,14 @@ import (
 // from its configured results and calls again. The call is priced and
 // counted like every other model call of the run.
 func (c *Client) Chat(ctx context.Context, req target.ChatRequest) (target.ChatResponse, error) {
-	modelName := req.Model
-	if modelName == "" {
-		modelName = c.cfg.Models.Default
+	primary := req.Model
+	if primary == "" {
+		primary = c.cfg.Models.Default
 	}
-	if modelName == "" {
+	if primary == "" {
 		return target.ChatResponse{}, fmt.Errorf("model target: no model given and models.default is not set")
 	}
-	opts := []ai.GenerateOption{ai.WithModelName(modelName), ai.WithReturnToolRequests(true)}
+	opts := []ai.GenerateOption{ai.WithReturnToolRequests(true)}
 	if req.System != "" {
 		opts = append(opts, ai.WithSystem(req.System))
 	}
@@ -74,22 +74,26 @@ func (c *Client) Chat(ctx context.Context, req target.ChatRequest) (target.ChatR
 		}
 		opts = append(opts, ai.WithConfig(cfg))
 	}
-	resp, err := genkit.Generate(ctx, c.g, opts...)
-	if err != nil {
-		return target.ChatResponse{}, err
-	}
-	budgetErr := c.record(modelName, resp)
-	out := target.ChatResponse{Text: resp.Text(), FinishReason: string(resp.FinishReason)}
-	if u := resp.Usage; u != nil {
-		out.InputTokens, out.OutputTokens = u.InputTokens, u.OutputTokens
-	}
-	for _, p := range resp.ToolRequests() {
-		tr := p.ToolRequest
-		if tr == nil {
-			continue
+	// Only the target's own fallback list applies: the model under test is
+	// the suite's choice, not a job tamesu picks a model for.
+	return attempt(ctx, c, "model target", chain(primary, req.Fallback), func(ctx context.Context, modelName string) (target.ChatResponse, error) {
+		resp, err := genkit.Generate(ctx, c.g, append([]ai.GenerateOption{ai.WithModelName(modelName)}, opts...)...)
+		if err != nil {
+			return target.ChatResponse{}, fmt.Errorf("%s: %w", modelName, err)
 		}
-		args, _ := tr.Input.(map[string]any)
-		out.ToolCalls = append(out.ToolCalls, target.ChatToolCall{Ref: tr.Ref, Name: tr.Name, Args: args})
-	}
-	return out, budgetErr
+		budgetErr := c.record(modelName, resp, err)
+		out := target.ChatResponse{Text: resp.Text(), FinishReason: string(resp.FinishReason), Model: modelName}
+		if u := resp.Usage; u != nil {
+			out.InputTokens, out.OutputTokens = u.InputTokens, u.OutputTokens
+		}
+		for _, p := range resp.ToolRequests() {
+			tr := p.ToolRequest
+			if tr == nil {
+				continue
+			}
+			args, _ := tr.Input.(map[string]any)
+			out.ToolCalls = append(out.ToolCalls, target.ChatToolCall{Ref: tr.Ref, Name: tr.Name, Args: args})
+		}
+		return out, budgetErr
+	})
 }

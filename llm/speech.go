@@ -32,6 +32,8 @@ type SpeechModel struct {
 	Model    string
 	Language string
 	Voice    string
+	// Fallback lists the models tried, in order, when Model fails.
+	Fallback []string
 }
 
 // SpeechConfig configures text to speech and speech to text.
@@ -105,40 +107,41 @@ func (c *Client) Transcribe(ctx context.Context, req model.TranscribeRequest) (m
 }
 
 func (c *Client) synthesize(ctx context.Context, in synthInput) (synthOutput, error) {
-	modelName := in.Model
-	if modelName == "" {
-		modelName = c.cfg.Speech.TTS.Model
+	primary := in.Model
+	if primary == "" {
+		primary = c.cfg.Speech.TTS.Model
 	}
-	if modelName == "" {
+	if primary == "" {
 		return synthOutput{}, ErrNoSpeechModel
 	}
-	provider := providerOf(modelName)
 	hint := in.Voice
 	if hint == "" {
 		hint = c.cfg.Speech.TTS.Voice
 	}
-	voice := ResolveVoice(provider, hint)
-	lang := in.Language
-	if lang == "" {
-		lang = voice.Language
-	}
-	if lang == "" {
-		lang = c.cfg.Speech.TTS.Language
-	}
-	resp, err := genkit.Generate(ctx, c.g, ai.WithModelName(modelName), ai.WithPrompt(in.Text), ai.WithConfig(ttsConfig(provider, voice.Name, lang)))
-	budgetErr := c.record(modelName, resp)
-	if err != nil {
-		return synthOutput{}, fmt.Errorf("llm: %s with %s: %w", FlowSynthesize, modelName, err)
-	}
-	pcm, err := audioFromResponse(resp)
-	if err != nil {
-		return synthOutput{}, fmt.Errorf("llm: %s with %s: %w", FlowSynthesize, modelName, err)
-	}
-	out := synthOutput{Model: modelName, Voice: voice.Name, Rate: pcm.Rate, Seconds: pcm.Duration().Seconds(), PCM: pcmToBytes(pcm.Samples), TraceID: tracing.SpanTraceInfo(ctx).TraceID}
-	if budgetErr != nil {
+	// The voice is resolved per model: a fallback on another provider speaks
+	// with that provider's voice of the same description.
+	return attempt(ctx, c, "tts", chain(primary, c.cfg.Speech.TTS.Fallback), func(ctx context.Context, modelName string) (synthOutput, error) {
+		provider := providerOf(modelName)
+		voice := ResolveVoice(provider, hint)
+		lang := in.Language
+		if lang == "" {
+			lang = voice.Language
+		}
+		if lang == "" {
+			lang = c.cfg.Speech.TTS.Language
+		}
+		resp, err := genkit.Generate(ctx, c.g, ai.WithModelName(modelName), ai.WithPrompt(in.Text), ai.WithConfig(ttsConfig(provider, voice.Name, lang)))
+		budgetErr := c.record(modelName, resp, err)
+		if err != nil {
+			return synthOutput{}, fmt.Errorf("llm: %s with %s: %w", FlowSynthesize, modelName, err)
+		}
+		pcm, err := audioFromResponse(resp)
+		if err != nil {
+			return synthOutput{}, fmt.Errorf("llm: %s with %s: %w", FlowSynthesize, modelName, err)
+		}
+		out := synthOutput{Model: modelName, Voice: voice.Name, Rate: pcm.Rate, Seconds: pcm.Duration().Seconds(), PCM: pcmToBytes(pcm.Samples), TraceID: tracing.SpanTraceInfo(ctx).TraceID}
 		return out, budgetErr
-	}
-	return out, nil
+	})
 }
 
 // ttsConfig is the model config that selects a voice, per provider.
@@ -166,11 +169,11 @@ func ttsConfig(provider, voice, lang string) map[string]any {
 }
 
 func (c *Client) transcribe(ctx context.Context, in sttInput) (sttOutput, error) {
-	modelName := in.Model
-	if modelName == "" {
-		modelName = c.cfg.Speech.STT.Model
+	primary := in.Model
+	if primary == "" {
+		primary = c.cfg.Speech.STT.Model
 	}
-	if modelName == "" {
+	if primary == "" {
 		return sttOutput{}, ErrNoSpeechModel
 	}
 	lang := in.Language
@@ -186,19 +189,18 @@ func (c *Client) transcribe(ctx context.Context, in sttInput) (sttOutput, error)
 	}
 	dataURL := "data:audio/wav;base64," + base64.StdEncoding.EncodeToString(buf.Bytes())
 	msg := ai.NewUserMessage(ai.NewMediaPart("audio/wav", dataURL), ai.NewTextPart(transcribePrompt(lang)))
-	resp, err := genkit.Generate(ctx, c.g, ai.WithModelName(modelName), ai.WithMessages(msg), ai.WithConfig(sttConfig(providerOf(modelName), lang)))
-	budgetErr := c.record(modelName, resp)
-	if err != nil {
-		return sttOutput{}, fmt.Errorf("llm: %s with %s: %w", FlowTranscribe, modelName, err)
-	}
-	out := sttOutput{Model: modelName, Text: strings.TrimSpace(resp.Text()), TraceID: tracing.SpanTraceInfo(ctx).TraceID}
-	if resp.Usage != nil {
-		out.Confidence = resp.Usage.Custom["confidence"]
-	}
-	if budgetErr != nil {
+	return attempt(ctx, c, "stt", chain(primary, c.cfg.Speech.STT.Fallback), func(ctx context.Context, modelName string) (sttOutput, error) {
+		resp, err := genkit.Generate(ctx, c.g, ai.WithModelName(modelName), ai.WithMessages(msg), ai.WithConfig(sttConfig(providerOf(modelName), lang)))
+		budgetErr := c.record(modelName, resp, err)
+		if err != nil {
+			return sttOutput{}, fmt.Errorf("llm: %s with %s: %w", FlowTranscribe, modelName, err)
+		}
+		out := sttOutput{Model: modelName, Text: strings.TrimSpace(resp.Text()), TraceID: tracing.SpanTraceInfo(ctx).TraceID}
+		if resp.Usage != nil {
+			out.Confidence = resp.Usage.Custom["confidence"]
+		}
 		return out, budgetErr
-	}
-	return out, nil
+	})
 }
 
 // transcribePrompt is what a general model is told; dedicated STT models

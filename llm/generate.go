@@ -39,7 +39,6 @@ func (c *Client) generateScenarios(ctx context.Context, in generateInput) (model
 	if strings.TrimSpace(in.Source) == "" {
 		return model.Draft{}, fmt.Errorf("llm: %s: the document is empty", FlowGenerateScenarios)
 	}
-	modelName := c.modelFor("scenario_generator", in.Model)
 	count := in.Count
 	if count <= 0 {
 		count = DefaultGenerateCount
@@ -56,18 +55,18 @@ func (c *Client) generateScenarios(ctx context.Context, in generateInput) (model
 		"source": source, "source_name": in.SourceName, "target": in.Target, "type": typ, "count": count,
 		"conversational": typ != "browser", "open": "{{", "close": "}}",
 	}
-	resp, err := c.executePrompt(ctx, "scenario_gen", input, modelName)
-	budgetErr := c.record(modelName, resp)
-	if err != nil {
-		return model.Draft{}, fmt.Errorf("llm: %s with %s: %w", FlowGenerateScenarios, modelName, err)
-	}
-	var out model.Draft
-	if err := resp.Output(&out); err != nil {
-		return model.Draft{}, fmt.Errorf("llm: %s: the model did not return the expected JSON: %w (text: %s)", FlowGenerateScenarios, err, short(resp.Text()))
-	}
-	out.TraceID = tracing.SpanTraceInfo(ctx).TraceID
-	if budgetErr != nil {
+	models := chain(c.modelFor("scenario_generator", in.Model), c.fallbacksFor("scenario_generator"))
+	return attempt(ctx, c, "scenario_generator", models, func(ctx context.Context, modelName string) (model.Draft, error) {
+		resp, err := c.executePrompt(ctx, "scenario_gen", input, modelName)
+		budgetErr := c.record(modelName, resp, err)
+		if err != nil {
+			return model.Draft{}, fmt.Errorf("llm: %s with %s: %w", FlowGenerateScenarios, modelName, err)
+		}
+		var out model.Draft
+		if err := resp.Output(&out); err != nil {
+			return model.Draft{}, badOutput(FlowGenerateScenarios, modelName, err, resp.Text())
+		}
+		out.TraceID = tracing.SpanTraceInfo(ctx).TraceID
 		return out, budgetErr
-	}
-	return out, nil
+	})
 }

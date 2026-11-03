@@ -459,6 +459,8 @@ func usageDelta(start, now model.Usage) model.Usage {
 		InputTokens:  now.InputTokens - start.InputTokens,
 		OutputTokens: now.OutputTokens - start.OutputTokens,
 		CostUSD:      now.CostUSD - start.CostUSD,
+		Retries:      now.Retries - start.Retries,
+		Fallbacks:    now.Fallbacks - start.Fallbacks,
 	}
 }
 

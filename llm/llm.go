@@ -34,6 +34,8 @@ type Models struct {
 	Simulator         string
 	BrowserAgent      string
 	ScenarioGenerator string
+	// Fallback lists the models tried, in order, after a job's model failed.
+	Fallback Fallbacks
 }
 
 // Budget caps tamesu's own spend; zero means unlimited.
@@ -63,6 +65,9 @@ type Config struct {
 	Budget Budget
 	// Speech selects the TTS and STT models of audio mode.
 	Speech SpeechConfig
+	// Retry is how every model call is retried before its fallbacks are
+	// tried; the zero value is 3 attempts with a 500ms backoff.
+	Retry  Retry
 	Logger *slog.Logger
 }
 
@@ -171,9 +176,10 @@ func (c *Client) Usage() model.Usage {
 // the telemetry exporter on process exit.
 func (c *Client) Close(context.Context) error { return nil }
 
-// record adds a response's usage and price, and reports the budget.
-func (c *Client) record(modelName string, resp *ai.ModelResponse) error {
-	if resp == nil {
+// record adds a response's usage and price, and reports the budget. A call
+// that failed (err set) is not a call: nothing was answered or billed.
+func (c *Client) record(modelName string, resp *ai.ModelResponse, err error) error {
+	if resp == nil || err != nil {
 		return nil
 	}
 	in, out, chars, seconds := 0, 0, 0, 0.0
@@ -200,6 +206,19 @@ func (c *Client) record(modelName string, resp *ai.ModelResponse) error {
 		return ErrBudgetExceeded
 	}
 	return nil
+}
+
+// countRetry and countFallback add to the run's usage what attempt did.
+func (c *Client) countRetry() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.usage.Retries++
+}
+
+func (c *Client) countFallback() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.usage.Fallbacks++
 }
 
 // overBudget reports whether the budget is already spent, before a call.

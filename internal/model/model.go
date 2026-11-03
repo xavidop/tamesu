@@ -51,6 +51,10 @@ type Usage struct {
 	InputTokens  int     `json:"input_tokens"`
 	OutputTokens int     `json:"output_tokens"`
 	CostUSD      float64 `json:"cost_usd"`
+	// Retries counts the model calls repeated after a transient failure and
+	// Fallbacks the times a fallback model took over from a failed one.
+	Retries   int `json:"retries,omitempty"`
+	Fallbacks int `json:"fallbacks,omitempty"`
 }
 
 // Total is input plus output tokens.

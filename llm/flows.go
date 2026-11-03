@@ -42,7 +42,6 @@ func (c *Client) Simulate(ctx context.Context, in model.SimInput) (model.SimOutp
 }
 
 func (c *Client) simulate(ctx context.Context, in model.SimInput) (model.SimOutput, error) {
-	modelName := c.modelFor("simulator", "")
 	input := map[string]any{
 		"persona":   describePersona(in),
 		"goal":      in.Scenario.Goal,
@@ -53,20 +52,20 @@ func (c *Client) simulate(ctx context.Context, in model.SimInput) (model.SimOutp
 		"history":   formatHistory(in.History),
 		"seed":      in.Seed,
 	}
-	resp, err := c.executePrompt(ctx, "simulator", input, modelName)
-	budgetErr := c.record(modelName, resp)
-	if err != nil {
-		return model.SimOutput{}, fmt.Errorf("llm: %s with %s: %w", FlowSimulateUserTurn, modelName, err)
-	}
-	var out model.SimOutput
-	if err := resp.Output(&out); err != nil {
-		return model.SimOutput{}, fmt.Errorf("llm: %s: the model did not return the expected JSON: %w (text: %s)", FlowSimulateUserTurn, err, short(resp.Text()))
-	}
-	out.TraceID = tracing.SpanTraceInfo(ctx).TraceID
-	if budgetErr != nil {
+	models := chain(c.modelFor("simulator", ""), c.fallbacksFor("simulator"))
+	return attempt(ctx, c, "simulator", models, func(ctx context.Context, modelName string) (model.SimOutput, error) {
+		resp, err := c.executePrompt(ctx, "simulator", input, modelName)
+		budgetErr := c.record(modelName, resp, err)
+		if err != nil {
+			return model.SimOutput{}, fmt.Errorf("llm: %s with %s: %w", FlowSimulateUserTurn, modelName, err)
+		}
+		var out model.SimOutput
+		if err := resp.Output(&out); err != nil {
+			return model.SimOutput{}, badOutput(FlowSimulateUserTurn, modelName, err, resp.Text())
+		}
+		out.TraceID = tracing.SpanTraceInfo(ctx).TraceID
 		return out, budgetErr
-	}
-	return out, nil
+	})
 }
 
 // Judge grades a run through the judgeRun flow.
@@ -78,7 +77,6 @@ func (c *Client) Judge(ctx context.Context, req assert.JudgeRequest) (assert.Jud
 }
 
 func (c *Client) judge(ctx context.Context, req assert.JudgeRequest) (assert.JudgeVerdict, error) {
-	modelName := c.modelFor("judge", req.Model)
 	scale := req.Scale
 	if scale == "" {
 		scale = "binary"
@@ -91,21 +89,21 @@ func (c *Client) judge(ctx context.Context, req assert.JudgeRequest) (assert.Jud
 		"tool_calls": formatToolCalls(req),
 		"metrics":    formatMetrics(req.Metrics),
 	}
-	resp, err := c.executePrompt(ctx, "judge", input, modelName)
-	budgetErr := c.record(modelName, resp)
-	if err != nil {
-		return assert.JudgeVerdict{}, fmt.Errorf("llm: %s with %s: %w", FlowJudgeRun, modelName, err)
-	}
-	var out assert.JudgeVerdict
-	if err := resp.Output(&out); err != nil {
-		return assert.JudgeVerdict{}, fmt.Errorf("llm: %s: the model did not return the expected JSON: %w (text: %s)", FlowJudgeRun, err, short(resp.Text()))
-	}
-	out.TraceID = tracing.SpanTraceInfo(ctx).TraceID
-	out.PromptVersion = c.prompts.Version("judge")
-	if budgetErr != nil {
+	models := chain(c.modelFor("judge", req.Model), c.fallbacksFor("judge"))
+	return attempt(ctx, c, "judge", models, func(ctx context.Context, modelName string) (assert.JudgeVerdict, error) {
+		resp, err := c.executePrompt(ctx, "judge", input, modelName)
+		budgetErr := c.record(modelName, resp, err)
+		if err != nil {
+			return assert.JudgeVerdict{}, fmt.Errorf("llm: %s with %s: %w", FlowJudgeRun, modelName, err)
+		}
+		var out assert.JudgeVerdict
+		if err := resp.Output(&out); err != nil {
+			return assert.JudgeVerdict{}, badOutput(FlowJudgeRun, modelName, err, resp.Text())
+		}
+		out.TraceID = tracing.SpanTraceInfo(ctx).TraceID
+		out.PromptVersion = c.prompts.Version("judge")
 		return out, budgetErr
-	}
-	return out, nil
+	})
 }
 
 func describePersona(in model.SimInput) string {

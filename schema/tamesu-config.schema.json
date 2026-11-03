@@ -478,6 +478,65 @@
         "name"
       ]
     },
+    "ModelFallback": {
+      "properties": {
+        "default": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Models tried in order after a job's model failed; for every job without a list of its own."
+        },
+        "judge": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Models tried in order after the judge's model failed."
+        },
+        "simulator": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Models tried in order after the simulator's model failed."
+        },
+        "browser_agent": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Models tried in order after the browser agent's model failed."
+        },
+        "scenario_generator": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Models tried in order after the scenario generator's model failed."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ModelRetry": {
+      "properties": {
+        "attempts": {
+          "type": "integer",
+          "description": "Tries per model on a rate limit or an outage or a timeout before the next fallback; default 3 and 1 retries nothing."
+        },
+        "backoff": {
+          "$ref": "#/$defs/Duration",
+          "description": "The wait before the second try; default 500ms and doubled every try with jitter."
+        },
+        "max_backoff": {
+          "$ref": "#/$defs/Duration",
+          "description": "The longest wait between tries; default 10s."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "Models": {
       "properties": {
         "default": {
@@ -501,6 +560,14 @@
           },
           "type": "object",
           "description": "Plugin name to {{secrets.NAME}} when the secret is not named conventionally."
+        },
+        "fallback": {
+          "$ref": "#/$defs/ModelFallback",
+          "description": "The models tried in order when a job's model keeps failing."
+        },
+        "retry": {
+          "$ref": "#/$defs/ModelRetry",
+          "description": "How a model call is retried before the next model is tried."
         }
       },
       "additionalProperties": false,
@@ -659,6 +726,13 @@
         },
         "voice": {
           "type": "string"
+        },
+        "fallback": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Models tried in order after model failed; another provider speaks with its own voice of the same description."
         }
       },
       "additionalProperties": false,

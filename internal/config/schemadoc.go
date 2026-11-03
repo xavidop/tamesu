@@ -192,7 +192,11 @@ tests:
 	"Models": `models:
   default: googleai/gemini-2.5-flash
   judge: anthropic/claude-sonnet-4-6
-  simulator: openai/gpt-4.1-mini`,
+  simulator: openai/gpt-4.1-mini
+  fallback:
+    default: [openai/gpt-4.1-mini]
+    judge: [googleai/gemini-2.5-pro]
+  retry: { attempts: 3, backoff: 500ms, max_backoff: 10s }`,
 	"Budgets":  `budgets: { max_cost_usd: 2, max_tokens: 500000 }`,
 	"Duration": `timeout: 90s`,
 }

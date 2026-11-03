@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/xavidop/tamesu/internal/model"
 )
 
 // Console prints live progress, one PASS/FAIL line per test and, on failure,
@@ -150,7 +152,7 @@ func (c *Console) Finish(_ context.Context, s *Summary) error {
 		line += " · stopped after the first failure (--fail-fast)"
 	}
 	if s.Usage.Calls > 0 {
-		line += fmt.Sprintf(" · %d model calls, %d tokens, $%.4f", s.Usage.Calls, s.Usage.Total(), s.Usage.CostUSD)
+		line += fmt.Sprintf(" · %d model calls, %d tokens, $%.4f", s.Usage.Calls, s.Usage.Total(), s.Usage.CostUSD) + retriesSuffix(s.Usage)
 	}
 	if c := s.LLMCache; c != nil && c.Hits+c.Misses > 0 {
 		line += fmt.Sprintf(" · llm cache: %d hits, %d misses", c.Hits, c.Misses)
@@ -186,4 +188,20 @@ func oneLine(s string, limit int) string {
 		return s[:limit-3] + "..."
 	}
 	return s
+}
+
+// retriesSuffix words the model calls that had to be repeated or handed to a
+// fallback model, after the usage figures; empty when none were.
+func retriesSuffix(u model.Usage) string {
+	var out string
+	switch {
+	case u.Retries == 1:
+		out += ", 1 retry"
+	case u.Retries > 1:
+		out += fmt.Sprintf(", %d retries", u.Retries)
+	}
+	if u.Fallbacks > 0 {
+		out += ", " + plural(u.Fallbacks, "fallback")
+	}
+	return out
 }
