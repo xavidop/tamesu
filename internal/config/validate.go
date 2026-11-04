@@ -252,6 +252,34 @@ func (v *validator) target(name string, t Target) {
 		if t.Response == nil || t.Response.Text == "" {
 			v.warnf(tp, "response.text is not set; the whole response body is read as the agent's reply")
 		}
+		if t.Session != nil && t.Session.Open != nil && t.Session.Open.URL == "" {
+			v.errorf(with(tp, "session", "open"), "session.open needs url")
+		}
+		if t.Response != nil {
+			poll, listen := t.Response.Poll != nil, t.Response.Listen != nil
+			if poll && listen {
+				v.errorf(with(tp, "response"), "response.poll and response.listen are exclusive: the reply is polled or listened for, not both")
+			}
+			if (poll || listen) && t.Streaming != "" && t.Streaming != "none" {
+				v.errorf(with(tp, "response"), "response.poll and response.listen apply to streaming none: the reply does not come in the request's response")
+			}
+			if poll {
+				if t.Response.Poll.URL == "" {
+					v.errorf(with(tp, "response", "poll"), "response.poll needs url")
+				}
+				if t.Response.Poll.Method != "" && !slices.Contains(StateHTTPMethods, strings.ToUpper(t.Response.Poll.Method)) {
+					v.errorf(with(tp, "response", "poll", "method"), "method must be one of %s", strings.Join(StateHTTPMethods, ", "))
+				}
+			}
+			if listen {
+				if t.Response.Listen.Status != 0 && (t.Response.Listen.Status < 100 || t.Response.Listen.Status > 599) {
+					v.errorf(with(tp, "response", "listen", "status"), "status must be an HTTP status code")
+				}
+			}
+		}
+		if t.Request != nil && len(t.Request.Capture) > 0 && (t.Response == nil || t.Response.Poll == nil) {
+			v.warnf(with(tp, "request", "capture"), "request.capture applies with response.poll: its values render as {{sent.NAME}} in the poll")
+		}
 		if t.Streaming == "websocket" {
 			if t.Response == nil || (t.Response.TurnDone == "" && t.Response.Done == "") {
 				v.warnf(with(tp, "response"), "streaming websocket without response.turn_done or response.done: a turn ends only after response.idle (default 2s) without a message")

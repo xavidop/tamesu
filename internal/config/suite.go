@@ -193,22 +193,58 @@ type BrowserAuth struct {
 
 // RESTRequest templates how a user turn is sent.
 type RESTRequest struct {
-	Body any `yaml:"body,omitempty" json:"body,omitempty" jsonschema:"description=Request body template; {{message}} is the user turn and {{session}} the session id."`
-	Open any `yaml:"open,omitempty" json:"open,omitempty" jsonschema:"description=streaming websocket: a message template sent once after connecting."`
+	Body    any               `yaml:"body,omitempty" json:"body,omitempty" jsonschema:"description=Request body template; {{message}} is the user turn and {{session}} the session id."`
+	Open    any               `yaml:"open,omitempty" json:"open,omitempty" jsonschema:"description=streaming websocket: a message template sent once after connecting."`
+	Capture map[string]string `yaml:"capture,omitempty" json:"capture,omitempty" jsonschema:"description=With response.poll: JSONPaths into the reply to the sent request by name; the values render as {{sent.NAME}} in the poll of the same turn (a message timestamp to poll after)."`
 }
 
 // RESTResponse says how the agent turn is read from the response.
 type RESTResponse struct {
-	Text      string   `yaml:"text,omitempty" json:"text,omitempty" jsonschema:"description=JSONPath of the agent's reply such as $.reply."`
-	ToolCalls string   `yaml:"tool_calls,omitempty" json:"tool_calls,omitempty" jsonschema:"description=JSONPath of the tool call names."`
-	Done      string   `yaml:"done,omitempty" json:"done,omitempty" jsonschema:"description=JSONPath of a boolean that ends the session."`
-	TurnDone  string   `yaml:"turn_done,omitempty" json:"turn_done,omitempty" jsonschema:"description=streaming websocket: JSONPath of a boolean that ends the turn; otherwise the turn ends after idle."`
-	Idle      Duration `yaml:"idle,omitempty" json:"idle,omitempty" jsonschema:"description=streaming websocket: silence that ends a turn when no message marks it; default 2s."`
+	Text      string      `yaml:"text,omitempty" json:"text,omitempty" jsonschema:"description=JSONPath of the agent's reply such as $.reply."`
+	ToolCalls string      `yaml:"tool_calls,omitempty" json:"tool_calls,omitempty" jsonschema:"description=JSONPath of the tool call names."`
+	Done      string      `yaml:"done,omitempty" json:"done,omitempty" jsonschema:"description=JSONPath of a boolean that ends the session."`
+	TurnDone  string      `yaml:"turn_done,omitempty" json:"turn_done,omitempty" jsonschema:"description=streaming websocket: JSONPath of a boolean that ends the turn; otherwise the turn ends after idle."`
+	Idle      Duration    `yaml:"idle,omitempty" json:"idle,omitempty" jsonschema:"description=streaming websocket: silence that ends a turn when no message marks it; default 2s."`
+	Poll      *RESTPoll   `yaml:"poll,omitempty" json:"poll,omitempty" jsonschema:"description=The agent answers somewhere else than the request's response: poll this endpoint for the reply after each turn (a chat channel's history). text / tool_calls / done then read the poll replies."`
+	Listen    *RESTListen `yaml:"listen,omitempty" json:"listen,omitempty" jsonschema:"description=The agent answers by calling an API: serve that API locally ({{listen.url}}) and read the reply from the requests the agent makes to it (a bot that answers through its platform's send endpoint). text / tool_calls / done then read those requests."`
 }
 
-// RESTSession configures the session id.
+// RESTPoll polls a second endpoint for the agent's reply.
+type RESTPoll struct {
+	URL      string            `yaml:"url" json:"url" jsonschema:"required,description=The endpoint to poll; {{session.NAME}} and {{sent.NAME}} captures and {{cursor}} render."`
+	Method   string            `yaml:"method,omitempty" json:"method,omitempty" jsonschema:"description=HTTP method; defaults to GET."`
+	Headers  map[string]string `yaml:"headers,omitempty" json:"headers,omitempty" jsonschema:"description=Request headers (templates allowed)."`
+	Body     any               `yaml:"body,omitempty" json:"body,omitempty" jsonschema:"description=Body template; none by default."`
+	Interval Duration          `yaml:"interval,omitempty" json:"interval,omitempty" jsonschema:"description=Time between polls; default 500ms."`
+	Timeout  Duration          `yaml:"timeout,omitempty" json:"timeout,omitempty" jsonschema:"description=How long to wait for a reply before the turn fails; default 60s."`
+	Idle     Duration          `yaml:"idle,omitempty" json:"idle,omitempty" jsonschema:"description=Keep polling after the first reply until nothing new arrives for this long (an agent that answers in several messages); unset completes the turn on the first reply."`
+	Cursor   string            `yaml:"cursor,omitempty" json:"cursor,omitempty" jsonschema:"description=JSONPath into each poll reply whose value renders as {{cursor}} in the next poll (a watermark). With it the polls accumulate; without it each poll replaces the last (the endpoint returns the whole thread)."`
+}
+
+// RESTListen serves an API the agent answers through.
+type RESTListen struct {
+	Addr    string   `yaml:"addr,omitempty" json:"addr,omitempty" jsonschema:"description=Address to listen on such as 127.0.0.1:8089; default a free port on 127.0.0.1. The URL renders as {{listen.url}}."`
+	Path    string   `yaml:"path,omitempty" json:"path,omitempty" jsonschema:"description=The requests that carry replies: an optional method then a path with * wildcards such as POST /bot*/sendMessage; a trailing / matches the prefix. Default every request. Other requests get reply but are not read."`
+	Session string   `yaml:"session,omitempty" json:"session,omitempty" jsonschema:"description=JSONPath into the incoming payload that holds the session id ($.chat_id); routes each request to its session when tests run in parallel. Default the oldest open session."`
+	Reply   any      `yaml:"reply,omitempty" json:"reply,omitempty" jsonschema:"description=The JSON tamesu answers the agent with (templates allowed); default {ok: true}."`
+	Status  int      `yaml:"status,omitempty" json:"status,omitempty" jsonschema:"description=The status answered; default 200."`
+	Timeout Duration `yaml:"timeout,omitempty" json:"timeout,omitempty" jsonschema:"description=How long to wait for the agent's request before the turn fails; default 60s."`
+	Idle    Duration `yaml:"idle,omitempty" json:"idle,omitempty" jsonschema:"description=Keep reading after the first reply until nothing new arrives for this long (an agent that answers in several messages); unset completes the turn on the first request with content."`
+}
+
+// RESTSession configures the session id and how a session is opened.
 type RESTSession struct {
-	ID string `yaml:"id,omitempty" json:"id,omitempty" jsonschema:"description=Session id template; defaults to {{uuid}}."`
+	ID   string    `yaml:"id,omitempty" json:"id,omitempty" jsonschema:"description=Session id template; defaults to {{uuid}}."`
+	Open *RESTOpen `yaml:"open,omitempty" json:"open,omitempty" jsonschema:"description=A request sent once when the session starts (create a conversation / open a chat); its captures render as {{session.NAME}} in every later template."`
+}
+
+// RESTOpen is the request that opens a session.
+type RESTOpen struct {
+	URL     string            `yaml:"url" json:"url" jsonschema:"required,description=The request URL (templates allowed)."`
+	Method  string            `yaml:"method,omitempty" json:"method,omitempty" jsonschema:"description=HTTP method; defaults to POST."`
+	Headers map[string]string `yaml:"headers,omitempty" json:"headers,omitempty" jsonschema:"description=Request headers (templates allowed)."`
+	Body    any               `yaml:"body,omitempty" json:"body,omitempty" jsonschema:"description=Body template; none by default."`
+	Capture map[string]string `yaml:"capture,omitempty" json:"capture,omitempty" jsonschema:"description=JSONPaths into the JSON reply by name; {{session.NAME}} renders each value."`
 }
 
 // Dispatch requests an explicit LiveKit agent dispatch.

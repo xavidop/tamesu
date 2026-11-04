@@ -45,7 +45,7 @@ func (f Finding) String() string {
 var Rules = []string{
 	"no-assertions", "judge-only", "untagged", "duplicate-goal", "short-goal", "vague-rubric",
 	"turns-never-binds", "latency-never-binds", "threshold-without-repeat", "long-conversation",
-	"persona-without-style", "unused-target", "unused-pack", "unused-var", "unused-secret",
+	"persona-without-style", "listen-without-session", "unused-target", "unused-pack", "unused-var", "unused-secret",
 }
 
 // LongConversation is the max_turns above which a test is flagged.
@@ -192,6 +192,9 @@ func (l *linter) declarations() {
 	for _, name := range sortedKeys(l.s.Targets) {
 		if !used[name] {
 			l.add("unused-target", nil, "targets."+name, "no test uses target %q", name)
+		}
+		if t := l.s.Targets[name]; t.Response != nil && t.Response.Listen != nil && t.Response.Listen.Session == "" {
+			l.add("listen-without-session", nil, "targets."+name+".response.listen", "response.listen has no session: with --parallel the agent's requests all go to the oldest open session; set session to the JSONPath of the session id in the agent's requests ($.chat_id)")
 		}
 	}
 	referenced := map[string]bool{}

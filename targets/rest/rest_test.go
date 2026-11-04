@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -289,4 +290,16 @@ func TestConnectRetries(t *testing.T) {
 	err = sess.Send(context.Background(), target.UserTurn{Text: "hi"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "(after 3 attempts)")
+}
+
+func TestRenderValueNumberFilter(t *testing.T) {
+	render := func(s string) (string, error) { return strings.ReplaceAll(s, "{{session}}", "123456"), nil }
+	got, err := renderValue(map[string]any{"chat": map[string]any{"id": "{{session|number}}"}, "text": "{{session}}", "n": 1}, render)
+	require.NoError(t, err)
+	b, err := json.Marshal(got)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"chat": {"id": 123456}, "text": "123456", "n": 1}`, string(b))
+	_, err = renderValue("{{session|number}}", func(string) (string, error) { return "abc", nil })
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not a number")
 }

@@ -95,14 +95,26 @@ func newRESTTarget(_ context.Context, spec runner.TargetSpec) (target.Target, er
 	t := spec.Config
 	cfg := rest.Config{Connect: connectPolicy(t), URL: t.URL, Method: t.Method, Headers: t.Headers, Streaming: t.Streaming}
 	if t.Request != nil {
-		cfg.Body, cfg.Open = t.Request.Body, t.Request.Open
+		cfg.Body, cfg.Open, cfg.SentCapture = t.Request.Body, t.Request.Open, t.Request.Capture
 	}
 	if t.Response != nil {
 		cfg.TextPath, cfg.ToolCallsPath, cfg.DonePath = t.Response.Text, t.Response.ToolCalls, t.Response.Done
 		cfg.TurnDonePath, cfg.Idle = t.Response.TurnDone, t.Response.Idle.Std()
+		if p := t.Response.Poll; p != nil {
+			cfg.Poll = &rest.Poll{
+				Request:  rest.Request{URL: p.URL, Method: strings.ToUpper(p.Method), Headers: p.Headers, Body: p.Body},
+				Interval: p.Interval.Std(), Timeout: p.Timeout.Std(), Idle: p.Idle.Std(), Cursor: p.Cursor,
+			}
+		}
+		if l := t.Response.Listen; l != nil {
+			cfg.Listen = &rest.Listen{Addr: l.Addr, Path: l.Path, Session: l.Session, Reply: l.Reply, Status: l.Status, Timeout: l.Timeout.Std(), Idle: l.Idle.Std()}
+		}
 	}
 	if t.Session != nil {
 		cfg.SessionID = t.Session.ID
+		if o := t.Session.Open; o != nil {
+			cfg.SessionOpen = &rest.Request{URL: o.URL, Method: strings.ToUpper(o.Method), Headers: o.Headers, Body: o.Body, Capture: o.Capture}
+		}
 	}
 	return rest.New(spec.Name, cfg), nil
 }

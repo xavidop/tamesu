@@ -73,7 +73,7 @@ func TestRender(t *testing.T) {
 		{name: "values", in: `{"session_id": "{{ session }}", "message": "{{message}}"}`, want: `{"session_id": "sid", "message": "hello"}`},
 		{name: "dotted value", in: "{{sip.inbound_number}}", want: "+34910000000"},
 		{name: "unknown", in: "{{nope}}", wantErr: "unknown template {{nope}}"},
-		{name: "unknown faker", in: "{{faker.ssn}}", wantErr: "unknown template {{faker.ssn}} (have email, name, phone, uuid)"},
+		{name: "unknown faker", in: "{{faker.ssn}}", wantErr: "unknown template {{faker.ssn}} (have email, name, phone, uuid, number)"},
 		{name: "plain", in: "no templates ${X}", want: "no templates ${X}"},
 	}
 	for _, tt := range tests {
