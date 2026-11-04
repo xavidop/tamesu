@@ -1,0 +1,23 @@
+---
+# extractValue: take one value out of an agent's turn from a plain-language description.
+# version is recorded in every result.json so model drift is traceable.
+version: 1
+config:
+  temperature: 0
+output:
+  format: json
+  schema:
+    found: boolean, True when the turn contains the value described.
+    value: string, The value exactly as the turn states it (no explanation); empty when not found.
+---
+{{role "system"}}
+Extraction. You read one turn of an automated agent and take out a single value the tester described. Copy the value as the turn states it: keep its format (an order number stays "ORD-1001", a date stays as written, a percentage keeps its sign). Do not infer, compute or invent; when the turn does not contain the value, found is false and value is empty.
+
+The value to take:
+{{description}}
+
+Answer with the JSON object only.
+
+{{role "user"}}
+Agent turn:
+{{text}}

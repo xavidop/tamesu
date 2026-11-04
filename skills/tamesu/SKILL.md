@@ -123,7 +123,7 @@ Rules the validator enforces (each error is `file:line: path: message`):
   (`before_all` / `after_all` / `before_each` / `after_each`, each `command` or `http`, on the
   suite or in tamesu.yaml); `defaults.assert` (assertions every test must pass, packs included,
   reported as defaults/<name>) and `defaults.slo` (metric maximums such as turn_latency_ms_p95: 3000,
-  reported as slo/<metric>; unmeasured metrics pass); `capture` (`{ name, regex | json_path }`: values from the agent's turns
+  reported as slo/<metric>; unmeasured metrics pass); `capture` (`{ name, regex | json_path | extract }`: values from the agent's turns; `extract` is a plain-language description a model takes the value out with
   as `{{captured.<name>}}` in later script say steps, tool_results, hooks and assertions);
 - every `{{secrets.X}}` must be declared; a `${VAR}` in a secret field is a warning;
 - an unset `${VAR}` is a warning for `validate` (so CI without the variables can check suites)

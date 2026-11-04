@@ -378,6 +378,7 @@ cases:
 | `name` | string | yes | The name; the value is {{captured.<name>}}. | `name: order_id` |
 | `regex` | string |  | A regular expression on the agent's text; the first group (else the whole match) is the value. | `regex: "(ORD-[0-9]+)"` |
 | `json_path` | string |  | A JSONPath on the turn's raw response (rest / websocket / realtime events). | `json_path: $.order.id` |
+| `extract` | string |  | A plain-language description of the value; a model takes it out of the agent's turn as written (the first turn that has it). | `extract: "the order number the agent mentioned"` |
 
 Example:
 

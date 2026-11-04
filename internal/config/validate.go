@@ -1064,8 +1064,11 @@ func (v *validator) validateCaptures(i int, t Test) {
 			v.errorf(with(cp, "name"), "capture %q is declared twice", c.Name)
 		}
 		seen[c.Name] = true
-		if c.Regex == "" && c.JSONPath == "" {
-			v.errorf(cp, "a capture is a regex or a json_path")
+		if c.Regex == "" && c.JSONPath == "" && strings.TrimSpace(c.Extract) == "" {
+			v.errorf(cp, "a capture is a regex, a json_path or an extract description")
+		}
+		if n := len(strings.Fields(c.Extract)); c.Extract != "" && n < 2 {
+			v.warnf(with(cp, "extract"), "extract is one word; describe the value so the model can find it (the order number the agent mentioned)")
 		}
 		if c.Regex != "" {
 			if _, err := regexp.Compile(c.Regex); err != nil {

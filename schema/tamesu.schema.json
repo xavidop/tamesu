@@ -262,6 +262,10 @@
         "json_path": {
           "type": "string",
           "description": "A JSONPath on the turn's raw response (rest / websocket / realtime events)."
+        },
+        "extract": {
+          "type": "string",
+          "description": "A plain-language description of the value; a model takes it out of the agent's turn as written (the first turn that has it)."
         }
       },
       "additionalProperties": false,

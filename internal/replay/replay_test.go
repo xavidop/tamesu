@@ -3,6 +3,7 @@ package replay
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -112,4 +113,14 @@ func TestReplayForwardsRolesItLacks(t *testing.T) {
 // Ground implements assert.Grounder: every claim is supported.
 func (f *fakeProvider) Ground(_ context.Context, req tassert.GroundRequest) (tassert.GroundVerdict, error) {
 	return tassert.GroundVerdict{Claims: []tassert.Claim{{Text: "fake claim", Supported: true, Evidence: "(fake)"}}, Reason: "fake grounder"}, nil
+}
+
+// Extract implements model.Extractor: the first word with a digit.
+func (f *fakeProvider) Extract(_ context.Context, req model.ExtractRequest) (model.ExtractResult, error) {
+	for _, w := range strings.Fields(req.Text) {
+		if strings.ContainsAny(w, "0123456789") {
+			return model.ExtractResult{Found: true, Value: w}, nil
+		}
+	}
+	return model.ExtractResult{}, nil
 }

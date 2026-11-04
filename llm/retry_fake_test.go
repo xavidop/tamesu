@@ -167,3 +167,16 @@ func TestGroundFake(t *testing.T) {
 	assert.Equal(t, 1, supported)
 	assert.Equal(t, 2, total, "the fake marks one claim unsupported when the conversation says UNSUPPORTED")
 }
+
+func TestExtractFake(t *testing.T) {
+	c := client(t)
+	withConfig(t, c, Models{Default: "fake/text", Judge: "fake/judge"}, c.cfg.Speech)
+	res, err := c.Extract(context.Background(), model.ExtractRequest{Description: "the order number the agent mentioned", Text: "Your order ORD-42 is on its way."})
+	require.NoError(t, err)
+	assert.True(t, res.Found)
+	assert.Equal(t, "ORD-42", res.Value, "the fake takes the first word with a digit, without punctuation")
+	assert.Equal(t, "1", res.PromptVersion)
+	res, err = c.Extract(context.Background(), model.ExtractRequest{Description: "a date", Text: "Hello there"})
+	require.NoError(t, err)
+	assert.False(t, res.Found)
+}

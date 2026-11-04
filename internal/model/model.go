@@ -67,10 +67,32 @@ type Simulator interface {
 	Simulate(ctx context.Context, in SimInput) (SimOutput, error)
 }
 
+// ExtractRequest asks for one value out of an agent's turn, described in
+// plain language (a capture with extract:).
+type ExtractRequest struct {
+	Description string `json:"description"`
+	Text        string `json:"text"`
+}
+
+// ExtractResult is the value, when the turn had it.
+type ExtractResult struct {
+	Found bool   `json:"found"`
+	Value string `json:"value"`
+	// TraceID and PromptVersion identify the model call.
+	TraceID       string `json:"trace_id,omitempty"`
+	PromptVersion string `json:"prompt_version,omitempty"`
+}
+
+// Extractor takes values out of agent turns from a description.
+type Extractor interface {
+	Extract(ctx context.Context, req ExtractRequest) (ExtractResult, error)
+}
+
 // Provider is the AI layer a run needs: the simulator, the judge, Genkit
 // evaluators and the usage meter. The llm module implements it.
 type Provider interface {
 	Simulator
+	Extractor
 	assert.Judger
 	assert.Grounder
 	assert.Evaluator

@@ -146,10 +146,11 @@ to the suite, so a spreadsheet of questions becomes a suite.
 ## Capturing values across turns
 
 `capture` takes values from the agent's turns as they arrive, by a regular expression on the
-agent's text (the first group, else the whole match) or a JSONPath on the turn's raw response.
-The first turn that matches sets the value; from then on it is `{{captured.<name>}}` in later
-script `say` steps, in `tool_results`, in hooks and in assertions, and it is written to
-`result.json`.
+agent's text (the first group, else the whole match), a JSONPath on the turn's raw response, or
+`extract`: a plain-language description of the value (`the order number the agent mentioned`)
+that a model takes out of the turn as written, for values with no fixed shape. The first turn
+that has the value sets it; from then on it is `{{captured.<name>}}` in later script `say`
+steps, in `tool_results`, in hooks and in assertions, and it is written to `result.json`.
 
 ```yaml
 tests:
@@ -158,6 +159,7 @@ tests:
     capture:
       - { name: order_id, regex: "order (ORD-[0-9]+)" }
       - { name: eta, json_path: "$.eta" }
+      - { name: carrier, extract: "the delivery company the agent named" }
     scenario:
       goal: "Place an order for the blue sneakers, then ask when it arrives"
       script:
@@ -167,6 +169,11 @@ tests:
       - captured: { name: order_id, matches: "^ORD-" }
       - contains: "{{captured.eta}}"
 ```
+
+`extract` runs on the judge model (one short call per agent turn until the value is found), is
+cached by the replay cache like a verdict, and counts in the run's model usage. Prefer a `regex`
+or `json_path` when the value has a shape; `extract` is for the rest: a carrier name, a reason,
+a date the agent words differently every time.
 
 ## How a conversational test flows
 

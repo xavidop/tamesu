@@ -96,6 +96,7 @@ type Client struct {
 	simFlow      flowFunc[model.SimInput, model.SimOutput]
 	judgeFlow    flowFunc[assert.JudgeRequest, assert.JudgeVerdict]
 	groundFlow   flowFunc[assert.GroundRequest, assert.GroundVerdict]
+	extractFlow  flowFunc[model.ExtractRequest, model.ExtractResult]
 	ttsFlow      flowFunc[synthInput, synthOutput]
 	sttFlow      flowFunc[sttInput, sttOutput]
 	goalFlow     flowFunc[goalInput, goalOutput]

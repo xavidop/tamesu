@@ -485,6 +485,17 @@ func (p *Plugin) simulator(_ context.Context, req *ai.ModelRequest, _ any, _ ai.
 var turnRe = regexp.MustCompile(`this is turn (\d+)`)
 
 func (p *Plugin) judge(_ context.Context, req *ai.ModelRequest, _ any, _ ai.ModelStreamCallback) (*ai.ModelResponse, error) {
+	if text := promptText(req); strings.Contains(text, "Extraction.") {
+		// The extract flow: the first word with a digit in the agent turn, so
+		// order numbers, days and percentages come out as written.
+		_, turn, _ := strings.Cut(text, "Agent turn:")
+		for _, w := range strings.Fields(turn) {
+			if strings.ContainsAny(w, "0123456789") {
+				return respond(req, map[string]any{"found": true, "value": strings.Trim(w, ".,;:!?\"'()")})
+			}
+		}
+		return respond(req, map[string]any{"found": false, "value": ""})
+	}
 	if text := promptText(req); strings.Contains(text, "Grounding check.") {
 		// The grounding flow: every claim is supported, unless the
 		// conversation says UNSUPPORTED, which marks one claim unsupported.

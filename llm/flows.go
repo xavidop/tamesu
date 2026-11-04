@@ -20,6 +20,7 @@ const (
 	FlowSimulateUserTurn = "simulateUserTurn"
 	FlowJudgeRun         = "judgeRun"
 	FlowGroundRun        = "groundRun"
+	FlowExtractValue     = "extractValue"
 )
 
 // defineFlows registers tamesu's flows and the judge evaluator on the
@@ -28,6 +29,7 @@ func (c *Client) defineFlows() {
 	c.simFlow = genkit.DefineFlow(c.g, FlowSimulateUserTurn, c.simulate)
 	c.judgeFlow = genkit.DefineFlow(c.g, FlowJudgeRun, c.judge)
 	c.groundFlow = genkit.DefineFlow(c.g, FlowGroundRun, c.ground)
+	c.extractFlow = genkit.DefineFlow(c.g, FlowExtractValue, c.extract)
 	c.ttsFlow = genkit.DefineFlow(c.g, FlowSynthesize, c.synthesize)
 	c.sttFlow = genkit.DefineFlow(c.g, FlowTranscribe, c.transcribe)
 	c.defineBrowser()
@@ -149,6 +151,34 @@ func (c *Client) ground(ctx context.Context, req assert.GroundRequest) (assert.G
 		}
 		out.TraceID = tracing.SpanTraceInfo(ctx).TraceID
 		out.PromptVersion = c.prompts.Version("ground")
+		return out, budgetErr
+	})
+}
+
+// Extract takes one described value out of an agent's turn, through the
+// extractValue flow, with the judge model.
+func (c *Client) Extract(ctx context.Context, req model.ExtractRequest) (model.ExtractResult, error) {
+	if c.overBudget() {
+		return model.ExtractResult{}, ErrBudgetExceeded
+	}
+	return c.extractFlow.Run(ctx, req)
+}
+
+func (c *Client) extract(ctx context.Context, req model.ExtractRequest) (model.ExtractResult, error) {
+	input := map[string]any{"description": req.Description, "text": req.Text}
+	models := chain(c.modelFor("judge", ""), c.fallbacksFor("judge"))
+	return attempt(ctx, c, "judge", models, func(ctx context.Context, modelName string) (model.ExtractResult, error) {
+		resp, err := c.executePrompt(ctx, "extract", input, modelName)
+		budgetErr := c.record(modelName, resp, err)
+		if err != nil {
+			return model.ExtractResult{}, fmt.Errorf("llm: %s with %s: %w", FlowExtractValue, modelName, err)
+		}
+		var out model.ExtractResult
+		if err := resp.Output(&out); err != nil {
+			return model.ExtractResult{}, badOutput(FlowExtractValue, modelName, err, resp.Text())
+		}
+		out.TraceID = tracing.SpanTraceInfo(ctx).TraceID
+		out.PromptVersion = c.prompts.Version("extract")
 		return out, budgetErr
 	})
 }

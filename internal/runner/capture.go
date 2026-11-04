@@ -3,6 +3,7 @@ package runner
 import (
 	"fmt"
 	"regexp"
+	"strings"
 	"sync"
 
 	"github.com/ohler55/ojg/jp"
@@ -21,10 +22,13 @@ type capturer struct {
 	values map[string]string
 	// onSet publishes a value to the run scope as captured.<name>.
 	onSet func(name, value string)
+	// extract asks a model for a described value in the agent's text (a
+	// capture with extract:); nil means no model is available.
+	extractFn func(description, text string) (string, bool)
 }
 
-func newCapturer(specs []config.Capture, onSet func(name, value string)) (*capturer, error) {
-	c := &capturer{specs: specs, values: map[string]string{}, onSet: onSet}
+func newCapturer(specs []config.Capture, onSet func(name, value string), extract func(description, text string) (string, bool)) (*capturer, error) {
+	c := &capturer{specs: specs, values: map[string]string{}, onSet: onSet, extractFn: extract}
 	for _, sp := range specs {
 		var re *regexp.Regexp
 		var expr jp.Expr
@@ -79,6 +83,11 @@ func (c *capturer) extract(i int, agent target.AgentTurn) (string, bool) {
 			if got := expr.Get(raw); len(got) > 0 {
 				return scalarText(got[0]), true
 			}
+		}
+	}
+	if desc := c.specs[i].Extract; desc != "" && c.extractFn != nil && strings.TrimSpace(agent.Text) != "" {
+		if v, ok := c.extractFn(desc, agent.Text); ok && strings.TrimSpace(v) != "" {
+			return strings.TrimSpace(v), true
 		}
 	}
 	return "", false

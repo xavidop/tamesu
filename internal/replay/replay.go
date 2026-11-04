@@ -81,6 +81,7 @@ type simEntry struct {
 	Sim       *model.SimOutput      `json:"sim,omitempty"`
 	Judge     *assert.JudgeVerdict  `json:"judge,omitempty"`
 	Ground    *assert.GroundVerdict `json:"ground,omitempty"`
+	Extract   *model.ExtractResult  `json:"extract,omitempty"`
 }
 
 // simKey is what identifies a simulator turn: who is talking, about what,
@@ -214,6 +215,25 @@ func (p *Provider) Ground(ctx context.Context, req assert.GroundRequest) (assert
 		return out, err
 	}
 	p.store(key, simEntry{Kind: "ground", Request: raw, Ground: &out})
+	return out, nil
+}
+
+// Extract answers from the cache or the inner extractor.
+func (p *Provider) Extract(ctx context.Context, req model.ExtractRequest) (model.ExtractResult, error) {
+	key, raw, err := keyOf("extract", req)
+	if err != nil {
+		return p.inner.Extract(ctx, req)
+	}
+	if e, ok := p.load(key); ok && e.Extract != nil {
+		p.hits.Add(1)
+		return *e.Extract, nil
+	}
+	p.misses.Add(1)
+	out, err := p.inner.Extract(ctx, req)
+	if err != nil {
+		return out, err
+	}
+	p.store(key, simEntry{Kind: "extract", Request: raw, Extract: &out})
 	return out, nil
 }
 

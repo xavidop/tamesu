@@ -154,6 +154,7 @@ var fieldExamples = map[string]map[string]string{
 		"name":      `name: order_id`,
 		"regex":     `regex: "(ORD-[0-9]+)"`,
 		"json_path": `json_path: $.order.id`,
+		"extract":   `extract: "the order number the agent mentioned"`,
 	},
 	"Step": {
 		"goal":   `goal: "Log in as {{secrets.USER}} and add the blue sneakers to the cart"`,

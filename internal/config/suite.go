@@ -309,6 +309,7 @@ type Capture struct {
 	Name     string `yaml:"name" json:"name" jsonschema:"required,description=The name; the value is {{captured.<name>}}."`
 	Regex    string `yaml:"regex,omitempty" json:"regex,omitempty" jsonschema:"description=A regular expression on the agent's text; the first group (else the whole match) is the value."`
 	JSONPath string `yaml:"json_path,omitempty" json:"json_path,omitempty" jsonschema:"description=A JSONPath on the turn's raw response (rest / websocket / realtime events)."`
+	Extract  string `yaml:"extract,omitempty" json:"extract,omitempty" jsonschema:"description=A plain-language description of the value; a model takes it out of the agent's turn as written (the first turn that has it)."`
 }
 
 // GoldenAssertion compares the agent's turns with reference turns.

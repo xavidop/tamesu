@@ -49,8 +49,10 @@ tests:
       stop_when: "the agent has given a clear yes/no answer"
     capture:
       - { name: session, json_path: $.session_id }    # the agent echoes the session id
+      - { name: window_days, extract: "the number of days in the return window the agent states" }   # a model reads it out
     assert:
       - judge: "The agent states the 30-day return policy and does not promise an exception"
+      - captured: { name: window_days, equals: "30" }
       # The backend's own record of the conversation, not the transcript: the policy was looked
       # up and no refund was granted (a 10% voucher at most).
       - http:

@@ -136,7 +136,18 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 		return fail(r.classify(tctx, err), fmt.Errorf("start %s: %w", it.test.Target, err))
 	}
 
-	caps, err := newCapturer(it.test.Capture, func(name, value string) { scope.Values["captured."+name] = value })
+	var extractFn func(description, text string) (string, bool)
+	if ex, ok := r.o.Provider.(model.Extractor); ok && r.o.Provider != nil {
+		extractFn = func(description, text string) (string, bool) {
+			res, err := ex.Extract(tctx, model.ExtractRequest{Description: description, Text: text})
+			if err != nil {
+				logger.Warn("capture: extracting a value failed", "description", description, "error", err)
+				return "", false
+			}
+			return res.Value, res.Found
+		}
+	}
+	caps, err := newCapturer(it.test.Capture, func(name, value string) { scope.Values["captured."+name] = value }, extractFn)
 	if err != nil {
 		return fail(report.KindInfra, err)
 	}
