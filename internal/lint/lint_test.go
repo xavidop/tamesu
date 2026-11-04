@@ -28,7 +28,7 @@ targets:
   spare:
     type: rest
     url: http://localhost:9090/chat
-    response: { text: $.reply }
+    response: { text: $.reply, listen: { path: "POST /bot*/sendMessage" } }
 tests:
   - name: judge only
     target: api
@@ -100,7 +100,7 @@ func TestSuiteFindings(t *testing.T) {
 		"judge-only": 1, "untagged": 1, "vague-rubric": 1, "persona-without-style": 1,
 		"no-assertions": 1, "short-goal": 1,
 		"duplicate-goal": 1, "turns-never-binds": 1, "latency-never-binds": 1, "threshold-without-repeat": 1, "long-conversation": 1,
-		"unused-target": 1, "unused-pack": 1, "unused-var": 1, "unused-secret": 1,
+		"unused-target": 1, "unused-pack": 1, "unused-var": 1, "unused-secret": 1, "listen-without-session": 1,
 	}, got)
 	byRule := map[string]Finding{}
 	for _, f := range findings {
@@ -113,6 +113,7 @@ func TestSuiteFindings(t *testing.T) {
 	assert.Contains(t, byRule["latency-never-binds"].Msg, "10s")
 	assert.Equal(t, "targets.spare", byRule["unused-target"].Path)
 	assert.Equal(t, 0, byRule["unused-target"].Line, "a suite-level finding has no line")
+	assert.Equal(t, "targets.spare.response.listen", byRule["listen-without-session"].Path)
 	assert.Equal(t, "packs.orphan", byRule["unused-pack"].Path)
 	assert.Equal(t, "vars.unused", byRule["unused-var"].Path)
 	assert.Equal(t, "secrets.UNUSED", byRule["unused-secret"].Path)

@@ -15,7 +15,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ohler55/ojg/jp"
@@ -59,6 +62,18 @@ type Config struct {
 	Idle time.Duration
 	// SessionID is the session id template; empty means {{uuid}}.
 	SessionID string
+	// SessionOpen is a request sent once when the session starts (to create
+	// a conversation on the agent's side); its captures are {{session.NAME}}.
+	SessionOpen *Request
+	// SentCapture takes values from the reply to each turn's request; they
+	// render as {{sent.NAME}} in the poll templates of the same turn.
+	SentCapture map[string]string
+	// Poll reads the agent's turn by polling a second endpoint after the
+	// turn's request (nil: the reply is the request's response).
+	Poll *Poll
+	// Listen reads the agent's turn from the requests the agent makes to a
+	// URL tamesu serves (nil: the reply is the request's response).
+	Listen *Listen
 	// Timeout bounds one request, or one websocket turn; zero means 60s.
 	Timeout time.Duration
 	// Client overrides the HTTP client.
@@ -95,6 +110,10 @@ func New(name string, cfg Config) target.Target {
 type Target struct {
 	name string
 	cfg  Config
+	mu   sync.Mutex
+	// ln is the listener of response.listen, started by the first session
+	// and shared by every session of the run.
+	ln *listener
 }
 
 // Name returns the target's name in the suite.
@@ -102,7 +121,7 @@ func (t *Target) Name() string { return t.name }
 
 // Start opens a session: it renders the session id and compiles the JSONPaths.
 func (t *Target) Start(ctx context.Context, run *target.RunContext) (target.Session, error) {
-	s := &session{t: t, run: run}
+	s := &session{t: t, run: run, values: map[string]string{}}
 	var err error
 	if s.sessionID, err = run.Render(t.cfg.SessionID); err != nil {
 		return nil, fmt.Errorf("rest %s: session id: %w", t.name, err)
@@ -119,6 +138,19 @@ func (t *Target) Start(ctx context.Context, run *target.RunContext) (target.Sess
 			return nil, fmt.Errorf("rest %s: %s %q: %w", t.name, p.name, p.path, err)
 		}
 		*p.dst = x
+	}
+	if err := s.compileAsync(); err != nil {
+		return nil, err
+	}
+	if t.cfg.Listen != nil {
+		if err := s.listen(ctx); err != nil {
+			return nil, err
+		}
+	}
+	if t.cfg.SessionOpen != nil {
+		if err := s.open(ctx); err != nil {
+			return nil, err
+		}
 	}
 	if t.cfg.Streaming == StreamingWebSocket {
 		if err := s.dialWS(ctx); err != nil {
@@ -139,14 +171,26 @@ type session struct {
 	pending      *target.AgentTurn
 	closed       bool
 	turns        int
+	polls        int
 	statuses     []float64
 	ws           *wsState
+	// values are the session's template values beyond the turn's:
+	// session.NAME (session.open captures), sent.NAME (the last turn's
+	// request captures), cursor (poll) and listen.url.
+	values map[string]string
+	// inbox receives the agent's requests to the listener (response.listen).
+	inbox chan listened
+	async asyncPaths
 }
 
-// render substitutes the turn's values ({{message}}, {{session}}, {{dtmf}})
-// and then the run's scope (vars, secrets, uuid...).
+// render substitutes the turn's values ({{message}}, {{session}}, {{dtmf}}),
+// the session's values ({{session.NAME}}, {{sent.NAME}}, {{cursor}},
+// {{listen.url}}) and then the run's scope (vars, secrets, uuid...).
 func (s *session) render(str string, turn target.UserTurn) (string, error) {
 	values := map[string]string{"message": turn.Text, "session": s.sessionID, "dtmf": turn.DTMF}
+	for k, v := range s.values {
+		values[k] = v
+	}
 	for k, v := range values {
 		str = strings.ReplaceAll(str, "{{"+k+"}}", v)
 		str = strings.ReplaceAll(str, "{{ "+k+" }}", v)
@@ -179,10 +223,14 @@ func (s *session) payload(body any, turn target.UserTurn) ([]byte, error) {
 // it never reached the agent (refused, reset, timed out) or the agent
 // answered 502, 503 or 504; the last such answer is returned as it came, so
 // a status assertion still sees it.
-func (s *session) send(ctx context.Context, url string, payload []byte, hdr http.Header) (*http.Response, error) {
+func (s *session) send(ctx context.Context, method, url string, payload []byte, hdr http.Header) (*http.Response, error) {
 	tries := s.t.cfg.Connect.Tries()
 	for n := 1; ; n++ {
-		req, err := http.NewRequestWithContext(ctx, s.t.cfg.Method, url, bytes.NewReader(payload))
+		var body io.Reader
+		if len(payload) > 0 {
+			body = bytes.NewReader(payload)
+		}
+		req, err := http.NewRequestWithContext(ctx, method, url, body)
 		if err != nil {
 			return nil, fmt.Errorf("request: %w", err)
 		}
@@ -245,15 +293,18 @@ func (s *session) Send(ctx context.Context, turn target.UserTurn) error {
 		hdr.Set(k, rv)
 	}
 	started := time.Now()
-	resp, err := s.send(rctx, url, payload, hdr)
+	resp, err := s.send(rctx, s.t.cfg.Method, url, payload, hdr)
 	if err != nil {
 		return fmt.Errorf("rest: %s %s: %w", s.t.cfg.Method, url, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	var agent target.AgentTurn
-	if s.t.cfg.Streaming == StreamingSSE || strings.HasPrefix(resp.Header.Get("Content-Type"), "text/event-stream") {
+	switch {
+	case s.t.cfg.Poll != nil || s.t.cfg.Listen != nil:
+		agent, err = s.readAsync(ctx, resp, turn)
+	case s.t.cfg.Streaming == StreamingSSE || strings.HasPrefix(resp.Header.Get("Content-Type"), "text/event-stream"):
 		agent, err = s.readSSE(resp.Body)
-	} else {
+	default:
 		agent, err = s.readJSON(resp.Body)
 	}
 	if err != nil {
@@ -404,13 +455,35 @@ func (s *session) Close(context.Context) (target.Artifacts, error) {
 	} else {
 		metrics["http_requests"] = float64(s.turns)
 	}
+	if s.t.cfg.Poll != nil {
+		metrics["poll_requests"] = float64(s.polls)
+	}
+	if s.inbox != nil {
+		metrics["webhooks_received"] = float64(s.t.ln.unregister(s.sessionID))
+	}
 	return target.Artifacts{Metrics: metrics}, nil
 }
+
+// numberFilter is a string template that is one placeholder with the number
+// filter ({{session|number}}): the rendered value becomes a JSON number, for
+// APIs whose ids are integers.
+var numberFilter = regexp.MustCompile(`^\{\{\s*([^|{}]+?)\s*\|\s*number\s*\}\}$`)
 
 // renderValue renders every string in a JSON-like value.
 func renderValue(v any, render func(string) (string, error)) (any, error) {
 	switch x := v.(type) {
 	case string:
+		if m := numberFilter.FindStringSubmatch(x); m != nil {
+			str, err := render("{{" + m[1] + "}}")
+			if err != nil {
+				return nil, err
+			}
+			str = strings.TrimSpace(str)
+			if _, err := strconv.ParseFloat(str, 64); err != nil {
+				return nil, fmt.Errorf("%s renders %q, which is not a number", x, str)
+			}
+			return json.Number(str), nil
+		}
 		return render(x)
 	case map[string]any:
 		out := make(map[string]any, len(x))

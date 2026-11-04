@@ -167,8 +167,10 @@ func fake(kind string) (string, error) {
 		return fmt.Sprintf("+1555%07d", rand.IntN(10_000_000)), nil
 	case "uuid":
 		return uuid.NewString(), nil
+	case "number":
+		return fmt.Sprintf("%d", 100_000_000+rand.IntN(900_000_000)), nil
 	}
-	return "", fmt.Errorf("unknown template {{faker.%s}} (have email, name, phone, uuid)", kind)
+	return "", fmt.Errorf("unknown template {{faker.%s}} (have email, name, phone, uuid, number)", kind)
 }
 
 // TemplateRefs lists every placeholder key in s, deduplicated, in order.

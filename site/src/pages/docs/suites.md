@@ -223,6 +223,7 @@ auth: { storage_state: auth/customer.json }
 |---|---|---|---|---|
 | `body` | any |  | Request body template; {{message}} is the user turn and {{session}} the session id. | `body: { session_id: "{{session}}", message: "{{message}}" }` |
 | `open` | any |  | streaming websocket: a message template sent once after connecting. | `open: { type: open, session_id: "{{session}}" }` |
+| `capture` | map of string to string |  | With response.poll: JSONPaths into the reply to the sent request by name; the values render as {{sent.NAME}} in the poll of the same turn (a message timestamp to poll after). | `capture: { ts: $.ts }` |
 
 Example:
 
@@ -241,6 +242,8 @@ request:
 | `done` | string |  | JSONPath of a boolean that ends the session. | `done: $.end_session` |
 | `turn_done` | string |  | streaming websocket: JSONPath of a boolean that ends the turn; otherwise the turn ends after idle. | `turn_done: $.done` |
 | `idle` | [Duration](#duration) |  | streaming websocket: silence that ends a turn when no message marks it; default 2s. | `idle: 2s` |
+| `poll` | [RESTPoll](#restpoll) |  | The agent answers somewhere else than the request's response: poll this endpoint for the reply after each turn (a chat channel's history). text / tool_calls / done then read the poll replies. | `poll: { url: "{{vars.api}}/conversations/{{session.id}}/activities?watermark={{cursor}}", cursor: $.watermark }` |
+| `listen` | [RESTListen](#restlisten) |  | The agent answers by calling an API: serve that API locally ({{listen.url}}) and read the reply from the requests the agent makes to it (a bot that answers through its platform's send endpoint). text / tool_calls / done then read those requests. | `listen: { addr: "127.0.0.1:8089", path: "POST /bot*/sendMessage", session: $.chat_id }` |
 
 Example:
 
@@ -258,6 +261,7 @@ response:
 | Key | Type | Required | Description | Example |
 |---|---|---|---|---|
 | `id` | string |  | Session id template; defaults to {{uuid}}. | `id: "{{uuid}}"` |
+| `open` | [RESTOpen](#restopen) |  | A request sent once when the session starts (create a conversation / open a chat); its captures render as {{session.NAME}} in every later template. | `open: { url: "{{vars.api}}/conversations", capture: { id: $.conversationId, token: $.token } }` |
 
 Example:
 
@@ -979,6 +983,41 @@ Example:
 ```yaml
 quarantine: { reason: "SUP-412 flaky since the payments migration", until: 2026-12-31 }
 ```
+
+## RESTListen
+
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `addr` | string |  | Address to listen on such as 127.0.0.1:8089; default a free port on 127.0.0.1. The URL renders as {{listen.url}}. | `addr: "127.0.0.1:8089"` |
+| `path` | string |  | The requests that carry replies: an optional method then a path with * wildcards such as POST /bot*/sendMessage; a trailing / matches the prefix. Default every request. Other requests get reply but are not read. | `path: "POST /bot*/sendMessage"` |
+| `session` | string |  | JSONPath into the incoming payload that holds the session id ($.chat_id); routes each request to its session when tests run in parallel. Default the oldest open session. | `session: $.chat_id` |
+| `reply` | any |  | The JSON tamesu answers the agent with (templates allowed); default {ok: true}. | `reply: { ok: true, result: { message_id: 1 } }` |
+| `status` | integer |  | The status answered; default 200. | `status: 200` |
+| `timeout` | [Duration](#duration) |  | How long to wait for the agent's request before the turn fails; default 60s. | `timeout: 30s` |
+| `idle` | [Duration](#duration) |  | Keep reading after the first reply until nothing new arrives for this long (an agent that answers in several messages); unset completes the turn on the first request with content. | `idle: 1s` |
+
+## RESTOpen
+
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `url` | string | yes | The request URL (templates allowed). | `url: "https://directline.botframework.com/v3/directline/conversations"` |
+| `method` | string |  | HTTP method; defaults to POST. | `method: POST` |
+| `headers` | map of string to string |  | Request headers (templates allowed). | `headers: { Authorization: "Bearer {{secrets.DIRECT_LINE_SECRET}}" }` |
+| `body` | any |  | Body template; none by default. | `body: { user: { id: "{{session}}" } }` |
+| `capture` | map of string to string |  | JSONPaths into the JSON reply by name; {{session.NAME}} renders each value. | `capture: { id: $.conversationId, token: $.token }` |
+
+## RESTPoll
+
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `url` | string | yes | The endpoint to poll; {{session.NAME}} and {{sent.NAME}} captures and {{cursor}} render. | `url: "https://slack.com/api/conversations.replies?channel={{vars.channel}}&ts={{sent.ts}}"` |
+| `method` | string |  | HTTP method; defaults to GET. | `method: GET` |
+| `headers` | map of string to string |  | Request headers (templates allowed). | `headers: { Authorization: "Bearer {{secrets.SLACK_USER_TOKEN}}" }` |
+| `body` | any |  | Body template; none by default. | `body: { conversation: "{{session.id}}" }` |
+| `interval` | [Duration](#duration) |  | Time between polls; default 500ms. | `interval: 1s` |
+| `timeout` | [Duration](#duration) |  | How long to wait for a reply before the turn fails; default 60s. | `timeout: 30s` |
+| `idle` | [Duration](#duration) |  | Keep polling after the first reply until nothing new arrives for this long (an agent that answers in several messages); unset completes the turn on the first reply. | `idle: 3s` |
+| `cursor` | string |  | JSONPath into each poll reply whose value renders as {{cursor}} in the next poll (a watermark). With it the polls accumulate; without it each poll replaces the last (the endpoint returns the whole thread). | `cursor: $.watermark` |
 
 ## RedTeam
 

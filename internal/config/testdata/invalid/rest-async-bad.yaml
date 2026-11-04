@@ -1,0 +1,24 @@
+suite: rest-async-bad
+targets:
+  both:
+    type: rest
+    url: https://api.example.com/send
+    streaming: sse
+    session: { open: { method: POST } }
+    request: { capture: { ts: $.ts } }
+    response:
+      text: $.text
+      poll: { method: FETCH }
+      listen: { status: 9 }
+  captured:
+    type: rest
+    url: https://api.example.com/send
+    request: { capture: { ts: $.ts } }
+    response: { text: $.text }
+tests:
+  - name: t
+    target: both
+    persona: { name: A }
+    scenario: { goal: say hi }
+    assert:
+      - contains: hi

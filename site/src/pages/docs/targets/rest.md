@@ -50,6 +50,69 @@ targets:
       idle: 2s                                    # without a marker, a turn ends after this silence
 ```
 
+## Replies that arrive somewhere else
+
+A chat channel's bot does not answer in the response to the message you post: the reply shows up
+in the channel's history a moment later, or the bot calls the platform's send API. Two keys cover
+those shapes, and `session.open` creates the conversation first when the platform needs one.
+
+`response.poll` polls a second endpoint after each turn's request until a reply has content,
+then (with `idle`) until nothing new arrives. The captures of `session.open` render as
+`{{session.NAME}}`, the captures of the turn's own request (`request.capture`) as `{{sent.NAME}}`,
+and `poll.cursor` keeps a watermark between polls as `{{cursor}}`:
+
+```yaml
+targets:
+  teams:                                           # a Bot Framework bot through Direct Line
+    type: rest
+    url: https://directline.botframework.com/v3/directline/conversations/{{session.id}}/activities
+    headers: { Authorization: "Bearer {{session.token}}" }
+    session:
+      open:                                        # once per session: start the conversation
+        url: https://directline.botframework.com/v3/directline/conversations
+        headers: { Authorization: "Bearer {{secrets.DIRECT_LINE_SECRET}}" }
+        capture: { id: $.conversationId, token: $.token }
+    request:
+      body: { type: message, from: { id: "{{session}}" }, text: "{{message}}" }
+    response:
+      text: "$.activities[?(@.from.id != '{{session}}')].text"
+      poll:
+        url: https://directline.botframework.com/v3/directline/conversations/{{session.id}}/activities?watermark={{cursor}}
+        headers: { Authorization: "Bearer {{session.token}}" }
+        cursor: $.watermark                        # incremental pages: the replies accumulate
+        interval: 500ms
+        idle: 2s                                   # the bot may answer in several activities
+```
+
+`response.listen` serves a local URL and reads the reply from the requests the agent makes to
+it. Point the bot's API base URL at `{{listen.url}}` (every Bot API or Graph API client takes
+one), send it the platform's webhook payload as the turn, and take the reply out of its call:
+
+```yaml
+targets:
+  telegram:                                        # a Telegram bot, with tamesu as the Bot API
+    type: rest
+    url: "{{vars.bot_webhook}}"                    # where the bot receives updates
+    session: { id: "{{faker.number}}" }           # Telegram ids are integers
+    request:
+      body:
+        update_id: 1
+        message: { message_id: 1, chat: { id: "{{session|number}}", type: private }, from: { id: "{{session|number}}", first_name: Marta }, text: "{{message}}" }
+    response:
+      text: $.text                                 # the text the bot passed to sendMessage
+      listen:
+        addr: 127.0.0.1:8089                       # the bot's TELEGRAM_API_URL is http://127.0.0.1:8089
+        path: "POST /bot*/sendMessage"             # the requests that carry replies; others are acknowledged
+        session: $.chat_id                         # routes each reply to its session under --parallel
+        reply: { ok: true, result: { message_id: 1, chat: { id: "{{session}}" } } }
+        idle: 1s
+```
+
+Both modes record every poll reply or incoming request of the turn in `result.json`, so
+`json_path` sees buttons, cards and attachments, and a request the platform refused (a 4xx or
+5xx on the turn's own request) is the turn as it came, so `status` fails it cleanly.
+[Recipes](/docs/recipes/) has Slack, Teams, Telegram and WhatsApp suites built on these keys.
+
 ## Keys
 
 | Key | Meaning |
@@ -57,7 +120,7 @@ targets:
 | `url` | The endpoint. Templates apply (`{{vars.x}}`, `{{secrets.X}}`). |
 | `method` | HTTP method, default `POST`. |
 | `headers` | Request headers. Put credentials here as `{{secrets.NAME}}`; they are substituted inside the request only. |
-| `request.body` | The body template, any JSON shape. `{{message}}` is the user turn, `{{session}}` the session id, `{{dtmf}}` digits (voice scripts). Without it tamesu sends `{"message": ..., "session_id": ...}`. Over a websocket it is the message sent per turn. |
+| `request.body` | The body template, any JSON shape. `{{message}}` is the user turn, `{{session}}` the session id, `{{dtmf}}` digits (voice scripts). A value that is exactly `"{{session\|number}}"` (any placeholder, the `number` filter) is sent as a JSON number, for APIs whose ids are integers. Without it tamesu sends `{"message": ..., "session_id": ...}`. Over a websocket it is the message sent per turn. |
 | `request.open` | `websocket` only: a message template sent once after connecting, for protocols that need a session setup message. |
 | `response.text` | JSONPath of the agent's reply. Without it the whole body is the reply. Every match is concatenated, so `$.choices[*].text` works. |
 | `response.tool_calls` | JSONPath of the tool calls: strings are names; objects take `name`/`tool`/`function` and `args`/`arguments`/`input` (an object or a JSON string). |
@@ -66,6 +129,10 @@ targets:
 | `response.idle` | `websocket` only: the silence that completes a turn when no message marked it (default `2s`). Set it above the agent's longest pause between chunks. |
 | `streaming` | `none` reads one JSON body per turn. `sse` reads `data:` events until the stream ends or `[DONE]`; `response.text` is applied to every event and the deltas are concatenated. A `text/event-stream` content type switches to SSE on its own. `websocket` keeps one connection for the session (`ws://`, `wss://`, or `http(s)://` upgraded) and reads messages per turn as described above; messages that arrive between turns (a greeting, a keepalive) are read with the next turn, and a message that is not JSON is appended to the reply as text. |
 | `session.id` | The session id template, rendered once when the session starts (default `{{uuid}}`). |
+| `session.open` | A request sent once when the session starts: `url`, `method` (default `POST`), `headers`, `body` and `capture` (JSONPaths by name into its JSON reply, rendered as `{{session.NAME}}` in every later template). A 4xx or 5xx fails the session. |
+| `request.capture` | With `response.poll`: JSONPaths by name into the reply to the turn's request, rendered as `{{sent.NAME}}` in the poll of that turn (the timestamp of the message you posted, to poll after it). |
+| `response.poll` | The reply is read by polling: `url` (templates, `{{cursor}}`), `method` (default `GET`), `headers`, `body`, `interval` (default `500ms`), `timeout` (default the target's `60s`), `idle` (keep polling after the first reply until nothing new for this long) and `cursor` (a JSONPath into each poll reply whose value is the next `{{cursor}}`; with it the polls accumulate, without it each poll replaces the last). `response.text`, `tool_calls` and `done` read the poll replies. |
+| `response.listen` | The reply is read from the agent's own requests to a URL tamesu serves: `addr` (default a free port on 127.0.0.1; `{{listen.url}}` renders it), `path` (an optional method and a path with `*` wildcards; a trailing `/` matches a prefix; default every request), `session` (a JSONPath into the incoming payload holding the session id, to route under `--parallel`), `reply` and `status` answered to the agent (default `{"ok": true}`, `200`), `timeout` and `idle`. JSON, form and multipart bodies and query strings are all read; requests outside `path`, and requests without content, are acknowledged but do not complete the turn. |
 
 A response that is not JSON is taken as the reply text, with its HTTP status recorded, so a
 `502 upstream down` page fails an assertion rather than crashing the run.
@@ -75,10 +142,12 @@ A response that is not JSON is taken as the reply text, with its HTTP status rec
 | Metric | Definition |
 |---|---|
 | `turn_latency_ms` (`_p50`, `_p95`, `_max`) | the request was sent → the agent turn is complete (the response body was read) |
-| `time_to_first_token_ms` | the request was sent → the first SSE event or websocket message (plain JSON: the end of the body) |
+| `time_to_first_token_ms` | the request was sent → the first SSE event or websocket message (plain JSON: the end of the body; poll or listen: the first reply with content) |
 | `turns` | the number of agent turns |
 | `http_requests` | the number of requests of the session (`none` and `sse`) |
 | `ws_messages_sent`, `ws_messages_received` | the messages of the session (`websocket`) |
+| `poll_requests` | the polls of the session (`response.poll`) |
+| `webhooks_received` | the requests the agent made to the listener that carried a reply (`response.listen`) |
 
 Timestamps are taken around the HTTP call, never from a model.
 

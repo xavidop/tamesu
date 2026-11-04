@@ -23,7 +23,12 @@ https://xavidop.github.io/tamesu/docs/
   `auth.storage_state`, `allowed_domains`; goals run through the browser agent on an
   accessibility tree with numbered refs, secrets are typed only inside the browser), `rest` (URL, method,
   headers, how a user turn is sent with `request.body` and how the agent turn is read back
-  with JSONPaths in `response.text`, `response.tool_calls`, `response.done`), `livekit` (server
+  with JSONPaths in `response.text`, `response.tool_calls`, `response.done`; when the reply
+  arrives somewhere else, `session.open` creates the conversation with captures as
+  `{{session.NAME}}`, `response.poll` polls a second endpoint with `cursor`, `interval`, `idle`
+  and `request.capture` as `{{sent.NAME}}`, and `response.listen` serves an API at
+  `{{listen.url}}` with `addr`, `path`, `session`, `reply`, `idle`: Slack, Teams via Direct Line,
+  Telegram and WhatsApp bots), `livekit` (server
   URL, `api_key`/`api_secret` from secrets, `room`, `dispatch.agent_name`,
   `agent_identity_prefix`, `mode: text|audio`, `data_topic`, `join_timeout`; text mode sends
   user turns on `lk.chat` and reads replies on `lk.transcription`, ending a turn on the agent's

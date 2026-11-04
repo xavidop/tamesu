@@ -111,6 +111,7 @@ What validation accepts but a reviewer would not. Lint loads `tamesu.yaml` and t
 | `threshold-without-repeat` | `pass_threshold` below 1 on a test that runs once. |
 | `long-conversation` | `max_turns` above 20. |
 | `persona-without-style` | a named persona with no `style`. |
+| `listen-without-session` | a `rest` target with `response.listen` and no `session` path: under `--parallel` the agent's requests all reach the oldest open session. |
 | `unused-target`, `unused-pack`, `unused-var`, `unused-secret` | declarations nothing in the suite uses. |
 
 Each line reads `<file>:<line>: <rule> (<path>): <message>`; `--json` prints the findings as a

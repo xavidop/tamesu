@@ -37,7 +37,10 @@ apply; `tamesu validate` warns when a key belongs to another type.
 - **`rest`**: a URL and method, headers, how a user turn is sent (`request.body`, with
   `{{session}}` and `{{message}}`), how the agent turn is read back (JSONPaths in
   `response.text`, `response.tool_calls`, `response.done`), `streaming: none|sse|websocket` and a
-  session id template.
+  session id template. When the reply arrives somewhere else, `session.open` creates the
+  conversation, `response.poll` reads the reply from a second endpoint and `response.listen`
+  reads it from the agent's own calls to an API tamesu serves, which is how a Slack, Teams,
+  Telegram or WhatsApp bot is tested.
 - **`livekit`**: the LiveKit server URL, `api_key`/`api_secret` (as `{{secrets.X}}`), a `room`
   template, an optional agent dispatch, how to recognise the agent participant, `mode: text|audio`
   and the text-mode data topic.

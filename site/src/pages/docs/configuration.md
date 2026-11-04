@@ -201,9 +201,10 @@ answered, without printing a value. See [Security](/docs/security/) for redactio
   placeholder, so suites can be checked on a machine without the variables; `doctor` (and the
   runner) treat it as an error. `$${X}` is the literal `${X}`.
 - `{{uuid}}`, `{{now}}` (RFC 3339), `{{env.X}}`, `{{vars.x}}`, `{{secrets.X}}` and
-  `{{faker.email}}` (also `faker.name`, `faker.phone`, `faker.uuid`) are rendered when a value is
-  used. A REST `request.body` also takes `{{session}}` and `{{message}}`; a SIP inbound trigger
-  takes `{{sip.inbound_number}}`.
+  `{{faker.email}}` (also `faker.name`, `faker.phone`, `faker.uuid`, `faker.number`, a nine-digit
+  integer) are rendered when a value is used. A REST `request.body` also takes `{{session}}` and
+  `{{message}}`, and `{{session|number}}` renders as a JSON number for APIs with integer ids; a
+  SIP inbound trigger takes `{{sip.inbound_number}}`.
 
 ## Reaching the agent
 
