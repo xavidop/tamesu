@@ -22,7 +22,7 @@ type Project struct {
 	LiveKit   LiveKitConfig     `yaml:"livekit,omitempty" json:"livekit,omitempty"`
 	Baseline  BaselineConfig    `yaml:"baseline,omitempty" json:"baseline,omitempty"`
 	Hooks     *Hooks            `yaml:"hooks,omitempty" json:"hooks,omitempty" jsonschema:"description=Setup and teardown for every suite; a suite's hooks run after the project's."`
-	Reporters []string          `yaml:"reporters,omitempty" json:"reporters,omitempty" jsonschema:"description=Reporters to run: console / junit / json / html / markdown / github / slack."`
+	Reporters []string          `yaml:"reporters,omitempty" json:"reporters,omitempty" jsonschema:"description=Reporters to run: console / junit / json / html / markdown / github / slack / sarif."`
 	Slack     SlackConfig       `yaml:"slack,omitempty" json:"slack,omitempty"`
 	Secrets   map[string]string `yaml:"secrets,omitempty" json:"secrets,omitempty" jsonschema:"description=Secret name to mamori ref (env:X or aws-sm://... or a precedence chain)."`
 	Labels    map[string]string `yaml:"labels,omitempty" json:"labels,omitempty" jsonschema:"description=Key-value labels written into every run's summary such as env: staging; tamesu run --label adds or overrides them. Values take ${VAR}."`

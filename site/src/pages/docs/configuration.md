@@ -80,7 +80,7 @@ secrets:                                    # resolved with mamori, see below
 | `cache.llm` | `true` | Answer the simulated user's turns and the judge's verdicts from the cache when the same conversation was seen before; `false` calls the models every time. |
 | `labels` | | Key-value labels written into every run's summary, such as `env: staging` or `agent: "${GIT_SHA:-dev}"`; `tamesu run --label` adds or overrides them. |
 | `defaults.assert`, `defaults.slo` | | Assertions every test must pass (`defaults/<name>` in the results; packs apply) and maximums per metric (`slo/<metric>`; a metric a test does not measure passes). See [Suite-wide assertions and SLOs](/docs/concepts/#suite-wide-assertions-and-slos). |
-| `reporters` | `[console, junit, html]` | Reporters to run: `console`, `junit`, `json`, `html`, `markdown`, `github`, `slack` (see [Reports](/docs/reports/)). |
+| `reporters` | `[console, junit, html]` | Reporters to run: `console`, `junit`, `json`, `html`, `markdown`, `github`, `slack`, `sarif` (see [Reports](/docs/reports/)). |
 | `slack.webhook` | | The incoming webhook of the `slack` reporter, as `{{secrets.NAME}}`; `slack.only_failures` posts only on failures or a regression; `slack.link` goes at the end of the message. |
 | `secrets` | none | Secret name to mamori ref. |
 | `vars` | none | Project-wide values for `{{vars.x}}` and `${VAR}` in secret refs. |

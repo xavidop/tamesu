@@ -10,7 +10,8 @@ import (
 )
 
 // JUnit writes junit.xml into the run directory: one testcase per test with
-// its repeats aggregated, failure messages carrying the judge reasons.
+// its repeats aggregated, failure messages carrying the judge reasons, and
+// the suite file and line of each test.
 type JUnit struct{ dir string }
 
 // NewJUnit returns the JUnit reporter for the run directory.
@@ -43,9 +44,13 @@ type junitSuite struct {
 }
 
 type junitCase struct {
-	Name      string        `xml:"name,attr"`
-	Classname string        `xml:"classname,attr"`
-	Time      string        `xml:"time,attr"`
+	Name      string `xml:"name,attr"`
+	Classname string `xml:"classname,attr"`
+	Time      string `xml:"time,attr"`
+	// File and Line point at the test in its suite, for the CI reporters
+	// that annotate the source (dorny/test-reporter, GitLab).
+	File      string        `xml:"file,attr,omitempty"`
+	Line      int           `xml:"line,attr,omitempty"`
 	Skipped   *junitMessage `xml:"skipped,omitempty"`
 	Failure   *junitMessage `xml:"failure,omitempty"`
 	Error     *junitMessage `xml:"error,omitempty"`
@@ -76,7 +81,7 @@ func (*JUnit) Build(s *Summary) ([]byte, error) {
 			dur += r.Duration.Seconds()
 		}
 		suiteTime[t.Suite] += dur
-		c := junitCase{Name: t.Name, Classname: t.Suite, Time: fmt.Sprintf("%.3f", dur)}
+		c := junitCase{Name: t.Name, Classname: t.Suite, Time: fmt.Sprintf("%.3f", dur), File: relativeURI(t.File), Line: t.Line}
 
 		var body strings.Builder
 		for _, r := range t.Runs {

@@ -1141,7 +1141,7 @@
         "type": "string"
       },
       "type": "array",
-      "description": "Reporters to run: console / junit / json / html / markdown / github / slack."
+      "description": "Reporters to run: console / junit / json / html / markdown / github / slack / sarif."
     },
     "slack": {
       "$ref": "#/$defs/SlackConfig"

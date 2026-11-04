@@ -130,7 +130,7 @@ func TestLoadProjectBadVersion(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, errs.Only(), 2, "%s", errs)
 	assert.Equal(t, path+":1: version: version must be 1", errs[0].Error())
-	assert.Equal(t, path+`:2: reporters[1]: unknown reporter "fax" (one of console, junit, json, html, markdown, github, slack)`, errs[1].Error())
+	assert.Equal(t, path+`:2: reporters[1]: unknown reporter "fax" (one of console, junit, json, html, markdown, github, slack, sarif)`, errs[1].Error())
 }
 
 func TestLoadProjectSecretRefsAreNotEnvExpanded(t *testing.T) {

@@ -169,6 +169,33 @@ and, per test and run, `transcript.json` and `result.json` with the assertions, 
 judge reasoning. Upload the run directory as an artifact to read a failure after the fact. See
 [Reports](/docs/reports/).
 
+## The security tab
+
+The `sarif` reporter writes the red-team findings of a run as `tamesu.sarif`: every attack that
+got through, every attack that could not run, and every failed check of a built-in red-team pack.
+Upload it with the code-scanning action and the findings appear under **Security → Code
+scanning** of the repository, one alert per attack, pointing at the test's line in the suite,
+with the playbook's OWASP category as a tag. An alert closes on the first run where the attack
+holds again.
+
+```yaml
+permissions:
+  contents: read
+  security-events: write
+steps:
+  - run: tamesu run --tags red-team --reporter console,junit,sarif --out out
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+  - uses: github/codeql-action/upload-sarif@v3
+    if: always()
+    with:
+      sarif_file: out/tamesu.sarif
+      category: tamesu-red-team
+```
+
+`category` keeps tamesu's alerts apart from other scanners' and lets several workflows (one per
+environment, one per agent) upload without closing each other's alerts.
+
 ## Load mode
 
 `tamesu run --load N` runs every selected test with `N` concurrent virtual users, each looping
