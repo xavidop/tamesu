@@ -366,6 +366,12 @@ func (s *session) Send(ctx context.Context, turn target.UserTurn) error {
 			if !ok {
 				continue
 			}
+			for j := range agent.ToolCalls {
+				if agent.ToolCalls[j].Name == call.call.Name && agent.ToolCalls[j].Result == nil {
+					agent.ToolCalls[j].Result = out
+					break
+				}
+			}
 			item := map[string]any{"type": "conversation.item.create", "item": map[string]any{"type": "function_call_output", "call_id": call.id, "output": out}}
 			if err := s.write(tctx, item); err != nil {
 				return fmt.Errorf("realtime: function_call_output: %w", err)

@@ -89,6 +89,34 @@ examples/support-agent.yaml:12: warning: targets.voice.url: env var LIVEKIT_URL 
 1 suite, 2 tests, 1 error, 1 warning
 ```
 
+## tamesu lint
+
+```text
+tamesu lint [paths...] [--json] [--strict]
+```
+
+What validation accepts but a reviewer would not. Lint loads `tamesu.yaml` and the suites like
+`validate` and reports, per rule:
+
+| Rule | Finding |
+|---|---|
+| `no-assertions` | a conversational test with no assertions: it passes whenever the conversation finishes. |
+| `judge-only` | every assertion is a model verdict; add a deterministic check a judge cannot talk itself out of. |
+| `untagged` | the test has no tags and the suite none either, so `--tags` cannot select it. |
+| `duplicate-goal` | two tests pursue the same goal against the same target. |
+| `short-goal` | a goal under four words. |
+| `vague-rubric` | a judge rubric under five words. |
+| `turns-never-binds` | `turns: { lte: N }` with `N` at or above `max_turns`. |
+| `latency-never-binds` | a `turn_latency_ms*` limit at or above the test timeout. |
+| `threshold-without-repeat` | `pass_threshold` below 1 on a test that runs once. |
+| `long-conversation` | `max_turns` above 20. |
+| `persona-without-style` | a named persona with no `style`. |
+| `unused-target`, `unused-pack`, `unused-var`, `unused-secret` | declarations nothing in the suite uses. |
+
+Each line reads `<file>:<line>: <rule> (<path>): <message>`; `--json` prints the findings as a
+list. Exit `0` with findings, `1` with findings under `--strict` (for CI), `2` when a suite does
+not load.
+
 ## tamesu list
 
 ```text

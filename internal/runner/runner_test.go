@@ -586,3 +586,8 @@ func TestRunLoadMode(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, sum.Tests[0].Runs, 3, "without a duration every user runs once")
 }
+
+// Ground implements assert.Grounder: every claim is supported.
+func (f *fakeProvider) Ground(_ context.Context, req tassert.GroundRequest) (tassert.GroundVerdict, error) {
+	return tassert.GroundVerdict{Claims: []tassert.Claim{{Text: "fake claim", Supported: true, Evidence: "(fake)"}}, Reason: "fake grounder"}, nil
+}

@@ -485,6 +485,15 @@ func (p *Plugin) simulator(_ context.Context, req *ai.ModelRequest, _ any, _ ai.
 var turnRe = regexp.MustCompile(`this is turn (\d+)`)
 
 func (p *Plugin) judge(_ context.Context, req *ai.ModelRequest, _ any, _ ai.ModelStreamCallback) (*ai.ModelResponse, error) {
+	if text := promptText(req); strings.Contains(text, "Grounding check.") {
+		// The grounding flow: every claim is supported, unless the
+		// conversation says UNSUPPORTED, which marks one claim unsupported.
+		claims := []map[string]any{{"claim": "fake claim: what the agent said", "supported": true, "evidence": "(fake) passage 0"}}
+		if strings.Contains(text, "UNSUPPORTED") {
+			claims = append(claims, map[string]any{"claim": "fake claim: the agent invented this", "supported": false, "evidence": "(fake) the context says nothing about it"})
+		}
+		return respond(req, map[string]any{"claims": claims, "reason": "fake grounding check"})
+	}
 	out := map[string]any{}
 	for k, v := range p.script.Judge {
 		out[k] = v

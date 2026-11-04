@@ -75,11 +75,12 @@ func (p *Provider) Stats() Stats {
 func (p *Provider) Inner() model.Provider { return p.inner }
 
 type simEntry struct {
-	Kind      string               `json:"kind"`
-	CreatedAt time.Time            `json:"created_at"`
-	Request   json.RawMessage      `json:"request"`
-	Sim       *model.SimOutput     `json:"sim,omitempty"`
-	Judge     *assert.JudgeVerdict `json:"judge,omitempty"`
+	Kind      string                `json:"kind"`
+	CreatedAt time.Time             `json:"created_at"`
+	Request   json.RawMessage       `json:"request"`
+	Sim       *model.SimOutput      `json:"sim,omitempty"`
+	Judge     *assert.JudgeVerdict  `json:"judge,omitempty"`
+	Ground    *assert.GroundVerdict `json:"ground,omitempty"`
 }
 
 // simKey is what identifies a simulator turn: who is talking, about what,
@@ -194,6 +195,25 @@ func (p *Provider) Judge(ctx context.Context, req assert.JudgeRequest) (assert.J
 		return out, err
 	}
 	p.store(key, simEntry{Kind: "judge", Request: raw, Judge: &out})
+	return out, nil
+}
+
+// Ground answers from the cache or the inner grounder.
+func (p *Provider) Ground(ctx context.Context, req assert.GroundRequest) (assert.GroundVerdict, error) {
+	key, raw, err := keyOf("ground", map[string]any{"context": req.Context, "model": req.Model, "transcript": turns(req.Transcript)})
+	if err != nil {
+		return p.inner.Ground(ctx, req)
+	}
+	if e, ok := p.load(key); ok && e.Ground != nil {
+		p.hits.Add(1)
+		return *e.Ground, nil
+	}
+	p.misses.Add(1)
+	out, err := p.inner.Ground(ctx, req)
+	if err != nil {
+		return out, err
+	}
+	p.store(key, simEntry{Kind: "ground", Request: raw, Ground: &out})
 	return out, nil
 }
 

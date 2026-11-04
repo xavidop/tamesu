@@ -5,6 +5,7 @@ use (
 	./audio
 	./cmd/tamesu
 	./examples/livekit-agent
+	./examples/mcp-server
 	./examples/rest-agent
 	./examples/webapp
 	./llm
@@ -16,6 +17,7 @@ use (
 	./targets/grpc
 	./targets/pipecat
 	./targets/livekit
+	./targets/mcp
 	./targets/model
 	./targets/realtime
 	./targets/rest

@@ -78,6 +78,10 @@
           "type": "string",
           "description": "A Go-registered assertion by name."
         },
+        "grounded": {
+          "$ref": "#/$defs/GroundedAssertion",
+          "description": "Every factual claim the agent made is supported by the retrieval context (a tool's results or a response field or given text); a judge lists the claims."
+        },
         "handoff": {
           "$ref": "#/$defs/HandoffAssertion",
           "description": "The agent handed the conversation to a person (true) or did not (false); or when and to whom and with what summary."
@@ -467,6 +471,48 @@
         "min": {
           "type": "number",
           "description": "similar: the minimum word overlap (0 to 1); default 0.8."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "GroundedAssertion": {
+      "properties": {
+        "context": {
+          "$ref": "#/$defs/GroundedContext",
+          "description": "Where the retrieval context is: a tool whose results tamesu saw or a JSONPath into every raw response or text given here."
+        },
+        "min": {
+          "type": "number",
+          "description": "The fraction of claims that must be supported (0 to 1); all of them when omitted."
+        },
+        "model": {
+          "type": "string",
+          "description": "The judge model for this check (a Genkit reference); defaults to models.judge."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "context"
+      ]
+    },
+    "GroundedContext": {
+      "properties": {
+        "tool": {
+          "type": "string",
+          "description": "A tool whose results are the context (model and realtime and pipecat targets)."
+        },
+        "json_path": {
+          "type": "string",
+          "description": "A JSONPath into every raw response selecting the passages (rest / websocket / realtime events)."
+        },
+        "text": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Passages given in the suite."
         }
       },
       "additionalProperties": false,
@@ -1193,7 +1239,8 @@
             "grpc",
             "pipecat",
             "model",
-            "twilio"
+            "twilio",
+            "mcp"
           ]
         },
         "url": {
@@ -1369,6 +1416,35 @@
           },
           "type": "object",
           "description": "twilio: the customParameters of the start event (the Parameter elements of the TwiML Stream); values render {{vars.x}} and {{secrets.X}}."
+        },
+        "command": {
+          "type": "string",
+          "description": "mcp: the stdio server to spawn (an executable); url is the alternative for a streamable HTTP server."
+        },
+        "args": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "mcp: arguments of command."
+        },
+        "env": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "mcp: environment variables for command (templates allowed)."
+        },
+        "allow_tools": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "mcp: offer only these of the server's tools to the model."
+        },
+        "call_timeout": {
+          "$ref": "#/$defs/Duration",
+          "description": "mcp: how long one tool call may take; default 60s."
         },
         "system": {
           "type": "string",

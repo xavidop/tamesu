@@ -65,6 +65,12 @@ updates:
     schedule: { interval: weekly }
     labels: [dependencies, go, target]
 
+  # MCP target (own go.mod; mcp-go client plus the model target)
+  - package-ecosystem: gomod
+    directory: "/targets/mcp"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, target]
+
   # gRPC target (own go.mod; grpc-go and protobuf)
   - package-ecosystem: gomod
     directory: "/targets/grpc"
@@ -122,6 +128,11 @@ updates:
   # Example REST agent (own go.mod; a Genkit app)
   - package-ecosystem: gomod
     directory: "/examples/rest-agent"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, examples]
+
+  - package-ecosystem: gomod
+    directory: "/examples/mcp-server"
     schedule: { interval: weekly }
     labels: [dependencies, go, examples]
 

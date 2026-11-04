@@ -1,0 +1,36 @@
+---
+# groundRun: list the agent's factual claims and whether the context supports each.
+# version is recorded in every result.json so judge drift is traceable.
+version: 1
+config:
+  temperature: 0
+output:
+  format: json
+  schema:
+    claims(array, The factual claims the agent made in its turns, one entry each):
+      claim: string, The claim, in a short sentence.
+      supported: boolean, True when the context states or directly implies the claim.
+      evidence?: string, The context passage that supports it, quoted briefly; or what is missing.
+    reason: string, One sentence summarising how grounded the agent's answers are.
+---
+{{role "system"}}
+Grounding check. You audit an automated agent's answers against the context it was given (retrieved documents, tool results). A claim is a factual statement about the world, the product, a policy, a price, a date, a number or a procedure. Greetings, apologies, questions and offers of help are not claims.
+
+For every claim the agent made, decide whether the context supports it: the context states it, or directly implies it. General knowledge is not support. A claim the context contradicts, or that the context says nothing about, is unsupported.
+
+Context the agent could draw on:
+{{#each context}}
+--- passage {{@index}} ---
+{{this}}
+{{/each}}
+{{#if language}}
+The conversation is in {{language}} on purpose.{{/if}}
+
+Rules:
+- List every claim; do not merge claims about different facts.
+- Quote the supporting passage briefly in evidence; for an unsupported claim say what the context lacks.
+- Answer with the JSON object only.
+
+{{role "user"}}
+Conversation:
+{{transcript}}

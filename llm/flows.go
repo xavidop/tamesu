@@ -19,6 +19,7 @@ import (
 const (
 	FlowSimulateUserTurn = "simulateUserTurn"
 	FlowJudgeRun         = "judgeRun"
+	FlowGroundRun        = "groundRun"
 )
 
 // defineFlows registers tamesu's flows and the judge evaluator on the
@@ -26,6 +27,7 @@ const (
 func (c *Client) defineFlows() {
 	c.simFlow = genkit.DefineFlow(c.g, FlowSimulateUserTurn, c.simulate)
 	c.judgeFlow = genkit.DefineFlow(c.g, FlowJudgeRun, c.judge)
+	c.groundFlow = genkit.DefineFlow(c.g, FlowGroundRun, c.ground)
 	c.ttsFlow = genkit.DefineFlow(c.g, FlowSynthesize, c.synthesize)
 	c.sttFlow = genkit.DefineFlow(c.g, FlowTranscribe, c.transcribe)
 	c.defineBrowser()
@@ -115,6 +117,38 @@ func (c *Client) judge(ctx context.Context, req assert.JudgeRequest) (assert.Jud
 		}
 		out.TraceID = tracing.SpanTraceInfo(ctx).TraceID
 		out.PromptVersion = c.prompts.Version("judge")
+		return out, budgetErr
+	})
+}
+
+// Ground lists the agent's claims and whether the context supports each,
+// through the groundRun flow, with the judge model.
+func (c *Client) Ground(ctx context.Context, req assert.GroundRequest) (assert.GroundVerdict, error) {
+	if c.overBudget() {
+		return assert.GroundVerdict{}, ErrBudgetExceeded
+	}
+	return c.groundFlow.Run(ctx, req)
+}
+
+func (c *Client) ground(ctx context.Context, req assert.GroundRequest) (assert.GroundVerdict, error) {
+	input := map[string]any{
+		"context":    req.Context,
+		"transcript": formatHistory(req.Transcript),
+		"language":   req.Language,
+	}
+	models := chain(c.modelFor("judge", req.Model), c.fallbacksFor("judge"))
+	return attempt(ctx, c, "judge", models, func(ctx context.Context, modelName string) (assert.GroundVerdict, error) {
+		resp, err := c.executePrompt(ctx, "ground", input, modelName)
+		budgetErr := c.record(modelName, resp, err)
+		if err != nil {
+			return assert.GroundVerdict{}, fmt.Errorf("llm: %s with %s: %w", FlowGroundRun, modelName, err)
+		}
+		var out assert.GroundVerdict
+		if err := resp.Output(&out); err != nil {
+			return assert.GroundVerdict{}, badOutput(FlowGroundRun, modelName, err, resp.Text())
+		}
+		out.TraceID = tracing.SpanTraceInfo(ctx).TraceID
+		out.PromptVersion = c.prompts.Version("ground")
 		return out, budgetErr
 	})
 }

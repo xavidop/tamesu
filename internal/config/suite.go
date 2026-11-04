@@ -13,11 +13,12 @@ const (
 	TargetPipecat  = "pipecat"
 	TargetModel    = "model"
 	TargetTwilio   = "twilio"
+	TargetMCP      = "mcp"
 )
 
 // TargetTypes lists the target types a suite may declare, in documentation order.
 func TargetTypes() []string {
-	return []string{TargetBrowser, TargetREST, TargetLiveKit, TargetSIP, TargetRealtime, TargetGRPC, TargetPipecat, TargetModel, TargetTwilio}
+	return []string{TargetBrowser, TargetREST, TargetLiveKit, TargetSIP, TargetRealtime, TargetGRPC, TargetPipecat, TargetModel, TargetTwilio, TargetMCP}
 }
 
 // IsConversational reports whether a target type talks in turns (everything
@@ -31,7 +32,7 @@ var ActionNames = []string{"navigate", "click", "fill", "press", "wait", "screen
 var AssertionKinds = []string{
 	"judge", "contains", "not_contains", "regex", "not_regex", "similar_to", "json_path", "status",
 	"tool_called", "tool_not_called", "tool_sequence", "dtmf_received", "call_ended_by", "transferred_to", "handoff",
-	"evaluator", "metric", "turns", "captured", "golden", "http", "command", "custom", "pack",
+	"evaluator", "grounded", "metric", "turns", "captured", "golden", "http", "command", "custom", "pack",
 }
 
 // Suite is one YAML suite file (design.md §5): targets, defaults and tests.
@@ -55,7 +56,7 @@ type Suite struct {
 
 // Target is a system under test. Type selects which of the other fields apply.
 type Target struct {
-	Type string `yaml:"type" json:"type" jsonschema:"required,enum=browser,enum=rest,enum=livekit,enum=sip,enum=realtime,enum=grpc,enum=pipecat,enum=model,enum=twilio"`
+	Type string `yaml:"type" json:"type" jsonschema:"required,enum=browser,enum=rest,enum=livekit,enum=sip,enum=realtime,enum=grpc,enum=pipecat,enum=model,enum=twilio,enum=mcp"`
 	URL  string `yaml:"url,omitempty" json:"url,omitempty" jsonschema:"description=The page (browser) or endpoint (rest / realtime / pipecat / twilio) or grpc://host:port (grpc) or LiveKit server (livekit)."`
 	// Connect is how the target retries reaching the agent (every type but browser).
 	Connect *ConnectConfig `yaml:"connect,omitempty" json:"connect,omitempty"`
@@ -110,6 +111,13 @@ type Target struct {
 
 	// twilio (Twilio Media Streams: url, headers, from, to, idle and turn_timeout apply too)
 	Parameters map[string]string `yaml:"parameters,omitempty" json:"parameters,omitempty" jsonschema:"description=twilio: the customParameters of the start event (the Parameter elements of the TwiML Stream); values render {{vars.x}} and {{secrets.X}}."`
+
+	// mcp (an MCP server's tools driven by a model; url or command, headers, model, system, system_file, done_tool, temperature, max_tokens, max_tool_rounds and fallback apply too)
+	Command     string            `yaml:"command,omitempty" json:"command,omitempty" jsonschema:"description=mcp: the stdio server to spawn (an executable); url is the alternative for a streamable HTTP server."`
+	Args        []string          `yaml:"args,omitempty" json:"args,omitempty" jsonschema:"description=mcp: arguments of command."`
+	Env         map[string]string `yaml:"env,omitempty" json:"env,omitempty" jsonschema:"description=mcp: environment variables for command (templates allowed)."`
+	AllowTools  []string          `yaml:"allow_tools,omitempty" json:"allow_tools,omitempty" jsonschema:"description=mcp: offer only these of the server's tools to the model."`
+	CallTimeout Duration          `yaml:"call_timeout,omitempty" json:"call_timeout,omitempty" jsonschema:"description=mcp: how long one tool call may take; default 60s."`
 
 	// model (a system prompt and tools tested directly against a model; model and done_tool apply too)
 	System        string    `yaml:"system,omitempty" json:"system,omitempty" jsonschema:"description=model: the system prompt under test; {{vars.x}} and {{secrets.X}} render."`
@@ -453,6 +461,7 @@ type Assertion struct {
 	Captured      *CapturedAssertion `yaml:"captured,omitempty" json:"captured,omitempty" jsonschema:"description=A value captured during the run exists and equals or matches."`
 	Golden        *GoldenAssertion   `yaml:"golden,omitempty" json:"golden,omitempty" jsonschema:"description=The agent's turns against reference turns: a file next to the suite or inline turns; exact / similar / judge."`
 	Custom        *string            `yaml:"custom,omitempty" json:"custom,omitempty" jsonschema:"description=A Go-registered assertion by name."`
+	Grounded      *GroundedAssertion `yaml:"grounded,omitempty" json:"grounded,omitempty" jsonschema:"description=Every factual claim the agent made is supported by the retrieval context (a tool's results or a response field or given text); a judge lists the claims."`
 	Handoff       *HandoffAssertion  `yaml:"handoff,omitempty" json:"handoff,omitempty" jsonschema:"description=The agent handed the conversation to a person (true) or did not (false); or when and to whom and with what summary."`
 	HTTP          *StateHTTP         `yaml:"http,omitempty" json:"http,omitempty" jsonschema:"description=The state of your backend after the conversation: a request whose status and body are checked."`
 	Command       *StateCommand      `yaml:"command,omitempty" json:"command,omitempty" jsonschema:"description=The state of your backend after the conversation: a shell command whose exit code and output are checked."`
@@ -462,6 +471,21 @@ type Assertion struct {
 	// From is the pack this assertion came from, set when a pack expands;
 	// results are reported as <pack>/<assertion>. Not part of the format.
 	From string `yaml:"-" json:"-"`
+}
+
+// GroundedAssertion is a RAG grounding check: where the context is and how
+// many of the agent's claims it must support.
+type GroundedAssertion struct {
+	Context GroundedContext `yaml:"context" json:"context" jsonschema:"required,description=Where the retrieval context is: a tool whose results tamesu saw or a JSONPath into every raw response or text given here."`
+	Min     float64         `yaml:"min,omitempty" json:"min,omitempty" jsonschema:"description=The fraction of claims that must be supported (0 to 1); all of them when omitted."`
+	Model   string          `yaml:"model,omitempty" json:"model,omitempty" jsonschema:"description=The judge model for this check (a Genkit reference); defaults to models.judge."`
+}
+
+// GroundedContext is one or more sources of retrieval context.
+type GroundedContext struct {
+	Tool     string   `yaml:"tool,omitempty" json:"tool,omitempty" jsonschema:"description=A tool whose results are the context (model and realtime and pipecat targets)."`
+	JSONPath string   `yaml:"json_path,omitempty" json:"json_path,omitempty" jsonschema:"description=A JSONPath into every raw response selecting the passages (rest / websocket / realtime events)."`
+	Text     []string `yaml:"text,omitempty" json:"text,omitempty" jsonschema:"description=Passages given in the suite."`
 }
 
 // StateHTTP checks your backend after the conversation: the request is made
@@ -508,6 +532,7 @@ func (a Assertion) Kinds() []string {
 		"transferred_to":  a.TransferredTo != nil,
 		"handoff":         a.Handoff != nil,
 		"evaluator":       a.Evaluator != nil,
+		"grounded":        a.Grounded != nil,
 		"metric":          a.Metric != nil,
 		"turns":           a.Turns != nil,
 		"captured":        a.Captured != nil,

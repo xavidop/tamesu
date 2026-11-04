@@ -49,16 +49,17 @@ var (
 // belongs to, so a field on the wrong kind of target earns a warning.
 var targetFieldTypes = map[string][]string{
 	"browser": {TargetBrowser}, "auth": {TargetBrowser}, "allowed_domains": {TargetBrowser},
-	"method": {TargetREST}, "headers": {TargetREST, TargetRealtime, TargetGRPC, TargetPipecat, TargetTwilio}, "request": {TargetREST}, "response": {TargetREST}, "streaming": {TargetREST}, "session": {TargetREST, TargetGRPC},
+	"method": {TargetREST}, "headers": {TargetREST, TargetRealtime, TargetGRPC, TargetPipecat, TargetTwilio, TargetMCP}, "request": {TargetREST}, "response": {TargetREST}, "streaming": {TargetREST}, "session": {TargetREST, TargetGRPC},
 	"api_key": {TargetLiveKit}, "api_secret": {TargetLiveKit}, "room": {TargetLiveKit}, "dispatch": {TargetLiveKit},
 	"agent_identity_prefix": {TargetLiveKit}, "mode": {TargetLiveKit, TargetRealtime, TargetPipecat}, "data_topic": {TargetLiveKit}, "join_timeout": {TargetLiveKit},
 	"transcript_source": {TargetLiveKit},
 	"direction":         {TargetSIP}, "to": {TargetSIP, TargetTwilio}, "from": {TargetSIP, TargetTwilio}, "trunk_id": {TargetSIP}, "ring_timeout": {TargetSIP},
 	"max_call_duration": {TargetSIP}, "trigger": {TargetSIP},
-	"model": {TargetRealtime, TargetModel}, "session_update": {TargetRealtime}, "protocol": {TargetRealtime}, "done_tool": {TargetRealtime, TargetModel}, "turn_timeout": {TargetRealtime, TargetGRPC, TargetPipecat, TargetTwilio},
+	"model": {TargetRealtime, TargetModel, TargetMCP}, "session_update": {TargetRealtime}, "protocol": {TargetRealtime}, "done_tool": {TargetRealtime, TargetModel, TargetMCP}, "turn_timeout": {TargetRealtime, TargetGRPC, TargetPipecat, TargetTwilio},
 	"tool_results": {TargetRealtime, TargetPipecat}, "audio_format": {TargetRealtime},
 	"sample_rate": {TargetPipecat}, "idle": {TargetPipecat, TargetTwilio}, "parameters": {TargetTwilio},
-	"system": {TargetModel}, "system_file": {TargetModel}, "tools": {TargetModel}, "temperature": {TargetModel}, "max_tokens": {TargetModel}, "max_tool_rounds": {TargetModel}, "fallback": {TargetModel},
+	"system": {TargetModel, TargetMCP}, "system_file": {TargetModel, TargetMCP}, "tools": {TargetModel}, "temperature": {TargetModel, TargetMCP}, "max_tokens": {TargetModel, TargetMCP}, "max_tool_rounds": {TargetModel, TargetMCP}, "fallback": {TargetModel, TargetMCP},
+	"command": {TargetMCP}, "args": {TargetMCP}, "env": {TargetMCP}, "allow_tools": {TargetMCP}, "call_timeout": {TargetMCP},
 }
 
 // RealtimeProtocols are the event dialects of the realtime target.
@@ -323,6 +324,31 @@ func (v *validator) target(name string, t Target) {
 		if t.Idle < 0 {
 			v.errorf(with(tp, "idle"), "idle cannot be negative")
 		}
+	case TargetMCP:
+		if t.URL == "" && t.Command == "" {
+			v.errorf(tp, "mcp target needs url (a streamable HTTP server) or command (a stdio server)")
+		}
+		if t.URL != "" && t.Command != "" {
+			v.errorf(with(tp, "command"), "url and command exclude each other")
+		}
+		if t.System != "" && t.SystemFile != "" {
+			v.errorf(with(tp, "system_file"), "system and system_file exclude each other")
+		}
+		if t.Temperature != nil && (*t.Temperature < 0 || *t.Temperature > 2) {
+			v.errorf(with(tp, "temperature"), "temperature must be between 0 and 2")
+		}
+		if t.MaxTokens < 0 || t.MaxToolRounds < 0 {
+			v.errorf(tp, "max_tokens and max_tool_rounds cannot be negative")
+		}
+		if t.CallTimeout < 0 {
+			v.errorf(with(tp, "call_timeout"), "call_timeout cannot be negative")
+		}
+		for i, name := range t.AllowTools {
+			if strings.TrimSpace(name) == "" {
+				v.errorf(with(tp, "allow_tools", idx(i)), "a tool name is empty")
+			}
+		}
+		v.modelList(with(tp, "fallback"), t.Fallback)
 	case TargetModel:
 		if strings.TrimSpace(t.System) == "" && t.SystemFile == "" {
 			v.errorf(tp, "model target needs system (the prompt under test) or system_file")
@@ -753,6 +779,17 @@ func (v *validator) assertion(ap []string, a Assertion, ttype, mode string) {
 	case "custom":
 		if *a.Custom == "" {
 			v.errorf(kp, "custom needs the name of a registered assertion")
+		}
+	case "grounded":
+		g := a.Grounded
+		if g.Context.Tool == "" && g.Context.JSONPath == "" && len(g.Context.Text) == 0 {
+			v.errorf(with(kp, "context"), "grounded needs context: a tool, a json_path or text")
+		}
+		if g.Min < 0 || g.Min > 1 {
+			v.errorf(with(kp, "min"), "min must be between 0 and 1")
+		}
+		if g.Context.Tool != "" && ttype != "" && !slices.Contains(FuzzTargets, ttype) {
+			v.warnf(with(kp, "context", "tool"), "tool results are seen on %s targets only; this target is %s, so the context will be empty unless json_path or text is given", strings.Join(FuzzTargets, ", "), ttype)
 		}
 	case "handoff":
 		h := a.Handoff

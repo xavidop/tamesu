@@ -158,6 +158,7 @@ tests:
   - captured: { name: order_id, matches: "^ORD-" }
   - golden: { file: golden/refund.json, mode: similar, min: 0.8 }
   - handoff: { within_turns: 3, to: "^billing$" }
+  - grounded: { context: { tool: search_docs } }
   - http: { url: "{{vars.admin_url}}/orders/{{captured.order_id}}", json_path: { path: "$.status", equals: refunded } }
   - command: { run: "./scripts/check-refund.sh {{captured.order_id}}", contains: refunded }
   - pack: pii_leakage
@@ -200,10 +201,12 @@ tests:
     default: [openai/gpt-4.1-mini]
     judge: [googleai/gemini-2.5-pro]
   retry: { attempts: 3, backoff: 500ms, max_backoff: 10s }`,
-	"HandoffSignal":    `handoff: { tool: transfer_to_human, to: department, summary: summary }`,
-	"HandoffAssertion": `handoff: { within_turns: 3, to: "^billing$", summary_contains: ["ORD-"], summary: "The summary names the order and the problem" }`,
-	"StateHTTP":        `http: { url: "{{vars.admin_url}}/orders/{{captured.order_id}}", headers: { Authorization: "Bearer {{secrets.ADMIN_TOKEN}}" }, json_path: { path: "$.status", equals: refunded } }`,
-	"StateCommand":     `command: { run: "psql -tAc \"select status from orders where id = '{{captured.order_id}}'\"", contains: refunded }`,
+	"GroundedAssertion": `grounded: { context: { tool: search_docs }, min: 0.9 }`,
+	"GroundedContext":   `context: { json_path: "$.sources[*].text" }`,
+	"HandoffSignal":     `handoff: { tool: transfer_to_human, to: department, summary: summary }`,
+	"HandoffAssertion":  `handoff: { within_turns: 3, to: "^billing$", summary_contains: ["ORD-"], summary: "The summary names the order and the problem" }`,
+	"StateHTTP":         `http: { url: "{{vars.admin_url}}/orders/{{captured.order_id}}", headers: { Authorization: "Bearer {{secrets.ADMIN_TOKEN}}" }, json_path: { path: "$.status", equals: refunded } }`,
+	"StateCommand":      `command: { run: "psql -tAc \"select status from orders where id = '{{captured.order_id}}'\"", contains: refunded }`,
 	"RedTeam": `red_team:
   target: api
   agent: "Mochi Shoes support: never more than 30-day returns, no other customers' data, no refunds without verification"

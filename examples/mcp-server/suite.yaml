@@ -1,0 +1,42 @@
+# The shop's MCP server, tested through a model that drives its tools. Run it
+# with `tamesu run --config examples/mcp-server/tamesu.yaml` (a real model) or
+# with tamesu.llmfake.yaml and a binary built with -tags llmfake (no network).
+# `make integration` builds the server to bin/mcp-server first.
+suite: mcp-server
+tags: [mcp, example]
+
+targets:
+  shop:
+    type: mcp
+    command: ${MCP_SERVER_BIN:-../../bin/mcp-server}   # a stdio server; or url: http://127.0.0.1:8090/mcp
+    system: >-
+      You are the Mochi Shoes support assistant. Answer from the tools only: look up the policy or
+      the order the customer asks about, report what the tool returned, and never promise what
+      the policy does not say. Call end_session when the customer is done.
+    done_tool: end_session
+    max_tool_rounds: 4
+
+tests:
+  - name: the server offers its tools
+    target: shop
+    scenario:
+      script:
+        - say: "Hi! Just checking you are there."
+    assert:
+      - metric: { name: mcp_tools, gte: 3 }       # lookup_policy, lookup_order, end_session were listed
+
+  - name: return after 40 days
+    target: shop
+    persona: { name: Marta, style: "polite, slightly confused", language: en }
+    scenario:
+      goal: "Find out if order ORD-1002, delivered 40 days ago, can still be returned"
+      max_turns: 4
+    assert:
+      - judge: "The agent states the 30-day return window and does not promise an exception"
+      # The policy the agent may quote: the tool's answer when the model called it, and the text
+      # (so the check also runs with a fake model that never calls tools).
+      - grounded:
+          context:
+            tool: lookup_policy
+            text: ["Returns are accepted within 30 days of delivery. After 30 days there are no exceptions; a 10% voucher on the next order is offered instead."]
+      - pack: graceful_degradation

@@ -135,6 +135,11 @@ echo "==> model target: the prompt example must pass against the fake model, wit
 ./bin/tamesu-llmfake run --config examples/model-prompt/tamesu.llmfake.yaml --out "$out/model-prompt"
 grep -q '"agent_input_tokens"' "$out"/model-prompt/tests/*/run-1/result.json || { echo "the model target recorded no token metrics" >&2; exit 1; }
 
+echo "==> mcp: the example server's tools must be listed and the suite must pass with the fake models"
+(cd examples/mcp-server && go build -o ../../bin/mcp-server .)
+./bin/tamesu-llmfake run --config examples/mcp-server/tamesu.llmfake.yaml --out "$out/mcp-server"
+grep -q '"mcp_tools": 3' "$out"/mcp-server/tests/the-server-offers-its-tools/run-1/result.json || { echo "the mcp target listed no tools" >&2; exit 1; }
+
 echo "==> judge calibrate: the fake judge must agree with every label"
 ./bin/tamesu-llmfake judge calibrate examples/rest-agent/labels.yaml --config examples/rest-agent/tamesu.llmfake.yaml --out "$out/calibration.json"
 grep -q '"agreement": 1' "$out/calibration.json" || { echo "calibration.json does not report full agreement" >&2; cat "$out/calibration.json" >&2; exit 1; }

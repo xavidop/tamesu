@@ -102,6 +102,9 @@ type AgentTurn struct {
 type ToolCall struct {
 	Name string
 	Args map[string]any
+	// Result is what the tool returned, when tamesu saw it (the targets that
+	// answer tool calls: model, realtime, pipecat); nil otherwise.
+	Result any `json:"result,omitempty"`
 }
 
 // Artifacts is what a session captured.

@@ -64,7 +64,7 @@ tests:
 
 | Key | Type | Required | Description |
 |---|---|---|---|
-| `type` | one of `browser`, `rest`, `livekit`, `sip`, `realtime`, `grpc`, `pipecat`, `model`, `twilio` | yes |  |
+| `type` | one of `browser`, `rest`, `livekit`, `sip`, `realtime`, `grpc`, `pipecat`, `model`, `twilio`, `mcp` | yes |  |
 | `url` | string |  | The page (browser) or endpoint (rest / realtime / pipecat / twilio) or grpc://host:port (grpc) or LiveKit server (livekit). |
 | `connect` | [ConnectConfig](#connectconfig) |  |  |
 | `handoff` | [HandoffSignal](#handoffsignal) |  |  |
@@ -103,6 +103,11 @@ tests:
 | `sample_rate` | integer |  | pipecat audio mode: the transport's sample rate in Hz; default 16000. |
 | `idle` | [Duration](#duration) |  | pipecat and twilio: silence after the agent's last message or audio that ends a turn; default 2s. |
 | `parameters` | map of string to string |  | twilio: the customParameters of the start event (the Parameter elements of the TwiML Stream); values render {{vars.x}} and {{secrets.X}}. |
+| `command` | string |  | mcp: the stdio server to spawn (an executable); url is the alternative for a streamable HTTP server. |
+| `args` | list of string |  | mcp: arguments of command. |
+| `env` | map of string to string |  | mcp: environment variables for command (templates allowed). |
+| `allow_tools` | list of string |  | mcp: offer only these of the server's tools to the model. |
+| `call_timeout` | [Duration](#duration) |  | mcp: how long one tool call may take; default 60s. |
 | `system` | string |  | model: the system prompt under test; {{vars.x}} and {{secrets.X}} render. |
 | `system_file` | string |  | model: a file next to the suite holding the system prompt (instead of system). |
 | `tools` | list of [ToolDef](#tooldef) |  | model: the tools offered to the model and the result tamesu answers each call with. |
@@ -508,6 +513,7 @@ script:
 | `captured` | [CapturedAssertion](#capturedassertion) |  | A value captured during the run exists and equals or matches. |
 | `golden` | [GoldenAssertion](#goldenassertion) |  | The agent's turns against reference turns: a file next to the suite or inline turns; exact / similar / judge. |
 | `custom` | string |  | A Go-registered assertion by name. |
+| `grounded` | [GroundedAssertion](#groundedassertion) |  | Every factual claim the agent made is supported by the retrieval context (a tool's results or a response field or given text); a judge lists the claims. |
 | `handoff` | [HandoffAssertion](#handoffassertion) |  | The agent handed the conversation to a person (true) or did not (false); or when and to whom and with what summary. |
 | `http` | [StateHTTP](#statehttp) |  | The state of your backend after the conversation: a request whose status and body are checked. |
 | `command` | [StateCommand](#statecommand) |  | The state of your backend after the conversation: a shell command whose exit code and output are checked. |
@@ -529,6 +535,7 @@ assert:
   - captured: { name: order_id, matches: "^ORD-" }
   - golden: { file: golden/refund.json, mode: similar, min: 0.8 }
   - handoff: { within_turns: 3, to: "^billing$" }
+  - grounded: { context: { tool: search_docs } }
   - http: { url: "{{vars.admin_url}}/orders/{{captured.order_id}}", json_path: { path: "$.status", equals: refunded } }
   - command: { run: "./scripts/check-refund.sh {{captured.order_id}}", contains: refunded }
   - pack: pii_leakage
@@ -847,6 +854,34 @@ Either a string (The fuzz mode: error, empty, null, malformed, hostile, huge, wr
 | `mode` | one of `error`, `empty`, `null`, `malformed`, `hostile`, `huge`, `wrong_type`, `delay`, `custom` | yes | What the tool answers instead of its result. |
 | `delay` | string |  | How long the answer is held back (any mode; the whole point of delay). |
 | `result` | any |  | The answer in custom mode (any JSON). |
+
+## GroundedAssertion
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `context` | [GroundedContext](#groundedcontext) | yes | Where the retrieval context is: a tool whose results tamesu saw or a JSONPath into every raw response or text given here. |
+| `min` | number |  | The fraction of claims that must be supported (0 to 1); all of them when omitted. |
+| `model` | string |  | The judge model for this check (a Genkit reference); defaults to models.judge. |
+
+Example:
+
+```yaml
+grounded: { context: { tool: search_docs }, min: 0.9 }
+```
+
+## GroundedContext
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `tool` | string |  | A tool whose results are the context (model and realtime and pipecat targets). |
+| `json_path` | string |  | A JSONPath into every raw response selecting the passages (rest / websocket / realtime events). |
+| `text` | list of string |  | Passages given in the suite. |
+
+Example:
+
+```yaml
+context: { json_path: "$.sources[*].text" }
+```
 
 ## HandoffAssertion
 

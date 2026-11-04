@@ -123,6 +123,7 @@ func NewRoot(info BuildInfo, streams Streams, deps Deps) *cobra.Command {
 		newVersionCmd(info),
 		a.newInitCmd(),
 		a.newValidateCmd(),
+		a.newLintCmd(),
 		a.newListCmd(),
 		a.newRunCmd(),
 		a.newDoctorCmd(),

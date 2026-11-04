@@ -72,6 +72,7 @@ type Simulator interface {
 type Provider interface {
 	Simulator
 	assert.Judger
+	assert.Grounder
 	assert.Evaluator
 	Usage() Usage
 	Close(ctx context.Context) error

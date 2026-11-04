@@ -71,6 +71,8 @@ This is a multi-module repository tied together by a `go.work` file:
 - `targets/model`: the model target, its own module with no provider dependency: a system prompt
   and tool definitions run through `target.ChatModel`, which the llm module implements, with the
   tool calls answered from the suite.
+- `targets/mcp`: the MCP server target, its own module on the `mcp-go` client and the model
+  target: the server's tools are offered to a model and every call runs on the server.
 - `targets/grpc`: the target for agents behind the turn API of `proto/tamesu/turn/v1`, its own
   module on grpc-go; `turnv1` is the generated code (`make proto` regenerates it).
 - `targets/realtime`: the target for agents speaking the OpenAI Realtime protocol (the API itself
@@ -90,6 +92,8 @@ This is a multi-module repository tied together by a `go.work` file:
 - `examples/livekit-agent`: a LiveKit agent (LiveKit Go SDK plus a Genkit reply flow) that also
   speaks and listens with `--audio`, and its text and audio suites; `make integration` runs them
   against `livekit-server --dev` when available.
+- `examples/mcp-server`: a tiny MCP server (policies and orders over stdio or streamable HTTP)
+  with the suite that tests it through the `mcp` target; `make integration` builds and runs it.
 - `examples/webapp`: Mochi Shoes, a tiny Go web shop (login, search, cart) the browser example
   tests; `examples/browser-shop` is that suite, run headless by `make integration` with the fake
   browser agent's scripted actions.

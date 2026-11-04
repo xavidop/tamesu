@@ -45,7 +45,7 @@ func TestValidateInvalidSuites(t *testing.T) {
 		{file: "model-fallback.yaml", line: 3, msg: "attempts cannot be negative", path: "models.retry.attempts"},
 		{file: "model-fallback.yaml", line: 4, msg: "model references look like provider/model", path: "models.fallback.judge[0]", warning: true},
 		{file: "model-fallback-target.yaml", line: 7, msg: "model references look like provider/model", path: "targets.prompt.fallback[0]", warning: true},
-		{file: "model-fallback-target.yaml", line: 12, msg: "fallback applies to model targets only; this target is rest", warning: true},
+		{file: "model-fallback-target.yaml", line: 12, msg: "fallback applies to model and mcp targets only; this target is rest", warning: true},
 		{file: "semantic-and-schema.yaml", line: 7, msg: "attempts cannot be negative", path: "targets.api.connect.attempts"},
 		{file: "semantic-and-schema.yaml", line: 14, msg: "similar_to.min is a cosine similarity between 0 and 1", path: `tests[0] "t".assert[0].similar_to.min`},
 		{file: "semantic-and-schema.yaml", line: 15, msg: "similar_to needs a text", path: `tests[0] "t".assert[1].similar_to`},

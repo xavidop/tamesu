@@ -142,3 +142,8 @@ func TestRunFailsTheTest(t *testing.T) {
 }
 
 var fmtSprintf = fmt.Sprintf
+
+// Ground implements assert.Grounder: every claim is supported.
+func (f *fakeProvider) Ground(_ context.Context, req tassert.GroundRequest) (tassert.GroundVerdict, error) {
+	return tassert.GroundVerdict{Claims: []tassert.Claim{{Text: "fake claim", Supported: true, Evidence: "(fake)"}}, Reason: "fake grounder"}, nil
+}

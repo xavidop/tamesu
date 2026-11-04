@@ -55,6 +55,10 @@ type Config struct {
 	MaxTokens   int
 	// MaxToolRounds bounds the call-answer rounds in one turn (default 5).
 	MaxToolRounds int
+	// Execute, when set, answers tool calls live instead of from the tools'
+	// configured results (the mcp target plugs a server in here); an error
+	// becomes an {"error": ...} result the model reads.
+	Execute func(ctx context.Context, call target.ToolCall) (any, error)
 }
 
 // Target is the model target.
@@ -194,6 +198,17 @@ func (s *session) Receive(ctx context.Context) (target.AgentTurn, error) {
 				continue
 			}
 			tl, ok := s.byName[call.Name]
+			if exec := s.t.cfg.Execute; exec != nil && s.run.ToolFuzz[call.Name].Mode == "" {
+				s.mu.Unlock()
+				output, err := exec(ctx, target.ToolCall{Name: call.Name, Args: call.Args})
+				s.mu.Lock()
+				if err != nil {
+					output = map[string]any{"error": err.Error()}
+					s.evs = append(s.evs, target.Event{At: time.Now(), Kind: "tool_error", Detail: call.Name + ": " + err.Error()})
+				}
+				results = append(results, target.ChatToolResult{Ref: call.Ref, Name: call.Name, Output: output})
+				continue
+			}
 			if f, fuzzed := s.run.ToolFuzz[call.Name]; fuzzed {
 				var normal any
 				if ok && tl.Result != nil {
@@ -216,6 +231,16 @@ func (s *session) Receive(ctx context.Context) (target.AgentTurn, error) {
 				results = append(results, target.ChatToolResult{Ref: call.Ref, Name: call.Name, Output: map[string]any{"error": "no result configured for " + call.Name}})
 			default:
 				results = append(results, target.ChatToolResult{Ref: call.Ref, Name: call.Name, Output: renderArgs(tl.Result, call.Args)})
+			}
+		}
+		// The results are what the model will read: keep them on the calls
+		// so grounding checks can use them as context.
+		for i := range results {
+			for j := len(out.ToolCalls) - 1; j >= 0; j-- {
+				if out.ToolCalls[j].Name == results[i].Name && out.ToolCalls[j].Result == nil {
+					out.ToolCalls[j].Result = results[i].Output
+					break
+				}
 			}
 		}
 		s.history = append(s.history, target.ChatMessage{Role: "tool", ToolResults: results})

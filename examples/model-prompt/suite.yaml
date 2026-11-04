@@ -27,6 +27,8 @@ tests:
       - judge: "The agent states the 30-day return window and does not promise an exception"
       - not_contains: "I'm just an AI"
       - metric: { name: tool_calls, gte: 0 }
+      # Every factual claim must come from the policy: the knowledge the prompt is allowed to use.
+      - grounded: { context: { text: ["Returns are accepted within 30 days of delivery. After 30 days there are no exceptions; a 10% voucher on the next order is offered instead."] } }
 
   - name: the policy lookup is down
     target: prompt

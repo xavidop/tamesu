@@ -342,3 +342,8 @@ func TestRunMatrixEstimateAndCoverage(t *testing.T) {
 	assert.Equal(t, cli.ExitConfig, code)
 	assert.Contains(t, stderr, "the key is one of")
 }
+
+// Ground implements assert.Grounder: every claim is supported.
+func (f *fakeModel) Ground(_ context.Context, req tassert.GroundRequest) (tassert.GroundVerdict, error) {
+	return tassert.GroundVerdict{Claims: []tassert.Claim{{Text: "fake claim", Supported: true, Evidence: "(fake)"}}, Reason: "fake grounder"}, nil
+}

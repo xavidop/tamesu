@@ -147,6 +147,34 @@ not apply, since the state is read once, after the conversation.
 |---|---|
 | `judge: "rubric"` | the judge model says the rubric holds. `judge: { rubric, model, scale: binary\|1-5, min }` picks the model and the scale. |
 | `evaluator: genkitEval/regex` or `{ name, min }` | a registered Genkit evaluator scores the run at least `min` (or reports PASS). |
+| `grounded: { context: { tool \| json_path \| text }, min, model }` | every factual claim the agent made is supported by the retrieval context (see [grounding](#grounding)). |
+
+### Grounding
+
+An agent that cites documents can still invent. `grounded` asks the judge model to list every
+factual claim the agent made and whether the context supports it, and passes when all of them
+(or `min` of them, a fraction) are supported. The context is what the agent could legitimately
+draw on:
+
+- `tool: search_docs`: the results of that tool, on the targets where tamesu answers tool calls
+  (`model`, `realtime`, `pipecat`) and so sees them;
+- `json_path: "$.sources[*].text"`: passages selected from every raw response (`rest`, websocket,
+  realtime events), for agents that return their sources;
+- `text: [...]`: passages written in the suite.
+
+```yaml
+tests:
+  - name: answers come from the knowledge base
+    target: prompt
+    scenario: { goal: "Ask how long you have to return shoes and whether there is a restocking fee", max_turns: 4 }
+    assert:
+      - grounded: { context: { tool: search_docs } }
+      - tool_called: search_docs
+```
+
+The result lists each claim with a tick or a cross and the passage behind it, and its score is
+the supported fraction; `tamesu judge calibrate` and the replay cache treat the grounding check
+like any other verdict. Greetings, apologies and questions are not claims.
 
 ## Custom
 

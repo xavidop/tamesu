@@ -33,9 +33,9 @@ OpenAI Realtime API and a web checkout.
   <img src="site/public/demo.gif" alt="tamesu init, validate, list and doctor in a terminal" width="900" />
 </p>
 
-- **Nine targets, one model.** `browser`, `rest`, `grpc`, `livekit`, `sip`, `twilio`,
-  `realtime`, `pipecat` and `model` (a prompt with no server yet) share the schema, the
-  assertions, the metrics and the reports.
+- **Ten targets, one model.** `browser`, `rest`, `grpc`, `livekit`, `sip`, `twilio`,
+  `realtime`, `pipecat`, `model` (a prompt with no server yet) and `mcp` (an MCP server's tools
+  driven by a model) share the schema, the assertions, the metrics and the reports.
 - **Judges you can trust.** Rubrics with structured output, versioned prompts recorded in every
   result, replayable verdicts, and `tamesu judge calibrate` to measure a judge against
   transcripts people have already marked.
@@ -101,6 +101,7 @@ The commands:
 ```text
 tamesu init [dir]                scaffold tamesu.yaml and examples/ (--force)
 tamesu validate [paths...]       schema-validate suites (--strict)
+tamesu lint [paths...]           find weak tests: judge-only checks, untagged tests, duplicate goals, limits that never bind (--json, --strict)
 tamesu list [paths...]           list tests (--json, --filter, --tags, --target, --shard)
 tamesu run [paths...]            run suites (--filter, --tags, --target, --shard, --fail-fast, --parallel, --repeat, --load, --mode, --replay, --baseline, --env, --label, --out, --reporter, --estimate, --matrix)
 tamesu doctor [paths...]         check config, suites, secrets, models, speech, Chromium, LiveKit and SIP
@@ -138,6 +139,7 @@ runs the same tests from `go test`.
 | `pipecat` | the websocket transport of a Pipecat bot (protobuf frames and RTVI) | text, audio | any bot with an RTVI observer |
 | `model` | a system prompt and tool definitions, directly against a model: no agent server, tool calls answered from the suite | text | [`examples/model-prompt`](examples/model-prompt/) |
 | `twilio` | a Twilio Media Streams agent, with tamesu playing Twilio's side of the websocket: μ-law media, DTMF, marks and clear, no phone number needed | audio | any agent behind a `<Stream url>` |
+| `mcp` | an MCP server, over stdio or streamable HTTP: its tools are offered to a model and every call runs on the server | text | [`examples/mcp-server`](examples/mcp-server/) |
 
 Audio tests speak through TTS, hear through VAD and STT, interrupt, add background noise and
 degrade the line, and measure time to first audio, interruption stop time, talk-over and silence

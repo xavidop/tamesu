@@ -108,6 +108,9 @@ func buildKind(a config.Assertion) (assert.Assertion, error) {
 			v = *a.Turns.Eq
 		}
 		return assert.Turns(assert.Comparison{Op: ops[0], Value: float64(v)}), nil
+	case "grounded":
+		g := a.Grounded
+		return assert.Grounded(assert.GroundedCheck{Context: assert.GroundContext{Tool: g.Context.Tool, JSONPath: g.Context.JSONPath, Text: g.Context.Text}, Min: g.Min, Model: g.Model})
 	case "handoff":
 		h := a.Handoff
 		return assert.Handoff(assert.HandoffCheck{Expected: h.Expected, WithinTurns: h.WithinTurns, To: h.To, SummaryContains: h.SummaryContains, Summary: h.Summary})

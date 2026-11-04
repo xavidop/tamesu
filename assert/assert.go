@@ -51,6 +51,7 @@ type RunResult struct {
 	// means no model is available and judge, evaluator or similar_to
 	// assertions fail.
 	Judger    Judger
+	Grounder  Grounder
 	Evaluator Evaluator
 	Embedder  Embedder
 }

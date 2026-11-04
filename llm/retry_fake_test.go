@@ -147,3 +147,23 @@ func TestDefaultEmbedder(t *testing.T) {
 	assert.Equal(t, "", DefaultEmbedder("anthropic"))
 	assert.Equal(t, "", DefaultEmbedder("ollama"))
 }
+
+func TestGroundFake(t *testing.T) {
+	c := client(t)
+	withConfig(t, c, Models{Default: "fake/text", Judge: "fake/judge"}, c.cfg.Speech)
+	v, err := c.Ground(context.Background(), tassert.GroundRequest{
+		Context:    []string{"Returns are accepted within 30 days of delivery."},
+		Transcript: []tassert.Turn{{Role: "user", Text: "Can I return after 40 days?"}, {Role: "agent", Text: "No, the window is 30 days.", Index: 1}},
+	})
+	require.NoError(t, err)
+	require.Len(t, v.Claims, 1)
+	assert.True(t, v.Claims[0].Supported)
+	assert.Equal(t, "fake grounding check", v.Reason)
+	assert.Equal(t, "1", v.PromptVersion)
+
+	v, err = c.Ground(context.Background(), tassert.GroundRequest{Context: []string{"x"}, Transcript: []tassert.Turn{{Role: "agent", Text: "UNSUPPORTED claim here", Index: 1}}})
+	require.NoError(t, err)
+	supported, total := v.Supported()
+	assert.Equal(t, 1, supported)
+	assert.Equal(t, 2, total, "the fake marks one claim unsupported when the conversation says UNSUPPORTED")
+}
