@@ -4,9 +4,9 @@ use (
 	.
 	./audio
 	./cmd/tamesu
+	./examples/a2a-agent
 	./examples/livekit-agent
 	./examples/mcp-server
-	./examples/a2a-agent
 	./examples/rest-agent
 	./examples/webapp
 	./llm
@@ -14,13 +14,13 @@ use (
 	./llm/plugins/deepgram
 	./llm/plugins/elevenlabs
 	./llm/plugins/soniox
+	./targets/a2a
 	./targets/browser
 	./targets/grpc
-	./targets/pipecat
 	./targets/livekit
 	./targets/mcp
-	./targets/a2a
 	./targets/model
+	./targets/pipecat
 	./targets/realtime
 	./targets/rest
 	./targets/sip
