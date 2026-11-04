@@ -388,11 +388,11 @@ type Matches struct {
 // MetricAssertion compares a built-in metric with exactly one comparator.
 type MetricAssertion struct {
 	Name string   `yaml:"name" json:"name" jsonschema:"required,description=Metric name such as turn_latency_p95_ms."`
-	Lt   *float64 `yaml:"lt,omitempty" json:"lt,omitempty"`
-	Lte  *float64 `yaml:"lte,omitempty" json:"lte,omitempty"`
-	Gt   *float64 `yaml:"gt,omitempty" json:"gt,omitempty"`
-	Gte  *float64 `yaml:"gte,omitempty" json:"gte,omitempty"`
-	Eq   *float64 `yaml:"eq,omitempty" json:"eq,omitempty"`
+	Lt   *float64 `yaml:"lt,omitempty" json:"lt,omitempty" jsonschema:"description=Passes when the metric is below this value"`
+	Lte  *float64 `yaml:"lte,omitempty" json:"lte,omitempty" jsonschema:"description=Passes when the metric is at most this value"`
+	Gt   *float64 `yaml:"gt,omitempty" json:"gt,omitempty" jsonschema:"description=Passes when the metric is above this value"`
+	Gte  *float64 `yaml:"gte,omitempty" json:"gte,omitempty" jsonschema:"description=Passes when the metric is at least this value"`
+	Eq   *float64 `yaml:"eq,omitempty" json:"eq,omitempty" jsonschema:"description=Passes when the metric equals this value"`
 }
 
 // Comparators lists the comparators set, in lt lte gt gte eq order.
@@ -429,11 +429,11 @@ func (m MetricAssertion) Compare(v float64) (bool, string) {
 // IntCompare compares an integer (the number of turns) with exactly one
 // comparator.
 type IntCompare struct {
-	Lt  *int `yaml:"lt,omitempty" json:"lt,omitempty"`
-	Lte *int `yaml:"lte,omitempty" json:"lte,omitempty"`
-	Gt  *int `yaml:"gt,omitempty" json:"gt,omitempty"`
-	Gte *int `yaml:"gte,omitempty" json:"gte,omitempty"`
-	Eq  *int `yaml:"eq,omitempty" json:"eq,omitempty"`
+	Lt  *int `yaml:"lt,omitempty" json:"lt,omitempty" jsonschema:"description=Passes when the count is below this value"`
+	Lte *int `yaml:"lte,omitempty" json:"lte,omitempty" jsonschema:"description=Passes when the count is at most this value"`
+	Gt  *int `yaml:"gt,omitempty" json:"gt,omitempty" jsonschema:"description=Passes when the count is above this value"`
+	Gte *int `yaml:"gte,omitempty" json:"gte,omitempty" jsonschema:"description=Passes when the count is at least this value"`
+	Eq  *int `yaml:"eq,omitempty" json:"eq,omitempty" jsonschema:"description=Passes when the count equals this value"`
 }
 
 // Comparators lists the comparators set, in lt lte gt gte eq order.

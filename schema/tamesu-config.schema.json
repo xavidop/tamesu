@@ -5,14 +5,16 @@
     "Assertion": {
       "properties": {
         "judge": {
-          "$ref": "#/$defs/Judge"
+          "$ref": "#/$defs/Judge",
+          "description": "A model grades the run against a rubric (a string or an object with rubric / model / scale / min)"
         },
         "contains": {
           "type": "string",
           "description": "The agent transcript contains this text."
         },
         "not_contains": {
-          "type": "string"
+          "type": "string",
+          "description": "No agent turn contains this text"
         },
         "regex": {
           "type": "string",
@@ -35,10 +37,12 @@
           "description": "rest only: the HTTP status of every turn."
         },
         "tool_called": {
-          "$ref": "#/$defs/ToolCall"
+          "$ref": "#/$defs/ToolCall",
+          "description": "The agent called the tool (a name or an object with name / args / schema)"
         },
         "tool_not_called": {
-          "$ref": "#/$defs/ToolCall"
+          "$ref": "#/$defs/ToolCall",
+          "description": "The agent never called the tool (a name or an object with name / args)"
         },
         "tool_sequence": {
           "$ref": "#/$defs/ToolSequence",
@@ -57,10 +61,12 @@
           "description": "sip: target of a SIP REFER."
         },
         "evaluator": {
-          "$ref": "#/$defs/Evaluator"
+          "$ref": "#/$defs/Evaluator",
+          "description": "A registered Genkit evaluator scores the run (a name or an object with name / min)"
         },
         "metric": {
-          "$ref": "#/$defs/MetricAssertion"
+          "$ref": "#/$defs/MetricAssertion",
+          "description": "A metric of the run satisfies one comparator (lt / lte / gt / gte / eq)"
         },
         "turns": {
           "$ref": "#/$defs/IntCompare",
@@ -99,7 +105,8 @@
           "description": "A reusable assertion set: a built-in red-team pack (prompt_injection / pii_leakage / system_prompt_leakage / stays_in_scope / discloses_ai / harmful_content / excessive_agency / policy_consistency) or one of the suite's packs; it expands into its assertions when the suite loads."
         },
         "on_turn": {
-          "$ref": "#/$defs/OnTurn"
+          "$ref": "#/$defs/OnTurn",
+          "description": "Apply the assertion to one agent turn (a number or last) instead of the whole run"
         }
       },
       "additionalProperties": false,
@@ -130,10 +137,12 @@
     "Budgets": {
       "properties": {
         "max_cost_usd": {
-          "type": "number"
+          "type": "number",
+          "description": "Cap on tamesu's own model spend per run (exit code 4 when exceeded); default 5"
         },
         "max_tokens": {
-          "type": "integer"
+          "type": "integer",
+          "description": "Cap on tamesu's own tokens per run; default 2_000_000"
         }
       },
       "additionalProperties": false,
@@ -156,10 +165,12 @@
     "CapturedAssertion": {
       "properties": {
         "name": {
-          "type": "string"
+          "type": "string",
+          "description": "The captured value's name (capture.name)"
         },
         "equals": {
-          "type": "string"
+          "type": "string",
+          "description": "The exact value expected"
         },
         "matches": {
           "type": "string",
@@ -188,14 +199,16 @@
     "Defaults": {
       "properties": {
         "timeout": {
-          "$ref": "#/$defs/Duration"
+          "$ref": "#/$defs/Duration",
+          "description": "How long one run may take; default 3m"
         },
         "repeat": {
           "type": "integer",
           "description": "Times each test runs."
         },
         "retries": {
-          "type": "integer"
+          "type": "integer",
+          "description": "Re-runs after an infrastructure failure; default 0"
         },
         "pass_threshold": {
           "type": "number",
@@ -372,17 +385,22 @@
     "HTTPTrigger": {
       "properties": {
         "url": {
-          "type": "string"
+          "type": "string",
+          "description": "The request URL (templates allowed)"
         },
         "method": {
-          "type": "string"
+          "type": "string",
+          "description": "HTTP method; default POST"
         },
-        "body": true,
+        "body": {
+          "description": "A string is sent as is; a mapping as JSON (templates allowed)"
+        },
         "headers": {
           "additionalProperties": {
             "type": "string"
           },
-          "type": "object"
+          "type": "object",
+          "description": "Request headers (templates allowed)"
         }
       },
       "additionalProperties": false,
@@ -483,19 +501,24 @@
     "IntCompare": {
       "properties": {
         "lt": {
-          "type": "integer"
+          "type": "integer",
+          "description": "Passes when the count is below this value"
         },
         "lte": {
-          "type": "integer"
+          "type": "integer",
+          "description": "Passes when the count is at most this value"
         },
         "gt": {
-          "type": "integer"
+          "type": "integer",
+          "description": "Passes when the count is above this value"
         },
         "gte": {
-          "type": "integer"
+          "type": "integer",
+          "description": "Passes when the count is at least this value"
         },
         "eq": {
-          "type": "integer"
+          "type": "integer",
+          "description": "Passes when the count equals this value"
         }
       },
       "additionalProperties": false,
@@ -583,19 +606,24 @@
           "description": "Metric name such as turn_latency_p95_ms."
         },
         "lt": {
-          "type": "number"
+          "type": "number",
+          "description": "Passes when the metric is below this value"
         },
         "lte": {
-          "type": "number"
+          "type": "number",
+          "description": "Passes when the metric is at most this value"
         },
         "gt": {
-          "type": "number"
+          "type": "number",
+          "description": "Passes when the metric is above this value"
         },
         "gte": {
-          "type": "number"
+          "type": "number",
+          "description": "Passes when the metric is at least this value"
         },
         "eq": {
-          "type": "number"
+          "type": "number",
+          "description": "Passes when the metric equals this value"
         }
       },
       "additionalProperties": false,
@@ -673,19 +701,24 @@
     "Models": {
       "properties": {
         "default": {
-          "type": "string"
+          "type": "string",
+          "description": "The model for every job not given its own (a Genkit reference such as googleai/gemini-2.5-flash)"
         },
         "judge": {
-          "type": "string"
+          "type": "string",
+          "description": "The model that grades rubrics and grounding checks; default the default model"
         },
         "browser_agent": {
-          "type": "string"
+          "type": "string",
+          "description": "The model that plans and acts on browser goals"
         },
         "simulator": {
-          "type": "string"
+          "type": "string",
+          "description": "The model that plays the simulated user"
         },
         "scenario_generator": {
-          "type": "string"
+          "type": "string",
+          "description": "The model tamesu generate drafts tests with"
         },
         "embedder": {
           "type": "string",
@@ -947,7 +980,8 @@
           "additionalProperties": {
             "type": "string"
           },
-          "type": "object"
+          "type": "object",
+          "description": "Request headers (templates allowed)"
         },
         "body": {
           "description": "A string is sent as is; a mapping as JSON."

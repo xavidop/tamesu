@@ -214,7 +214,20 @@ tests:
   max_turns: 8
   assert:
     - not_contains: "90 days"`,
-	"Budgets":  `budgets: { max_cost_usd: 2, max_tokens: 500000 }`,
+	"Budgets":       `budgets: { max_cost_usd: 2, max_tokens: 500000 }`,
+	"ConnectConfig": `connect: { attempts: 5, backoff: 1s, max_backoff: 10s }`,
+	"Fuzz": `fuzz_tools:
+  lookup_order: error                      # the mode alone
+  get_balance: { mode: delay, delay: 8s }  # the normal answer, late
+  refund: { mode: custom, result: { ok: false, reason: "insufficient funds" } }`,
+	"ModelFallback": `fallback:
+  default: [openai/gpt-4.1-mini]
+  judge: [googleai/gemini-2.5-pro]
+  simulator: [anthropic/claude-sonnet-4-6]`,
+	"ModelRetry": `retry: { attempts: 3, backoff: 500ms, max_backoff: 10s }`,
+	"Quarantine": `quarantine: { reason: "SUP-412 flaky since the payments migration", until: 2026-12-31 }`,
+	"Similar": `- similar_to: "The return window is 30 days from delivery"
+- similar_to: { text: "Returning after 40 days is not possible", min: 0.7, model: googleai/text-embedding-004 }`,
 	"Duration": `timeout: 90s`,
 }
 

@@ -28,14 +28,14 @@ The top level of the file.
 | `tags` | list of string |  | Tags every test of the suite carries. |
 | `vars` | map of string to string |  | Values for {{vars.x}} and for ${VAR} expansion in secret refs. |
 | `secrets` | map of string to string |  | Secret name to mamori ref; overrides the project entry of the same name. |
-| `defaults` | [Defaults](#defaults) |  |  |
-| `models` | [Models](#models) |  |  |
-| `budgets` | [Budgets](#budgets) |  |  |
+| `defaults` | [Defaults](#defaults) |  | Per-test defaults for this suite; they override the project's |
+| `models` | [Models](#models) |  | Model overrides for this suite (default / judge / simulator ...) |
+| `budgets` | [Budgets](#budgets) |  | Spend caps for this suite's runs |
 | `targets` | map of string to [Target](#target) | yes | The systems under test by name. |
-| `hooks` | [Hooks](#hooks) |  |  |
+| `hooks` | [Hooks](#hooks) |  | Setup and teardown around this suite and its runs |
 | `packs` | map of string to list of [Assertion](#assertion) |  | Reusable assertion sets by name for assert entries of the form pack: name; a name also used by a built-in pack (prompt_injection / pii_leakage / system_prompt_leakage / stays_in_scope / discloses_ai / harmful_content / excessive_agency / policy_consistency) replaces it. |
 | `red_team` | [RedTeam](#redteam) |  | Red team playbooks: one adversarial test per attack of the chosen playbooks is added to the suite when it loads (tamesu playbooks lists them). |
-| `tests` | list of [Test](#test) | yes |  |
+| `tests` | list of [Test](#test) | yes | The tests |
 
 Example:
 
@@ -64,35 +64,35 @@ tests:
 
 | Key | Type | Required | Description |
 |---|---|---|---|
-| `type` | one of `browser`, `rest`, `livekit`, `sip`, `realtime`, `grpc`, `pipecat`, `model`, `twilio`, `mcp` | yes |  |
+| `type` | one of `browser`, `rest`, `livekit`, `sip`, `realtime`, `grpc`, `pipecat`, `model`, `twilio`, `mcp` | yes | What the target is; it decides which other keys apply |
 | `url` | string |  | The page (browser) or endpoint (rest / realtime / pipecat / twilio) or grpc://host:port (grpc) or LiveKit server (livekit). |
-| `connect` | [ConnectConfig](#connectconfig) |  |  |
-| `handoff` | [HandoffSignal](#handoffsignal) |  |  |
-| `browser` | [BrowserOptions](#browseroptions) |  |  |
-| `auth` | [BrowserAuth](#browserauth) |  |  |
+| `connect` | [ConnectConfig](#connectconfig) |  | How reaching the agent is retried (attempts / backoff / max_backoff) |
+| `handoff` | [HandoffSignal](#handoffsignal) |  | How the agent signals that a person took over (tool / json_path / regex plus where the destination and summary are) |
+| `browser` | [BrowserOptions](#browseroptions) |  | browser targets; engine / viewport / locale / mocks / recording |
+| `auth` | [BrowserAuth](#browserauth) |  | browser targets; a pre-authenticated storage state |
 | `allowed_domains` | list of string |  | Domains the browser agent may navigate to; defaults to the url's domain. |
 | `method` | string |  | HTTP method; defaults to POST. |
 | `headers` | map of string to string |  | Request (rest) or handshake (realtime / pipecat / twilio) headers or call metadata (grpc); put credentials here as {{secrets.NAME}}. |
-| `request` | [RESTRequest](#restrequest) |  |  |
-| `response` | [RESTResponse](#restresponse) |  |  |
-| `streaming` | one of `none`, `sse`, `websocket` |  |  |
-| `session` | [RESTSession](#restsession) |  |  |
+| `request` | [RESTRequest](#restrequest) |  | rest targets; how a user turn is sent |
+| `response` | [RESTResponse](#restresponse) |  | rest targets; how the agent turn is read back (JSONPaths into the response) |
+| `streaming` | one of `none`, `sse`, `websocket` |  | rest targets; none (default) or sse or websocket |
+| `session` | [RESTSession](#restsession) |  | rest targets; the session id template |
 | `api_key` | string |  | Use {{secrets.NAME}}. |
 | `api_secret` | string |  | Use {{secrets.NAME}}. |
 | `room` | string |  | Room name template; defaults to tamesu-{{uuid}}. |
-| `dispatch` | [Dispatch](#dispatch) |  |  |
+| `dispatch` | [Dispatch](#dispatch) |  | livekit targets; an explicit agent dispatch for the room |
 | `agent_identity_prefix` | string |  | How to recognise the agent participant; defaults to kind=agent. |
 | `mode` | one of `text`, `audio` |  | livekit / realtime / pipecat: text (default) or audio. |
 | `data_topic` | string |  | Text-mode transport topic; defaults to lk.chat. |
-| `join_timeout` | [Duration](#duration) |  |  |
+| `join_timeout` | [Duration](#duration) |  | livekit targets; how long to wait for the agent to join the room (default 20s) |
 | `transcript_source` | one of `auto`, `agent`, `stt` |  | Audio mode: where the agent's words come from; auto (default) takes the agent's own transcription when it publishes one and transcribes its audio otherwise. |
-| `direction` | one of `outbound`, `inbound` |  |  |
+| `direction` | one of `outbound`, `inbound` |  | sip targets; outbound (tamesu calls the agent) or inbound (a trigger makes the agent call tamesu) |
 | `to` | string |  | The agent's phone number in E.164 (outbound); twilio: the To the agent sees in customParameters. |
 | `from` | string |  | Caller ID presented by the trunk; twilio: the From the agent sees in customParameters. |
 | `trunk_id` | string |  | LiveKit SIP trunk; defaults to sip.outbound_trunk_id. |
-| `ring_timeout` | [Duration](#duration) |  |  |
-| `max_call_duration` | [Duration](#duration) |  |  |
-| `trigger` | [Trigger](#trigger) |  |  |
+| `ring_timeout` | [Duration](#duration) |  | sip targets; how long the call may ring before it counts as no_answer |
+| `max_call_duration` | [Duration](#duration) |  | sip targets; the call is ended after this long |
+| `trigger` | [Trigger](#trigger) |  | inbound sip targets; the command or HTTP request that makes the agent call sip.inbound_number |
 | `model` | string |  | realtime: added as ?model= to the url (such as gpt-realtime). model: the Genkit model reference the prompt runs on (default models.default). |
 | `session_update` | object (any keys) |  | realtime: merged into the session.update event (instructions / tools / voice / output modalities). |
 | `protocol` | one of `ga`, `beta` |  | realtime: the event dialect; ga (default) or beta (modalities and the OpenAI-Beta header). |
@@ -147,8 +147,8 @@ targets:
 
 | Key | Type | Required | Description |
 |---|---|---|---|
-| `name` | string | yes |  |
-| `description` | string |  |  |
+| `name` | string | yes | The tool name the model calls |
+| `description` | string |  | What the tool does; the model reads it to decide when to call it |
 | `parameters` | object (any keys) |  | A JSON schema of the arguments (an object schema); none means no arguments. |
 | `result` | any |  | What the call returns to the model (any JSON; string leaves may use {{args.<key>}}). Without it the model gets an error object. |
 
@@ -168,9 +168,9 @@ tools:
 
 | Key | Type | Required | Description |
 |---|---|---|---|
-| `engine` | one of `chromium` |  |  |
+| `engine` | one of `chromium` |  | chromium (the default and only engine) |
 | `viewport` | string |  | WIDTHxHEIGHT such as 1280x800. |
-| `locale` | string |  |  |
+| `locale` | string |  | The browser locale such as en-GB; sets Accept-Language |
 | `mocks` | list of [BrowserMock](#browsermock) |  | Requests answered by tamesu instead of the network from the start of the session; the mock action adds more at run time. |
 | `recording` | one of `auto`, `gif`, `webm`, `off` |  | The session recording written next to the screenshots. auto (the default) writes recording.webm when ffmpeg is installed and recording.gif otherwise; off disables it. |
 
@@ -193,7 +193,7 @@ browser:
 | `method` | string |  | Only this method; default any. |
 | `status` | integer |  | The answer's status; default 200. |
 | `body` | any |  | The answer: a string as is or any value as JSON. |
-| `headers` | map of string to string |  |  |
+| `headers` | map of string to string |  | Response headers of the mocked reply |
 | `delay_ms` | integer |  | Hold the answer back this long. |
 | `abort` | boolean |  | Fail the request instead of answering. |
 
@@ -269,7 +269,7 @@ session: { id: "{{uuid}}" }
 
 | Key | Type | Required | Description |
 |---|---|---|---|
-| `agent_name` | string | yes |  |
+| `agent_name` | string | yes | The agent to dispatch explicitly into the room (LiveKit agent dispatch) |
 
 Example:
 
@@ -281,7 +281,7 @@ dispatch: { agent_name: support-agent }
 
 | Key | Type | Required | Description |
 |---|---|---|---|
-| `http` | [HTTPTrigger](#httptrigger) |  |  |
+| `http` | [HTTPTrigger](#httptrigger) |  | An HTTP request that makes the agent call sip.inbound_number |
 | `command` | string |  | A shell command that makes the agent dial sip.inbound_number. |
 
 Example:
@@ -295,10 +295,10 @@ trigger:
 
 | Key | Type | Required | Description |
 |---|---|---|---|
-| `url` | string | yes |  |
-| `method` | string |  |  |
-| `body` | any |  |  |
-| `headers` | map of string to string |  |  |
+| `url` | string | yes | The request URL (templates allowed) |
+| `method` | string |  | HTTP method; default POST |
+| `body` | any |  | A string is sent as is; a mapping as JSON (templates allowed) |
+| `headers` | map of string to string |  | Request headers (templates allowed) |
 
 Example:
 
@@ -310,14 +310,14 @@ http: { url: "https://agent.example.com/dial", method: POST, headers: { Authoriz
 
 | Key | Type | Required | Description |
 |---|---|---|---|
-| `name` | string | yes |  |
+| `name` | string | yes | The test name; unique in the suite |
 | `target` | string | yes | A key of targets. |
-| `tags` | list of string |  |  |
+| `tags` | list of string |  | Tags for --tags selection and the reports; the suite's tags apply too |
 | `mode` | one of `text`, `audio` |  | Voice tests: overrides the target's mode. |
 | `repeat` | integer |  | Times the test runs to measure variance. |
-| `pass_threshold` | number |  |  |
-| `retries` | integer |  |  |
-| `timeout` | [Duration](#duration) |  |  |
+| `pass_threshold` | number |  | The fraction of repeated runs that must pass (0 to 1); default 1 |
+| `retries` | integer |  | Re-runs after an infrastructure failure (never after a failed assertion) |
+| `timeout` | [Duration](#duration) |  | How long one run may take; default defaults.timeout |
 | `seed` | integer |  | Seed for the simulator prompts and the behaviour RNG. |
 | `vars` | map of string to string |  | Values for {{vars.<key>}} in this test; on top of the suite's vars and under --var. |
 | `cases` | list of [Case](#case) |  | Parameterised: the test runs once per case with the case's vars; each becomes a test named <name> [<case>] tagged case:<name>. |
@@ -325,10 +325,10 @@ http: { url: "https://agent.example.com/dial", method: POST, headers: { Authoriz
 | `fuzz_tools` | map of string to [Fuzz](#fuzz) |  | Tool result fuzzing: by tool name the answer the agent gets instead of the configured result (a mode such as error / empty / malformed / hostile or a mapping with mode and delay and result); realtime and pipecat and model targets. |
 | `languages` | list of string |  | The test runs once per language (BCP 47 such as es or en-GB): each becomes a test named <name> [<lang>] tagged lang:<lang> whose persona speaks that language and whose judges know it; {{vars.language}} holds it. |
 | `steps` | list of [Step](#step) |  | Browser tests only. |
-| `persona` | [Persona](#persona) |  |  |
-| `scenario` | [Scenario](#scenario) |  |  |
+| `persona` | [Persona](#persona) |  | Who the simulated user is |
+| `scenario` | [Scenario](#scenario) |  | What the simulated user wants and when to stop |
 | `capture` | list of [Capture](#capture) |  | Values taken from the agent's turns as they arrive (the first match wins) and offered as {{captured.<name>}} to later script say steps / tool_results / hooks / assertions. |
-| `assert` | list of [Assertion](#assertion) |  |  |
+| `assert` | list of [Assertion](#assertion) |  | The checks on the run; all must pass |
 | `quarantine` | [Quarantine](#quarantine) |  | Known flaky: the test still runs and its failure is reported as quarantined but it does not fail the run or count as a regression. |
 
 Example:
@@ -410,11 +410,11 @@ steps:
 
 | Key | Type | Required | Description |
 |---|---|---|---|
-| `name` | string |  |  |
+| `name` | string |  | How the persona introduces itself when asked |
 | `style` | string |  | How the persona talks such as polite or impatient. |
 | `language` | string |  | BCP 47 language such as es or en-GB. |
 | `voice` | string |  | TTS voice such as en-GB-female. |
-| `behaviors` | [Behaviors](#behaviors) |  |  |
+| `behaviors` | [Behaviors](#behaviors) |  | Audio-mode habits (interruptions / pauses / background noise / line quality) |
 | `adversarial` | boolean |  | Red team: the persona is an attacker that pursues the goal with escalating tactics (role-play / claimed authority / fake system messages / encoding / splitting the request) and records the tactic of every turn as an event. |
 | `tactics` | list of string |  | Adversarial only: the tactics the attacker may use instead of the built-in list. |
 
@@ -433,11 +433,11 @@ persona:
 
 | Key | Type | Required | Description |
 |---|---|---|---|
-| `interrupt_probability` | number |  |  |
+| `interrupt_probability` | number |  | Audio only; the chance per turn (0 to 1) that the caller starts talking before the agent finishes |
 | `silence_after_turn_ms` | list of integer |  | [min max] milliseconds of silence after each turn. |
 | `background_noise` | string |  | A noise preset (cafe street office white) or a WAV file mixed under the caller's voice. |
 | `background_noise_snr_db` | number |  | Signal-to-noise ratio of the background noise in dB; default 20. |
-| `line_quality` | one of `pstn`, `mobile_poor`, `voip_good` |  |  |
+| `line_quality` | one of `pstn`, `mobile_poor`, `voip_good` |  | Audio and sip; the line applied to the caller's audio |
 
 Example:
 
@@ -455,7 +455,7 @@ behaviors:
 | Key | Type | Required | Description |
 |---|---|---|---|
 | `goal` | string |  | What the user wants; the simulated user pursues it after the script. A scenario with a script and no goal plays the script and stops. |
-| `max_turns` | integer |  |  |
+| `max_turns` | integer |  | The turn budget; default 10 |
 | `stop_when` | string |  | A plain-language stop condition judged after each agent turn. |
 | `script` | list of [ScriptStep](#scriptstep) |  | Deterministic steps played before the simulated user takes over: say on any conversational target; wait_for and dtmf on sip and livekit. |
 
@@ -493,22 +493,22 @@ script:
 
 | Key | Type | Required | Description |
 |---|---|---|---|
-| `judge` | [Judge](#judge) |  |  |
+| `judge` | [Judge](#judge) |  | A model grades the run against a rubric (a string or an object with rubric / model / scale / min) |
 | `contains` | string |  | The agent transcript contains this text. |
-| `not_contains` | string |  |  |
+| `not_contains` | string |  | No agent turn contains this text |
 | `regex` | string |  | A regular expression the agent transcript matches. |
 | `not_regex` | string |  | A regular expression no agent turn matches. |
 | `similar_to` | [Similar](#similar) |  | Some agent turn means the same as this text (embedding similarity of at least min). |
 | `json_path` | [JSONPathAssertion](#jsonpathassertion) |  | rest only. |
 | `status` | integer |  | rest only: the HTTP status of every turn. |
-| `tool_called` | [ToolCall](#toolcall) |  |  |
-| `tool_not_called` | [ToolCall](#toolcall) |  |  |
+| `tool_called` | [ToolCall](#toolcall) |  | The agent called the tool (a name or an object with name / args / schema) |
+| `tool_not_called` | [ToolCall](#toolcall) |  | The agent never called the tool (a name or an object with name / args) |
 | `tool_sequence` | [ToolSequence](#toolsequence) |  | The agent called these tools in this order (a subsequence of its calls; exact for the whole list). |
 | `dtmf_received` | [DTMFAssertion](#dtmfassertion) |  | sip and livekit audio: digits the agent sent. |
 | `call_ended_by` | [StringList](#stringlist) |  | sip: agent caller timeout error no_answer busy. |
 | `transferred_to` | [Matches](#matches) |  | sip: target of a SIP REFER. |
-| `evaluator` | [Evaluator](#evaluator) |  |  |
-| `metric` | [MetricAssertion](#metricassertion) |  |  |
+| `evaluator` | [Evaluator](#evaluator) |  | A registered Genkit evaluator scores the run (a name or an object with name / min) |
+| `metric` | [MetricAssertion](#metricassertion) |  | A metric of the run satisfies one comparator (lt / lte / gt / gte / eq) |
 | `turns` | [IntCompare](#intcompare) |  | Number of agent turns. |
 | `captured` | [CapturedAssertion](#capturedassertion) |  | A value captured during the run exists and equals or matches. |
 | `golden` | [GoldenAssertion](#goldenassertion) |  | The agent's turns against reference turns: a file next to the suite or inline turns; exact / similar / judge. |
@@ -518,7 +518,7 @@ script:
 | `http` | [StateHTTP](#statehttp) |  | The state of your backend after the conversation: a request whose status and body are checked. |
 | `command` | [StateCommand](#statecommand) |  | The state of your backend after the conversation: a shell command whose exit code and output are checked. |
 | `pack` | string |  | A reusable assertion set: a built-in red-team pack (prompt_injection / pii_leakage / system_prompt_leakage / stays_in_scope / discloses_ai / harmful_content / excessive_agency / policy_consistency) or one of the suite's packs; it expands into its assertions when the suite loads. |
-| `on_turn` | [OnTurn](#onturn) |  |  |
+| `on_turn` | [OnTurn](#onturn) |  | Apply the assertion to one agent turn (a number or last) instead of the whole run |
 
 Example:
 
@@ -645,11 +645,11 @@ transferred_to: { matches: "^sip:billing@" }
 | Key | Type | Required | Description |
 |---|---|---|---|
 | `name` | string | yes | Metric name such as turn_latency_p95_ms. |
-| `lt` | number |  |  |
-| `lte` | number |  |  |
-| `gt` | number |  |  |
-| `gte` | number |  |  |
-| `eq` | number |  |  |
+| `lt` | number |  | Passes when the metric is below this value |
+| `lte` | number |  | Passes when the metric is at most this value |
+| `gt` | number |  | Passes when the metric is above this value |
+| `gte` | number |  | Passes when the metric is at least this value |
+| `eq` | number |  | Passes when the metric equals this value |
 
 Example:
 
@@ -661,11 +661,11 @@ metric: { name: time_to_first_audio_ms_p95, lt: 1500 }
 
 | Key | Type | Required | Description |
 |---|---|---|---|
-| `lt` | integer |  |  |
-| `lte` | integer |  |  |
-| `gt` | integer |  |  |
-| `gte` | integer |  |  |
-| `eq` | integer |  |  |
+| `lt` | integer |  | Passes when the count is below this value |
+| `lte` | integer |  | Passes when the count is at most this value |
+| `gt` | integer |  | Passes when the count is above this value |
+| `gte` | integer |  | Passes when the count is at least this value |
+| `eq` | integer |  | Passes when the count equals this value |
 
 Example:
 
@@ -677,8 +677,8 @@ turns: { lte: 6 }
 
 | Key | Type | Required | Description |
 |---|---|---|---|
-| `name` | string | yes |  |
-| `equals` | string |  |  |
+| `name` | string | yes | The captured value's name (capture.name) |
+| `equals` | string |  | The exact value expected |
 | `matches` | string |  | A regular expression the value must match. |
 
 Example:
@@ -762,9 +762,9 @@ Example:
 
 | Key | Type | Required | Description |
 |---|---|---|---|
-| `timeout` | [Duration](#duration) |  |  |
+| `timeout` | [Duration](#duration) |  | How long one run may take; default 3m |
 | `repeat` | integer |  | Times each test runs. |
-| `retries` | integer |  |  |
+| `retries` | integer |  | Re-runs after an infrastructure failure; default 0 |
 | `pass_threshold` | number |  | Fraction of repeats that must pass (0 to 1]. |
 | `max_goal_steps` | integer |  | Browser: the most actions the agent may take per goal step; default 15. |
 | `assert` | list of [Assertion](#assertion) |  | Assertions every test must pass (results named defaults/<name>); a suite's entries run after the project's. Packs apply. |
@@ -789,11 +789,11 @@ defaults:
 
 | Key | Type | Required | Description |
 |---|---|---|---|
-| `default` | string |  |  |
-| `judge` | string |  |  |
-| `browser_agent` | string |  |  |
-| `simulator` | string |  |  |
-| `scenario_generator` | string |  |  |
+| `default` | string |  | The model for every job not given its own (a Genkit reference such as googleai/gemini-2.5-flash) |
+| `judge` | string |  | The model that grades rubrics and grounding checks; default the default model |
+| `browser_agent` | string |  | The model that plans and acts on browser goals |
+| `simulator` | string |  | The model that plays the simulated user |
+| `scenario_generator` | string |  | The model tamesu generate drafts tests with |
 | `embedder` | string |  | The embedding model of similar_to assertions such as googleai/text-embedding-004 or openai/text-embedding-3-small; defaults to the usual embedder of default's provider. |
 | `credentials` | map of string to string |  | Plugin name to {{secrets.NAME}} when the secret is not named conventionally. |
 | `fallback` | [ModelFallback](#modelfallback) |  | The models tried in order when a job's model keeps failing. |
@@ -816,8 +816,8 @@ models:
 
 | Key | Type | Required | Description |
 |---|---|---|---|
-| `max_cost_usd` | number |  |  |
-| `max_tokens` | integer |  |  |
+| `max_cost_usd` | number |  | Cap on tamesu's own model spend per run (exit code 4 when exceeded); default 5 |
+| `max_tokens` | integer |  | Cap on tamesu's own tokens per run; default 2_000_000 |
 
 Example:
 
@@ -845,6 +845,12 @@ timeout: 90s
 | `backoff` | [Duration](#duration) |  | The wait before the second try; default 500ms and doubled every try with jitter. |
 | `max_backoff` | [Duration](#duration) |  | The longest wait between tries; default 5s. |
 
+Example:
+
+```yaml
+connect: { attempts: 5, backoff: 1s, max_backoff: 10s }
+```
+
 ## Fuzz
 
 Either a string (The fuzz mode: error, empty, null, malformed, hostile, huge, wrong_type or delay), or an object with:
@@ -854,6 +860,15 @@ Either a string (The fuzz mode: error, empty, null, malformed, hostile, huge, wr
 | `mode` | one of `error`, `empty`, `null`, `malformed`, `hostile`, `huge`, `wrong_type`, `delay`, `custom` | yes | What the tool answers instead of its result. |
 | `delay` | string |  | How long the answer is held back (any mode; the whole point of delay). |
 | `result` | any |  | The answer in custom mode (any JSON). |
+
+Example:
+
+```yaml
+fuzz_tools:
+  lookup_order: error                      # the mode alone
+  get_balance: { mode: delay, delay: 8s }  # the normal answer, late
+  refund: { mode: custom, result: { ok: false, reason: "insufficient funds" } }
+```
 
 ## GroundedAssertion
 
@@ -928,6 +943,15 @@ handoff: { tool: transfer_to_human, to: department, summary: summary }
 | `scenario_generator` | list of string |  | Models tried in order after the scenario generator's model failed. |
 | `embedder` | list of string |  | Embedding models tried in order after embedder failed; the default list does not apply to embeddings. |
 
+Example:
+
+```yaml
+fallback:
+  default: [openai/gpt-4.1-mini]
+  judge: [googleai/gemini-2.5-pro]
+  simulator: [anthropic/claude-sonnet-4-6]
+```
+
 ## ModelRetry
 
 | Key | Type | Required | Description |
@@ -936,12 +960,24 @@ handoff: { tool: transfer_to_human, to: department, summary: summary }
 | `backoff` | [Duration](#duration) |  | The wait before the second try; default 500ms and doubled every try with jitter. |
 | `max_backoff` | [Duration](#duration) |  | The longest wait between tries; default 10s. |
 
+Example:
+
+```yaml
+retry: { attempts: 3, backoff: 500ms, max_backoff: 10s }
+```
+
 ## Quarantine
 
 | Key | Type | Required | Description |
 |---|---|---|---|
 | `reason` | string | yes | Why the test is quarantined; usually the ticket that tracks it. |
 | `until` | string |  | The last day (YYYY-MM-DD) of the quarantine; from the next day the test counts again. Without it the quarantine lasts until removed. |
+
+Example:
+
+```yaml
+quarantine: { reason: "SUP-412 flaky since the payments migration", until: 2026-12-31 }
+```
 
 ## RedTeam
 
@@ -979,6 +1015,13 @@ Either a string (The text some agent turn should mean; the configured embedding 
 | `min` | number |  | Minimum cosine similarity between the embeddings (0 to 1); default 0.8. |
 | `model` | string |  | Embedding model (a Genkit reference); defaults to models.embedder. |
 
+Example:
+
+```yaml
+- similar_to: "The return window is 30 days from delivery"
+- similar_to: { text: "Returning after 40 days is not possible", min: 0.7, model: googleai/text-embedding-004 }
+```
+
 ## StateCommand
 
 | Key | Type | Required | Description |
@@ -1001,7 +1044,7 @@ command: { run: "psql -tAc \"select status from orders where id = '{{captured.or
 |---|---|---|---|
 | `url` | string | yes | The request URL; templates render with the run's vars and captured values and secrets. |
 | `method` | string |  | GET when empty. |
-| `headers` | map of string to string |  |  |
+| `headers` | map of string to string |  | Request headers (templates allowed) |
 | `body` | any |  | A string is sent as is; a mapping as JSON. |
 | `status` | integer |  | The expected status code; any code under 400 when omitted. |
 | `json_path` | [JSONPathAssertion](#jsonpathassertion) |  | A path that must exist in the JSON body and with equals have that value. |

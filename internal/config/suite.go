@@ -41,14 +41,14 @@ type Suite struct {
 	Tags     []string               `yaml:"tags,omitempty" json:"tags,omitempty" jsonschema:"description=Tags every test of the suite carries."`
 	Vars     map[string]string      `yaml:"vars,omitempty" json:"vars,omitempty" jsonschema:"description=Values for {{vars.x}} and for ${VAR} expansion in secret refs."`
 	Secrets  map[string]string      `yaml:"secrets,omitempty" json:"secrets,omitempty" jsonschema:"description=Secret name to mamori ref; overrides the project entry of the same name."`
-	Defaults *Defaults              `yaml:"defaults,omitempty" json:"defaults,omitempty"`
-	Models   *Models                `yaml:"models,omitempty" json:"models,omitempty"`
-	Budgets  *Budgets               `yaml:"budgets,omitempty" json:"budgets,omitempty"`
+	Defaults *Defaults              `yaml:"defaults,omitempty" json:"defaults,omitempty" jsonschema:"description=Per-test defaults for this suite; they override the project's"`
+	Models   *Models                `yaml:"models,omitempty" json:"models,omitempty" jsonschema:"description=Model overrides for this suite (default / judge / simulator ...)"`
+	Budgets  *Budgets               `yaml:"budgets,omitempty" json:"budgets,omitempty" jsonschema:"description=Spend caps for this suite's runs"`
 	Targets  map[string]Target      `yaml:"targets" json:"targets" jsonschema:"required,description=The systems under test by name."`
-	Hooks    *Hooks                 `yaml:"hooks,omitempty" json:"hooks,omitempty"`
+	Hooks    *Hooks                 `yaml:"hooks,omitempty" json:"hooks,omitempty" jsonschema:"description=Setup and teardown around this suite and its runs"`
 	Packs    map[string][]Assertion `yaml:"packs,omitempty" json:"packs,omitempty" jsonschema:"description=Reusable assertion sets by name for assert entries of the form pack: name; a name also used by a built-in pack (prompt_injection / pii_leakage / system_prompt_leakage / stays_in_scope / discloses_ai / harmful_content / excessive_agency / policy_consistency) replaces it."`
 	RedTeam  *RedTeam               `yaml:"red_team,omitempty" json:"red_team,omitempty" jsonschema:"description=Red team playbooks: one adversarial test per attack of the chosen playbooks is added to the suite when it loads (tamesu playbooks lists them)."`
-	Tests    []Test                 `yaml:"tests" json:"tests" jsonschema:"required"`
+	Tests    []Test                 `yaml:"tests" json:"tests" jsonschema:"required,description=The tests"`
 
 	// Path is the file the suite was loaded from. It is not part of the format.
 	Path string `yaml:"-" json:"-"`
@@ -56,45 +56,45 @@ type Suite struct {
 
 // Target is a system under test. Type selects which of the other fields apply.
 type Target struct {
-	Type string `yaml:"type" json:"type" jsonschema:"required,enum=browser,enum=rest,enum=livekit,enum=sip,enum=realtime,enum=grpc,enum=pipecat,enum=model,enum=twilio,enum=mcp"`
+	Type string `yaml:"type" json:"type" jsonschema:"required,enum=browser,enum=rest,enum=livekit,enum=sip,enum=realtime,enum=grpc,enum=pipecat,enum=model,enum=twilio,enum=mcp,description=What the target is; it decides which other keys apply"`
 	URL  string `yaml:"url,omitempty" json:"url,omitempty" jsonschema:"description=The page (browser) or endpoint (rest / realtime / pipecat / twilio) or grpc://host:port (grpc) or LiveKit server (livekit)."`
 	// Connect is how the target retries reaching the agent (every type but browser).
-	Connect *ConnectConfig `yaml:"connect,omitempty" json:"connect,omitempty"`
+	Connect *ConnectConfig `yaml:"connect,omitempty" json:"connect,omitempty" jsonschema:"description=How reaching the agent is retried (attempts / backoff / max_backoff)"`
 	// Handoff is how this agent signals that it handed the conversation to a person.
-	Handoff *HandoffSignal `yaml:"handoff,omitempty" json:"handoff,omitempty"`
+	Handoff *HandoffSignal `yaml:"handoff,omitempty" json:"handoff,omitempty" jsonschema:"description=How the agent signals that a person took over (tool / json_path / regex plus where the destination and summary are)"`
 
 	// browser
-	Browser        *BrowserOptions `yaml:"browser,omitempty" json:"browser,omitempty"`
-	Auth           *BrowserAuth    `yaml:"auth,omitempty" json:"auth,omitempty"`
+	Browser        *BrowserOptions `yaml:"browser,omitempty" json:"browser,omitempty" jsonschema:"description=browser targets; engine / viewport / locale / mocks / recording"`
+	Auth           *BrowserAuth    `yaml:"auth,omitempty" json:"auth,omitempty" jsonschema:"description=browser targets; a pre-authenticated storage state"`
 	AllowedDomains []string        `yaml:"allowed_domains,omitempty" json:"allowed_domains,omitempty" jsonschema:"description=Domains the browser agent may navigate to; defaults to the url's domain."`
 
 	// rest (headers also realtime)
 	Method    string            `yaml:"method,omitempty" json:"method,omitempty" jsonschema:"description=HTTP method; defaults to POST."`
 	Headers   map[string]string `yaml:"headers,omitempty" json:"headers,omitempty" jsonschema:"description=Request (rest) or handshake (realtime / pipecat / twilio) headers or call metadata (grpc); put credentials here as {{secrets.NAME}}."`
-	Request   *RESTRequest      `yaml:"request,omitempty" json:"request,omitempty"`
-	Response  *RESTResponse     `yaml:"response,omitempty" json:"response,omitempty"`
-	Streaming string            `yaml:"streaming,omitempty" json:"streaming,omitempty" jsonschema:"enum=none,enum=sse,enum=websocket"`
-	Session   *RESTSession      `yaml:"session,omitempty" json:"session,omitempty"`
+	Request   *RESTRequest      `yaml:"request,omitempty" json:"request,omitempty" jsonschema:"description=rest targets; how a user turn is sent"`
+	Response  *RESTResponse     `yaml:"response,omitempty" json:"response,omitempty" jsonschema:"description=rest targets; how the agent turn is read back (JSONPaths into the response)"`
+	Streaming string            `yaml:"streaming,omitempty" json:"streaming,omitempty" jsonschema:"enum=none,enum=sse,enum=websocket,description=rest targets; none (default) or sse or websocket"`
+	Session   *RESTSession      `yaml:"session,omitempty" json:"session,omitempty" jsonschema:"description=rest targets; the session id template"`
 
 	// livekit
 	APIKey              string    `yaml:"api_key,omitempty" json:"api_key,omitempty" jsonschema:"description=Use {{secrets.NAME}}."`
 	APISecret           string    `yaml:"api_secret,omitempty" json:"api_secret,omitempty" jsonschema:"description=Use {{secrets.NAME}}."`
 	Room                string    `yaml:"room,omitempty" json:"room,omitempty" jsonschema:"description=Room name template; defaults to tamesu-{{uuid}}."`
-	Dispatch            *Dispatch `yaml:"dispatch,omitempty" json:"dispatch,omitempty"`
+	Dispatch            *Dispatch `yaml:"dispatch,omitempty" json:"dispatch,omitempty" jsonschema:"description=livekit targets; an explicit agent dispatch for the room"`
 	AgentIdentityPrefix string    `yaml:"agent_identity_prefix,omitempty" json:"agent_identity_prefix,omitempty" jsonschema:"description=How to recognise the agent participant; defaults to kind=agent."`
 	Mode                string    `yaml:"mode,omitempty" json:"mode,omitempty" jsonschema:"enum=text,enum=audio,description=livekit / realtime / pipecat: text (default) or audio."`
 	DataTopic           string    `yaml:"data_topic,omitempty" json:"data_topic,omitempty" jsonschema:"description=Text-mode transport topic; defaults to lk.chat."`
-	JoinTimeout         Duration  `yaml:"join_timeout,omitempty" json:"join_timeout,omitempty"`
+	JoinTimeout         Duration  `yaml:"join_timeout,omitempty" json:"join_timeout,omitempty" jsonschema:"description=livekit targets; how long to wait for the agent to join the room (default 20s)"`
 	TranscriptSource    string    `yaml:"transcript_source,omitempty" json:"transcript_source,omitempty" jsonschema:"enum=auto,enum=agent,enum=stt,description=Audio mode: where the agent's words come from; auto (default) takes the agent's own transcription when it publishes one and transcribes its audio otherwise."`
 
 	// sip
-	Direction       string   `yaml:"direction,omitempty" json:"direction,omitempty" jsonschema:"enum=outbound,enum=inbound"`
+	Direction       string   `yaml:"direction,omitempty" json:"direction,omitempty" jsonschema:"enum=outbound,enum=inbound,description=sip targets; outbound (tamesu calls the agent) or inbound (a trigger makes the agent call tamesu)"`
 	To              string   `yaml:"to,omitempty" json:"to,omitempty" jsonschema:"description=The agent's phone number in E.164 (outbound); twilio: the To the agent sees in customParameters."`
 	From            string   `yaml:"from,omitempty" json:"from,omitempty" jsonschema:"description=Caller ID presented by the trunk; twilio: the From the agent sees in customParameters."`
 	TrunkID         string   `yaml:"trunk_id,omitempty" json:"trunk_id,omitempty" jsonschema:"description=LiveKit SIP trunk; defaults to sip.outbound_trunk_id."`
-	RingTimeout     Duration `yaml:"ring_timeout,omitempty" json:"ring_timeout,omitempty"`
-	MaxCallDuration Duration `yaml:"max_call_duration,omitempty" json:"max_call_duration,omitempty"`
-	Trigger         *Trigger `yaml:"trigger,omitempty" json:"trigger,omitempty"`
+	RingTimeout     Duration `yaml:"ring_timeout,omitempty" json:"ring_timeout,omitempty" jsonschema:"description=sip targets; how long the call may ring before it counts as no_answer"`
+	MaxCallDuration Duration `yaml:"max_call_duration,omitempty" json:"max_call_duration,omitempty" jsonschema:"description=sip targets; the call is ended after this long"`
+	Trigger         *Trigger `yaml:"trigger,omitempty" json:"trigger,omitempty" jsonschema:"description=inbound sip targets; the command or HTTP request that makes the agent call sip.inbound_number"`
 
 	// realtime (the OpenAI Realtime protocol over a websocket; url, headers and mode apply too)
 	Model         string         `yaml:"model,omitempty" json:"model,omitempty" jsonschema:"description=realtime: added as ?model= to the url (such as gpt-realtime). model: the Genkit model reference the prompt runs on (default models.default)."`
@@ -152,8 +152,8 @@ type ConnectConfig struct {
 
 // ToolDef is a tool a model target offers to the model.
 type ToolDef struct {
-	Name        string         `yaml:"name" json:"name" jsonschema:"required"`
-	Description string         `yaml:"description,omitempty" json:"description,omitempty"`
+	Name        string         `yaml:"name" json:"name" jsonschema:"required,description=The tool name the model calls"`
+	Description string         `yaml:"description,omitempty" json:"description,omitempty" jsonschema:"description=What the tool does; the model reads it to decide when to call it"`
 	Parameters  map[string]any `yaml:"parameters,omitempty" json:"parameters,omitempty" jsonschema:"description=A JSON schema of the arguments (an object schema); none means no arguments."`
 	Result      any            `yaml:"result,omitempty" json:"result,omitempty" jsonschema:"description=What the call returns to the model (any JSON; string leaves may use {{args.<key>}}). Without it the model gets an error object."`
 }
@@ -166,9 +166,9 @@ var BrowserRecordingFormats = []string{"auto", "gif", "webm", "off"}
 
 // BrowserOptions configures the browser.
 type BrowserOptions struct {
-	Engine   string `yaml:"engine,omitempty" json:"engine,omitempty" jsonschema:"enum=chromium"`
+	Engine   string `yaml:"engine,omitempty" json:"engine,omitempty" jsonschema:"enum=chromium,description=chromium (the default and only engine)"`
 	Viewport string `yaml:"viewport,omitempty" json:"viewport,omitempty" jsonschema:"description=WIDTHxHEIGHT such as 1280x800."`
-	Locale   string `yaml:"locale,omitempty" json:"locale,omitempty"`
+	Locale   string `yaml:"locale,omitempty" json:"locale,omitempty" jsonschema:"description=The browser locale such as en-GB; sets Accept-Language"`
 	// Mocks answer matching requests instead of the network.
 	Mocks []BrowserMock `yaml:"mocks,omitempty" json:"mocks,omitempty" jsonschema:"description=Requests answered by tamesu instead of the network from the start of the session; the mock action adds more at run time."`
 	// Recording selects the session recording in the run directory.
@@ -181,7 +181,7 @@ type BrowserMock struct {
 	Method  string            `yaml:"method,omitempty" json:"method,omitempty" jsonschema:"description=Only this method; default any."`
 	Status  int               `yaml:"status,omitempty" json:"status,omitempty" jsonschema:"description=The answer's status; default 200."`
 	Body    any               `yaml:"body,omitempty" json:"body,omitempty" jsonschema:"description=The answer: a string as is or any value as JSON."`
-	Headers map[string]string `yaml:"headers,omitempty" json:"headers,omitempty"`
+	Headers map[string]string `yaml:"headers,omitempty" json:"headers,omitempty" jsonschema:"description=Response headers of the mocked reply"`
 	DelayMs int               `yaml:"delay_ms,omitempty" json:"delay_ms,omitempty" jsonschema:"description=Hold the answer back this long."`
 	Abort   bool              `yaml:"abort,omitempty" json:"abort,omitempty" jsonschema:"description=Fail the request instead of answering."`
 }
@@ -213,7 +213,7 @@ type RESTSession struct {
 
 // Dispatch requests an explicit LiveKit agent dispatch.
 type Dispatch struct {
-	AgentName string `yaml:"agent_name" json:"agent_name" jsonschema:"required"`
+	AgentName string `yaml:"agent_name" json:"agent_name" jsonschema:"required,description=The agent to dispatch explicitly into the room (LiveKit agent dispatch)"`
 }
 
 // Hooks are commands or HTTP requests run around a suite and its runs.
@@ -236,28 +236,28 @@ type Hook struct {
 
 // Trigger makes an agent call tamesu (inbound sip).
 type Trigger struct {
-	HTTP    *HTTPTrigger `yaml:"http,omitempty" json:"http,omitempty"`
+	HTTP    *HTTPTrigger `yaml:"http,omitempty" json:"http,omitempty" jsonschema:"description=An HTTP request that makes the agent call sip.inbound_number"`
 	Command string       `yaml:"command,omitempty" json:"command,omitempty" jsonschema:"description=A shell command that makes the agent dial sip.inbound_number."`
 }
 
 // HTTPTrigger is an HTTP request that makes the agent dial.
 type HTTPTrigger struct {
-	URL     string            `yaml:"url" json:"url" jsonschema:"required"`
-	Method  string            `yaml:"method,omitempty" json:"method,omitempty"`
-	Body    any               `yaml:"body,omitempty" json:"body,omitempty"`
-	Headers map[string]string `yaml:"headers,omitempty" json:"headers,omitempty"`
+	URL     string            `yaml:"url" json:"url" jsonschema:"required,description=The request URL (templates allowed)"`
+	Method  string            `yaml:"method,omitempty" json:"method,omitempty" jsonschema:"description=HTTP method; default POST"`
+	Body    any               `yaml:"body,omitempty" json:"body,omitempty" jsonschema:"description=A string is sent as is; a mapping as JSON (templates allowed)"`
+	Headers map[string]string `yaml:"headers,omitempty" json:"headers,omitempty" jsonschema:"description=Request headers (templates allowed)"`
 }
 
 // Test is one scenario run against one target.
 type Test struct {
-	Name          string            `yaml:"name" json:"name" jsonschema:"required"`
+	Name          string            `yaml:"name" json:"name" jsonschema:"required,description=The test name; unique in the suite"`
 	Target        string            `yaml:"target" json:"target" jsonschema:"required,description=A key of targets."`
-	Tags          []string          `yaml:"tags,omitempty" json:"tags,omitempty"`
+	Tags          []string          `yaml:"tags,omitempty" json:"tags,omitempty" jsonschema:"description=Tags for --tags selection and the reports; the suite's tags apply too"`
 	Mode          string            `yaml:"mode,omitempty" json:"mode,omitempty" jsonschema:"enum=text,enum=audio,description=Voice tests: overrides the target's mode."`
 	Repeat        *int              `yaml:"repeat,omitempty" json:"repeat,omitempty" jsonschema:"description=Times the test runs to measure variance."`
-	PassThreshold *float64          `yaml:"pass_threshold,omitempty" json:"pass_threshold,omitempty"`
-	Retries       *int              `yaml:"retries,omitempty" json:"retries,omitempty"`
-	Timeout       *Duration         `yaml:"timeout,omitempty" json:"timeout,omitempty"`
+	PassThreshold *float64          `yaml:"pass_threshold,omitempty" json:"pass_threshold,omitempty" jsonschema:"description=The fraction of repeated runs that must pass (0 to 1); default 1"`
+	Retries       *int              `yaml:"retries,omitempty" json:"retries,omitempty" jsonschema:"description=Re-runs after an infrastructure failure (never after a failed assertion)"`
+	Timeout       *Duration         `yaml:"timeout,omitempty" json:"timeout,omitempty" jsonschema:"description=How long one run may take; default defaults.timeout"`
 	Seed          *int64            `yaml:"seed,omitempty" json:"seed,omitempty" jsonschema:"description=Seed for the simulator prompts and the behaviour RNG."`
 	Vars          map[string]string `yaml:"vars,omitempty" json:"vars,omitempty" jsonschema:"description=Values for {{vars.<key>}} in this test; on top of the suite's vars and under --var."`
 	Cases         []Case            `yaml:"cases,omitempty" json:"cases,omitempty" jsonschema:"description=Parameterised: the test runs once per case with the case's vars; each becomes a test named <name> [<case>] tagged case:<name>."`
@@ -265,14 +265,14 @@ type Test struct {
 	FuzzTools     map[string]Fuzz   `yaml:"fuzz_tools,omitempty" json:"fuzz_tools,omitempty" jsonschema:"description=Tool result fuzzing: by tool name the answer the agent gets instead of the configured result (a mode such as error / empty / malformed / hostile or a mapping with mode and delay and result); realtime and pipecat and model targets."`
 	Languages     []string          `yaml:"languages,omitempty" json:"languages,omitempty" jsonschema:"description=The test runs once per language (BCP 47 such as es or en-GB): each becomes a test named <name> [<lang>] tagged lang:<lang> whose persona speaks that language and whose judges know it; {{vars.language}} holds it."`
 	Steps         []Step            `yaml:"steps,omitempty" json:"steps,omitempty" jsonschema:"description=Browser tests only."`
-	Persona       *Persona          `yaml:"persona,omitempty" json:"persona,omitempty"`
-	Scenario      *Scenario         `yaml:"scenario,omitempty" json:"scenario,omitempty"`
+	Persona       *Persona          `yaml:"persona,omitempty" json:"persona,omitempty" jsonschema:"description=Who the simulated user is"`
+	Scenario      *Scenario         `yaml:"scenario,omitempty" json:"scenario,omitempty" jsonschema:"description=What the simulated user wants and when to stop"`
 	// Line is the test's line in its suite file, for annotations. Not part
 	// of the format.
 	Line int `yaml:"-" json:"-"`
 
 	Capture []Capture   `yaml:"capture,omitempty" json:"capture,omitempty" jsonschema:"description=Values taken from the agent's turns as they arrive (the first match wins) and offered as {{captured.<name>}} to later script say steps / tool_results / hooks / assertions."`
-	Assert  []Assertion `yaml:"assert,omitempty" json:"assert,omitempty"`
+	Assert  []Assertion `yaml:"assert,omitempty" json:"assert,omitempty" jsonschema:"description=The checks on the run; all must pass"`
 
 	Quarantine *Quarantine `yaml:"quarantine,omitempty" json:"quarantine,omitempty" jsonschema:"description=Known flaky: the test still runs and its failure is reported as quarantined but it does not fail the run or count as a regression."`
 }
@@ -325,8 +325,8 @@ var GoldenModes = []string{"exact", "similar", "judge"}
 // CapturedAssertion is the captured assertion: a captured value exists and
 // equals or matches something.
 type CapturedAssertion struct {
-	Name    string  `yaml:"name" json:"name" jsonschema:"required"`
-	Equals  *string `yaml:"equals,omitempty" json:"equals,omitempty"`
+	Name    string  `yaml:"name" json:"name" jsonschema:"required,description=The captured value's name (capture.name)"`
+	Equals  *string `yaml:"equals,omitempty" json:"equals,omitempty" jsonschema:"description=The exact value expected"`
 	Matches *string `yaml:"matches,omitempty" json:"matches,omitempty" jsonschema:"description=A regular expression the value must match."`
 }
 
@@ -364,11 +364,11 @@ func (s Step) Kinds() []string {
 
 // Persona is the simulated user of an agent test.
 type Persona struct {
-	Name      string     `yaml:"name,omitempty" json:"name,omitempty"`
+	Name      string     `yaml:"name,omitempty" json:"name,omitempty" jsonschema:"description=How the persona introduces itself when asked"`
 	Style     string     `yaml:"style,omitempty" json:"style,omitempty" jsonschema:"description=How the persona talks such as polite or impatient."`
 	Language  string     `yaml:"language,omitempty" json:"language,omitempty" jsonschema:"description=BCP 47 language such as es or en-GB."`
 	Voice     string     `yaml:"voice,omitempty" json:"voice,omitempty" jsonschema:"description=TTS voice such as en-GB-female."`
-	Behaviors *Behaviors `yaml:"behaviors,omitempty" json:"behaviors,omitempty"`
+	Behaviors *Behaviors `yaml:"behaviors,omitempty" json:"behaviors,omitempty" jsonschema:"description=Audio-mode habits (interruptions / pauses / background noise / line quality)"`
 	// Adversarial turns the persona into an attacker that pursues the goal
 	// with a different tactic every turn and reports the tactic it used.
 	Adversarial bool     `yaml:"adversarial,omitempty" json:"adversarial,omitempty" jsonschema:"description=Red team: the persona is an attacker that pursues the goal with escalating tactics (role-play / claimed authority / fake system messages / encoding / splitting the request) and records the tactic of every turn as an event."`
@@ -389,11 +389,11 @@ var AdversarialTactics = []string{
 
 // Behaviors are the persona's audio-mode habits.
 type Behaviors struct {
-	InterruptProbability float64  `yaml:"interrupt_probability,omitempty" json:"interrupt_probability,omitempty" jsonschema:"minimum=0,maximum=1"`
+	InterruptProbability float64  `yaml:"interrupt_probability,omitempty" json:"interrupt_probability,omitempty" jsonschema:"minimum=0,maximum=1,description=Audio only; the chance per turn (0 to 1) that the caller starts talking before the agent finishes"`
 	SilenceAfterTurnMs   []int    `yaml:"silence_after_turn_ms,omitempty" json:"silence_after_turn_ms,omitempty" jsonschema:"description=[min max] milliseconds of silence after each turn."`
 	BackgroundNoise      string   `yaml:"background_noise,omitempty" json:"background_noise,omitempty" jsonschema:"description=A noise preset (cafe street office white) or a WAV file mixed under the caller's voice."`
 	BackgroundNoiseSNRdB *float64 `yaml:"background_noise_snr_db,omitempty" json:"background_noise_snr_db,omitempty" jsonschema:"description=Signal-to-noise ratio of the background noise in dB; default 20."`
-	LineQuality          string   `yaml:"line_quality,omitempty" json:"line_quality,omitempty" jsonschema:"enum=pstn,enum=mobile_poor,enum=voip_good"`
+	LineQuality          string   `yaml:"line_quality,omitempty" json:"line_quality,omitempty" jsonschema:"enum=pstn,enum=mobile_poor,enum=voip_good,description=Audio and sip; the line applied to the caller's audio"`
 }
 
 // NoisePresets are the background_noise presets the audio module synthesises
@@ -403,7 +403,7 @@ var NoisePresets = []string{"cafe", "office", "street", "white"}
 // Scenario is what the persona tries to achieve and when to stop.
 type Scenario struct {
 	Goal     string       `yaml:"goal,omitempty" json:"goal,omitempty" jsonschema:"description=What the user wants; the simulated user pursues it after the script. A scenario with a script and no goal plays the script and stops."`
-	MaxTurns int          `yaml:"max_turns,omitempty" json:"max_turns,omitempty"`
+	MaxTurns int          `yaml:"max_turns,omitempty" json:"max_turns,omitempty" jsonschema:"description=The turn budget; default 10"`
 	StopWhen string       `yaml:"stop_when,omitempty" json:"stop_when,omitempty" jsonschema:"description=A plain-language stop condition judged after each agent turn."`
 	Script   []ScriptStep `yaml:"script,omitempty" json:"script,omitempty" jsonschema:"description=Deterministic steps played before the simulated user takes over: say on any conversational target; wait_for and dtmf on sip and livekit."`
 }
@@ -441,22 +441,22 @@ type ToolSequence struct {
 
 // Assertion is one check. Exactly one of the kind fields is set.
 type Assertion struct {
-	Judge         *Judge             `yaml:"judge,omitempty" json:"judge,omitempty"`
+	Judge         *Judge             `yaml:"judge,omitempty" json:"judge,omitempty" jsonschema:"description=A model grades the run against a rubric (a string or an object with rubric / model / scale / min)"`
 	Contains      *string            `yaml:"contains,omitempty" json:"contains,omitempty" jsonschema:"description=The agent transcript contains this text."`
-	NotContains   *string            `yaml:"not_contains,omitempty" json:"not_contains,omitempty"`
+	NotContains   *string            `yaml:"not_contains,omitempty" json:"not_contains,omitempty" jsonschema:"description=No agent turn contains this text"`
 	Regex         *string            `yaml:"regex,omitempty" json:"regex,omitempty" jsonschema:"description=A regular expression the agent transcript matches."`
 	NotRegex      *string            `yaml:"not_regex,omitempty" json:"not_regex,omitempty" jsonschema:"description=A regular expression no agent turn matches."`
 	SimilarTo     *Similar           `yaml:"similar_to,omitempty" json:"similar_to,omitempty" jsonschema:"description=Some agent turn means the same as this text (embedding similarity of at least min)."`
 	JSONPath      *JSONPathAssertion `yaml:"json_path,omitempty" json:"json_path,omitempty" jsonschema:"description=rest only."`
 	Status        *int               `yaml:"status,omitempty" json:"status,omitempty" jsonschema:"description=rest only: the HTTP status of every turn."`
-	ToolCalled    *ToolCall          `yaml:"tool_called,omitempty" json:"tool_called,omitempty"`
-	ToolNotCalled *ToolCall          `yaml:"tool_not_called,omitempty" json:"tool_not_called,omitempty"`
+	ToolCalled    *ToolCall          `yaml:"tool_called,omitempty" json:"tool_called,omitempty" jsonschema:"description=The agent called the tool (a name or an object with name / args / schema)"`
+	ToolNotCalled *ToolCall          `yaml:"tool_not_called,omitempty" json:"tool_not_called,omitempty" jsonschema:"description=The agent never called the tool (a name or an object with name / args)"`
 	ToolSequence  *ToolSequence      `yaml:"tool_sequence,omitempty" json:"tool_sequence,omitempty" jsonschema:"description=The agent called these tools in this order (a subsequence of its calls; exact for the whole list)."`
 	DTMFReceived  *DTMFAssertion     `yaml:"dtmf_received,omitempty" json:"dtmf_received,omitempty" jsonschema:"description=sip and livekit audio: digits the agent sent."`
 	CallEndedBy   StringList         `yaml:"call_ended_by,omitempty" json:"call_ended_by,omitempty" jsonschema:"description=sip: agent caller timeout error no_answer busy."`
 	TransferredTo *Matches           `yaml:"transferred_to,omitempty" json:"transferred_to,omitempty" jsonschema:"description=sip: target of a SIP REFER."`
-	Evaluator     *Evaluator         `yaml:"evaluator,omitempty" json:"evaluator,omitempty"`
-	Metric        *MetricAssertion   `yaml:"metric,omitempty" json:"metric,omitempty"`
+	Evaluator     *Evaluator         `yaml:"evaluator,omitempty" json:"evaluator,omitempty" jsonschema:"description=A registered Genkit evaluator scores the run (a name or an object with name / min)"`
+	Metric        *MetricAssertion   `yaml:"metric,omitempty" json:"metric,omitempty" jsonschema:"description=A metric of the run satisfies one comparator (lt / lte / gt / gte / eq)"`
 	Turns         *IntCompare        `yaml:"turns,omitempty" json:"turns,omitempty" jsonschema:"description=Number of agent turns."`
 	Captured      *CapturedAssertion `yaml:"captured,omitempty" json:"captured,omitempty" jsonschema:"description=A value captured during the run exists and equals or matches."`
 	Golden        *GoldenAssertion   `yaml:"golden,omitempty" json:"golden,omitempty" jsonschema:"description=The agent's turns against reference turns: a file next to the suite or inline turns; exact / similar / judge."`
@@ -466,7 +466,7 @@ type Assertion struct {
 	HTTP          *StateHTTP         `yaml:"http,omitempty" json:"http,omitempty" jsonschema:"description=The state of your backend after the conversation: a request whose status and body are checked."`
 	Command       *StateCommand      `yaml:"command,omitempty" json:"command,omitempty" jsonschema:"description=The state of your backend after the conversation: a shell command whose exit code and output are checked."`
 	Pack          *string            `yaml:"pack,omitempty" json:"pack,omitempty" jsonschema:"description=A reusable assertion set: a built-in red-team pack (prompt_injection / pii_leakage / system_prompt_leakage / stays_in_scope / discloses_ai / harmful_content / excessive_agency / policy_consistency) or one of the suite's packs; it expands into its assertions when the suite loads."`
-	OnTurn        OnTurn             `yaml:"on_turn,omitempty" json:"on_turn,omitempty"`
+	OnTurn        OnTurn             `yaml:"on_turn,omitempty" json:"on_turn,omitempty" jsonschema:"description=Apply the assertion to one agent turn (a number or last) instead of the whole run"`
 
 	// From is the pack this assertion came from, set when a pack expands;
 	// results are reported as <pack>/<assertion>. Not part of the format.
@@ -494,7 +494,7 @@ type GroundedContext struct {
 type StateHTTP struct {
 	URL      string             `yaml:"url" json:"url" jsonschema:"required,description=The request URL; templates render with the run's vars and captured values and secrets."`
 	Method   string             `yaml:"method,omitempty" json:"method,omitempty" jsonschema:"description=GET when empty."`
-	Headers  map[string]string  `yaml:"headers,omitempty" json:"headers,omitempty"`
+	Headers  map[string]string  `yaml:"headers,omitempty" json:"headers,omitempty" jsonschema:"description=Request headers (templates allowed)"`
 	Body     any                `yaml:"body,omitempty" json:"body,omitempty" jsonschema:"description=A string is sent as is; a mapping as JSON."`
 	Status   *int               `yaml:"status,omitempty" json:"status,omitempty" jsonschema:"description=The expected status code; any code under 400 when omitted."`
 	JSONPath *JSONPathAssertion `yaml:"json_path,omitempty" json:"json_path,omitempty" jsonschema:"description=A path that must exist in the JSON body and with equals have that value."`

@@ -109,11 +109,11 @@ type Genkit struct {
 // Models names the Genkit model used for each job. Every value is a Genkit
 // model reference such as googleai/gemini-2.5-flash.
 type Models struct {
-	Default           string            `yaml:"default,omitempty" json:"default,omitempty"`
-	Judge             string            `yaml:"judge,omitempty" json:"judge,omitempty"`
-	BrowserAgent      string            `yaml:"browser_agent,omitempty" json:"browser_agent,omitempty"`
-	Simulator         string            `yaml:"simulator,omitempty" json:"simulator,omitempty"`
-	ScenarioGenerator string            `yaml:"scenario_generator,omitempty" json:"scenario_generator,omitempty"`
+	Default           string            `yaml:"default,omitempty" json:"default,omitempty" jsonschema:"description=The model for every job not given its own (a Genkit reference such as googleai/gemini-2.5-flash)"`
+	Judge             string            `yaml:"judge,omitempty" json:"judge,omitempty" jsonschema:"description=The model that grades rubrics and grounding checks; default the default model"`
+	BrowserAgent      string            `yaml:"browser_agent,omitempty" json:"browser_agent,omitempty" jsonschema:"description=The model that plans and acts on browser goals"`
+	Simulator         string            `yaml:"simulator,omitempty" json:"simulator,omitempty" jsonschema:"description=The model that plays the simulated user"`
+	ScenarioGenerator string            `yaml:"scenario_generator,omitempty" json:"scenario_generator,omitempty" jsonschema:"description=The model tamesu generate drafts tests with"`
 	Embedder          string            `yaml:"embedder,omitempty" json:"embedder,omitempty" jsonschema:"description=The embedding model of similar_to assertions such as googleai/text-embedding-004 or openai/text-embedding-3-small; defaults to the usual embedder of default's provider."`
 	Credentials       map[string]string `yaml:"credentials,omitempty" json:"credentials,omitempty" jsonschema:"description=Plugin name to {{secrets.NAME}} when the secret is not named conventionally."`
 	Fallback          ModelFallback     `yaml:"fallback,omitempty" json:"fallback,omitempty" jsonschema:"description=The models tried in order when a job's model keeps failing."`
@@ -263,9 +263,9 @@ type SIPTrunk struct {
 
 // Defaults apply to every test unless the suite or the test overrides them.
 type Defaults struct {
-	Timeout       Duration `yaml:"timeout,omitempty" json:"timeout,omitempty"`
+	Timeout       Duration `yaml:"timeout,omitempty" json:"timeout,omitempty" jsonschema:"description=How long one run may take; default 3m"`
 	Repeat        int      `yaml:"repeat,omitempty" json:"repeat,omitempty" jsonschema:"description=Times each test runs."`
-	Retries       int      `yaml:"retries,omitempty" json:"retries,omitempty"`
+	Retries       int      `yaml:"retries,omitempty" json:"retries,omitempty" jsonschema:"description=Re-runs after an infrastructure failure; default 0"`
 	PassThreshold float64  `yaml:"pass_threshold,omitempty" json:"pass_threshold,omitempty" jsonschema:"description=Fraction of repeats that must pass (0 to 1]."`
 	MaxGoalSteps  int      `yaml:"max_goal_steps,omitempty" json:"max_goal_steps,omitempty" jsonschema:"description=Browser: the most actions the agent may take per goal step; default 15."`
 	// Assert runs on every test, before the test's own assertions; results
@@ -278,8 +278,8 @@ type Defaults struct {
 
 // Budgets cap what a run may spend on tamesu's own model calls.
 type Budgets struct {
-	MaxCostUSD float64 `yaml:"max_cost_usd,omitempty" json:"max_cost_usd,omitempty"`
-	MaxTokens  int     `yaml:"max_tokens,omitempty" json:"max_tokens,omitempty"`
+	MaxCostUSD float64 `yaml:"max_cost_usd,omitempty" json:"max_cost_usd,omitempty" jsonschema:"description=Cap on tamesu's own model spend per run (exit code 4 when exceeded); default 5"`
+	MaxTokens  int     `yaml:"max_tokens,omitempty" json:"max_tokens,omitempty" jsonschema:"description=Cap on tamesu's own tokens per run; default 2_000_000"`
 }
 
 // LiveKitConfig limits the LiveKit target.
