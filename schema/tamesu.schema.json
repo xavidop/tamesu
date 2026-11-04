@@ -48,6 +48,10 @@
           "$ref": "#/$defs/ToolSequence",
           "description": "The agent called these tools in this order (a subsequence of its calls; exact for the whole list)."
         },
+        "delegated_to": {
+          "$ref": "#/$defs/Delegation",
+          "description": "The agent sent a message to this remote agent (a name or an object with agent / contains / regex); remote_agents declares them."
+        },
         "dtmf_received": {
           "$ref": "#/$defs/DTMFAssertion",
           "description": "sip and livekit audio: digits the agent sent."
@@ -333,6 +337,23 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "Counterpart": {
+      "properties": {
+        "target": {
+          "type": "string",
+          "description": "A key of targets: the agent that plays the user."
+        },
+        "opening": {
+          "type": "string",
+          "description": "The counterpart's first message (templates allowed); without it the counterpart answers the scenario goal first."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "target"
+      ]
+    },
     "DTMFAssertion": {
       "properties": {
         "equals": {
@@ -385,6 +406,35 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "Delegation": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "The remote agent's name."
+        },
+        {
+          "properties": {
+            "agent": {
+              "type": "string",
+              "description": "The remote agent's name (a key of remote_agents)."
+            },
+            "contains": {
+              "type": "string",
+              "description": "Text some message to the agent must contain."
+            },
+            "regex": {
+              "type": "string",
+              "description": "A regular expression some message to the agent must match."
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "agent"
+          ]
+        }
+      ]
     },
     "Dispatch": {
       "properties": {
@@ -1223,6 +1273,116 @@
         "agent"
       ]
     },
+    "RemoteAgent": {
+      "properties": {
+        "addr": {
+          "type": "string",
+          "description": "Address to listen on such as 127.0.0.1:8095 when the agent under test is configured by hand; default a free port that {{remote.\u003cname\u003e.url}} renders."
+        },
+        "name": {
+          "type": "string",
+          "description": "The card's name; default the key."
+        },
+        "description": {
+          "type": "string",
+          "description": "The card's description."
+        },
+        "skills": {
+          "items": {
+            "$ref": "#/$defs/RemoteSkill"
+          },
+          "type": "array",
+          "description": "The card's skills: ids or objects with id / name / description / tags."
+        },
+        "reply": {
+          "type": "string",
+          "description": "What the agent answers every message that no replies entry matches."
+        },
+        "replies": {
+          "items": {
+            "$ref": "#/$defs/RemoteReply"
+          },
+          "type": "array",
+          "description": "Scripted answers: the first entry whose when matches the message wins."
+        },
+        "forward": {
+          "type": "string",
+          "description": "A real agent's JSON-RPC URL: the remote agent becomes a recording proxy in front of it and every message and reply is recorded (templates allowed)."
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Headers added to forwarded requests such as Authorization (templates allowed)."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "RemoteReply": {
+      "properties": {
+        "when": {
+          "type": "string",
+          "description": "A regular expression on the message; omitted matches every message."
+        },
+        "say": {
+          "type": "string",
+          "description": "The agent's words."
+        },
+        "data": {
+          "type": "object",
+          "description": "A data part sent with the words."
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "completed",
+            "input-required",
+            "failed"
+          ],
+          "description": "The task's state after the reply; default completed."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "RemoteSkill": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "The skill id."
+        },
+        {
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The skill id."
+            },
+            "name": {
+              "type": "string",
+              "description": "The skill's name; default the id."
+            },
+            "description": {
+              "type": "string",
+              "description": "What the skill does."
+            },
+            "tags": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "description": "Tags on the skill."
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "id"
+          ]
+        }
+      ]
+    },
     "Scenario": {
       "properties": {
         "goal": {
@@ -1857,6 +2017,10 @@
           "$ref": "#/$defs/Scenario",
           "description": "What the simulated user wants and when to stop"
         },
+        "counterpart": {
+          "$ref": "#/$defs/Counterpart",
+          "description": "Another target plays the user instead of a persona: two agents talk and the judges grade the exchange (an a2a or any conversational target of the suite)."
+        },
         "capture": {
           "items": {
             "$ref": "#/$defs/Capture"
@@ -2033,6 +2197,13 @@
     "red_team": {
       "$ref": "#/$defs/RedTeam",
       "description": "Red team playbooks: one adversarial test per attack of the chosen playbooks is added to the suite when it loads (tamesu playbooks lists them)."
+    },
+    "remote_agents": {
+      "additionalProperties": {
+        "$ref": "#/$defs/RemoteAgent"
+      },
+      "type": "object",
+      "description": "Agent2Agent agents tamesu plays for the agent under test to delegate to (by name): a card with skills and scripted replies or a recording proxy in front of a real agent; {{remote.\u003cname\u003e.url}} is each one's URL and every message the agent sends it is recorded for delegated_to."
     },
     "tests": {
       "items": {

@@ -61,6 +61,106 @@ Every result or streamed event of a turn is in `result.json`, so `json_path` rea
 (`$.artifacts[*].parts[?(@.kind == 'data')].data`), and streamed turns are a list of events. A
 JSON-RPC error fails the turn with its code and message.
 
+## Your agent's remote agents
+
+An orchestrator rarely works alone: it delegates to other agents over A2A. To test the
+orchestrator without those agents, declare them under `remote_agents` and tamesu runs them for
+the duration of each run: a card with a name and skills, and scripted replies. Point the agent
+under test at `{{remote.<name>.url}}` (its card is at `/.well-known/agent-card.json`, its
+JSON-RPC endpoint at the URL or `/a2a`), or give the agent a fixed `addr` when it is configured
+by hand. Every message the orchestrator sends is recorded as a **delegation**, with the reply,
+and `delegated_to` asserts on it.
+
+```yaml
+remote_agents:
+  billing:
+    skills: [refund, invoice-lookup]
+    reply: "I can help with refunds and invoices."           # the default answer
+    replies:                                                 # the first match wins
+      - { when: "(?i)refund", say: "Refund of 42 euros issued, reference RF-889", data: { reference: RF-889 } }
+      - { when: "(?i)cancel", say: "Which order should I cancel?", state: input-required }
+  shipping:
+    addr: 127.0.0.1:8096                                     # the orchestrator's config names this port
+    skills: [track]
+    reply: "ORD-1001 is with the carrier and arrives tomorrow."
+targets:
+  orchestrator:
+    type: mcp                                                # or any target the orchestrator runs behind
+    command: ./bin/orchestrator
+    env: { BILLING_AGENT_URL: "{{remote.billing.url}}", SHIPPING_AGENT_URL: "http://127.0.0.1:8096" }
+tests:
+  - name: refund goes to billing
+    target: orchestrator
+    persona: { name: Marta, style: direct }
+    scenario: { goal: "Get a refund for order ORD-1001", max_turns: 4 }
+    assert:
+      - delegated_to: { agent: billing, contains: "ORD-1001" }   # a name, or agent / contains / regex
+      - tool_not_called: shipping                                # a delegation is a tool call named after the agent
+      - judge: "The agent reports the refund reference RF-889 to the user"
+      - metric: { name: delegations, lte: 2 }
+  - name: billing is down
+    target: orchestrator
+    fuzz_tools: { billing: error }                               # the fuzz modes apply to remote agents
+    persona: { name: Marta, style: direct }
+    scenario: { goal: "Get a refund for order ORD-1001", max_turns: 4 }
+    assert:
+      - delegated_to: billing
+      - pack: graceful_degradation
+```
+
+Delegations are tool calls of kind `delegation`, named after the agent, with the message as
+`args.message` and the reply as the result, so `tool_called`, `tool_not_called`,
+`tool_sequence` and `tamesu coverage` see them too; each is also a `delegated` event, and
+`delegations` counts them. `fuzz_tools` naming a remote agent replaces its replies: `error`
+fails the task, `empty` answers nothing, `hostile` answers an injection, `delay` holds the
+answer, `custom` answers your text or data. The remote agents start with every run, so with
+`--parallel` give each test's agents no `addr` (a free port each) or run such tests alone.
+
+### Recording a real remote agent
+
+With `forward`, a remote agent becomes a **recording proxy**: every JSON-RPC request the
+orchestrator sends it goes on to the real agent, the answer (or the event stream) comes back
+unchanged, and both directions are recorded as delegations. `headers` adds the real agent's
+credentials. `fuzz_tools` still applies and then answers locally instead of forwarding, so a
+real integration can be tested with the real agent and with that agent failing.
+
+```yaml
+remote_agents:
+  billing:
+    forward: https://billing.internal.example.com/a2a
+    headers: { Authorization: "Bearer {{secrets.BILLING_TOKEN}}" }
+```
+
+## Two agents talking
+
+A test can put another agent in the user's seat instead of a persona: `counterpart` names a
+target of the suite (an `a2a` agent, a `model` prompt, a `rest` endpoint, anything
+conversational) and tamesu brokers the exchange. The counterpart's `opening` is the first user
+turn (without one, the counterpart answers `scenario.goal` first); each agent turn is then sent
+to the counterpart and its answer is the next user turn, until one of them stops or
+`max_turns` is reached. The transcript reads user and agent as usual, the judges grade it, and
+the run records a `counterpart` event.
+
+```yaml
+targets:
+  buyer: { type: a2a, url: https://agents.example.com/buyer }
+  supplier: { type: a2a, url: https://agents.example.com/supplier }
+tests:
+  - name: supplier negotiates with buyer
+    target: buyer
+    counterpart:
+      target: supplier
+      opening: "We can offer 500 units at 12 euros each, delivery in 3 weeks"
+    scenario: { max_turns: 8 }
+    assert:
+      - judge: "The buyer never accepts a unit price above 11 euros"
+      - judge: "Both agents reach a clear agreed or declined outcome"
+      - turns: { lte: 8 }
+```
+
+Two agents can be polite forever, so `max_turns` and a `turns` assertion are the brakes; a
+`model` target with a short system prompt makes a cheap, steerable counterpart.
+
 ## Options
 
 | Field | Meaning |

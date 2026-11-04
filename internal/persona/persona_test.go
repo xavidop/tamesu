@@ -154,3 +154,49 @@ func TestLoopErrors(t *testing.T) {
 	assert.EqualError(t, err, "send turn 1: connection refused")
 	assert.Len(t, out.Transcript, 1, "the user turn is kept for the report")
 }
+
+func TestLoopCounterpart(t *testing.T) {
+	clock := &fakeClock{t: time.Date(2026, 11, 4, 9, 0, 0, 0, time.UTC)}
+	sess := &echoSession{clock: clock}
+	var prompts []string
+	loop := newLoop(nil, clock, 3)
+	loop.Opening = "We can offer 500 units at 12 euros"
+	loop.Counterpart = func(_ context.Context, agentText string, turn int) (string, bool, error) {
+		prompts = append(prompts, agentText)
+		if turn == 3 {
+			return "Deal.", true, nil
+		}
+		return "Counter: " + agentText, false, nil
+	}
+	out, err := loop.Run(context.Background(), sess)
+	require.NoError(t, err)
+	assert.Equal(t, StopCounterpart, out.StopReason)
+	require.Len(t, out.Transcript, 6)
+	assert.Equal(t, "We can offer 500 units at 12 euros", out.Transcript[0].Text, "the opening is sent as is")
+	assert.Equal(t, "echo: We can offer 500 units at 12 euros", out.Transcript[1].Text)
+	assert.Equal(t, "Counter: echo: We can offer 500 units at 12 euros", out.Transcript[2].Text, "the counterpart answers the agent's last words")
+	assert.Equal(t, "Deal.", out.Transcript[4].Text)
+	assert.Equal(t, []string{"echo: We can offer 500 units at 12 euros", "echo: Counter: echo: We can offer 500 units at 12 euros"}, prompts)
+
+	// Without an opening the counterpart answers the goal first, and an
+	// empty answer ends the conversation.
+	sess = &echoSession{clock: clock}
+	loop = newLoop(nil, clock, 3)
+	loop.Counterpart = func(_ context.Context, agentText string, turn int) (string, bool, error) {
+		if turn == 2 {
+			return "", false, nil
+		}
+		return "about: " + agentText, false, nil
+	}
+	out, err = loop.Run(context.Background(), sess)
+	require.NoError(t, err)
+	assert.Equal(t, StopCounterpart, out.StopReason)
+	require.Len(t, out.Transcript, 2)
+	assert.Equal(t, "about: "+loop.Scenario.Goal, out.Transcript[0].Text)
+
+	loop = newLoop(nil, clock, 3)
+	loop.Counterpart = func(context.Context, string, int) (string, bool, error) { return "", false, errors.New("boom") }
+	_, err = loop.Run(context.Background(), &echoSession{clock: clock})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "counterpart: boom")
+}

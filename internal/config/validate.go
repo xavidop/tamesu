@@ -4,6 +4,7 @@ import (
 	"github.com/ohler55/ojg/jp"
 	"github.com/xavidop/tamesu/assert"
 	"github.com/xavidop/tamesu/target"
+	"net"
 	"time"
 
 	"fmt"
@@ -188,6 +189,9 @@ func (v *validator) suite() {
 			}
 			v.assertion(at("packs", name, idx(j)), a, "", "")
 		}
+	}
+	for _, name := range sortedKeys(s.RemoteAgents) {
+		v.remoteAgent(at("remote_agents", name), name, s.RemoteAgents[name])
 	}
 	seen := map[string]int{}
 	v.validateHooks(at("hooks"), s.Hooks)
@@ -554,7 +558,16 @@ func (v *validator) test(i int, t Test) {
 		v.errorf(with(tp, "timeout"), "timeout cannot be negative")
 	}
 	if len(t.FuzzTools) > 0 && ok && !slices.Contains(FuzzTargets, target.Type) {
-		v.errorf(with(tp, "fuzz_tools"), "fuzz_tools applies to targets that answer tool calls (%s); this target is %s", strings.Join(FuzzTargets, ", "), target.Type)
+		// A remote agent takes its fuzz whatever the target under test is.
+		onlyRemote := true
+		for name := range t.FuzzTools {
+			if _, remote := v.s.RemoteAgents[name]; !remote {
+				onlyRemote = false
+			}
+		}
+		if !onlyRemote {
+			v.errorf(with(tp, "fuzz_tools"), "fuzz_tools applies to targets that answer tool calls (%s) and to remote_agents; this target is %s", strings.Join(FuzzTargets, ", "), target.Type)
+		}
 	}
 	for _, name := range sortedKeys(t.FuzzTools) {
 		f := t.FuzzTools[name]
@@ -637,7 +650,23 @@ func (v *validator) test(i int, t Test) {
 			v.errorf(with(tp, "scenario"), "scenario applies to conversational targets (rest, grpc, livekit, sip, realtime, pipecat); %q is a browser target", t.Target)
 		}
 	case ok:
-		if t.Scenario == nil || (strings.TrimSpace(t.Scenario.Goal) == "" && len(t.Scenario.Script) == 0) {
+		if cp := t.Counterpart; cp != nil {
+			if cp.Target == "" {
+				v.errorf(with(tp, "counterpart"), "counterpart needs target (the agent that plays the user)")
+			} else if ct, declared := v.s.Targets[cp.Target]; !declared {
+				v.errorf(with(tp, "counterpart", "target"), "counterpart target %q is not declared in targets (have %s)", cp.Target, listOr(sortedKeys(v.s.Targets), "none"))
+			} else if !IsConversational(ct.Type) {
+				v.errorf(with(tp, "counterpart", "target"), "counterpart target %q is a %s target; the counterpart must be conversational", cp.Target, ct.Type)
+			} else if cp.Target == t.Target {
+				v.warnf(with(tp, "counterpart", "target"), "the counterpart is the target itself: the agent talks to another session of itself")
+			}
+			if strings.TrimSpace(cp.Opening) == "" && (t.Scenario == nil || strings.TrimSpace(t.Scenario.Goal) == "") {
+				v.errorf(with(tp, "counterpart"), "a counterpart needs an opening, or scenario.goal for it to answer first")
+			}
+			if t.Persona != nil {
+				v.warnf(with(tp, "persona"), "persona is ignored when a counterpart plays the user")
+			}
+		} else if t.Scenario == nil || (strings.TrimSpace(t.Scenario.Goal) == "" && len(t.Scenario.Script) == 0) {
 			v.errorf(tp, "conversational tests need scenario.goal (or a scenario.script to play)")
 		}
 		if len(t.Steps) > 0 {
@@ -807,6 +836,18 @@ func (v *validator) assertion(ap []string, a Assertion, ttype, mode string) {
 		for i, c := range a.ToolSequence.Calls {
 			if strings.TrimSpace(c) == "" {
 				v.errorf(with(kp, "calls", strconv.Itoa(i)), "a tool name is empty")
+			}
+		}
+	case "delegated_to":
+		d := a.DelegatedTo
+		if strings.TrimSpace(d.Agent) == "" {
+			v.errorf(kp, "delegated_to needs the remote agent's name")
+		} else if _, declared := v.s.RemoteAgents[d.Agent]; !declared {
+			v.warnf(with(kp, "agent"), "no remote agent named %q under remote_agents (have %s); the agent under test cannot have delegated to it", d.Agent, listOr(sortedKeys(v.s.RemoteAgents), "none"))
+		}
+		if d.Regex != "" {
+			if _, err := regexp.Compile(d.Regex); err != nil {
+				v.errorf(with(kp, "regex"), "invalid regex: %v", err)
 			}
 		}
 	case "tool_called", "tool_not_called":
@@ -1177,5 +1218,42 @@ func (v *validator) validateCaptures(i int, t Test) {
 				v.errorf(with(cp, "json_path"), "invalid JSONPath: %v", err)
 			}
 		}
+	}
+}
+
+// remoteAgent validates one remote_agents entry.
+func (v *validator) remoteAgent(rp []string, name string, ra RemoteAgent) {
+	if strings.TrimSpace(ra.Reply) == "" && len(ra.Replies) == 0 && strings.TrimSpace(ra.Forward) == "" {
+		v.errorf(rp, "remote agent %q needs a reply, replies or forward", name)
+	}
+	if ra.Addr != "" && !strings.Contains(ra.Addr, "{{") {
+		if _, _, err := net.SplitHostPort(ra.Addr); err != nil {
+			v.errorf(with(rp, "addr"), "addr must be host:port such as 127.0.0.1:8095")
+		}
+	}
+	for i, sk := range ra.Skills {
+		if strings.TrimSpace(sk.ID) == "" {
+			v.errorf(with(rp, "skills", idx(i)), "a skill needs an id")
+		}
+	}
+	for i, r := range ra.Replies {
+		p := with(rp, "replies", idx(i))
+		if r.When != "" {
+			if _, err := regexp.Compile(r.When); err != nil {
+				v.errorf(with(p, "when"), "invalid regex: %v", err)
+			}
+		}
+		if strings.TrimSpace(r.Say) == "" && len(r.Data) == 0 && r.State != "failed" {
+			v.errorf(p, "a reply needs say or data")
+		}
+		if r.State != "" && r.State != "completed" && r.State != "input-required" && r.State != "failed" {
+			v.errorf(with(p, "state"), "state must be completed, input-required or failed")
+		}
+	}
+	if ra.Forward != "" && len(ra.Replies) > 0 {
+		v.warnf(with(rp, "replies"), "replies are ignored with forward: the real agent answers")
+	}
+	if len(ra.Headers) > 0 && ra.Forward == "" {
+		v.warnf(with(rp, "headers"), "headers apply with forward")
 	}
 }

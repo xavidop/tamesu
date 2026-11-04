@@ -105,7 +105,13 @@ type ToolCall struct {
 	// Result is what the tool returned, when tamesu saw it (the targets that
 	// answer tool calls: model, realtime, pipecat); nil otherwise.
 	Result any `json:"result,omitempty"`
+	// Kind is empty for a tool call, or ToolCallDelegation for a message the
+	// agent sent to one of the suite's remote agents (Name is the agent).
+	Kind string `json:"kind,omitempty"`
 }
+
+// ToolCallDelegation marks a ToolCall that is a message to a remote agent.
+const ToolCallDelegation = "delegation"
 
 // Artifacts is what a session captured.
 type Artifacts struct {

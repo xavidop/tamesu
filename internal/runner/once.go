@@ -91,6 +91,30 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 	if r.o.Targets == nil {
 		return fail(report.KindInfra, errors.New("no target factory is available in this build"))
 	}
+	var toolFuzz map[string]target.ToolFuzz
+	if len(it.test.FuzzTools) > 0 {
+		toolFuzz = make(map[string]target.ToolFuzz, len(it.test.FuzzTools))
+		for name, f := range it.test.FuzzTools {
+			mode := f.Mode
+			if m, err := render(mode); err == nil {
+				mode = m
+			}
+			toolFuzz[name] = target.ToolFuzz{Mode: mode, Delay: time.Duration(f.Delay), Result: f.Result}
+		}
+	}
+	// The suite's remote agents: started before the target so their URLs
+	// render into its configuration as {{remote.<name>.url}}.
+	var remotes *remoteAgents
+	if len(it.suite.RemoteAgents) > 0 {
+		var err error
+		if remotes, err = startRemoteAgents(it.suite.RemoteAgents, render, toolFuzz, logger); err != nil {
+			return fail(report.KindInfra, err)
+		}
+		defer remotes.close()
+		for name, u := range remotes.urls() {
+			scope.Values["remote."+name+".url"] = u
+		}
+	}
 	hookEnv := map[string]string{"TAMESU_SUITE": it.suite.Suite, "TAMESU_TEST": it.test.Name, "TAMESU_RUN": fmt.Sprint(idx + 1), "TAMESU_RUN_DIR": dir, "TAMESU_SESSION": sessionID}
 	if hooks := hooksOf(r.o.Project, it.suite, beforeEach); len(hooks) > 0 {
 		hr := hookRun{stage: "before_each", hooks: hooks, scope: scope, env: hookEnv, log: filepath.Join(dir, "hooks.log")}
@@ -114,16 +138,7 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 	if cm, ok := r.o.Provider.(target.ChatModel); ok {
 		rc.Chat = cm
 	}
-	if len(it.test.FuzzTools) > 0 {
-		rc.ToolFuzz = make(map[string]target.ToolFuzz, len(it.test.FuzzTools))
-		for name, f := range it.test.FuzzTools {
-			mode := f.Mode
-			if m, err := render(mode); err == nil {
-				mode = m
-			}
-			rc.ToolFuzz[name] = target.ToolFuzz{Mode: mode, Delay: time.Duration(f.Delay), Result: f.Result}
-		}
-	}
+	rc.ToolFuzz = toolFuzz
 	if it.mode == "audio" {
 		if sp, ok := r.o.Provider.(target.Speech); ok {
 			rc.Speech = sp
@@ -158,6 +173,25 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 	safe := modelScope(scope)
 	renderForModel := func(s string) (string, error) { return config.Render(s, safe) }
 	loop.Render = renderForModel
+	var counterpartEvents []target.Event
+	if cp := it.test.Counterpart; cp != nil {
+		hook, closeCp, err := r.counterpartSession(tctx, it, cp, rc, filepath.Join(dir, "counterpart"))
+		if err != nil {
+			_, _ = sess.Close(context.WithoutCancel(ctx))
+			return fail(r.classify(tctx, err), err)
+		}
+		defer func() {
+			cctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), closeGrace)
+			closeCp(cctx)
+			cancel()
+		}()
+		loop.Counterpart = hook
+		if loop.Opening, err = renderForModel(cp.Opening); err != nil {
+			_, _ = sess.Close(context.WithoutCancel(ctx))
+			return fail(report.KindInfra, fmt.Errorf("counterpart opening: %w", err))
+		}
+		counterpartEvents = []target.Event{{At: r.now(), Kind: "counterpart", Detail: cp.Target + " plays the user"}}
+	}
 	if bs, ok := sess.(target.BrowserSession); ok {
 		lo, stepFails, loopErr = r.runBrowser(tctx, it, bs, dir, out, renderForModel)
 	} else if p, err := renderPersona(it.test.Persona, renderForModel); err != nil {
@@ -180,7 +214,9 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 	out.Captures = caps.snapshot()
 	out.TraceIDs = append(out.TraceIDs, lo.TraceIDs...)
 	out.StopReason = lo.StopReason
-	out.Events = append(append([]target.Event(nil), lo.Events...), arts.Events...)
+	out.Events = append(append(append([]target.Event(nil), counterpartEvents...), lo.Events...), arts.Events...)
+	delegations, delegationEvents := remotes.delegations()
+	out.Events = append(out.Events, delegationEvents...)
 	for k, v := range arts.Files {
 		if out.Artifacts == nil {
 			out.Artifacts = map[string]string{}
@@ -197,6 +233,10 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 		if a.Status != 0 {
 			statuses = append(statuses, a.Status)
 		}
+	}
+	out.ToolCalls = append(out.ToolCalls, delegations...)
+	if len(delegations) > 0 {
+		out.Metrics["delegations"] = float64(len(delegations))
 	}
 	metrics.Summarize(out.Metrics, metrics.TurnLatencyMs, lo.LatenciesMs)
 	metrics.Summarize(out.Metrics, metrics.TimeToFirstTokenMs, lo.FirstTokenMs)

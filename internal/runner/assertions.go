@@ -2,6 +2,7 @@ package runner
 
 import (
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/xavidop/tamesu/assert"
@@ -56,6 +57,15 @@ func buildKind(a config.Assertion) (assert.Assertion, error) {
 		return assert.ToolNotCalled(a.ToolNotCalled.Name, a.ToolNotCalled.Args), nil
 	case "tool_sequence":
 		return assert.ToolSequence(a.ToolSequence.Calls, a.ToolSequence.Exact), nil
+	case "delegated_to":
+		var re *regexp.Regexp
+		if a.DelegatedTo.Regex != "" {
+			var err error
+			if re, err = regexp.Compile(a.DelegatedTo.Regex); err != nil {
+				return nil, fmt.Errorf("delegated_to %s: %w", a.DelegatedTo.Agent, err)
+			}
+		}
+		return assert.DelegatedTo(a.DelegatedTo.Agent, a.DelegatedTo.Contains, re), nil
 	case "captured":
 		return assert.Captured(a.Captured.Name, a.Captured.Equals, a.Captured.Matches)
 	case "golden":
