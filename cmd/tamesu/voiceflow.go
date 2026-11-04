@@ -18,8 +18,8 @@ func init() {
 func newVoiceflowTarget(_ context.Context, spec runner.TargetSpec) (target.Target, error) {
 	t := spec.Config
 	return voiceflow.New(spec.Name, voiceflow.Config{
-		Connect: connectPolicy(t),
-		BaseURL: t.BaseURL, APIKey: t.APIKey, ProjectID: t.ProjectID, Environment: t.Environment, Version: t.Version, VersionID: t.VersionID,
+		Connect:   connectPolicy(t),
+		Transport: t.Transport, BaseURL: t.BaseURL, APIKey: t.APIKey, ProjectID: t.ProjectID, Environment: t.Environment, Version: t.Version,
 		UserID: t.UserID, Variables: t.Variables, Reset: t.Reset, Timeout: t.TurnTimeout.Std(),
 	}), nil
 }

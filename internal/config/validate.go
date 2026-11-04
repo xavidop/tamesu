@@ -51,7 +51,7 @@ var targetFieldTypes = map[string][]string{
 	"browser": {TargetBrowser}, "auth": {TargetBrowser}, "allowed_domains": {TargetBrowser},
 	"method": {TargetREST}, "headers": {TargetREST, TargetRealtime, TargetGRPC, TargetPipecat, TargetTwilio, TargetMCP, TargetA2A},
 	"api_key":    {TargetLiveKit, TargetVapi, TargetRetell, TargetVoiceflow},
-	"project_id": {TargetVoiceflow}, "environment": {TargetVoiceflow}, "version": {TargetVoiceflow}, "version_id": {TargetVoiceflow}, "user_id": {TargetVoiceflow}, "reset": {TargetVoiceflow}, "assistant_id": {TargetVapi}, "assistant": {TargetVapi}, "assistant_overrides": {TargetVapi}, "squad_id": {TargetVapi}, "variables": {TargetVapi, TargetRetell, TargetVoiceflow}, "base_url": {TargetVapi, TargetRetell, TargetVoiceflow},
+	"project_id": {TargetVoiceflow}, "environment": {TargetVoiceflow}, "version": {TargetVoiceflow}, "transport": {TargetVoiceflow}, "user_id": {TargetVoiceflow}, "reset": {TargetVoiceflow}, "assistant_id": {TargetVapi}, "assistant": {TargetVapi}, "assistant_overrides": {TargetVapi}, "squad_id": {TargetVapi}, "variables": {TargetVapi, TargetRetell, TargetVoiceflow}, "base_url": {TargetVapi, TargetRetell, TargetVoiceflow},
 	"agent_id": {TargetRetell}, "agent_version": {TargetRetell}, "livekit_url": {TargetRetell}, "request": {TargetREST}, "response": {TargetREST}, "streaming": {TargetREST}, "session": {TargetREST, TargetGRPC},
 	"api_secret": {TargetLiveKit}, "room": {TargetLiveKit}, "dispatch": {TargetLiveKit},
 	"agent_identity_prefix": {TargetLiveKit}, "mode": {TargetLiveKit, TargetRealtime, TargetPipecat}, "data_topic": {TargetLiveKit}, "join_timeout": {TargetLiveKit, TargetRetell},
@@ -393,16 +393,27 @@ func (v *validator) target(name string, t Target) {
 		}
 	case TargetVoiceflow:
 		if t.APIKey == "" {
-			v.errorf(tp, "voiceflow target needs api_key (a personal or service token, or a Dialog API key for the legacy API)")
+			v.errorf(tp, "voiceflow target needs api_key (a personal or service token for rest, the project's API key for websocket)")
 		}
-		if t.ProjectID == "" && t.VersionID == "" {
-			v.errorf(tp, "voiceflow target needs project_id (REST API) or version_id (legacy Dialog Manager API)")
+		if t.ProjectID == "" {
+			v.errorf(tp, "voiceflow target needs project_id")
+		}
+		if t.Transport != "" && t.Transport != "rest" && t.Transport != "websocket" {
+			v.errorf(with(tp, "transport"), "transport must be rest or websocket")
 		}
 		if t.Version != "" && t.Version != "draft" && t.Version != "published" {
 			v.errorf(with(tp, "version"), "version must be draft or published")
 		}
-		if t.VersionID != "" && t.ProjectID != "" {
-			v.warnf(with(tp, "version_id"), "version_id applies to the legacy Dialog Manager API; with project_id the REST API is used and version_id is ignored")
+		if t.Transport == "websocket" {
+			if t.Reset {
+				v.warnf(with(tp, "reset"), "reset applies to the rest transport; a websocket session starts fresh with a new user_id")
+			}
+			if len(t.Variables) > 0 {
+				v.warnf(with(tp, "variables"), "variables apply to the rest transport; the websocket runtime takes none before the launch")
+			}
+			if t.Version != "" {
+				v.warnf(with(tp, "version"), "version applies to the rest transport; the websocket runtime serves the environment's live build")
+			}
 		}
 	case TargetA2A:
 		if t.URL == "" {

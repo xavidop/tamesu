@@ -11,19 +11,27 @@ The `voiceflow` target tests an agent built on **Voiceflow** through its Convers
 same calls the web chat, the API integrations and the test console make. tamesu launches the
 agent, sends each user turn as a text action and reads the agent's turn from the traces it
 answers: its text and speak messages, the buttons and cards it offers, the tools it called, a
-handoff to a live agent, the end of the conversation. The agent runs exactly as it does in
-production, against the draft or the published build of an environment.
+handoff to a live agent, the end of the conversation. Two transports: **REST**, one request per
+turn against `realtime-api.voiceflow.com` (the default), and **WebSocket**, a socket.io session
+on the runtime that pushes traces as they are produced, the transport the Voiceflow web chat
+uses. The agent runs exactly as it does in production.
 
 ```yaml
 targets:
   support:
     type: voiceflow
-    api_key: "{{secrets.VF_TOKEN}}"                  # a personal or service token
+    api_key: "{{secrets.VF_TOKEN}}"                  # a personal or service token (rest)
     project_id: "{{vars.project_id}}"
     environment: main                                # the environment alias (default main)
-    version: published                               # draft | published
-    variables: { customer_name: Marta, tier: gold }  # set before the launch
+    version: published                               # rest: draft | published
+    variables: { customer_name: Marta, tier: gold }  # rest: set before the launch
     user_id: "tamesu-{{uuid}}"                       # one conversation per test (default)
+  support-live:
+    type: voiceflow
+    transport: websocket                             # the socket.io runtime
+    api_key: "{{secrets.VF_PROJECT_KEY}}"            # the project's API key (Settings)
+    project_id: "{{vars.project_id}}"
+    environment: main
 tests:
   - name: return after 40 days
     target: support
@@ -38,64 +46,64 @@ tests:
 
 ## How a conversation runs
 
+Over **REST**:
+
 1. With `reset: true`, the conversation's state is deleted first (`DELETE
    /conversation-state/{userID}`), for a `user_id` that is reused; the default id is fresh per test.
 2. `variables` are set on the conversation (`PATCH /conversation-state/{userID}/variables`), so the
    agent knows the caller from its first words.
-3. The agent is launched (`PUT /conversation/{userID}` with `action: launch` and `version`). Its
-   opening words are the greeting: recorded as an event and read with the first turn, as a
-   person would hear them before answering.
-4. Each user turn is one `text` action. The traces of the answer become the agent's turn:
-   `text` and `speak` messages are its words, one per line; `choice` buttons become
-   `[buttons: Yes | No]`, a `cardV2` becomes `[card: title: description]` and a `carousel`
-   `[carousel: title | title]`, so the simulated user and the judge see what was offered;
-   `completion` content is kept when the runtime streams it; `tool-call` traces are the turn's
-   tool calls when they name a tool, and `tool_call` events always; `live-agent-handoff` is a
-   `live_agent_handoff` event; `end` ends the session; `no-reply` is a `no_reply` event. Debug,
-   log, block, flow and path traces stay out of the text but in `result.json`.
-5. A `dtmf` script step sends a `dtmf` action, for voice agents tested over text.
+3. The agent is launched (`PUT /conversation/{userID}` with `action: launch` and `version`), then
+   each user turn is one `text` action and the answer's traces are the agent's turn.
+
+Over **WebSocket**:
+
+1. tamesu opens the socket.io connection to `/v4/interact/socket` on the runtime, sends
+   `client.start` with the user id, the project, the environment and the project's API key, and
+   creates the session the runtime asks for (`session.create` → `session.created`).
+2. The launch and each user turn are one `action.send`; the `action.trace` events until the
+   `action.status: completed` are the agent's turn. A `rejected` status fails the turn with the
+   runtime's reason, `session.ended` ends the session, and the runtime's pings are answered so a
+   long conversation stays up.
+
+In both, the launch's opening words are the greeting: recorded as an event and read with the
+first turn, as a person would hear them before answering. The traces of an answer become the
+agent's turn the same way: `text` and `speak` messages are its words, one per line; `choice`
+buttons become `[buttons: Yes | No]`, a `cardV2` becomes `[card: title: description]` and a
+`carousel` `[carousel: title | title]`, so the simulated user and the judge see what was
+offered; `completion` content is kept when the runtime streams it; `tool-call` traces are the
+turn's tool calls when they name a tool, and `tool_call` events always; `live-agent-handoff` is
+a `live_agent_handoff` event; `end` ends the session; `no-reply` is a `no_reply` event. Debug,
+log, block, flow and path traces stay out of the text but in `result.json`. A `dtmf` script
+step sends a `dtmf` action, for voice agents tested over text.
 
 Every trace of a turn is in `result.json` (the first turn also carries the launch's), so
 `json_path` reaches buttons, cards, paths and debug messages. Requests the API refuses (a 401, a
-400 for an unknown environment) fail the session with the API's message.
-
-## The legacy Dialog Manager API
-
-Projects still integrated through `general-runtime.voiceflow.com` with a Dialog API key use
-`version_id` instead of `project_id`: the target then posts to `/state/user/{userID}/interact`
-with the key in `Authorization` and the version in `versionID`, variables in the launch's
-`state`, and reads the trace array the same way.
-
-```yaml
-targets:
-  legacy:
-    type: voiceflow
-    api_key: "{{secrets.VF_DM_KEY}}"
-    version_id: production                           # or development, or a version id
-```
+400 for an unknown environment, a rejected `client.start`) fail the session with the API's
+message.
 
 ## Options
 
 | Field | Meaning |
 |---|---|
-| `api_key` | A personal or service token (REST API), or a Dialog API key (legacy), as `{{secrets.NAME}}`. |
-| `project_id` | The project, on the REST API (templates allowed). |
+| `transport` | `rest` (default) or `websocket`. |
+| `api_key` | REST: a personal or service token. WebSocket: the project's API key. As `{{secrets.NAME}}`. |
+| `project_id` | The project (templates allowed). |
 | `environment` | The environment alias, default `main`. |
-| `version` | `published` (default) or `draft`. A project that was never published has no published build: use `draft`. |
-| `version_id` | The legacy API's `versionID` (`production`, `development` or an id); selects the legacy API when `project_id` is not set. |
+| `version` | REST: `published` (default) or `draft`. A project that was never published has no published build: use `draft`. |
 | `user_id` | The conversation id template, default `tamesu-{{uuid}}`. |
-| `variables` | Variables set on the conversation before the launch (templates allowed). |
-| `reset` | Delete the conversation's state before the launch. |
-| `base_url` | The API, default `https://realtime-api.voiceflow.com/v1/stable` (REST) or `https://general-runtime.voiceflow.com` (legacy). |
-| `turn_timeout` | How long one request may take, default `60s`. |
-| `connect` | How a request that never reached the API is retried, as for every target. |
+| `variables` | REST: variables set on the conversation before the launch (templates allowed). |
+| `reset` | REST: delete the conversation's state before the launch. |
+| `base_url` | The API, default `https://realtime-api.voiceflow.com/v1/stable` (REST) or `https://general-runtime.voiceflow.com` (WebSocket). |
+| `turn_timeout` | How long one request or one turn may take, default `60s`. |
+| `connect` | How a request or the socket that never reached the API is retried, as for every target. |
 
 ## Metrics and events
 
-`turn_latency_ms` and `turns` as for every text target, `http_requests` (reset, variables, launch
-and one per turn) and `voiceflow_traces` (every trace read). Events: `reset`, `variables`,
-`launch`, `greeting`, `tool_call`, `live_agent_handoff`, `no_reply`, `end`, and `trace` for a
-trace type the target does not know.
+`turn_latency_ms` and `turns` as for every text target, `voiceflow_traces` (every trace read),
+`http_requests` (REST: reset, variables, launch and one per turn) or `ws_messages_sent` and
+`ws_messages_received` (WebSocket). Events: `reset`, `variables`, `launch`, `greeting`,
+`client_started`, `session_created`, `tool_call`, `live_agent_handoff`, `no_reply`, `end`,
+`session_ended`, and `trace` for a trace type the target does not know.
 
 ## Assertions that apply
 

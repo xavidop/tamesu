@@ -128,21 +128,21 @@ type Target struct {
 	Assistant          map[string]any    `yaml:"assistant,omitempty" json:"assistant,omitempty" jsonschema:"description=vapi: a transient assistant (the assistant object of the call API) instead of assistant_id; string leaves render templates."`
 	AssistantOverrides map[string]any    `yaml:"assistant_overrides,omitempty" json:"assistant_overrides,omitempty" jsonschema:"description=vapi: assistantOverrides of the call (first message / voice / model...)."`
 	SquadID            string            `yaml:"squad_id,omitempty" json:"squad_id,omitempty" jsonschema:"description=vapi: a squad to call instead of an assistant."`
-	Variables          map[string]string `yaml:"variables,omitempty" json:"variables,omitempty" jsonschema:"description=vapi: the assistant's variableValues; retell: the retell_llm_dynamic_variables; voiceflow: variables set before the launch (templates allowed)."`
-	BaseURL            string            `yaml:"base_url,omitempty" json:"base_url,omitempty" jsonschema:"description=vapi / retell / voiceflow: the platform API (default https://api.vapi.ai or https://api.retellai.com or https://realtime-api.voiceflow.com/v1/stable)."`
+	Variables          map[string]string `yaml:"variables,omitempty" json:"variables,omitempty" jsonschema:"description=vapi: the assistant's variableValues; retell: the retell_llm_dynamic_variables; voiceflow rest: variables set before the launch (templates allowed)."`
+	BaseURL            string            `yaml:"base_url,omitempty" json:"base_url,omitempty" jsonschema:"description=vapi / retell / voiceflow: the platform API (default https://api.vapi.ai or https://api.retellai.com or https://realtime-api.voiceflow.com/v1/stable or for the websocket transport https://general-runtime.voiceflow.com)."`
 
 	// retell (a Retell agent through a web call; api_key, join_timeout, idle, turn_timeout and transcript_source apply too)
 	AgentID      string `yaml:"agent_id,omitempty" json:"agent_id,omitempty" jsonschema:"description=retell: the agent to call (templates allowed)."`
 	AgentVersion string `yaml:"agent_version,omitempty" json:"agent_version,omitempty" jsonschema:"description=retell: the agent version such as latest_published."`
 	LiveKitURL   string `yaml:"livekit_url,omitempty" json:"livekit_url,omitempty" jsonschema:"description=retell: the LiveKit server the web call runs on; default Retell's cloud."`
 
-	// voiceflow (an agent on Voiceflow's Conversations API; api_key, variables, metadata, base_url, turn_timeout and connect apply too)
-	ProjectID   string `yaml:"project_id,omitempty" json:"project_id,omitempty" jsonschema:"description=voiceflow: the project on the REST API (templates allowed); or version_id for the legacy Dialog Manager API."`
+	// voiceflow (an agent on Voiceflow's Conversations API; api_key, variables, base_url, turn_timeout and connect apply too)
+	Transport   string `yaml:"transport,omitempty" json:"transport,omitempty" jsonschema:"enum=rest,enum=websocket,description=voiceflow: rest (one request per turn against realtime-api.voiceflow.com with a personal or service token; default) or websocket (the socket.io runtime on general-runtime.voiceflow.com with the project's API key)."`
+	ProjectID   string `yaml:"project_id,omitempty" json:"project_id,omitempty" jsonschema:"description=voiceflow: the project (templates allowed)."`
 	Environment string `yaml:"environment,omitempty" json:"environment,omitempty" jsonschema:"description=voiceflow: the environment alias; default main."`
-	Version     string `yaml:"version,omitempty" json:"version,omitempty" jsonschema:"enum=draft,enum=published,description=voiceflow: which build of the environment answers; default published."`
-	VersionID   string `yaml:"version_id,omitempty" json:"version_id,omitempty" jsonschema:"description=voiceflow: the legacy Dialog Manager API versionID (an id or development / production) with a Dialog API key as api_key."`
+	Version     string `yaml:"version,omitempty" json:"version,omitempty" jsonschema:"enum=draft,enum=published,description=voiceflow rest: which build of the environment answers; default published."`
 	UserID      string `yaml:"user_id,omitempty" json:"user_id,omitempty" jsonschema:"description=voiceflow: the conversation id template; default tamesu-{{uuid}}."`
-	Reset       bool   `yaml:"reset,omitempty" json:"reset,omitempty" jsonschema:"description=voiceflow: delete the conversation's state before the launch (a reused user_id)."`
+	Reset       bool   `yaml:"reset,omitempty" json:"reset,omitempty" jsonschema:"description=voiceflow rest: delete the conversation's state before the launch (a reused user_id)."`
 
 	// a2a (an Agent2Agent agent; url, headers, turn_timeout and connect apply too)
 	Stream   bool           `yaml:"stream,omitempty" json:"stream,omitempty" jsonschema:"description=a2a: read the agent's turn from message/stream (server-sent events) instead of message/send; falls back to message/send when the card says the agent does not stream."`

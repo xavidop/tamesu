@@ -112,17 +112,17 @@ tests:
 | `assistant` | object (any keys) |  | vapi: a transient assistant (the assistant object of the call API) instead of assistant_id; string leaves render templates. | `assistant: { firstMessage: "Hi, how can I help?", model: { provider: openai, model: gpt-4o } }` |
 | `assistant_overrides` | object (any keys) |  | vapi: assistantOverrides of the call (first message / voice / model...). | `assistant_overrides: { firstMessage: "Welcome back" }` |
 | `squad_id` | string |  | vapi: a squad to call instead of an assistant. | `squad_id: 7f1c2b3a-0000-4000-8000-000000000000` |
-| `variables` | map of string to string |  | vapi: the assistant's variableValues; retell: the retell_llm_dynamic_variables; voiceflow: variables set before the launch (templates allowed). | `variables: { customer_name: Marta }` |
-| `base_url` | string |  | vapi / retell / voiceflow: the platform API (default https://api.vapi.ai or https://api.retellai.com or https://realtime-api.voiceflow.com/v1/stable). | `base_url: https://api.vapi.ai` |
+| `variables` | map of string to string |  | vapi: the assistant's variableValues; retell: the retell_llm_dynamic_variables; voiceflow rest: variables set before the launch (templates allowed). | `variables: { customer_name: Marta }` |
+| `base_url` | string |  | vapi / retell / voiceflow: the platform API (default https://api.vapi.ai or https://api.retellai.com or https://realtime-api.voiceflow.com/v1/stable or for the websocket transport https://general-runtime.voiceflow.com). | `base_url: https://api.vapi.ai` |
 | `agent_id` | string |  | retell: the agent to call (templates allowed). | `agent_id: agent_2b3c4d5e6f` |
 | `agent_version` | string |  | retell: the agent version such as latest_published. | `agent_version: latest_published` |
 | `livekit_url` | string |  | retell: the LiveKit server the web call runs on; default Retell's cloud. | `livekit_url: wss://retell-ai-4ihahnq7.livekit.cloud` |
-| `project_id` | string |  | voiceflow: the project on the REST API (templates allowed); or version_id for the legacy Dialog Manager API. | `project_id: "{{vars.project_id}}"` |
+| `transport` | one of `rest`, `websocket` |  | voiceflow: rest (one request per turn against realtime-api.voiceflow.com with a personal or service token; default) or websocket (the socket.io runtime on general-runtime.voiceflow.com with the project's API key). | `transport: websocket` |
+| `project_id` | string |  | voiceflow: the project (templates allowed). | `project_id: "{{vars.project_id}}"` |
 | `environment` | string |  | voiceflow: the environment alias; default main. | `environment: main` |
-| `version` | one of `draft`, `published` |  | voiceflow: which build of the environment answers; default published. | `version: published` |
-| `version_id` | string |  | voiceflow: the legacy Dialog Manager API versionID (an id or development / production) with a Dialog API key as api_key. | `version_id: production` |
+| `version` | one of `draft`, `published` |  | voiceflow rest: which build of the environment answers; default published. | `version: published` |
 | `user_id` | string |  | voiceflow: the conversation id template; default tamesu-{{uuid}}. | `user_id: "tamesu-{{uuid}}"` |
-| `reset` | boolean |  | voiceflow: delete the conversation's state before the launch (a reused user_id). | `reset: true` |
+| `reset` | boolean |  | voiceflow rest: delete the conversation's state before the launch (a reused user_id). | `reset: true` |
 | `stream` | boolean |  | a2a: read the agent's turn from message/stream (server-sent events) instead of message/send; falls back to message/send when the card says the agent does not stream. | `stream: true` |
 | `skill` | string |  | a2a: a skill id or name the agent card must offer; the session fails to start otherwise. | `skill: order-status` |
 | `metadata` | object (any keys) |  | a2a: metadata sent with every message (a tenant or a locale); vapi / retell: metadata stored on the call. | `metadata: { tenant: acme }` |

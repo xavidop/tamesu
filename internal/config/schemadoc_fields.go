@@ -35,7 +35,7 @@ var fieldExamples = map[string]map[string]string{
 		"project_id":            `project_id: "{{vars.project_id}}"`,
 		"environment":           `environment: main`,
 		"version":               `version: published`,
-		"version_id":            `version_id: production`,
+		"transport":             `transport: websocket`,
 		"user_id":               `user_id: "tamesu-{{uuid}}"`,
 		"reset":                 `reset: true`,
 		"type":                  `type: rest`,
