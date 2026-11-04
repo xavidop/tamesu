@@ -153,7 +153,9 @@ agent (an agent that is allowed to write product descriptions, say, replaces `st
 
 Every run with playbook tests gets a **Red team** table in `report.md`, `coverage.md` and the
 console: per playbook, its OWASP category, how many attacks held and which got through, so a
-failing nightly says `pii_extraction/colleague_pretext` rather than a test name.
+failing nightly says `pii_extraction/colleague_pretext` rather than a test name. The `sarif`
+reporter writes the same findings as `tamesu.sarif` for GitHub's security tab and other security
+dashboards (see [Reports](/docs/reports/#sarif) and [CI](/docs/ci/#the-security-tab)).
 
 ## Running a red-team suite
 

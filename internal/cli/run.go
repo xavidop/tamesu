@@ -77,7 +77,7 @@ func pluginForCredential(name string) string {
 type TargetFactory func(ctx context.Context, spec runner.TargetSpec) (target.Target, error)
 
 // supportedReporters are the reporters this build has.
-var supportedReporters = []string{"console", "json", "junit", "html", "markdown", "github", "slack"}
+var supportedReporters = []string{"console", "json", "junit", "html", "markdown", "github", "slack", "sarif"}
 
 func (a *app) newRunCmd() *cobra.Command {
 	var (
@@ -205,6 +205,8 @@ func (a *app) newRunCmd() *cobra.Command {
 						reps = append(reps, report.NewJSON(out))
 					case "junit":
 						reps = append(reps, report.NewJUnit(out))
+					case "sarif":
+						reps = append(reps, report.NewSARIF(out))
 					case "html":
 						html := report.NewHTML(out)
 						if report.IsRunsDir(out) {
