@@ -99,19 +99,43 @@ func (e *echoTarget) Start(ctx context.Context, rc *target.RunContext) (target.S
 		return nil, err
 	}
 	auth, _ := rc.Render(e.spec.Config.Headers["Authorization"])
-	return &echoSession{url: url, auth: auth, run: rc.RunIndex, slow: strings.HasPrefix(e.spec.Config.URL, "slow://"), flaky: strings.HasPrefix(e.spec.Config.URL, "flaky://")}, nil
+	delegate, _ := rc.Render(e.spec.Config.Headers["X-Delegate"])
+	return &echoSession{url: url, auth: auth, delegate: delegate, run: rc.RunIndex, slow: strings.HasPrefix(e.spec.Config.URL, "slow://"), flaky: strings.HasPrefix(e.spec.Config.URL, "flaky://")}, nil
 }
 
 type echoSession struct {
 	url, auth string
-	run       int
-	slow      bool
-	flaky     bool
-	pending   *target.AgentTurn
+	// delegate is a remote agent's URL the session sends every user turn to
+	// before answering (an orchestrator).
+	delegate string
+	run      int
+	slow     bool
+	flaky    bool
+	pending  *target.AgentTurn
+}
+
+// delegateTo sends the text to the remote agent as an A2A message.
+func (s *echoSession) delegateTo(ctx context.Context, text string) error {
+	body, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": "1", "method": "message/send", "params": map[string]any{
+		"message": map[string]any{"kind": "message", "messageId": "m", "role": "user", "parts": []any{map[string]any{"kind": "text", "text": text}}}}})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.delegate+"/a2a", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	return resp.Body.Close()
 }
 
 func (s *echoSession) Send(ctx context.Context, turn target.UserTurn) error {
 	start := time.Now()
+	if s.delegate != "" {
+		if err := s.delegateTo(ctx, turn.Text); err != nil {
+			return err
+		}
+	}
 	if s.slow {
 		select {
 		case <-time.After(300 * time.Millisecond):
@@ -641,4 +665,56 @@ func TestRunSessionOpenForAnyTarget(t *testing.T) {
 	assert.False(t, sum2.Tests[0].Passed)
 	assert.Contains(t, sum2.Tests[0].Runs[0].Error, "session.open")
 	assert.Contains(t, sum2.Tests[0].Runs[0].Error, "HTTP 401")
+}
+
+func TestRunRemoteAgentsAndCounterpart(t *testing.T) {
+	s := suite("http://agent",
+		convTest("delegates",
+			config.Assertion{DelegatedTo: &config.Delegation{Agent: "billing", Contains: "bye"}},
+			config.Assertion{DelegatedTo: &config.Delegation{Agent: "billing", Regex: "(?i)^hello"}},
+			config.Assertion{Metric: &config.MetricAssertion{Name: "delegations", Eq: ptr(2.0)}},
+			config.Assertion{ToolNotCalled: &config.ToolCall{Name: "shipping"}},
+		),
+		config.Test{Name: "two agents", Target: "api", Counterpart: &config.Counterpart{Target: "api", Opening: "We offer 500 units at 12 euros"}, Scenario: &config.Scenario{MaxTurns: 2},
+			Assert: []config.Assertion{{Contains: ptr("echo: echo: We offer 500 units")}, {Metric: &config.MetricAssertion{Name: "turns", Eq: ptr(2.0)}}}},
+	)
+	s.Targets["api"] = config.Target{Type: config.TargetREST, URL: "http://agent", Headers: map[string]string{"X-Delegate": "{{remote.billing.url}}"}}
+	s.RemoteAgents = map[string]config.RemoteAgent{"billing": {Skills: []config.RemoteSkill{{ID: "refund"}}, Reply: "Refund issued, reference RF-889",
+		Replies: []config.RemoteReply{{When: "(?i)bye", Say: "Goodbye from billing"}}}}
+	opts, buf := newOptions(t, s, &fakeProvider{})
+	sum, err := Run(context.Background(), opts)
+	require.NoError(t, err)
+	byName := map[string]*report.TestOutcome{}
+	for _, to := range sum.Tests {
+		byName[to.Name] = to
+	}
+	require.NotNil(t, byName["delegates"])
+	assert.True(t, byName["delegates"].Passed, buf.String())
+	run := byName["delegates"].Runs[0]
+	var delegations []target.ToolCall
+	for _, c := range run.ToolCalls {
+		if c.Kind == target.ToolCallDelegation {
+			delegations = append(delegations, c)
+		}
+	}
+	require.Len(t, delegations, 2, "one per user turn")
+	assert.Equal(t, "billing", delegations[0].Name)
+	assert.Equal(t, "Refund issued, reference RF-889", delegations[0].Result)
+	assert.Equal(t, "Goodbye from billing", delegations[1].Result, "the when rule matched the goodbye")
+	kinds := 0
+	for _, e := range run.Events {
+		if e.Kind == "delegated" {
+			kinds++
+		}
+	}
+	assert.Equal(t, 2, kinds)
+
+	two := byName["two agents"]
+	require.NotNil(t, two)
+	assert.True(t, two.Passed, buf.String())
+	assert.Equal(t, "max_turns", two.Runs[0].StopReason)
+	require.Len(t, two.Runs[0].Transcript, 4)
+	assert.Equal(t, "We offer 500 units at 12 euros", two.Runs[0].Transcript[0].Text, "the opening")
+	assert.Equal(t, "echo: echo: We offer 500 units at 12 euros", two.Runs[0].Transcript[2].Text, "the counterpart answered the agent's words")
+	assert.Equal(t, "counterpart", two.Runs[0].Events[0].Kind)
 }

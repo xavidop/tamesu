@@ -48,6 +48,10 @@
           "$ref": "#/$defs/ToolSequence",
           "description": "The agent called these tools in this order (a subsequence of its calls; exact for the whole list)."
         },
+        "delegated_to": {
+          "$ref": "#/$defs/Delegation",
+          "description": "The agent sent a message to this remote agent (a name or an object with agent / contains / regex); remote_agents declares them."
+        },
         "dtmf_received": {
           "$ref": "#/$defs/DTMFAssertion",
           "description": "sip and livekit audio: digits the agent sent."
@@ -235,6 +239,35 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "Delegation": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "The remote agent's name."
+        },
+        {
+          "properties": {
+            "agent": {
+              "type": "string",
+              "description": "The remote agent's name (a key of remote_agents)."
+            },
+            "contains": {
+              "type": "string",
+              "description": "Text some message to the agent must contain."
+            },
+            "regex": {
+              "type": "string",
+              "description": "A regular expression some message to the agent must match."
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "agent"
+          ]
+        }
+      ]
     },
     "Duration": {
       "type": "string",

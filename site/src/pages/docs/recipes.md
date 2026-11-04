@@ -1132,3 +1132,66 @@ tests:
 Retell's newer `v3` endpoint issues tokens for its own WebRTC gateway rather than LiveKit; the
 `v2` endpoint above is the one that works with the LiveKit target. The same agent on a phone
 number is dialled with the [SIP target](/docs/targets/sip/).
+`sip.inbound_number` and the LiveKit SIP service come from `tamesu sip setup` (see
+[SIP setup](/docs/sip-setup/)); Bland bills the call as any outbound call of that agent. A Vapi
+or Retell agent on a phone number is dialled the same way, with their call APIs in the trigger,
+when the websocket and web-call paths of the [Vapi](/docs/targets/vapi/) and
+[Retell](/docs/targets/retell/) targets are not what you want to test.
+
+
+## An orchestrator and the agents it delegates to
+
+An orchestrator that hands work to other agents over A2A is tested without those agents: the
+suite declares them as `remote_agents`, tamesu runs them with scripted replies, the orchestrator
+is pointed at their URLs, and the assertions say which agent must have been asked and what the
+user must hear. A second test makes the billing agent fail and checks the orchestrator copes.
+
+```yaml
+suite: orchestrator
+tags: [a2a, orchestration]
+vars: { orchestrator: "${ORCHESTRATOR_URL:-http://127.0.0.1:8100/a2a}" }
+remote_agents:
+  billing:
+    description: Refunds and invoices
+    skills: [refund, invoice-lookup]
+    reply: "I can help with refunds and invoices."
+    replies:
+      - { when: "(?i)refund.*ORD-1001", say: "Refund of 42 euros issued, reference RF-889", data: { reference: RF-889 } }
+      - { when: "(?i)refund", say: "Which order should I refund?", state: input-required }
+  shipping:
+    addr: 127.0.0.1:8096                 # the orchestrator reads SHIPPING_AGENT_URL=http://127.0.0.1:8096 at startup
+    skills: [track]
+    reply: "ORD-1001 is with the carrier and arrives tomorrow."
+targets:
+  orchestrator:
+    type: a2a
+    url: "{{vars.orchestrator}}"
+    metadata: { billing_agent_url: "{{remote.billing.url}}" }   # an orchestrator that takes its agents per call
+tests:
+  - name: a refund goes to billing, not shipping
+    target: orchestrator
+    persona: { name: Marta, style: "direct, knows her order number" }
+    scenario: { goal: "Get a refund for order ORD-1001, delivered damaged", max_turns: 4 }
+    assert:
+      - delegated_to: { agent: billing, contains: "ORD-1001" }
+      - tool_not_called: shipping
+      - contains: "RF-889"
+      - judge: "The agent tells the user the refund was issued and gives the reference"
+      - metric: { name: delegations, lte: 2 }
+  - name: billing is down
+    target: orchestrator
+    fuzz_tools: { billing: error }
+    persona: { name: Marta, style: direct }
+    scenario: { goal: "Get a refund for order ORD-1001", max_turns: 4 }
+    assert:
+      - delegated_to: billing
+      - pack: graceful_degradation
+      - not_contains: "RF-889"
+```
+
+Run the orchestrator so it reads its agents' URLs from its configuration, then
+`tamesu run --parallel 1` (the shipping agent has a fixed port). Each delegation is in the
+transcript's tool calls with the message and the reply, in the `delegated` events, and in
+`tamesu coverage` under the tools, so a missing delegation reads as plainly as a missing tool
+call. To test against the real billing agent while still recording and fuzzing it, replace its
+replies with `forward: https://billing.internal/a2a` and a `headers` entry for its token.

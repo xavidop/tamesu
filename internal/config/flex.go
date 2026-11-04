@@ -123,6 +123,62 @@ func (ToolCall) JSONSchema() *jsonschema.Schema {
 	return oneOfStringOr(&plain{}, "The tool name.")
 }
 
+// Delegation is the delegated_to assertion: a remote agent's name, or a
+// mapping with the agent and what the message must contain or match.
+type Delegation struct {
+	Agent    string `yaml:"agent" json:"agent" jsonschema:"required,description=The remote agent's name (a key of remote_agents)."`
+	Contains string `yaml:"contains,omitempty" json:"contains,omitempty" jsonschema:"description=Text some message to the agent must contain."`
+	Regex    string `yaml:"regex,omitempty" json:"regex,omitempty" jsonschema:"description=A regular expression some message to the agent must match."`
+}
+
+// UnmarshalYAML accepts an agent name or a mapping.
+func (d *Delegation) UnmarshalYAML(n *yaml.Node) error {
+	if n.Kind == yaml.ScalarNode {
+		d.Agent = n.Value
+		return nil
+	}
+	if err := checkKeys(n, "Delegation", "agent", "contains", "regex"); err != nil {
+		return err
+	}
+	type plain Delegation
+	var p plain
+	if err := n.Decode(&p); err != nil {
+		return err
+	}
+	*d = Delegation(p)
+	return nil
+}
+
+// JSONSchema describes the string and object forms.
+func (Delegation) JSONSchema() *jsonschema.Schema {
+	type plain Delegation
+	return oneOfStringOr(&plain{}, "The remote agent's name.")
+}
+
+// UnmarshalYAML accepts a skill id or a mapping.
+func (s *RemoteSkill) UnmarshalYAML(n *yaml.Node) error {
+	if n.Kind == yaml.ScalarNode {
+		s.ID = n.Value
+		return nil
+	}
+	if err := checkKeys(n, "RemoteSkill", "id", "name", "description", "tags"); err != nil {
+		return err
+	}
+	type plain RemoteSkill
+	var p plain
+	if err := n.Decode(&p); err != nil {
+		return err
+	}
+	*s = RemoteSkill(p)
+	return nil
+}
+
+// JSONSchema describes the string and object forms.
+func (RemoteSkill) JSONSchema() *jsonschema.Schema {
+	type plain RemoteSkill
+	return oneOfStringOr(&plain{}, "The skill id.")
+}
+
 // Similar is a semantic assertion: some agent turn means the same as Text,
 // by embedding similarity.
 type Similar struct {

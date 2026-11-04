@@ -41,6 +41,16 @@ tests:
         on_turn: 2
       - metric: { name: a2a_tasks, eq: 1 }        # one task carried both turns
 
+  - name: two shop agents talk
+    target: shop
+    counterpart:
+      target: shop-stream                            # another session of the same agent plays the customer
+      opening: "Where is order ORD-1001?"
+    scenario: { max_turns: 3 }
+    assert:
+      - contains: "DHL"
+      - turns: { lte: 3 }
+
   - name: return after 40 days, streamed
     target: shop-stream
     persona: { name: Marta, style: "polite, slightly confused", language: en }

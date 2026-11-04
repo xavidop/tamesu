@@ -33,7 +33,7 @@ var ActionNames = []string{"navigate", "click", "fill", "press", "wait", "screen
 // AssertionKinds lists every assertion key, in documentation order.
 var AssertionKinds = []string{
 	"judge", "contains", "not_contains", "regex", "not_regex", "similar_to", "json_path", "status",
-	"tool_called", "tool_not_called", "tool_sequence", "dtmf_received", "call_ended_by", "transferred_to", "handoff",
+	"tool_called", "tool_not_called", "tool_sequence", "delegated_to", "dtmf_received", "call_ended_by", "transferred_to", "handoff",
 	"evaluator", "grounded", "metric", "turns", "captured", "golden", "http", "command", "custom", "pack",
 }
 
@@ -50,7 +50,10 @@ type Suite struct {
 	Hooks    *Hooks                 `yaml:"hooks,omitempty" json:"hooks,omitempty" jsonschema:"description=Setup and teardown around this suite and its runs"`
 	Packs    map[string][]Assertion `yaml:"packs,omitempty" json:"packs,omitempty" jsonschema:"description=Reusable assertion sets by name for assert entries of the form pack: name; a name also used by a built-in pack (prompt_injection / pii_leakage / system_prompt_leakage / stays_in_scope / discloses_ai / harmful_content / excessive_agency / policy_consistency) replaces it."`
 	RedTeam  *RedTeam               `yaml:"red_team,omitempty" json:"red_team,omitempty" jsonschema:"description=Red team playbooks: one adversarial test per attack of the chosen playbooks is added to the suite when it loads (tamesu playbooks lists them)."`
-	Tests    []Test                 `yaml:"tests" json:"tests" jsonschema:"required,description=The tests"`
+	// RemoteAgents are A2A agents tamesu runs for the agent under test to
+	// delegate to; {{remote.<name>.url}} is each one's URL.
+	RemoteAgents map[string]RemoteAgent `yaml:"remote_agents,omitempty" json:"remote_agents,omitempty" jsonschema:"description=Agent2Agent agents tamesu plays for the agent under test to delegate to (by name): a card with skills and scripted replies or a recording proxy in front of a real agent; {{remote.<name>.url}} is each one's URL and every message the agent sends it is recorded for delegated_to."`
+	Tests        []Test                 `yaml:"tests" json:"tests" jsonschema:"required,description=The tests"`
 
 	// Path is the file the suite was loaded from. It is not part of the format.
 	Path string `yaml:"-" json:"-"`
@@ -346,6 +349,7 @@ type Test struct {
 	Steps         []Step            `yaml:"steps,omitempty" json:"steps,omitempty" jsonschema:"description=Browser tests only."`
 	Persona       *Persona          `yaml:"persona,omitempty" json:"persona,omitempty" jsonschema:"description=Who the simulated user is"`
 	Scenario      *Scenario         `yaml:"scenario,omitempty" json:"scenario,omitempty" jsonschema:"description=What the simulated user wants and when to stop"`
+	Counterpart   *Counterpart      `yaml:"counterpart,omitempty" json:"counterpart,omitempty" jsonschema:"description=Another target plays the user instead of a persona: two agents talk and the judges grade the exchange (an a2a or any conversational target of the suite)."`
 	// Line is the test's line in its suite file, for annotations. Not part
 	// of the format.
 	Line int `yaml:"-" json:"-"`
@@ -513,6 +517,40 @@ func (s ScriptStep) Kind() string {
 	return ""
 }
 
+// RemoteAgent is an Agent2Agent agent tamesu plays for the agent under test.
+type RemoteAgent struct {
+	Addr        string            `yaml:"addr,omitempty" json:"addr,omitempty" jsonschema:"description=Address to listen on such as 127.0.0.1:8095 when the agent under test is configured by hand; default a free port that {{remote.<name>.url}} renders."`
+	Name        string            `yaml:"name,omitempty" json:"name,omitempty" jsonschema:"description=The card's name; default the key."`
+	Description string            `yaml:"description,omitempty" json:"description,omitempty" jsonschema:"description=The card's description."`
+	Skills      []RemoteSkill     `yaml:"skills,omitempty" json:"skills,omitempty" jsonschema:"description=The card's skills: ids or objects with id / name / description / tags."`
+	Reply       string            `yaml:"reply,omitempty" json:"reply,omitempty" jsonschema:"description=What the agent answers every message that no replies entry matches."`
+	Replies     []RemoteReply     `yaml:"replies,omitempty" json:"replies,omitempty" jsonschema:"description=Scripted answers: the first entry whose when matches the message wins."`
+	Forward     string            `yaml:"forward,omitempty" json:"forward,omitempty" jsonschema:"description=A real agent's JSON-RPC URL: the remote agent becomes a recording proxy in front of it and every message and reply is recorded (templates allowed)."`
+	Headers     map[string]string `yaml:"headers,omitempty" json:"headers,omitempty" jsonschema:"description=Headers added to forwarded requests such as Authorization (templates allowed)."`
+}
+
+// RemoteSkill is one skill of a remote agent's card: a string id or an object.
+type RemoteSkill struct {
+	ID          string   `yaml:"id" json:"id" jsonschema:"required,description=The skill id."`
+	Name        string   `yaml:"name,omitempty" json:"name,omitempty" jsonschema:"description=The skill's name; default the id."`
+	Description string   `yaml:"description,omitempty" json:"description,omitempty" jsonschema:"description=What the skill does."`
+	Tags        []string `yaml:"tags,omitempty" json:"tags,omitempty" jsonschema:"description=Tags on the skill."`
+}
+
+// RemoteReply is one scripted answer of a remote agent.
+type RemoteReply struct {
+	When  string         `yaml:"when,omitempty" json:"when,omitempty" jsonschema:"description=A regular expression on the message; omitted matches every message."`
+	Say   string         `yaml:"say,omitempty" json:"say,omitempty" jsonschema:"description=The agent's words."`
+	Data  map[string]any `yaml:"data,omitempty" json:"data,omitempty" jsonschema:"description=A data part sent with the words."`
+	State string         `yaml:"state,omitempty" json:"state,omitempty" jsonschema:"enum=completed,enum=input-required,enum=failed,description=The task's state after the reply; default completed."`
+}
+
+// Counterpart is another target playing the user.
+type Counterpart struct {
+	Target  string `yaml:"target" json:"target" jsonschema:"required,description=A key of targets: the agent that plays the user."`
+	Opening string `yaml:"opening,omitempty" json:"opening,omitempty" jsonschema:"description=The counterpart's first message (templates allowed); without it the counterpart answers the scenario goal first."`
+}
+
 // ToolSequence is the tool_sequence assertion.
 type ToolSequence struct {
 	Calls []string `yaml:"calls" json:"calls" jsonschema:"required,description=Tool names in the order they must be called."`
@@ -532,6 +570,7 @@ type Assertion struct {
 	ToolCalled    *ToolCall          `yaml:"tool_called,omitempty" json:"tool_called,omitempty" jsonschema:"description=The agent called the tool (a name or an object with name / args / schema)"`
 	ToolNotCalled *ToolCall          `yaml:"tool_not_called,omitempty" json:"tool_not_called,omitempty" jsonschema:"description=The agent never called the tool (a name or an object with name / args)"`
 	ToolSequence  *ToolSequence      `yaml:"tool_sequence,omitempty" json:"tool_sequence,omitempty" jsonschema:"description=The agent called these tools in this order (a subsequence of its calls; exact for the whole list)."`
+	DelegatedTo   *Delegation        `yaml:"delegated_to,omitempty" json:"delegated_to,omitempty" jsonschema:"description=The agent sent a message to this remote agent (a name or an object with agent / contains / regex); remote_agents declares them."`
 	DTMFReceived  *DTMFAssertion     `yaml:"dtmf_received,omitempty" json:"dtmf_received,omitempty" jsonschema:"description=sip and livekit audio: digits the agent sent."`
 	CallEndedBy   StringList         `yaml:"call_ended_by,omitempty" json:"call_ended_by,omitempty" jsonschema:"description=sip: agent caller timeout error no_answer busy."`
 	TransferredTo *Matches           `yaml:"transferred_to,omitempty" json:"transferred_to,omitempty" jsonschema:"description=sip: target of a SIP REFER."`
@@ -607,6 +646,7 @@ func (a Assertion) Kinds() []string {
 		"tool_called":     a.ToolCalled != nil,
 		"tool_not_called": a.ToolNotCalled != nil,
 		"tool_sequence":   a.ToolSequence != nil,
+		"delegated_to":    a.DelegatedTo != nil,
 		"dtmf_received":   a.DTMFReceived != nil,
 		"call_ended_by":   len(a.CallEndedBy) > 0,
 		"transferred_to":  a.TransferredTo != nil,
