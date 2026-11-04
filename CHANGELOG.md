@@ -2,6 +2,13 @@
 
 All notable changes to tamesu are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/). Each new release is added at the top, with notes generated from the commit messages.
 
+# [1.9.0](https://github.com/xavidop/tamesu/compare/v1.8.0...v1.9.0) (2026-11-04)
+
+
+### Features
+
+* capture a value by describing it ([cca0cc3](https://github.com/xavidop/tamesu/commit/cca0cc3d8eb98b7696bbea4b503576e5283ab67c))
+
 # [1.8.0](https://github.com/xavidop/tamesu/compare/v1.7.0...v1.8.0) (2026-11-04)
 
 
