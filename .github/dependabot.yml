@@ -77,6 +77,12 @@ updates:
     schedule: { interval: weekly }
     labels: [dependencies, go, target]
 
+  # Voice websocket target (own go.mod; coder/websocket, ojg and the audio module)
+  - package-ecosystem: gomod
+    directory: "/targets/voice"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, target]
+
   # gRPC target (own go.mod; grpc-go and protobuf)
   - package-ecosystem: gomod
     directory: "/targets/grpc"

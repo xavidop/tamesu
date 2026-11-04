@@ -1417,13 +1417,14 @@
             "model",
             "twilio",
             "mcp",
-            "a2a"
+            "a2a",
+            "voice"
           ],
           "description": "What the target is; it decides which other keys apply"
         },
         "url": {
           "type": "string",
-          "description": "The page (browser) or endpoint (rest / realtime / pipecat / twilio / a2a) or grpc://host:port (grpc) or LiveKit server (livekit)."
+          "description": "The page (browser) or endpoint (rest / realtime / pipecat / twilio / a2a / voice) or grpc://host:port (grpc) or LiveKit server (livekit)."
         },
         "connect": {
           "$ref": "#/$defs/ConnectConfig",
@@ -1457,7 +1458,7 @@
             "type": "string"
           },
           "type": "object",
-          "description": "Request (rest / a2a) or handshake (realtime / pipecat / twilio) headers or call metadata (grpc); put credentials here as {{secrets.NAME}}."
+          "description": "Request (rest / a2a) or handshake (realtime / pipecat / twilio / voice) headers or call metadata (grpc); put credentials here as {{secrets.NAME}}."
         },
         "request": {
           "$ref": "#/$defs/RESTRequest",
@@ -1478,7 +1479,7 @@
         },
         "session": {
           "$ref": "#/$defs/RESTSession",
-          "description": "rest targets; the session id template"
+          "description": "rest and voice targets; the session id template and the request that opens the session"
         },
         "api_key": {
           "type": "string",
@@ -1579,7 +1580,7 @@
         },
         "turn_timeout": {
           "$ref": "#/$defs/Duration",
-          "description": "realtime / grpc / pipecat / a2a: how long to wait for the end of a turn; default 60s."
+          "description": "realtime / grpc / pipecat / a2a / voice: how long to wait for the end of a turn; default 60s."
         },
         "tool_results": {
           "type": "object",
@@ -1600,7 +1601,7 @@
         },
         "idle": {
           "$ref": "#/$defs/Duration",
-          "description": "pipecat and twilio: silence after the agent's last message or audio that ends a turn; default 2s."
+          "description": "pipecat / twilio / voice: silence after the agent's last message or audio that ends a turn; default 2s."
         },
         "parameters": {
           "additionalProperties": {
@@ -1637,6 +1638,14 @@
         "call_timeout": {
           "$ref": "#/$defs/Duration",
           "description": "mcp: how long one tool call may take; default 60s."
+        },
+        "audio": {
+          "$ref": "#/$defs/VoiceAudio",
+          "description": "voice: how the audio travels (encoding / sample_rate / frames binary or json with send and receive)."
+        },
+        "messages": {
+          "$ref": "#/$defs/VoiceMessages",
+          "description": "voice: the JSON control messages of the protocol (open / transcript / done / interrupted / tool_calls / dtmf / close); all optional."
         },
         "stream": {
           "type": "boolean",
@@ -1891,6 +1900,71 @@
         "command": {
           "type": "string",
           "description": "A shell command that makes the agent dial sip.inbound_number."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "VoiceAudio": {
+      "properties": {
+        "encoding": {
+          "type": "string",
+          "enum": [
+            "pcm16",
+            "mulaw",
+            "alaw"
+          ],
+          "description": "The wire encoding; default pcm16."
+        },
+        "sample_rate": {
+          "type": "integer",
+          "description": "The sample rate in Hz; default 16000 for pcm16 and 8000 for mulaw / alaw."
+        },
+        "frames": {
+          "type": "string",
+          "enum": [
+            "binary",
+            "json"
+          ],
+          "description": "binary (default): one chunk per binary websocket frame; json: the chunk travels base64-encoded inside a JSON message (send and receive say where)."
+        },
+        "send": {
+          "description": "frames json: the message template per outgoing chunk; {{audio}} is the base64 chunk."
+        },
+        "receive": {
+          "type": "string",
+          "description": "frames json: JSONPath of the base64 audio in an incoming message; evaluated against the message as a one-element list such as $[*].audio_event.audio_base_64."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "VoiceMessages": {
+      "properties": {
+        "open": {
+          "description": "A message template sent once after connecting."
+        },
+        "transcript": {
+          "type": "string",
+          "description": "JSONPath of the agent's words in a message (its final transcripts); evaluated against the message as a one-element list such as $[?(@.type=='transcript' \u0026\u0026 @.role=='assistant')].transcript. Without it the audio is transcribed."
+        },
+        "done": {
+          "type": "string",
+          "description": "JSONPath that is truthy on the message that ends the call."
+        },
+        "interrupted": {
+          "type": "string",
+          "description": "JSONPath that is truthy on the message that says the agent stopped for the caller."
+        },
+        "tool_calls": {
+          "type": "string",
+          "description": "JSONPath of the tool calls in a message: names or objects with name / args (or function.name / function.arguments)."
+        },
+        "dtmf": {
+          "description": "A message template per keypad digit; {{digit}} renders. Without it a dtmf step is recorded as unsupported."
+        },
+        "close": {
+          "description": "A message template sent before the connection is closed (a hangup)."
         }
       },
       "additionalProperties": false,

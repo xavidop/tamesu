@@ -25,4 +25,5 @@ use (
 	./targets/rest
 	./targets/sip
 	./targets/twilio
+	./targets/voice
 )

@@ -934,3 +934,106 @@ tests:
 The bots behind both simulators are the real ones, with their real prompts, state and backend,
 so the assertions, captures, grounding checks and packs of any other suite apply unchanged; what
 stays outside the test is the platform between the user and the bot.
+
+
+## A Vapi assistant over its websocket transport
+
+Vapi exposes an assistant on a websocket when the call is created with the `vapi.websocket`
+transport: `POST /call` answers a `websocketCallUrl`, the socket carries raw PCM both ways, and
+Vapi's control messages (transcripts, speech updates, tool calls, the end of the call) travel as
+JSON on the same socket. The `voice` target does all of it from YAML: `session.open` creates
+the call and captures the URL, and `messages` names the control messages.
+
+```yaml
+suite: vapi-assistant
+tags: [voice, vapi]
+vars: { assistant_id: "${VAPI_ASSISTANT_ID:-asst_000}" }
+secrets: { VAPI_API_KEY: env:VAPI_API_KEY }
+targets:
+  assistant:
+    type: voice
+    session:
+      open:
+        url: https://api.vapi.ai/call
+        headers: { Authorization: "Bearer {{secrets.VAPI_API_KEY}}" }
+        body:
+          assistantId: "{{vars.assistant_id}}"
+          assistantOverrides: { variableValues: { customer_name: Marta } }
+          transport: { provider: vapi.websocket, audioFormat: { format: pcm_s16le, container: raw, sampleRate: 16000 } }
+        capture: { ws_url: $.transport.websocketCallUrl, call_id: $.id }
+    url: "{{session.ws_url}}"
+    audio: { encoding: pcm16, sample_rate: 16000, frames: binary }
+    messages:
+      transcript: "$[?(@.type=='transcript' && @.role=='assistant' && @.transcriptType=='final')].transcript"
+      done: "$[?(@.type=='status-update' && @.status=='ended')].status"
+      interrupted: "$[?(@.type=='user-interrupted')].type"
+      tool_calls: "$[?(@.type=='tool-calls')].toolCallList[*]"
+      close: { type: hangup }
+    idle: 2s
+tests:
+  - name: return after 40 days
+    target: assistant
+    persona: { name: Marta, style: "polite, slightly confused", language: en, voice: en-US-female }
+    scenario: { goal: "Find out if the shoes you bought 40 days ago can still be returned", max_turns: 6 }
+    assert:
+      - judge: "The assistant states the 30-day window and does not promise an exception"
+      - tool_called: lookup_policy
+      - metric: { name: time_to_first_audio_ms_p95, lt: 2500 }
+  - name: it stops when interrupted
+    target: assistant
+    persona: { name: Ken, style: "impatient", language: en, behaviors: { interrupt_probability: 1 } }
+    scenario: { goal: "Ask about shipping times and cut the assistant off", max_turns: 3 }
+    assert:
+      - metric: { name: interruption_stop_ms_p95, lt: 800 }
+```
+
+A `mulaw` 8 kHz call is the same suite with `audioFormat: { format: mulaw, container: raw,
+sampleRate: 8000 }` and `audio: { encoding: mulaw }`. The same Vapi assistant on a phone number
+is dialled with the [SIP target](/docs/targets/sip/).
+
+## A Deepgram Voice Agent
+
+Deepgram's agent speaks binary audio both ways on one websocket, configured by a first
+`Settings` message, and reports what it heard and said as `ConversationText` messages. The
+`voice` target sends the settings as `messages.open` and reads the agent's lines from the
+transcript messages.
+
+```yaml
+suite: deepgram-agent
+tags: [voice, deepgram]
+secrets: { DEEPGRAM_API_KEY: env:DEEPGRAM_API_KEY }
+targets:
+  agent:
+    type: voice
+    url: wss://agent.deepgram.com/v1/agent/converse
+    headers: { Authorization: "Token {{secrets.DEEPGRAM_API_KEY}}" }
+    audio: { encoding: pcm16, sample_rate: 16000, frames: binary }
+    messages:
+      open:
+        type: Settings
+        audio:
+          input: { encoding: linear16, sample_rate: 16000 }
+          output: { encoding: linear16, sample_rate: 16000, container: none }
+        agent:
+          listen: { provider: { type: deepgram, model: nova-3 } }
+          think: { provider: { type: open_ai, model: gpt-4o-mini }, prompt: "You are the Mochi Shoes support agent. Returns are accepted within 30 days of delivery, no exceptions." }
+          speak: { provider: { type: deepgram, model: aura-2-thalia-en } }
+          greeting: "Hi, this is Mochi Shoes. How can I help?"
+      transcript: "$[?(@.type=='ConversationText' && @.role=='assistant')].content"
+      interrupted: "$[?(@.type=='UserStartedSpeaking')].type"
+      tool_calls: "$[?(@.type=='FunctionCallRequest')].functions[*]"
+    idle: 2s
+tests:
+  - name: return after 40 days
+    target: agent
+    persona: { name: Marta, style: "polite", language: en, voice: en-US-female }
+    scenario: { goal: "Find out if the shoes you bought 40 days ago can still be returned", max_turns: 6 }
+    assert:
+      - judge: "The agent states the 30-day window and does not promise an exception"
+      - metric: { name: greeting_ms, lt: 4000 }
+```
+
+The prompt in `Settings` is the agent under test; keep it in a file and `{{vars}}` it in when
+the suite grows. A protocol that wraps audio in JSON instead of binary frames sets
+`audio: { frames: json, send: { ... "{{audio}}" }, receive: "$[*].path.to.base64" }` and is
+otherwise the same.

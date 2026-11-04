@@ -76,6 +76,10 @@ This is a multi-module repository tied together by a `go.work` file:
 - `targets/a2a`: the Agent2Agent target, its own module on the standard library: the agent card,
   JSON-RPC `message/send` and `message/stream` over server-sent events, tasks followed through
   input-required to their final state, artifacts read as the agent's words.
+- `targets/voice`: the generic voice target, its own module on `coder/websocket`, ojg and the
+  audio module: a websocket that carries audio (PCM or G.711, binary frames or base64 in JSON),
+  the protocol's control messages read by JSONPath, and a `session.open` request that creates
+  the call. Hosted voice platforms are recipes on top of it.
 - `targets/grpc`: the target for agents behind the turn API of `proto/tamesu/turn/v1`, its own
   module on grpc-go; `turnv1` is the generated code (`make proto` regenerates it).
 - `targets/realtime`: the target for agents speaking the OpenAI Realtime protocol (the API itself
