@@ -2,6 +2,13 @@
 
 All notable changes to tamesu are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/). Each new release is added at the top, with notes generated from the commit messages.
 
+# [1.12.0](https://github.com/xavidop/tamesu/compare/v1.11.0...v1.12.0) (2026-11-04)
+
+
+### Features
+
+* **voice:** a target for any websocket that carries audio ([00fa1c4](https://github.com/xavidop/tamesu/commit/00fa1c4539964b198b6b5a1191725de742b768fa))
+
 # [1.11.0](https://github.com/xavidop/tamesu/compare/v1.10.0...v1.11.0) (2026-11-04)
 
 
