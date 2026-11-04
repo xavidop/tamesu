@@ -15,6 +15,7 @@ require (
 	github.com/xavidop/tamesu v0.0.0
 	github.com/xavidop/tamesu/audio v0.0.0
 	github.com/xavidop/tamesu/llm v0.0.0
+	github.com/xavidop/tamesu/targets/a2a v0.0.0
 	github.com/xavidop/tamesu/targets/browser v0.0.0
 	github.com/xavidop/tamesu/targets/grpc v0.0.0
 	github.com/xavidop/tamesu/targets/livekit v0.0.0
@@ -313,6 +314,8 @@ replace github.com/xavidop/tamesu/targets/rest => ../../targets/rest
 replace github.com/xavidop/tamesu/targets/model => ../../targets/model
 
 replace github.com/xavidop/tamesu/targets/mcp => ../../targets/mcp
+
+replace github.com/xavidop/tamesu/targets/a2a => ../../targets/a2a
 
 replace github.com/xavidop/tamesu/targets/twilio => ../../targets/twilio
 

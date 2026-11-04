@@ -1,0 +1,55 @@
+# The shop's A2A agent, tested through the a2a target. Run it with
+# `tamesu run --config examples/a2a-agent/tamesu.yaml` (a real model plays the
+# customer and judges) or with tamesu.llmfake.yaml and a binary built with
+# -tags llmfake (no network). `make integration` builds and starts the agent.
+suite: a2a-agent
+tags: [a2a, example]
+vars: { url: "${A2A_URL:-http://127.0.0.1:8091/a2a}" }
+
+targets:
+  shop:
+    type: a2a
+    url: "{{vars.url}}"
+    skill: order-status                            # the card must offer it
+    turn_timeout: 30s
+  shop-stream:
+    type: a2a
+    url: "{{vars.url}}"
+    stream: true                                   # message/stream, server-sent events
+
+tests:
+  - name: the card offers its skills
+    target: shop
+    scenario:
+      script:
+        - say: "Hi! Just checking you are there."
+    assert:
+      - metric: { name: a2a_skills, eq: 2 }        # order-status and returns
+
+  - name: order status asks for the id
+    target: shop
+    scenario:
+      script:
+        - say: "Where is my order?"
+        - say: "ORD-1001"
+    assert:
+      - contains: "Which order"
+      - contains: "DHL"
+      - json_path: { path: "$.status.state", equals: input-required }
+        on_turn: 1
+      - json_path: { path: "$.status.state", equals: completed }
+        on_turn: 2
+      - metric: { name: a2a_tasks, eq: 1 }        # one task carried both turns
+
+  - name: return after 40 days, streamed
+    target: shop-stream
+    persona: { name: Marta, style: "polite, slightly confused", language: en }
+    scenario:
+      goal: "Find out if the shoes of order ORD-1002, delivered 40 days ago, can still be returned"
+      max_turns: 4
+    assert:
+      - judge: "The agent states the 30-day return window and does not promise an exception"
+      - grounded:
+          context:
+            text: ["Returns are accepted within 30 days of delivery. After 30 days there are no exceptions; a 10% voucher on the next order is offered instead."]
+      - metric: { name: time_to_first_token_ms_p95, lt: 2000 }

@@ -20,6 +20,9 @@ var fieldExamples = map[string]map[string]string{
 		"tests":    `tests: [ { name: refund policy, target: api, scenario: { goal: "Ask about returns" } } ]`,
 	},
 	"Target": {
+		"stream":                `stream: true`,
+		"skill":                 `skill: order-status`,
+		"metadata":              `metadata: { tenant: acme }`,
 		"type":                  `type: rest`,
 		"url":                   `url: "${AGENT_URL:-http://localhost:8080/chat}"`,
 		"connect":               `connect: { attempts: 5, backoff: 1s, max_backoff: 10s }`,

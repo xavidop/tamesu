@@ -64,15 +64,15 @@ tests:
 
 | Key | Type | Required | Description | Example |
 |---|---|---|---|---|
-| `type` | one of `browser`, `rest`, `livekit`, `sip`, `realtime`, `grpc`, `pipecat`, `model`, `twilio`, `mcp` | yes | What the target is; it decides which other keys apply | `type: rest` |
-| `url` | string |  | The page (browser) or endpoint (rest / realtime / pipecat / twilio) or grpc://host:port (grpc) or LiveKit server (livekit). | `url: "${AGENT_URL:-http://localhost:8080/chat}"` |
+| `type` | one of `browser`, `rest`, `livekit`, `sip`, `realtime`, `grpc`, `pipecat`, `model`, `twilio`, `mcp`, `a2a` | yes | What the target is; it decides which other keys apply | `type: rest` |
+| `url` | string |  | The page (browser) or endpoint (rest / realtime / pipecat / twilio / a2a) or grpc://host:port (grpc) or LiveKit server (livekit). | `url: "${AGENT_URL:-http://localhost:8080/chat}"` |
 | `connect` | [ConnectConfig](#connectconfig) |  | How reaching the agent is retried (attempts / backoff / max_backoff) | `connect: { attempts: 5, backoff: 1s, max_backoff: 10s }` |
 | `handoff` | [HandoffSignal](#handoffsignal) |  | How the agent signals that a person took over (tool / json_path / regex plus where the destination and summary are) | `handoff: { tool: transfer_to_human, to: department, summary: summary }` |
 | `browser` | [BrowserOptions](#browseroptions) |  | browser targets; engine / viewport / locale / mocks / recording | `browser: { viewport: 1280x800, locale: en-GB, recording: gif }` |
 | `auth` | [BrowserAuth](#browserauth) |  | browser targets; a pre-authenticated storage state | `auth: { storage_state: auth/state.json }` |
 | `allowed_domains` | list of string |  | Domains the browser agent may navigate to; defaults to the url's domain. | `allowed_domains: [shop.example, cdn.example]` |
 | `method` | string |  | HTTP method; defaults to POST. | `method: POST` |
-| `headers` | map of string to string |  | Request (rest) or handshake (realtime / pipecat / twilio) headers or call metadata (grpc); put credentials here as {{secrets.NAME}}. | `headers: { Authorization: "Bearer {{secrets.AGENT_TOKEN}}" }` |
+| `headers` | map of string to string |  | Request (rest / a2a) or handshake (realtime / pipecat / twilio) headers or call metadata (grpc); put credentials here as {{secrets.NAME}}. | `headers: { Authorization: "Bearer {{secrets.AGENT_TOKEN}}" }` |
 | `request` | [RESTRequest](#restrequest) |  | rest targets; how a user turn is sent | `request: { body: { session_id: "{{session}}", message: "{{message}}" } }` |
 | `response` | [RESTResponse](#restresponse) |  | rest targets; how the agent turn is read back (JSONPaths into the response) | `response: { text: $.reply, tool_calls: "$.tool_calls[*]", done: $.end_session }` |
 | `streaming` | one of `none`, `sse`, `websocket` |  | rest targets; none (default) or sse or websocket | `streaming: sse` |
@@ -97,7 +97,7 @@ tests:
 | `session_update` | object (any keys) |  | realtime: merged into the session.update event (instructions / tools / voice / output modalities). | `session_update: { instructions: "You are the support agent", voice: alloy }` |
 | `protocol` | one of `ga`, `beta` |  | realtime: the event dialect; ga (default) or beta (modalities and the OpenAI-Beta header). | `protocol: ga` |
 | `done_tool` | string |  | realtime and model: a function call with this name ends the session; default end_session. | `done_tool: end_session` |
-| `turn_timeout` | [Duration](#duration) |  | realtime / grpc / pipecat: how long to wait for the end of a turn; default 60s. | `turn_timeout: 60s` |
+| `turn_timeout` | [Duration](#duration) |  | realtime / grpc / pipecat / a2a: how long to wait for the end of a turn; default 60s. | `turn_timeout: 60s` |
 | `tool_results` | object (any keys) |  | realtime and pipecat: answers to the agent's function calls by function name. The value (any JSON; string leaves may use {{args.<key>}}) goes back as the function's output and the response continues. Unlisted functions and done_tool are recorded only. | `tool_results: { lookup_order: { id: "{{args.id}}", status: shipped } }` |
 | `audio_format` | one of `pcm16`, `g711_ulaw`, `g711_alaw` |  | realtime audio mode: the agent's output audio; pcm16 (default) or G.711 at 8 kHz. | `audio_format: pcm16` |
 | `sample_rate` | integer |  | pipecat audio mode: the transport's sample rate in Hz; default 16000. | `sample_rate: 16000` |
@@ -108,6 +108,9 @@ tests:
 | `env` | map of string to string |  | mcp: environment variables for command (templates allowed). | `env: { LOG_LEVEL: warn, API_KEY: "{{secrets.MCP_KEY}}" }` |
 | `allow_tools` | list of string |  | mcp: offer only these of the server's tools to the model. | `allow_tools: [lookup_order, cancel_order]` |
 | `call_timeout` | [Duration](#duration) |  | mcp: how long one tool call may take; default 60s. | `call_timeout: 20s` |
+| `stream` | boolean |  | a2a: read the agent's turn from message/stream (server-sent events) instead of message/send; falls back to message/send when the card says the agent does not stream. | `stream: true` |
+| `skill` | string |  | a2a: a skill id or name the agent card must offer; the session fails to start otherwise. | `skill: order-status` |
+| `metadata` | object (any keys) |  | a2a: metadata sent with every message (a tenant or a locale). | `metadata: { tenant: acme }` |
 | `system` | string |  | model: the system prompt under test; {{vars.x}} and {{secrets.X}} render. | `system: "You are the Mochi Shoes support agent."` |
 | `system_file` | string |  | model: a file next to the suite holding the system prompt (instead of system). | `system_file: prompts/support.md` |
 | `tools` | list of [ToolDef](#tooldef) |  | model: the tools offered to the model and the result tamesu answers each call with. | `tools: [ { name: lookup_policy, description: The policy for a topic, result: { window_days: 30 } } ]` |
@@ -504,7 +507,7 @@ script:
 | `regex` | string |  | A regular expression the agent transcript matches. | `regex: "(?i)30 days"` |
 | `not_regex` | string |  | A regular expression no agent turn matches. | `not_regex: '\b\d{16}\b'` |
 | `similar_to` | [Similar](#similar) |  | Some agent turn means the same as this text (embedding similarity of at least min). | `similar_to: { text: "Returning after 40 days is not possible", min: 0.7 }` |
-| `json_path` | [JSONPathAssertion](#jsonpathassertion) |  | rest only. | `json_path: { path: $.status, equals: ok }` |
+| `json_path` | [JSONPathAssertion](#jsonpathassertion) |  | rest and a2a: a path in the turn's response (the task for a2a) that exists and with equals has that value. | `json_path: { path: $.status, equals: ok }` |
 | `status` | integer |  | rest only: the HTTP status of every turn. | `status: 200` |
 | `tool_called` | [ToolCall](#toolcall) |  | The agent called the tool (a name or an object with name / args / schema) | `tool_called: { name: lookup_policy, args: { topic: returns } }` |
 | `tool_not_called` | [ToolCall](#toolcall) |  | The agent never called the tool (a name or an object with name / args) | `tool_not_called: issue_refund` |

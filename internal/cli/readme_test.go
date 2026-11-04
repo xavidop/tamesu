@@ -40,7 +40,7 @@ var globalFlags = map[string]bool{"--config": true, "--verbose": true, "--var": 
 // shippedTargets lists the target types that have a runner. A README targets
 // row for any other type must say "planned". The targets modules extend this
 // list as they land.
-var shippedTargets = []string{"rest", "livekit", "sip", "browser", "realtime", "grpc", "pipecat", "model", "twilio", "mcp"}
+var shippedTargets = []string{"rest", "livekit", "sip", "browser", "realtime", "grpc", "pipecat", "model", "twilio", "mcp", "a2a"}
 
 // mdSection returns the body of the "## <name>" section of text.
 func mdSection(t *testing.T, file, text, name string) string {
@@ -244,7 +244,7 @@ func TestReadmeCLIBlockMatchesTheCommands(t *testing.T) {
 // runner say so.
 func TestReadmeTargetsTableMatchesConfig(t *testing.T) {
 	section := mdSection(t, "README.md", repoFile(t, "README.md"), "Targets")
-	row := regexp.MustCompile("(?m)^\\| `([a-z]+)` \\|(.*)$")
+	row := regexp.MustCompile("(?m)^\\| `([a-z0-9]+)` \\|(.*)$")
 	var listed []string
 	for _, m := range row.FindAllStringSubmatch(section, -1) {
 		listed = append(listed, m[1])

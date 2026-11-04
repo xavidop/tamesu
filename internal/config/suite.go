@@ -14,11 +14,12 @@ const (
 	TargetModel    = "model"
 	TargetTwilio   = "twilio"
 	TargetMCP      = "mcp"
+	TargetA2A      = "a2a"
 )
 
 // TargetTypes lists the target types a suite may declare, in documentation order.
 func TargetTypes() []string {
-	return []string{TargetBrowser, TargetREST, TargetLiveKit, TargetSIP, TargetRealtime, TargetGRPC, TargetPipecat, TargetModel, TargetTwilio, TargetMCP}
+	return []string{TargetBrowser, TargetREST, TargetLiveKit, TargetSIP, TargetRealtime, TargetGRPC, TargetPipecat, TargetModel, TargetTwilio, TargetMCP, TargetA2A}
 }
 
 // IsConversational reports whether a target type talks in turns (everything
@@ -56,8 +57,8 @@ type Suite struct {
 
 // Target is a system under test. Type selects which of the other fields apply.
 type Target struct {
-	Type string `yaml:"type" json:"type" jsonschema:"required,enum=browser,enum=rest,enum=livekit,enum=sip,enum=realtime,enum=grpc,enum=pipecat,enum=model,enum=twilio,enum=mcp,description=What the target is; it decides which other keys apply"`
-	URL  string `yaml:"url,omitempty" json:"url,omitempty" jsonschema:"description=The page (browser) or endpoint (rest / realtime / pipecat / twilio) or grpc://host:port (grpc) or LiveKit server (livekit)."`
+	Type string `yaml:"type" json:"type" jsonschema:"required,enum=browser,enum=rest,enum=livekit,enum=sip,enum=realtime,enum=grpc,enum=pipecat,enum=model,enum=twilio,enum=mcp,enum=a2a,description=What the target is; it decides which other keys apply"`
+	URL  string `yaml:"url,omitempty" json:"url,omitempty" jsonschema:"description=The page (browser) or endpoint (rest / realtime / pipecat / twilio / a2a) or grpc://host:port (grpc) or LiveKit server (livekit)."`
 	// Connect is how the target retries reaching the agent (every type but browser).
 	Connect *ConnectConfig `yaml:"connect,omitempty" json:"connect,omitempty" jsonschema:"description=How reaching the agent is retried (attempts / backoff / max_backoff)"`
 	// Handoff is how this agent signals that it handed the conversation to a person.
@@ -70,7 +71,7 @@ type Target struct {
 
 	// rest (headers also realtime)
 	Method    string            `yaml:"method,omitempty" json:"method,omitempty" jsonschema:"description=HTTP method; defaults to POST."`
-	Headers   map[string]string `yaml:"headers,omitempty" json:"headers,omitempty" jsonschema:"description=Request (rest) or handshake (realtime / pipecat / twilio) headers or call metadata (grpc); put credentials here as {{secrets.NAME}}."`
+	Headers   map[string]string `yaml:"headers,omitempty" json:"headers,omitempty" jsonschema:"description=Request (rest / a2a) or handshake (realtime / pipecat / twilio) headers or call metadata (grpc); put credentials here as {{secrets.NAME}}."`
 	Request   *RESTRequest      `yaml:"request,omitempty" json:"request,omitempty" jsonschema:"description=rest targets; how a user turn is sent"`
 	Response  *RESTResponse     `yaml:"response,omitempty" json:"response,omitempty" jsonschema:"description=rest targets; how the agent turn is read back (JSONPaths into the response)"`
 	Streaming string            `yaml:"streaming,omitempty" json:"streaming,omitempty" jsonschema:"enum=none,enum=sse,enum=websocket,description=rest targets; none (default) or sse or websocket"`
@@ -101,7 +102,7 @@ type Target struct {
 	SessionUpdate map[string]any `yaml:"session_update,omitempty" json:"session_update,omitempty" jsonschema:"description=realtime: merged into the session.update event (instructions / tools / voice / output modalities)."`
 	Protocol      string         `yaml:"protocol,omitempty" json:"protocol,omitempty" jsonschema:"enum=ga,enum=beta,description=realtime: the event dialect; ga (default) or beta (modalities and the OpenAI-Beta header)."`
 	DoneTool      string         `yaml:"done_tool,omitempty" json:"done_tool,omitempty" jsonschema:"description=realtime and model: a function call with this name ends the session; default end_session."`
-	TurnTimeout   Duration       `yaml:"turn_timeout,omitempty" json:"turn_timeout,omitempty" jsonschema:"description=realtime / grpc / pipecat: how long to wait for the end of a turn; default 60s."`
+	TurnTimeout   Duration       `yaml:"turn_timeout,omitempty" json:"turn_timeout,omitempty" jsonschema:"description=realtime / grpc / pipecat / a2a: how long to wait for the end of a turn; default 60s."`
 	ToolResults   map[string]any `yaml:"tool_results,omitempty" json:"tool_results,omitempty" jsonschema:"description=realtime and pipecat: answers to the agent's function calls by function name. The value (any JSON; string leaves may use {{args.<key>}}) goes back as the function's output and the response continues. Unlisted functions and done_tool are recorded only."`
 	AudioFormat   string         `yaml:"audio_format,omitempty" json:"audio_format,omitempty" jsonschema:"enum=pcm16,enum=g711_ulaw,enum=g711_alaw,description=realtime audio mode: the agent's output audio; pcm16 (default) or G.711 at 8 kHz."`
 
@@ -118,6 +119,11 @@ type Target struct {
 	Env         map[string]string `yaml:"env,omitempty" json:"env,omitempty" jsonschema:"description=mcp: environment variables for command (templates allowed)."`
 	AllowTools  []string          `yaml:"allow_tools,omitempty" json:"allow_tools,omitempty" jsonschema:"description=mcp: offer only these of the server's tools to the model."`
 	CallTimeout Duration          `yaml:"call_timeout,omitempty" json:"call_timeout,omitempty" jsonschema:"description=mcp: how long one tool call may take; default 60s."`
+
+	// a2a (an Agent2Agent agent; url, headers, turn_timeout and connect apply too)
+	Stream   bool           `yaml:"stream,omitempty" json:"stream,omitempty" jsonschema:"description=a2a: read the agent's turn from message/stream (server-sent events) instead of message/send; falls back to message/send when the card says the agent does not stream."`
+	Skill    string         `yaml:"skill,omitempty" json:"skill,omitempty" jsonschema:"description=a2a: a skill id or name the agent card must offer; the session fails to start otherwise."`
+	Metadata map[string]any `yaml:"metadata,omitempty" json:"metadata,omitempty" jsonschema:"description=a2a: metadata sent with every message (a tenant or a locale)."`
 
 	// model (a system prompt and tools tested directly against a model; model and done_tool apply too)
 	System        string    `yaml:"system,omitempty" json:"system,omitempty" jsonschema:"description=model: the system prompt under test; {{vars.x}} and {{secrets.X}} render."`
@@ -484,7 +490,7 @@ type Assertion struct {
 	Regex         *string            `yaml:"regex,omitempty" json:"regex,omitempty" jsonschema:"description=A regular expression the agent transcript matches."`
 	NotRegex      *string            `yaml:"not_regex,omitempty" json:"not_regex,omitempty" jsonschema:"description=A regular expression no agent turn matches."`
 	SimilarTo     *Similar           `yaml:"similar_to,omitempty" json:"similar_to,omitempty" jsonschema:"description=Some agent turn means the same as this text (embedding similarity of at least min)."`
-	JSONPath      *JSONPathAssertion `yaml:"json_path,omitempty" json:"json_path,omitempty" jsonschema:"description=rest only."`
+	JSONPath      *JSONPathAssertion `yaml:"json_path,omitempty" json:"json_path,omitempty" jsonschema:"description=rest and a2a: a path in the turn's response (the task for a2a) that exists and with equals has that value."`
 	Status        *int               `yaml:"status,omitempty" json:"status,omitempty" jsonschema:"description=rest only: the HTTP status of every turn."`
 	ToolCalled    *ToolCall          `yaml:"tool_called,omitempty" json:"tool_called,omitempty" jsonschema:"description=The agent called the tool (a name or an object with name / args / schema)"`
 	ToolNotCalled *ToolCall          `yaml:"tool_not_called,omitempty" json:"tool_not_called,omitempty" jsonschema:"description=The agent never called the tool (a name or an object with name / args)"`

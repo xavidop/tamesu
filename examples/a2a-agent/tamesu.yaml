@@ -1,0 +1,16 @@
+# Project configuration for a real run: a Gemini model plays the customer, a
+# Claude model judges. GEMINI_API_KEY and ANTHROPIC_API_KEY come from the
+# environment.
+version: 1
+suites: ["suite.yaml"]
+genkit:
+  plugins: [googlegenai, anthropic]
+models:
+  default: googleai/gemini-2.5-flash
+  simulator: googleai/gemini-2.5-flash
+  judge: anthropic/claude-sonnet-4-6
+secrets:
+  GEMINI_API_KEY: env:GEMINI_API_KEY
+  ANTHROPIC_API_KEY: env:ANTHROPIC_API_KEY
+defaults: { timeout: 2m }
+budgets: { max_cost_usd: 2 }

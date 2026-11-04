@@ -73,6 +73,9 @@ This is a multi-module repository tied together by a `go.work` file:
   tool calls answered from the suite.
 - `targets/mcp`: the MCP server target, its own module on the `mcp-go` client and the model
   target: the server's tools are offered to a model and every call runs on the server.
+- `targets/a2a`: the Agent2Agent target, its own module on the standard library: the agent card,
+  JSON-RPC `message/send` and `message/stream` over server-sent events, tasks followed through
+  input-required to their final state, artifacts read as the agent's words.
 - `targets/grpc`: the target for agents behind the turn API of `proto/tamesu/turn/v1`, its own
   module on grpc-go; `turnv1` is the generated code (`make proto` regenerates it).
 - `targets/realtime`: the target for agents speaking the OpenAI Realtime protocol (the API itself
@@ -94,6 +97,9 @@ This is a multi-module repository tied together by a `go.work` file:
   against `livekit-server --dev` when available.
 - `examples/mcp-server`: a tiny MCP server (policies and orders over stdio or streamable HTTP)
   with the suite that tests it through the `mcp` target; `make integration` builds and runs it.
+- `examples/a2a-agent`: a tiny A2A agent (the shop's order and returns skills over JSON-RPC, with
+  streaming) with the suite that tests it through the `a2a` target; `make integration` builds and
+  runs it.
 - `examples/webapp`: Mochi Shoes, a tiny Go web shop (login, search, cart) the browser example
   tests; `examples/browser-shop` is that suite, run headless by `make integration` with the fake
   browser agent's scripted actions.

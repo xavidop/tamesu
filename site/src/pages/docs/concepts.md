@@ -15,7 +15,7 @@ then shows how a conversational test flows and how a result is graded.
 | Concept | Description |
 |---|---|
 | **Suite** | A YAML file (or Go package) containing targets, defaults and tests. |
-| **Target** | The system under test: `browser`, `rest`, `grpc`, `livekit`, `sip`, `realtime` or `pipecat`. |
+| **Target** | The system under test: `browser`, `rest`, `grpc`, `livekit`, `sip`, `twilio`, `realtime`, `pipecat`, `model`, `mcp` or `a2a`. |
 | **Test** | One scenario run against one target. |
 | **Step** | For browser tests: a natural-language `goal`, a deterministic `action`, or an `expect`. |
 | **Persona** | The simulated user for agent tests: identity, goal, style, voice, behaviours (interrupts, silence, noise). |
@@ -63,6 +63,11 @@ apply; `tamesu validate` warns when a key belongs to another type.
 - **`mcp`**: an MCP server, `command` (with `args` and `env`) over stdio or `url` (with
   `headers`) over streamable HTTP; its tools are offered to a driving `model` with a short
   `system`, narrowed by `allow_tools`, each call bounded by `call_timeout`.
+- **`a2a`**: an agent speaking the Agent2Agent protocol at `url` (its JSON-RPC endpoint; the
+  agent card is read from the URL's origin), with `headers`, `stream: true` to read the turn from
+  `message/stream`, a `skill` the card must offer and `metadata` sent on every message. Each user
+  turn is one message; a task that asks for input is continued, a completed one is followed by
+  a new task in the same context, and a failed, canceled or rejected one ends the session.
 
 Any conversational target may also declare `connect` (how reaching the agent is retried) and
 `handoff` (how the agent signals that a person took over). The full key list is in
@@ -201,7 +206,7 @@ Every assertion is one key under `assert:`; a test may have any number, and `on_
 | `contains` / `not_contains` | all | on the full agent transcript |
 | `regex` | all | `regex: "order #\\d{6}"` |
 | `not_regex` | all | `not_regex: "[\\w.]+@[\\w.]+"` |
-| `json_path` | rest | `{ path: $.status, equals: ok }` |
+| `json_path` | rest, a2a | `{ path: $.status, equals: ok }` |
 | `status` | rest | HTTP status of every turn |
 | `tool_called` / `tool_not_called` | rest, grpc, livekit, realtime, pipecat | `tool_called: { name: reschedule_booking, args: { day: saturday } }` |
 | `tool_sequence` | rest, grpc, livekit, realtime, pipecat | `tool_sequence: { calls: [lookup_order, refund] }` |
