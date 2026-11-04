@@ -2,6 +2,20 @@
 
 All notable changes to tamesu are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/). Each new release is added at the top, with notes generated from the commit messages.
 
+# [1.11.0](https://github.com/xavidop/tamesu/compare/v1.10.0...v1.11.0) (2026-11-04)
+
+
+### Features
+
+* **a2a:** a target for agents speaking the Agent2Agent protocol ([e9c18d6](https://github.com/xavidop/tamesu/commit/e9c18d6e4197563a5fe2efc6291c9cb7a72dc750))
+
+# [1.10.0](https://github.com/xavidop/tamesu/compare/v1.9.0...v1.10.0) (2026-11-04)
+
+
+### Features
+
+* **rest:** read replies that arrive somewhere else ([264760d](https://github.com/xavidop/tamesu/commit/264760d8a2eb8510b83cc229a999784ddd2624a8))
+
 # [1.9.0](https://github.com/xavidop/tamesu/compare/v1.8.0...v1.9.0) (2026-11-04)
 
 

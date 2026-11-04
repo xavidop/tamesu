@@ -7,7 +7,7 @@ replace github.com/xavidop/tamesu => ../..
 require (
 	github.com/bmatcuk/doublestar/v4 v4.10.4
 	github.com/chromedp/cdproto v0.159.0
-	github.com/chromedp/chromedp v0.21.0
+	github.com/chromedp/chromedp v0.21.1
 	github.com/stretchr/testify v1.12.1
 	github.com/xavidop/tamesu v0.0.0-00010101000000-000000000000
 )
