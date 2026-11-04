@@ -145,7 +145,7 @@ runs the same tests from `go test`.
 | `a2a` | an agent speaking the Agent2Agent protocol: its card, `message/send` or `message/stream`, tasks through input-required to completed | text | [`examples/a2a-agent`](examples/a2a-agent/) |
 | `vapi` | a Vapi assistant or squad over the `vapi.websocket` transport: tamesu creates the call and speaks PCM to it, no phone number needed | audio | any assistant id |
 | `retell` | a Retell agent through a web call: tamesu creates the call and joins its LiveKit room with the token Retell issues | audio | any agent id |
-| `voiceflow` | an agent built on Voiceflow, through the Conversations API: launch, text turns, traces (text, speak, buttons, cards, tool calls, handoff, end) | text | any project |
+| `voiceflow` | an agent built on Voiceflow, through the Conversations API over REST or its socket.io runtime: launch, text turns, traces (text, speak, buttons, cards, tool calls, handoff, end) | text | any project |
 
 Audio tests speak through TTS, hear through VAD and STT, interrupt, add background noise and
 degrade the line, and measure time to first audio, interruption stop time, talk-over and silence

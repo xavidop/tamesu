@@ -75,12 +75,12 @@ apply; `tamesu validate` warns when a key belongs to another type.
 - **`retell`**: a Retell agent through a web call: `api_key`, `agent_id` (and `agent_version`),
   `variables` and `metadata`; tamesu joins the call's LiveKit room (`livekit_url`) with the token
   Retell issues. Audio only, with `join_timeout`, `idle` and `turn_timeout`.
-- **`voiceflow`**: an agent built on Voiceflow, through the Conversations API: `api_key` (a
-  personal or service token), `project_id`, `environment`, `version: draft|published`,
-  `variables` set before the launch, a `user_id` template and `reset`; or `version_id` with a
-  Dialog API key for the legacy Dialog Manager API. The launch's greeting is read with the first
-  turn, text and speak traces are the agent's words, buttons and cards are summarised, an `end`
-  trace ends the session.
+- **`voiceflow`**: an agent built on Voiceflow, through the Conversations API: `api_key`,
+  `project_id`, `environment`, and `transport: rest` (one request per turn, with
+  `version: draft|published`, `variables` set before the launch and `reset`) or
+  `transport: websocket` (the socket.io runtime, traces pushed as they are produced). The
+  launch's greeting is read with the first turn, text and speak traces are the agent's words,
+  buttons and cards are summarised, an `end` trace or the end of the session ends the test.
 
 Any conversational target may also declare `connect` (how reaching the agent is retried) and
 `handoff` (how the agent signals that a person took over). The full key list is in
