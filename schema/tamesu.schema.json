@@ -631,6 +631,30 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "HandshakeStep": {
+      "properties": {
+        "send": {
+          "description": "The message template to send (socket.io: a mapping with event and data)."
+        },
+        "wait": {
+          "type": "string",
+          "description": "A JSONPath that must be truthy on a received message before the next step; a filter such as $[?(@.event=='client.started')].event selects the message itself."
+        },
+        "capture": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "JSONPaths into the awaited message by name; {{session.NAME}} renders each value."
+        },
+        "timeout": {
+          "$ref": "#/$defs/Duration",
+          "description": "How long to wait for the message; default the turn timeout."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "Hook": {
       "properties": {
         "command": {
@@ -1112,6 +1136,13 @@
           },
           "type": "object",
           "description": "With response.poll: JSONPaths into the reply to the sent request by name; the values render as {{sent.NAME}} in the poll of the same turn (a message timestamp to poll after)."
+        },
+        "handshake": {
+          "items": {
+            "$ref": "#/$defs/HandshakeStep"
+          },
+          "type": "array",
+          "description": "streaming websocket: messages exchanged once after connecting (after open); each step sends a message and with wait reads messages until one satisfies the JSONPath and captures values from it as {{session.NAME}}."
         }
       },
       "additionalProperties": false,
@@ -1138,6 +1169,10 @@
         "idle": {
           "$ref": "#/$defs/Duration",
           "description": "streaming websocket: silence that ends a turn when no message marks it; default 2s."
+        },
+        "join": {
+          "type": "string",
+          "description": "Plain JSON: the separator between several matches of text (a newline between the messages of a reply); default none."
         },
         "poll": {
           "$ref": "#/$defs/RESTPoll",
@@ -1479,7 +1514,7 @@
         },
         "session": {
           "$ref": "#/$defs/RESTSession",
-          "description": "rest and voice targets; the session id template and the request that opens the session"
+          "description": "The session id template (rest / grpc) and session.open: a request made once per run before the target starts (create a conversation / mint a token) whose captures render as {{session.NAME}} in the target's configuration (every target type)."
         },
         "api_key": {
           "type": "string",
@@ -1488,6 +1523,14 @@
         "api_secret": {
           "type": "string",
           "description": "Use {{secrets.NAME}}."
+        },
+        "token": {
+          "type": "string",
+          "description": "livekit: a ready-made access token instead of api_key and api_secret (a hosted platform's web call; often a {{session.NAME}} capture of session.open); the identity is read from it."
+        },
+        "identity": {
+          "type": "string",
+          "description": "livekit: the simulated caller's participant identity; default tamesu-sim-\u003cuuid\u003e or the token's."
         },
         "room": {
           "type": "string",
@@ -1570,9 +1613,10 @@
           "type": "string",
           "enum": [
             "ga",
-            "beta"
+            "beta",
+            "socketio"
           ],
-          "description": "realtime: the event dialect; ga (default) or beta (modalities and the OpenAI-Beta header)."
+          "description": "realtime: the event dialect ga (default) or beta (modalities and the OpenAI-Beta header). rest with streaming websocket: socketio for a socket.io server (messages are {event / data} and pings are answered)."
         },
         "done_tool": {
           "type": "string",

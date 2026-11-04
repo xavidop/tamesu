@@ -23,7 +23,7 @@ func newLiveKitTarget(_ context.Context, spec runner.TargetSpec) (target.Target,
 	t := spec.Config
 	cfg := livekit.Config{
 		Connect: connectPolicy(t),
-		URL:     t.URL, APIKey: t.APIKey, APISecret: t.APISecret, Room: t.Room,
+		URL:     t.URL, APIKey: t.APIKey, APISecret: t.APISecret, Token: t.Token, Identity: t.Identity, Room: t.Room,
 		AgentIdentityPrefix: t.AgentIdentityPrefix, Mode: spec.Mode, DataTopic: t.DataTopic,
 		JoinTimeout: t.JoinTimeout.Std(),
 	}

@@ -26,7 +26,10 @@ https://xavidop.github.io/tamesu/docs/
   `auth.storage_state`, `allowed_domains`; goals run through the browser agent on an
   accessibility tree with numbered refs, secrets are typed only inside the browser), `rest` (URL, method,
   headers, how a user turn is sent with `request.body` and how the agent turn is read back
-  with JSONPaths in `response.text`, `response.tool_calls`, `response.done`; when the reply
+  with JSONPaths in `response.text`, `response.tool_calls`, `response.done`, `response.join`;
+  `protocol: socketio` with `streaming: websocket` for socket.io servers (messages are
+  `{event, data}`) and `request.handshake` steps with `send` / `wait` / `capture`; a JSONPath
+  that starts with a filter selects the message itself; when the reply
   arrives somewhere else, `session.open` creates the conversation with captures as
   `{{session.NAME}}`, `response.poll` polls a second endpoint with `cursor`, `interval`, `idle`
   and `request.capture` as `{{sent.NAME}}`, and `response.listen` serves an API at
@@ -53,6 +56,10 @@ https://xavidop.github.io/tamesu/docs/
   `transcript_source`; audio only through the speech models; the voice metrics plus events
   `session_open`, `connected`, `greeting`, `ended`, `agent_interrupted`, `tool_call`,
   `close_message`).
+- Any target may declare `session.open` (`url`, `method`, `headers`, `body`, `capture`): one
+  request per run before the target starts, whose captures render as `{{session.NAME}}` in the
+  target's configuration (a hosted platform's create-call or token endpoint); a `livekit` target
+  then joins with `token: "{{session.token}}"` (identity read from the token, or `identity`).
 - A **test** names a target. Browser tests have `steps` (`goal:` agentic, `expect:` agentic
   assertion, `action:` one of `navigate click fill press wait screenshot eval_js assert_url
   assert_text mock a11y visual`; `browser.mocks` on the target answers requests, `visual`

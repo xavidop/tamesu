@@ -1,0 +1,23 @@
+suite: handshake-bad
+targets:
+  sio:
+    type: rest
+    url: https://runtime.example.com/socket
+    protocol: socketio
+    request:
+      handshake:
+        - { capture: { key: $.data.sessionKey } }
+    response: { text: $.text }
+  room:
+    type: livekit
+    url: wss://lk.example.com
+    token: "{{session.token}}"
+    api_key: k
+    session: { id: "custom", open: { method: POST } }
+tests:
+  - name: t
+    target: sio
+    persona: { name: A }
+    scenario: { goal: say hi }
+    assert:
+      - contains: hi

@@ -1037,3 +1037,98 @@ The prompt in `Settings` is the agent under test; keep it in a file and `{{vars}
 the suite grows. A protocol that wraps audio in JSON instead of binary frames sets
 `audio: { frames: json, send: { ... "{{audio}}" }, receive: "$[*].path.to.base64" }` and is
 otherwise the same.
+
+
+## A Voiceflow agent over its Conversations API
+
+Voiceflow's REST API runs one turn per request: `PUT /v1/stable/conversation/{userID}` with the
+action, answering the agent's traces. `session.open` launches the conversation, `method: PUT`
+sends each text action, the JSONPath over the traces joins the agent's messages, and the `end`
+trace closes the session. Variables and a state reset are `before_each` HTTP hooks.
+
+```yaml
+suite: voiceflow-agent
+tags: [voiceflow]
+vars: { project_id: "${VF_PROJECT_ID:-proj_000}", base: https://realtime-api.voiceflow.com/v1/stable }
+secrets: { VF_TOKEN: env:VF_TOKEN }
+hooks:
+  before_each:
+    - http:
+        url: "{{vars.base}}/conversation-state/{{session}}/variables?projectID={{vars.project_id}}&environmentAlias=main&version=published"
+        method: PATCH
+        headers: { Authorization: "Bearer {{secrets.VF_TOKEN}}" }
+        body: { variables: { customer_name: Marta } }
+targets:
+  agent:
+    type: rest
+    url: "{{vars.base}}/conversation/{{session}}?projectID={{vars.project_id}}&environmentAlias=main"
+    method: PUT
+    headers: { Authorization: "Bearer {{secrets.VF_TOKEN}}" }
+    session:
+      open:                                         # launch the agent; its opening words are traces too
+        url: "{{vars.base}}/conversation/{{session}}?projectID={{vars.project_id}}&environmentAlias=main"
+        method: PUT
+        headers: { Authorization: "Bearer {{secrets.VF_TOKEN}}" }
+        body: { action: { type: launch, payload: {} }, version: published }
+    request:
+      body: { action: { type: text, payload: "{{message}}" }, version: published }
+    response:
+      text: "$.traces[?(@.type=='text' || @.type=='speak')].payload.message"
+      join: "\n"
+      done: "$.traces[?(@.type=='end')].type"
+tests:
+  - name: return after 40 days
+    target: agent
+    persona: { name: Marta, style: "polite, slightly confused" }
+    scenario: { goal: "Find out if the shoes bought 40 days ago can still be returned", max_turns: 6 }
+    assert:
+      - judge: "The agent states the 30-day window and does not promise an exception"
+      - json_path: { path: "$.traces[?(@.type=='choice')]" }       # the first reply offered buttons
+        on_turn: 1
+```
+
+`version: draft` runs what you are editing on a project that was never published. The same
+agent through Voiceflow's live **WebSocket runtime**, a socket.io server, is the handshake
+recipe of the [REST target](/docs/targets/rest/#a-socketio-server-and-a-handshake) with the
+project's API key as `authorization`, `action.trace` events as the text and `session.ended` as
+`done`.
+
+## A Retell agent through a web call
+
+Retell's web calls run in a LiveKit room: `create-web-call` answers an access token for it.
+`session.open` creates the call and the LiveKit target joins Retell's cloud with that token,
+as the browser SDK does; Retell's `server` participant is the agent.
+
+```yaml
+suite: retell-agent
+tags: [voice, retell]
+vars: { agent_id: "${RETELL_AGENT_ID:-agent_000}" }
+secrets: { RETELL_API_KEY: env:RETELL_API_KEY }
+targets:
+  agent:
+    type: livekit
+    url: wss://retell-ai-4ihahnq7.livekit.cloud          # the LiveKit cloud Retell's web calls run on
+    session:
+      open:
+        url: https://api.retellai.com/v2/create-web-call
+        headers: { Authorization: "Bearer {{secrets.RETELL_API_KEY}}" }
+        body: { agent_id: "{{vars.agent_id}}", retell_llm_dynamic_variables: { customer_name: Marta } }
+        capture: { token: $.access_token, call_id: $.call_id }
+    token: "{{session.token}}"
+    room: "{{session.call_id}}"
+    agent_identity_prefix: server
+    mode: audio
+    join_timeout: 20s
+tests:
+  - name: order status
+    target: agent
+    persona: { name: Marta, style: direct, language: en, voice: en-US-female }
+    scenario: { goal: "Ask where order ORD-1001 is", max_turns: 4 }
+    assert:
+      - judge: "The agent gives a delivery estimate or says how to get one"
+      - metric: { name: time_to_first_audio_ms_p95, lt: 3000 }
+```
+
+Retell's newer `v3` endpoint issues tokens for its own WebRTC gateway rather than LiveKit; the
+`v2` endpoint above is the one that works with the LiveKit target. The same agent on a phone
+number is dialled with the [SIP target](/docs/targets/sip/).

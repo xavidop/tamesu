@@ -76,9 +76,11 @@ tests:
 | `request` | [RESTRequest](#restrequest) |  | rest targets; how a user turn is sent | `request: { body: { session_id: "{{session}}", message: "{{message}}" } }` |
 | `response` | [RESTResponse](#restresponse) |  | rest targets; how the agent turn is read back (JSONPaths into the response) | `response: { text: $.reply, tool_calls: "$.tool_calls[*]", done: $.end_session }` |
 | `streaming` | one of `none`, `sse`, `websocket` |  | rest targets; none (default) or sse or websocket | `streaming: sse` |
-| `session` | [RESTSession](#restsession) |  | rest and voice targets; the session id template and the request that opens the session | `session: { id: "{{uuid}}" }` |
+| `session` | [RESTSession](#restsession) |  | The session id template (rest / grpc) and session.open: a request made once per run before the target starts (create a conversation / mint a token) whose captures render as {{session.NAME}} in the target's configuration (every target type). | `session: { id: "{{uuid}}" }` |
 | `api_key` | string |  | Use {{secrets.NAME}}. | `api_key: "{{secrets.LIVEKIT_API_KEY}}"` |
 | `api_secret` | string |  | Use {{secrets.NAME}}. | `api_secret: "{{secrets.LIVEKIT_API_SECRET}}"` |
+| `token` | string |  | livekit: a ready-made access token instead of api_key and api_secret (a hosted platform's web call; often a {{session.NAME}} capture of session.open); the identity is read from it. | `token: "{{session.access_token}}"` |
+| `identity` | string |  | livekit: the simulated caller's participant identity; default tamesu-sim-<uuid> or the token's. | `identity: "web-user-9"` |
 | `room` | string |  | Room name template; defaults to tamesu-{{uuid}}. | `room: "tamesu-{{uuid}}"` |
 | `dispatch` | [Dispatch](#dispatch) |  | livekit targets; an explicit agent dispatch for the room | `dispatch: { agent_name: support-agent }` |
 | `agent_identity_prefix` | string |  | How to recognise the agent participant; defaults to kind=agent. | `agent_identity_prefix: agent-` |
@@ -95,7 +97,7 @@ tests:
 | `trigger` | [Trigger](#trigger) |  | inbound sip targets; the command or HTTP request that makes the agent call sip.inbound_number | `trigger: { http: { url: "https://agent.example/call", method: POST, body: { to: "{{env.INBOUND}}" } } }` |
 | `model` | string |  | realtime: added as ?model= to the url (such as gpt-realtime). model: the Genkit model reference the prompt runs on (default models.default). | `model: googleai/gemini-2.5-flash` |
 | `session_update` | object (any keys) |  | realtime: merged into the session.update event (instructions / tools / voice / output modalities). | `session_update: { instructions: "You are the support agent", voice: alloy }` |
-| `protocol` | one of `ga`, `beta` |  | realtime: the event dialect; ga (default) or beta (modalities and the OpenAI-Beta header). | `protocol: ga` |
+| `protocol` | one of `ga`, `beta`, `socketio` |  | realtime: the event dialect ga (default) or beta (modalities and the OpenAI-Beta header). rest with streaming websocket: socketio for a socket.io server (messages are {event / data} and pings are answered). | `protocol: ga` |
 | `done_tool` | string |  | realtime and model: a function call with this name ends the session; default end_session. | `done_tool: end_session` |
 | `turn_timeout` | [Duration](#duration) |  | realtime / grpc / pipecat / a2a / voice: how long to wait for the end of a turn; default 60s. | `turn_timeout: 60s` |
 | `tool_results` | object (any keys) |  | realtime and pipecat: answers to the agent's function calls by function name. The value (any JSON; string leaves may use {{args.<key>}}) goes back as the function's output and the response continues. Unlisted functions and done_tool are recorded only. | `tool_results: { lookup_order: { id: "{{args.id}}", status: shipped } }` |
@@ -229,6 +231,7 @@ auth: { storage_state: auth/customer.json }
 | `body` | any |  | Request body template; {{message}} is the user turn and {{session}} the session id. | `body: { session_id: "{{session}}", message: "{{message}}" }` |
 | `open` | any |  | streaming websocket: a message template sent once after connecting. | `open: { type: open, session_id: "{{session}}" }` |
 | `capture` | map of string to string |  | With response.poll: JSONPaths into the reply to the sent request by name; the values render as {{sent.NAME}} in the poll of the same turn (a message timestamp to poll after). | `capture: { ts: $.ts }` |
+| `handshake` | list of [HandshakeStep](#handshakestep) |  | streaming websocket: messages exchanged once after connecting (after open); each step sends a message and with wait reads messages until one satisfies the JSONPath and captures values from it as {{session.NAME}}. | `handshake: [{ send: { event: client.start, data: { userID: "{{session}}", projectID: "{{vars.project_id}}", authorization: "{{secrets.VF_KEY}}" } }, wait: "$[?(@.event=='client.started')].event" }]` |
 
 Example:
 
@@ -247,6 +250,7 @@ request:
 | `done` | string |  | JSONPath of a boolean that ends the session. | `done: $.end_session` |
 | `turn_done` | string |  | streaming websocket: JSONPath of a boolean that ends the turn; otherwise the turn ends after idle. | `turn_done: $.done` |
 | `idle` | [Duration](#duration) |  | streaming websocket: silence that ends a turn when no message marks it; default 2s. | `idle: 2s` |
+| `join` | string |  | Plain JSON: the separator between several matches of text (a newline between the messages of a reply); default none. | `join: "\n"` |
 | `poll` | [RESTPoll](#restpoll) |  | The agent answers somewhere else than the request's response: poll this endpoint for the reply after each turn (a chat channel's history). text / tool_calls / done then read the poll replies. | `poll: { url: "{{vars.api}}/conversations/{{session.id}}/activities?watermark={{cursor}}", cursor: $.watermark }` |
 | `listen` | [RESTListen](#restlisten) |  | The agent answers by calling an API: serve that API locally ({{listen.url}}) and read the reply from the requests the agent makes to it (a bot that answers through its platform's send endpoint). text / tool_calls / done then read those requests. | `listen: { addr: "127.0.0.1:8089", path: "POST /bot*/sendMessage", session: $.chat_id }` |
 
@@ -941,6 +945,15 @@ Example:
 ```yaml
 handoff: { tool: transfer_to_human, to: department, summary: summary }
 ```
+
+## HandshakeStep
+
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `send` | any |  | The message template to send (socket.io: a mapping with event and data). | `send: { event: session.create, data: {} }` |
+| `wait` | string |  | A JSONPath that must be truthy on a received message before the next step; a filter such as $[?(@.event=='client.started')].event selects the message itself. | `wait: "$[?(@.event=='session.created')].event"` |
+| `capture` | map of string to string |  | JSONPaths into the awaited message by name; {{session.NAME}} renders each value. | `capture: { session_key: "$[?(@.event=='session.created')].data.sessionKey" }` |
+| `timeout` | [Duration](#duration) |  | How long to wait for the message; default the turn timeout. | `timeout: 10s` |
 
 ## ModelFallback
 
