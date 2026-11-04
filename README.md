@@ -33,11 +33,11 @@ OpenAI Realtime API and a web checkout.
   <img src="site/public/demo.gif" alt="tamesu init, validate, list and doctor in a terminal" width="900" />
 </p>
 
-- **Thirteen targets, one model.** `browser`, `rest`, `grpc`, `livekit`, `sip`, `twilio`,
+- **Fourteen targets, one model.** `browser`, `rest`, `grpc`, `livekit`, `sip`, `twilio`,
   `realtime`, `pipecat`, `model` (a prompt with no server yet), `mcp` (an MCP server's tools
   driven by a model), `a2a` (an agent speaking the Agent2Agent protocol), `vapi` and `retell`
-  (hosted voice agents, called through their APIs) share the schema, the assertions, the metrics
-  and the reports.
+  (hosted voice agents, called through their APIs) and `voiceflow` (an agent on Voiceflow's
+  Conversations API) share the schema, the assertions, the metrics and the reports.
 - **Judges you can trust.** Rubrics with structured output, versioned prompts recorded in every
   result, replayable verdicts, and `tamesu judge calibrate` to measure a judge against
   transcripts people have already marked.
@@ -145,6 +145,7 @@ runs the same tests from `go test`.
 | `a2a` | an agent speaking the Agent2Agent protocol: its card, `message/send` or `message/stream`, tasks through input-required to completed | text | [`examples/a2a-agent`](examples/a2a-agent/) |
 | `vapi` | a Vapi assistant or squad over the `vapi.websocket` transport: tamesu creates the call and speaks PCM to it, no phone number needed | audio | any assistant id |
 | `retell` | a Retell agent through a web call: tamesu creates the call and joins its LiveKit room with the token Retell issues | audio | any agent id |
+| `voiceflow` | an agent built on Voiceflow, through the Conversations API: launch, text turns, traces (text, speak, buttons, cards, tool calls, handoff, end) | text | any project |
 
 Audio tests speak through TTS, hear through VAD and STT, interrupt, add background noise and
 degrade the line, and measure time to first audio, interruption stop time, talk-over and silence

@@ -89,6 +89,12 @@ updates:
     schedule: { interval: weekly }
     labels: [dependencies, go, target]
 
+  # Voiceflow target (own go.mod; standard library plus the root module)
+  - package-ecosystem: gomod
+    directory: "/targets/voiceflow"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, target]
+
   # gRPC target (own go.mod; grpc-go and protobuf)
   - package-ecosystem: gomod
     directory: "/targets/grpc"

@@ -50,14 +50,15 @@ var (
 var targetFieldTypes = map[string][]string{
 	"browser": {TargetBrowser}, "auth": {TargetBrowser}, "allowed_domains": {TargetBrowser},
 	"method": {TargetREST}, "headers": {TargetREST, TargetRealtime, TargetGRPC, TargetPipecat, TargetTwilio, TargetMCP, TargetA2A},
-	"api_key": {TargetLiveKit, TargetVapi, TargetRetell}, "assistant_id": {TargetVapi}, "assistant": {TargetVapi}, "assistant_overrides": {TargetVapi}, "squad_id": {TargetVapi}, "variables": {TargetVapi, TargetRetell}, "base_url": {TargetVapi, TargetRetell},
+	"api_key":    {TargetLiveKit, TargetVapi, TargetRetell, TargetVoiceflow},
+	"project_id": {TargetVoiceflow}, "environment": {TargetVoiceflow}, "version": {TargetVoiceflow}, "version_id": {TargetVoiceflow}, "user_id": {TargetVoiceflow}, "reset": {TargetVoiceflow}, "assistant_id": {TargetVapi}, "assistant": {TargetVapi}, "assistant_overrides": {TargetVapi}, "squad_id": {TargetVapi}, "variables": {TargetVapi, TargetRetell, TargetVoiceflow}, "base_url": {TargetVapi, TargetRetell, TargetVoiceflow},
 	"agent_id": {TargetRetell}, "agent_version": {TargetRetell}, "livekit_url": {TargetRetell}, "request": {TargetREST}, "response": {TargetREST}, "streaming": {TargetREST}, "session": {TargetREST, TargetGRPC},
 	"api_secret": {TargetLiveKit}, "room": {TargetLiveKit}, "dispatch": {TargetLiveKit},
 	"agent_identity_prefix": {TargetLiveKit}, "mode": {TargetLiveKit, TargetRealtime, TargetPipecat}, "data_topic": {TargetLiveKit}, "join_timeout": {TargetLiveKit, TargetRetell},
 	"transcript_source": {TargetLiveKit, TargetVapi, TargetRetell},
 	"direction":         {TargetSIP}, "to": {TargetSIP, TargetTwilio}, "from": {TargetSIP, TargetTwilio}, "trunk_id": {TargetSIP}, "ring_timeout": {TargetSIP},
 	"max_call_duration": {TargetSIP}, "trigger": {TargetSIP},
-	"model": {TargetRealtime, TargetModel, TargetMCP}, "session_update": {TargetRealtime}, "protocol": {TargetRealtime}, "done_tool": {TargetRealtime, TargetModel, TargetMCP}, "turn_timeout": {TargetRealtime, TargetGRPC, TargetPipecat, TargetTwilio, TargetA2A, TargetVapi, TargetRetell},
+	"model": {TargetRealtime, TargetModel, TargetMCP}, "session_update": {TargetRealtime}, "protocol": {TargetRealtime}, "done_tool": {TargetRealtime, TargetModel, TargetMCP}, "turn_timeout": {TargetRealtime, TargetGRPC, TargetPipecat, TargetTwilio, TargetA2A, TargetVapi, TargetRetell, TargetVoiceflow},
 	"tool_results": {TargetRealtime, TargetPipecat}, "audio_format": {TargetRealtime},
 	"sample_rate": {TargetPipecat, TargetVapi}, "idle": {TargetPipecat, TargetTwilio, TargetVapi, TargetRetell}, "parameters": {TargetTwilio},
 	"system": {TargetModel, TargetMCP}, "system_file": {TargetModel, TargetMCP}, "tools": {TargetModel}, "temperature": {TargetModel, TargetMCP}, "max_tokens": {TargetModel, TargetMCP}, "max_tool_rounds": {TargetModel, TargetMCP}, "fallback": {TargetModel, TargetMCP},
@@ -389,6 +390,19 @@ func (v *validator) target(name string, t Target) {
 		}
 		if t.TranscriptSource != "" && !slices.Contains(TranscriptSources, t.TranscriptSource) {
 			v.errorf(with(tp, "transcript_source"), "transcript_source must be one of %s", strings.Join(TranscriptSources, ", "))
+		}
+	case TargetVoiceflow:
+		if t.APIKey == "" {
+			v.errorf(tp, "voiceflow target needs api_key (a personal or service token, or a Dialog API key for the legacy API)")
+		}
+		if t.ProjectID == "" && t.VersionID == "" {
+			v.errorf(tp, "voiceflow target needs project_id (REST API) or version_id (legacy Dialog Manager API)")
+		}
+		if t.Version != "" && t.Version != "draft" && t.Version != "published" {
+			v.errorf(with(tp, "version"), "version must be draft or published")
+		}
+		if t.VersionID != "" && t.ProjectID != "" {
+			v.warnf(with(tp, "version_id"), "version_id applies to the legacy Dialog Manager API; with project_id the REST API is used and version_id is ignored")
 		}
 	case TargetA2A:
 		if t.URL == "" {
@@ -738,8 +752,8 @@ func (v *validator) assertion(ap []string, a Assertion, ttype, mode string) {
 			v.errorf(kp, "unknown pack %q (have %s)", *a.Pack, strings.Join(PackNames(v.s), ", "))
 		}
 	case "json_path":
-		if ttype != "" && ttype != TargetREST && ttype != TargetA2A {
-			v.errorf(kp, "json_path applies to rest and a2a targets only; this target is %s", ttype)
+		if ttype != "" && ttype != TargetREST && ttype != TargetA2A && ttype != TargetVoiceflow {
+			v.errorf(kp, "json_path applies to rest, a2a and voiceflow targets only; this target is %s", ttype)
 		}
 		if a.JSONPath.Path == "" {
 			v.errorf(kp, "json_path needs path")

@@ -15,7 +15,7 @@ then shows how a conversational test flows and how a result is graded.
 | Concept | Description |
 |---|---|
 | **Suite** | A YAML file (or Go package) containing targets, defaults and tests. |
-| **Target** | The system under test: `browser`, `rest`, `grpc`, `livekit`, `sip`, `twilio`, `realtime`, `pipecat`, `model`, `mcp`, `a2a`, `vapi` or `retell`. |
+| **Target** | The system under test: `browser`, `rest`, `grpc`, `livekit`, `sip`, `twilio`, `realtime`, `pipecat`, `model`, `mcp`, `a2a`, `vapi`, `retell` or `voiceflow`. |
 | **Test** | One scenario run against one target. |
 | **Step** | For browser tests: a natural-language `goal`, a deterministic `action`, or an `expect`. |
 | **Persona** | The simulated user for agent tests: identity, goal, style, voice, behaviours (interrupts, silence, noise). |
@@ -75,6 +75,12 @@ apply; `tamesu validate` warns when a key belongs to another type.
 - **`retell`**: a Retell agent through a web call: `api_key`, `agent_id` (and `agent_version`),
   `variables` and `metadata`; tamesu joins the call's LiveKit room (`livekit_url`) with the token
   Retell issues. Audio only, with `join_timeout`, `idle` and `turn_timeout`.
+- **`voiceflow`**: an agent built on Voiceflow, through the Conversations API: `api_key` (a
+  personal or service token), `project_id`, `environment`, `version: draft|published`,
+  `variables` set before the launch, a `user_id` template and `reset`; or `version_id` with a
+  Dialog API key for the legacy Dialog Manager API. The launch's greeting is read with the first
+  turn, text and speak traces are the agent's words, buttons and cards are summarised, an `end`
+  trace ends the session.
 
 Any conversational target may also declare `connect` (how reaching the agent is retried) and
 `handoff` (how the agent signals that a person took over). The full key list is in
@@ -213,7 +219,7 @@ Every assertion is one key under `assert:`; a test may have any number, and `on_
 | `contains` / `not_contains` | all | on the full agent transcript |
 | `regex` | all | `regex: "order #\\d{6}"` |
 | `not_regex` | all | `not_regex: "[\\w.]+@[\\w.]+"` |
-| `json_path` | rest, a2a | `{ path: $.status, equals: ok }` |
+| `json_path` | rest, a2a, voiceflow | `{ path: $.status, equals: ok }` |
 | `status` | rest | HTTP status of every turn |
 | `tool_called` / `tool_not_called` | rest, grpc, livekit, realtime, pipecat | `tool_called: { name: reschedule_booking, args: { day: saturday } }` |
 | `tool_sequence` | rest, grpc, livekit, realtime, pipecat | `tool_sequence: { calls: [lookup_order, refund] }` |

@@ -64,7 +64,7 @@ tests:
 
 | Key | Type | Required | Description | Example |
 |---|---|---|---|---|
-| `type` | one of `browser`, `rest`, `livekit`, `sip`, `realtime`, `grpc`, `pipecat`, `model`, `twilio`, `mcp`, `a2a`, `vapi`, `retell` | yes | What the target is; it decides which other keys apply | `type: rest` |
+| `type` | one of `browser`, `rest`, `livekit`, `sip`, `realtime`, `grpc`, `pipecat`, `model`, `twilio`, `mcp`, `a2a`, `vapi`, `retell`, `voiceflow` | yes | What the target is; it decides which other keys apply | `type: rest` |
 | `url` | string |  | The page (browser) or endpoint (rest / realtime / pipecat / twilio / a2a) or grpc://host:port (grpc) or LiveKit server (livekit). | `url: "${AGENT_URL:-http://localhost:8080/chat}"` |
 | `connect` | [ConnectConfig](#connectconfig) |  | How reaching the agent is retried (attempts / backoff / max_backoff) | `connect: { attempts: 5, backoff: 1s, max_backoff: 10s }` |
 | `handoff` | [HandoffSignal](#handoffsignal) |  | How the agent signals that a person took over (tool / json_path / regex plus where the destination and summary are) | `handoff: { tool: transfer_to_human, to: department, summary: summary }` |
@@ -77,7 +77,7 @@ tests:
 | `response` | [RESTResponse](#restresponse) |  | rest targets; how the agent turn is read back (JSONPaths into the response) | `response: { text: $.reply, tool_calls: "$.tool_calls[*]", done: $.end_session }` |
 | `streaming` | one of `none`, `sse`, `websocket` |  | rest targets; none (default) or sse or websocket | `streaming: sse` |
 | `session` | [RESTSession](#restsession) |  | rest targets; the session id template | `session: { id: "{{uuid}}" }` |
-| `api_key` | string |  | livekit / vapi / retell: use {{secrets.NAME}}. | `api_key: "{{secrets.LIVEKIT_API_KEY}}"` |
+| `api_key` | string |  | livekit / vapi / retell / voiceflow: use {{secrets.NAME}}. | `api_key: "{{secrets.LIVEKIT_API_KEY}}"` |
 | `api_secret` | string |  | Use {{secrets.NAME}}. | `api_secret: "{{secrets.LIVEKIT_API_SECRET}}"` |
 | `room` | string |  | Room name template; defaults to tamesu-{{uuid}}. | `room: "tamesu-{{uuid}}"` |
 | `dispatch` | [Dispatch](#dispatch) |  | livekit targets; an explicit agent dispatch for the room | `dispatch: { agent_name: support-agent }` |
@@ -97,7 +97,7 @@ tests:
 | `session_update` | object (any keys) |  | realtime: merged into the session.update event (instructions / tools / voice / output modalities). | `session_update: { instructions: "You are the support agent", voice: alloy }` |
 | `protocol` | one of `ga`, `beta` |  | realtime: the event dialect; ga (default) or beta (modalities and the OpenAI-Beta header). | `protocol: ga` |
 | `done_tool` | string |  | realtime and model: a function call with this name ends the session; default end_session. | `done_tool: end_session` |
-| `turn_timeout` | [Duration](#duration) |  | realtime / grpc / pipecat / twilio / a2a / vapi / retell: how long to wait for the end of a turn; default 60s. | `turn_timeout: 60s` |
+| `turn_timeout` | [Duration](#duration) |  | realtime / grpc / pipecat / twilio / a2a / vapi / retell / voiceflow: how long to wait for the end of a turn; default 60s. | `turn_timeout: 60s` |
 | `tool_results` | object (any keys) |  | realtime and pipecat: answers to the agent's function calls by function name. The value (any JSON; string leaves may use {{args.<key>}}) goes back as the function's output and the response continues. Unlisted functions and done_tool are recorded only. | `tool_results: { lookup_order: { id: "{{args.id}}", status: shipped } }` |
 | `audio_format` | one of `pcm16`, `g711_ulaw`, `g711_alaw` |  | realtime audio mode: the agent's output audio; pcm16 (default) or G.711 at 8 kHz. | `audio_format: pcm16` |
 | `sample_rate` | integer |  | pipecat audio mode and vapi: the audio sample rate in Hz; default 16000. | `sample_rate: 16000` |
@@ -112,11 +112,17 @@ tests:
 | `assistant` | object (any keys) |  | vapi: a transient assistant (the assistant object of the call API) instead of assistant_id; string leaves render templates. | `assistant: { firstMessage: "Hi, how can I help?", model: { provider: openai, model: gpt-4o } }` |
 | `assistant_overrides` | object (any keys) |  | vapi: assistantOverrides of the call (first message / voice / model...). | `assistant_overrides: { firstMessage: "Welcome back" }` |
 | `squad_id` | string |  | vapi: a squad to call instead of an assistant. | `squad_id: 7f1c2b3a-0000-4000-8000-000000000000` |
-| `variables` | map of string to string |  | vapi: the assistant's variableValues; retell: the retell_llm_dynamic_variables (templates allowed). | `variables: { customer_name: Marta }` |
-| `base_url` | string |  | vapi / retell: the platform API (default https://api.vapi.ai or https://api.retellai.com). | `base_url: https://api.vapi.ai` |
+| `variables` | map of string to string |  | vapi: the assistant's variableValues; retell: the retell_llm_dynamic_variables; voiceflow: variables set before the launch (templates allowed). | `variables: { customer_name: Marta }` |
+| `base_url` | string |  | vapi / retell / voiceflow: the platform API (default https://api.vapi.ai or https://api.retellai.com or https://realtime-api.voiceflow.com/v1/stable). | `base_url: https://api.vapi.ai` |
 | `agent_id` | string |  | retell: the agent to call (templates allowed). | `agent_id: agent_2b3c4d5e6f` |
 | `agent_version` | string |  | retell: the agent version such as latest_published. | `agent_version: latest_published` |
 | `livekit_url` | string |  | retell: the LiveKit server the web call runs on; default Retell's cloud. | `livekit_url: wss://retell-ai-4ihahnq7.livekit.cloud` |
+| `project_id` | string |  | voiceflow: the project on the REST API (templates allowed); or version_id for the legacy Dialog Manager API. | `project_id: "{{vars.project_id}}"` |
+| `environment` | string |  | voiceflow: the environment alias; default main. | `environment: main` |
+| `version` | one of `draft`, `published` |  | voiceflow: which build of the environment answers; default published. | `version: published` |
+| `version_id` | string |  | voiceflow: the legacy Dialog Manager API versionID (an id or development / production) with a Dialog API key as api_key. | `version_id: production` |
+| `user_id` | string |  | voiceflow: the conversation id template; default tamesu-{{uuid}}. | `user_id: "tamesu-{{uuid}}"` |
+| `reset` | boolean |  | voiceflow: delete the conversation's state before the launch (a reused user_id). | `reset: true` |
 | `stream` | boolean |  | a2a: read the agent's turn from message/stream (server-sent events) instead of message/send; falls back to message/send when the card says the agent does not stream. | `stream: true` |
 | `skill` | string |  | a2a: a skill id or name the agent card must offer; the session fails to start otherwise. | `skill: order-status` |
 | `metadata` | object (any keys) |  | a2a: metadata sent with every message (a tenant or a locale); vapi / retell: metadata stored on the call. | `metadata: { tenant: acme }` |
@@ -516,7 +522,7 @@ script:
 | `regex` | string |  | A regular expression the agent transcript matches. | `regex: "(?i)30 days"` |
 | `not_regex` | string |  | A regular expression no agent turn matches. | `not_regex: '\b\d{16}\b'` |
 | `similar_to` | [Similar](#similar) |  | Some agent turn means the same as this text (embedding similarity of at least min). | `similar_to: { text: "Returning after 40 days is not possible", min: 0.7 }` |
-| `json_path` | [JSONPathAssertion](#jsonpathassertion) |  | rest and a2a: a path in the turn's response (the task for a2a) that exists and with equals has that value. | `json_path: { path: $.status, equals: ok }` |
+| `json_path` | [JSONPathAssertion](#jsonpathassertion) |  | rest / a2a / voiceflow: a path in the turn's response (the task for a2a / the traces for voiceflow) that exists and with equals has that value. | `json_path: { path: $.status, equals: ok }` |
 | `status` | integer |  | rest only: the HTTP status of every turn. | `status: 200` |
 | `tool_called` | [ToolCall](#toolcall) |  | The agent called the tool (a name or an object with name / args / schema) | `tool_called: { name: lookup_policy, args: { topic: returns } }` |
 | `tool_not_called` | [ToolCall](#toolcall) |  | The agent never called the tool (a name or an object with name / args) | `tool_not_called: issue_refund` |

@@ -22,6 +22,7 @@ use (
 	./targets/a2a
 	./targets/vapi
 	./targets/retell
+	./targets/voiceflow
 	./targets/model
 	./targets/realtime
 	./targets/rest

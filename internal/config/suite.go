@@ -4,24 +4,25 @@ import "time"
 
 // Target types (design.md §2).
 const (
-	TargetBrowser  = "browser"
-	TargetREST     = "rest"
-	TargetLiveKit  = "livekit"
-	TargetSIP      = "sip"
-	TargetRealtime = "realtime"
-	TargetGRPC     = "grpc"
-	TargetPipecat  = "pipecat"
-	TargetModel    = "model"
-	TargetTwilio   = "twilio"
-	TargetMCP      = "mcp"
-	TargetA2A      = "a2a"
-	TargetVapi     = "vapi"
-	TargetRetell   = "retell"
+	TargetBrowser   = "browser"
+	TargetREST      = "rest"
+	TargetLiveKit   = "livekit"
+	TargetSIP       = "sip"
+	TargetRealtime  = "realtime"
+	TargetGRPC      = "grpc"
+	TargetPipecat   = "pipecat"
+	TargetModel     = "model"
+	TargetTwilio    = "twilio"
+	TargetMCP       = "mcp"
+	TargetA2A       = "a2a"
+	TargetVapi      = "vapi"
+	TargetRetell    = "retell"
+	TargetVoiceflow = "voiceflow"
 )
 
 // TargetTypes lists the target types a suite may declare, in documentation order.
 func TargetTypes() []string {
-	return []string{TargetBrowser, TargetREST, TargetLiveKit, TargetSIP, TargetRealtime, TargetGRPC, TargetPipecat, TargetModel, TargetTwilio, TargetMCP, TargetA2A, TargetVapi, TargetRetell}
+	return []string{TargetBrowser, TargetREST, TargetLiveKit, TargetSIP, TargetRealtime, TargetGRPC, TargetPipecat, TargetModel, TargetTwilio, TargetMCP, TargetA2A, TargetVapi, TargetRetell, TargetVoiceflow}
 }
 
 // IsConversational reports whether a target type talks in turns (everything
@@ -59,7 +60,7 @@ type Suite struct {
 
 // Target is a system under test. Type selects which of the other fields apply.
 type Target struct {
-	Type string `yaml:"type" json:"type" jsonschema:"required,enum=browser,enum=rest,enum=livekit,enum=sip,enum=realtime,enum=grpc,enum=pipecat,enum=model,enum=twilio,enum=mcp,enum=a2a,enum=vapi,enum=retell,description=What the target is; it decides which other keys apply"`
+	Type string `yaml:"type" json:"type" jsonschema:"required,enum=browser,enum=rest,enum=livekit,enum=sip,enum=realtime,enum=grpc,enum=pipecat,enum=model,enum=twilio,enum=mcp,enum=a2a,enum=vapi,enum=retell,enum=voiceflow,description=What the target is; it decides which other keys apply"`
 	URL  string `yaml:"url,omitempty" json:"url,omitempty" jsonschema:"description=The page (browser) or endpoint (rest / realtime / pipecat / twilio / a2a) or grpc://host:port (grpc) or LiveKit server (livekit)."`
 	// Connect is how the target retries reaching the agent (every type but browser).
 	Connect *ConnectConfig `yaml:"connect,omitempty" json:"connect,omitempty" jsonschema:"description=How reaching the agent is retried (attempts / backoff / max_backoff)"`
@@ -80,7 +81,7 @@ type Target struct {
 	Session   *RESTSession      `yaml:"session,omitempty" json:"session,omitempty" jsonschema:"description=rest targets; the session id template"`
 
 	// livekit
-	APIKey              string    `yaml:"api_key,omitempty" json:"api_key,omitempty" jsonschema:"description=livekit / vapi / retell: use {{secrets.NAME}}."`
+	APIKey              string    `yaml:"api_key,omitempty" json:"api_key,omitempty" jsonschema:"description=livekit / vapi / retell / voiceflow: use {{secrets.NAME}}."`
 	APISecret           string    `yaml:"api_secret,omitempty" json:"api_secret,omitempty" jsonschema:"description=Use {{secrets.NAME}}."`
 	Room                string    `yaml:"room,omitempty" json:"room,omitempty" jsonschema:"description=Room name template; defaults to tamesu-{{uuid}}."`
 	Dispatch            *Dispatch `yaml:"dispatch,omitempty" json:"dispatch,omitempty" jsonschema:"description=livekit targets; an explicit agent dispatch for the room"`
@@ -104,7 +105,7 @@ type Target struct {
 	SessionUpdate map[string]any `yaml:"session_update,omitempty" json:"session_update,omitempty" jsonschema:"description=realtime: merged into the session.update event (instructions / tools / voice / output modalities)."`
 	Protocol      string         `yaml:"protocol,omitempty" json:"protocol,omitempty" jsonschema:"enum=ga,enum=beta,description=realtime: the event dialect; ga (default) or beta (modalities and the OpenAI-Beta header)."`
 	DoneTool      string         `yaml:"done_tool,omitempty" json:"done_tool,omitempty" jsonschema:"description=realtime and model: a function call with this name ends the session; default end_session."`
-	TurnTimeout   Duration       `yaml:"turn_timeout,omitempty" json:"turn_timeout,omitempty" jsonschema:"description=realtime / grpc / pipecat / twilio / a2a / vapi / retell: how long to wait for the end of a turn; default 60s."`
+	TurnTimeout   Duration       `yaml:"turn_timeout,omitempty" json:"turn_timeout,omitempty" jsonschema:"description=realtime / grpc / pipecat / twilio / a2a / vapi / retell / voiceflow: how long to wait for the end of a turn; default 60s."`
 	ToolResults   map[string]any `yaml:"tool_results,omitempty" json:"tool_results,omitempty" jsonschema:"description=realtime and pipecat: answers to the agent's function calls by function name. The value (any JSON; string leaves may use {{args.<key>}}) goes back as the function's output and the response continues. Unlisted functions and done_tool are recorded only."`
 	AudioFormat   string         `yaml:"audio_format,omitempty" json:"audio_format,omitempty" jsonschema:"enum=pcm16,enum=g711_ulaw,enum=g711_alaw,description=realtime audio mode: the agent's output audio; pcm16 (default) or G.711 at 8 kHz."`
 
@@ -127,13 +128,21 @@ type Target struct {
 	Assistant          map[string]any    `yaml:"assistant,omitempty" json:"assistant,omitempty" jsonschema:"description=vapi: a transient assistant (the assistant object of the call API) instead of assistant_id; string leaves render templates."`
 	AssistantOverrides map[string]any    `yaml:"assistant_overrides,omitempty" json:"assistant_overrides,omitempty" jsonschema:"description=vapi: assistantOverrides of the call (first message / voice / model...)."`
 	SquadID            string            `yaml:"squad_id,omitempty" json:"squad_id,omitempty" jsonschema:"description=vapi: a squad to call instead of an assistant."`
-	Variables          map[string]string `yaml:"variables,omitempty" json:"variables,omitempty" jsonschema:"description=vapi: the assistant's variableValues; retell: the retell_llm_dynamic_variables (templates allowed)."`
-	BaseURL            string            `yaml:"base_url,omitempty" json:"base_url,omitempty" jsonschema:"description=vapi / retell: the platform API (default https://api.vapi.ai or https://api.retellai.com)."`
+	Variables          map[string]string `yaml:"variables,omitempty" json:"variables,omitempty" jsonschema:"description=vapi: the assistant's variableValues; retell: the retell_llm_dynamic_variables; voiceflow: variables set before the launch (templates allowed)."`
+	BaseURL            string            `yaml:"base_url,omitempty" json:"base_url,omitempty" jsonschema:"description=vapi / retell / voiceflow: the platform API (default https://api.vapi.ai or https://api.retellai.com or https://realtime-api.voiceflow.com/v1/stable)."`
 
 	// retell (a Retell agent through a web call; api_key, join_timeout, idle, turn_timeout and transcript_source apply too)
 	AgentID      string `yaml:"agent_id,omitempty" json:"agent_id,omitempty" jsonschema:"description=retell: the agent to call (templates allowed)."`
 	AgentVersion string `yaml:"agent_version,omitempty" json:"agent_version,omitempty" jsonschema:"description=retell: the agent version such as latest_published."`
 	LiveKitURL   string `yaml:"livekit_url,omitempty" json:"livekit_url,omitempty" jsonschema:"description=retell: the LiveKit server the web call runs on; default Retell's cloud."`
+
+	// voiceflow (an agent on Voiceflow's Conversations API; api_key, variables, metadata, base_url, turn_timeout and connect apply too)
+	ProjectID   string `yaml:"project_id,omitempty" json:"project_id,omitempty" jsonschema:"description=voiceflow: the project on the REST API (templates allowed); or version_id for the legacy Dialog Manager API."`
+	Environment string `yaml:"environment,omitempty" json:"environment,omitempty" jsonschema:"description=voiceflow: the environment alias; default main."`
+	Version     string `yaml:"version,omitempty" json:"version,omitempty" jsonschema:"enum=draft,enum=published,description=voiceflow: which build of the environment answers; default published."`
+	VersionID   string `yaml:"version_id,omitempty" json:"version_id,omitempty" jsonschema:"description=voiceflow: the legacy Dialog Manager API versionID (an id or development / production) with a Dialog API key as api_key."`
+	UserID      string `yaml:"user_id,omitempty" json:"user_id,omitempty" jsonschema:"description=voiceflow: the conversation id template; default tamesu-{{uuid}}."`
+	Reset       bool   `yaml:"reset,omitempty" json:"reset,omitempty" jsonschema:"description=voiceflow: delete the conversation's state before the launch (a reused user_id)."`
 
 	// a2a (an Agent2Agent agent; url, headers, turn_timeout and connect apply too)
 	Stream   bool           `yaml:"stream,omitempty" json:"stream,omitempty" jsonschema:"description=a2a: read the agent's turn from message/stream (server-sent events) instead of message/send; falls back to message/send when the card says the agent does not stream."`
@@ -505,7 +514,7 @@ type Assertion struct {
 	Regex         *string            `yaml:"regex,omitempty" json:"regex,omitempty" jsonschema:"description=A regular expression the agent transcript matches."`
 	NotRegex      *string            `yaml:"not_regex,omitempty" json:"not_regex,omitempty" jsonschema:"description=A regular expression no agent turn matches."`
 	SimilarTo     *Similar           `yaml:"similar_to,omitempty" json:"similar_to,omitempty" jsonschema:"description=Some agent turn means the same as this text (embedding similarity of at least min)."`
-	JSONPath      *JSONPathAssertion `yaml:"json_path,omitempty" json:"json_path,omitempty" jsonschema:"description=rest and a2a: a path in the turn's response (the task for a2a) that exists and with equals has that value."`
+	JSONPath      *JSONPathAssertion `yaml:"json_path,omitempty" json:"json_path,omitempty" jsonschema:"description=rest / a2a / voiceflow: a path in the turn's response (the task for a2a / the traces for voiceflow) that exists and with equals has that value."`
 	Status        *int               `yaml:"status,omitempty" json:"status,omitempty" jsonschema:"description=rest only: the HTTP status of every turn."`
 	ToolCalled    *ToolCall          `yaml:"tool_called,omitempty" json:"tool_called,omitempty" jsonschema:"description=The agent called the tool (a name or an object with name / args / schema)"`
 	ToolNotCalled *ToolCall          `yaml:"tool_not_called,omitempty" json:"tool_not_called,omitempty" jsonschema:"description=The agent never called the tool (a name or an object with name / args)"`

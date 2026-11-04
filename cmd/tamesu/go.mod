@@ -28,6 +28,7 @@ require (
 	github.com/xavidop/tamesu/targets/sip v0.0.0
 	github.com/xavidop/tamesu/targets/twilio v0.0.0
 	github.com/xavidop/tamesu/targets/vapi v0.0.0
+	github.com/xavidop/tamesu/targets/voiceflow v0.0.0
 )
 
 require (
@@ -322,6 +323,8 @@ replace github.com/xavidop/tamesu/targets/a2a => ../../targets/a2a
 replace github.com/xavidop/tamesu/targets/vapi => ../../targets/vapi
 
 replace github.com/xavidop/tamesu/targets/retell => ../../targets/retell
+
+replace github.com/xavidop/tamesu/targets/voiceflow => ../../targets/voiceflow
 
 replace github.com/xavidop/tamesu/targets/twilio => ../../targets/twilio
 

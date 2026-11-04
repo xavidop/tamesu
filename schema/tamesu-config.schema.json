@@ -30,7 +30,7 @@
         },
         "json_path": {
           "$ref": "#/$defs/JSONPathAssertion",
-          "description": "rest and a2a: a path in the turn's response (the task for a2a) that exists and with equals has that value."
+          "description": "rest / a2a / voiceflow: a path in the turn's response (the task for a2a / the traces for voiceflow) that exists and with equals has that value."
         },
         "status": {
           "type": "integer",

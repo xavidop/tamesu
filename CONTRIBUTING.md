@@ -81,6 +81,9 @@ This is a multi-module repository tied together by a `go.work` file:
   its audio and control messages (transcripts, speech updates, tool calls, the end of the call).
 - `targets/retell`: the Retell target, its own module on the livekit target: the web call is
   created with Retell's API and the room joined with the token it issues.
+- `targets/voiceflow`: the Voiceflow target, its own module on the standard library: the
+  Conversations API (launch, text turns, state reset and variables) and the legacy Dialog Manager
+  API, with the traces read into the agent's turn.
 - `targets/grpc`: the target for agents behind the turn API of `proto/tamesu/turn/v1`, its own
   module on grpc-go; `turnv1` is the generated code (`make proto` regenerates it).
 - `targets/realtime`: the target for agents speaking the OpenAI Realtime protocol (the API itself

@@ -30,7 +30,7 @@
         },
         "json_path": {
           "$ref": "#/$defs/JSONPathAssertion",
-          "description": "rest and a2a: a path in the turn's response (the task for a2a) that exists and with equals has that value."
+          "description": "rest / a2a / voiceflow: a path in the turn's response (the task for a2a / the traces for voiceflow) that exists and with equals has that value."
         },
         "status": {
           "type": "integer",
@@ -1419,7 +1419,8 @@
             "mcp",
             "a2a",
             "vapi",
-            "retell"
+            "retell",
+            "voiceflow"
           ],
           "description": "What the target is; it decides which other keys apply"
         },
@@ -1484,7 +1485,7 @@
         },
         "api_key": {
           "type": "string",
-          "description": "livekit / vapi / retell: use {{secrets.NAME}}."
+          "description": "livekit / vapi / retell / voiceflow: use {{secrets.NAME}}."
         },
         "api_secret": {
           "type": "string",
@@ -1581,7 +1582,7 @@
         },
         "turn_timeout": {
           "$ref": "#/$defs/Duration",
-          "description": "realtime / grpc / pipecat / twilio / a2a / vapi / retell: how long to wait for the end of a turn; default 60s."
+          "description": "realtime / grpc / pipecat / twilio / a2a / vapi / retell / voiceflow: how long to wait for the end of a turn; default 60s."
         },
         "tool_results": {
           "type": "object",
@@ -1661,11 +1662,11 @@
             "type": "string"
           },
           "type": "object",
-          "description": "vapi: the assistant's variableValues; retell: the retell_llm_dynamic_variables (templates allowed)."
+          "description": "vapi: the assistant's variableValues; retell: the retell_llm_dynamic_variables; voiceflow: variables set before the launch (templates allowed)."
         },
         "base_url": {
           "type": "string",
-          "description": "vapi / retell: the platform API (default https://api.vapi.ai or https://api.retellai.com)."
+          "description": "vapi / retell / voiceflow: the platform API (default https://api.vapi.ai or https://api.retellai.com or https://realtime-api.voiceflow.com/v1/stable)."
         },
         "agent_id": {
           "type": "string",
@@ -1678,6 +1679,34 @@
         "livekit_url": {
           "type": "string",
           "description": "retell: the LiveKit server the web call runs on; default Retell's cloud."
+        },
+        "project_id": {
+          "type": "string",
+          "description": "voiceflow: the project on the REST API (templates allowed); or version_id for the legacy Dialog Manager API."
+        },
+        "environment": {
+          "type": "string",
+          "description": "voiceflow: the environment alias; default main."
+        },
+        "version": {
+          "type": "string",
+          "enum": [
+            "draft",
+            "published"
+          ],
+          "description": "voiceflow: which build of the environment answers; default published."
+        },
+        "version_id": {
+          "type": "string",
+          "description": "voiceflow: the legacy Dialog Manager API versionID (an id or development / production) with a Dialog API key as api_key."
+        },
+        "user_id": {
+          "type": "string",
+          "description": "voiceflow: the conversation id template; default tamesu-{{uuid}}."
+        },
+        "reset": {
+          "type": "boolean",
+          "description": "voiceflow: delete the conversation's state before the launch (a reused user_id)."
         },
         "stream": {
           "type": "boolean",
