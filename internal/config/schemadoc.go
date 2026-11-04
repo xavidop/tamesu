@@ -256,7 +256,7 @@ func SuitesMarkdown() []byte {
 	b.WriteString("templates `{{uuid}}`, `{{now}}`, `{{env.X}}`, `{{vars.x}}`, `{{secrets.X}}` and `{{faker.email}}`;\n")
 	b.WriteString("REST bodies also take `{{session}}` and `{{message}}`. Durations are strings such as `30s`, `3m` or `1h30m`.\n\n")
 	b.WriteString("## Suite\n\nThe top level of the file.\n\n")
-	writeProperties(&b, s)
+	writeProperties(&b, "Suite", s)
 	writeExample(&b, "Suite")
 
 	names := make([]string, 0, len(s.Definitions))
@@ -285,7 +285,7 @@ func SuitesMarkdown() []byte {
 				str = "a string (" + strings.TrimSuffix(str, ".") + ")"
 			}
 			fmt.Fprintf(&b, "Either %s, or an object with:\n\n", str)
-			writeProperties(&b, def.OneOf[1])
+			writeProperties(&b, name, def.OneOf[1])
 		case len(def.OneOf) > 0:
 			var forms []string
 			for _, o := range def.OneOf {
@@ -293,7 +293,7 @@ func SuitesMarkdown() []byte {
 			}
 			fmt.Fprintf(&b, "One of: %s.\n\n", strings.Join(forms, ", "))
 		case def.Properties != nil && def.Properties.Len() > 0:
-			writeProperties(&b, def)
+			writeProperties(&b, name, def)
 		default:
 			fmt.Fprintf(&b, "Type: %s.\n\n", typeString(def))
 		}
@@ -311,11 +311,13 @@ func indexOf(list []string, s string) int {
 	return len(list)
 }
 
-func writeProperties(b *strings.Builder, s *jsonschema.Schema) {
+// writeProperties renders a definition's keys: type, whether required, the
+// description from the jsonschema tag, and the example from fieldExamples.
+func writeProperties(b *strings.Builder, def string, s *jsonschema.Schema) {
 	if s.Properties == nil {
 		return
 	}
-	b.WriteString("| Key | Type | Required | Description |\n|---|---|---|---|\n")
+	b.WriteString("| Key | Type | Required | Description | Example |\n|---|---|---|---|---|\n")
 	for pair := s.Properties.Oldest(); pair != nil; pair = pair.Next() {
 		required := ""
 		for _, r := range s.Required {
@@ -323,9 +325,22 @@ func writeProperties(b *strings.Builder, s *jsonschema.Schema) {
 				required = "yes"
 			}
 		}
-		fmt.Fprintf(b, "| `%s` | %s | %s | %s |\n", pair.Key, typeString(pair.Value), required, strings.ReplaceAll(pair.Value.Description, "|", "\\|"))
+		fmt.Fprintf(b, "| `%s` | %s | %s | %s | %s |\n", pair.Key, typeString(pair.Value), required, strings.ReplaceAll(pair.Value.Description, "|", "\\|"), inlineCode(fieldExamples[def][pair.Key]))
 	}
 	b.WriteString("\n")
+}
+
+// inlineCode wraps a YAML snippet for a table cell; a snippet with backticks
+// gets a longer fence, pipes are escaped.
+func inlineCode(s string) string {
+	if s == "" {
+		return ""
+	}
+	fence := "`"
+	for strings.Contains(s, fence) {
+		fence += "`"
+	}
+	return fence + strings.ReplaceAll(s, "|", "\\|") + fence
 }
 
 // typeString renders a property's type for people: a link to a definition,

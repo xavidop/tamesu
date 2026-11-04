@@ -2,10 +2,13 @@ package config
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/invopop/jsonschema"
 )
 
 // TestSchemaFilesAreUpToDate fails when the committed schemas differ from
@@ -60,4 +63,37 @@ func keys[V any](m map[string]V) []string {
 		out = append(out, k)
 	}
 	return out
+}
+
+// TestSuitesMarkdownFieldExamples: every key of every definition has an
+// example line in the YAML reference.
+func TestSuitesMarkdownFieldExamples(t *testing.T) {
+	s := SuiteSchema()
+	check := func(def string, sch *jsonschema.Schema) {
+		if sch == nil || sch.Properties == nil {
+			return
+		}
+		for pair := sch.Properties.Oldest(); pair != nil; pair = pair.Next() {
+			ex := fieldExamples[def][pair.Key]
+			assert.NotEmpty(t, ex, "fieldExamples[%q][%q]: no example for the YAML reference", def, pair.Key)
+			assert.True(t, strings.HasPrefix(ex, pair.Key+":") || strings.HasPrefix(ex, "- "+pair.Key+":"), "fieldExamples[%q][%q] should start with the key: %s", def, pair.Key, ex)
+		}
+	}
+	check("Suite", s)
+	for name, def := range s.Definitions {
+		check(name, def)
+		if len(def.OneOf) == 2 {
+			check(name, def.OneOf[1])
+		}
+	}
+	for def := range fieldExamples {
+		if def == "Suite" {
+			continue
+		}
+		_, ok := s.Definitions[def]
+		assert.True(t, ok, "fieldExamples has examples for %q, which is not a definition", def)
+	}
+	md := string(SuitesMarkdown())
+	assert.Contains(t, md, "| Key | Type | Required | Description | Example |")
+	assert.Contains(t, md, "| `max_turns` | integer |  | The turn budget; default 10 | `max_turns: 6` |")
 }

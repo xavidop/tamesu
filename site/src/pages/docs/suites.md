@@ -22,20 +22,20 @@ REST bodies also take `{{session}}` and `{{message}}`. Durations are strings suc
 
 The top level of the file.
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `suite` | string | yes | Suite name. |
-| `tags` | list of string |  | Tags every test of the suite carries. |
-| `vars` | map of string to string |  | Values for {{vars.x}} and for ${VAR} expansion in secret refs. |
-| `secrets` | map of string to string |  | Secret name to mamori ref; overrides the project entry of the same name. |
-| `defaults` | [Defaults](#defaults) |  | Per-test defaults for this suite; they override the project's |
-| `models` | [Models](#models) |  | Model overrides for this suite (default / judge / simulator ...) |
-| `budgets` | [Budgets](#budgets) |  | Spend caps for this suite's runs |
-| `targets` | map of string to [Target](#target) | yes | The systems under test by name. |
-| `hooks` | [Hooks](#hooks) |  | Setup and teardown around this suite and its runs |
-| `packs` | map of string to list of [Assertion](#assertion) |  | Reusable assertion sets by name for assert entries of the form pack: name; a name also used by a built-in pack (prompt_injection / pii_leakage / system_prompt_leakage / stays_in_scope / discloses_ai / harmful_content / excessive_agency / policy_consistency) replaces it. |
-| `red_team` | [RedTeam](#redteam) |  | Red team playbooks: one adversarial test per attack of the chosen playbooks is added to the suite when it loads (tamesu playbooks lists them). |
-| `tests` | list of [Test](#test) | yes | The tests |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `suite` | string | yes | Suite name. | `suite: support-agent` |
+| `tags` | list of string |  | Tags every test of the suite carries. | `tags: [regression, returns]` |
+| `vars` | map of string to string |  | Values for {{vars.x}} and for ${VAR} expansion in secret refs. | `vars: { shop: Mochi Shoes, days: "30" }` |
+| `secrets` | map of string to string |  | Secret name to mamori ref; overrides the project entry of the same name. | `secrets: { AGENT_TOKEN: env:AGENT_TOKEN }` |
+| `defaults` | [Defaults](#defaults) |  | Per-test defaults for this suite; they override the project's | `defaults: { timeout: 2m, repeat: 3, pass_threshold: 0.67 }` |
+| `models` | [Models](#models) |  | Model overrides for this suite (default / judge / simulator ...) | `models: { judge: anthropic/claude-sonnet-4-6 }` |
+| `budgets` | [Budgets](#budgets) |  | Spend caps for this suite's runs | `budgets: { max_cost_usd: 2 }` |
+| `targets` | map of string to [Target](#target) | yes | The systems under test by name. | `targets: { api: { type: rest, url: "{{vars.agent_url}}" } }` |
+| `hooks` | [Hooks](#hooks) |  | Setup and teardown around this suite and its runs | `hooks: { before_each: [ { command: ./scripts/reset.sh } ] }` |
+| `packs` | map of string to list of [Assertion](#assertion) |  | Reusable assertion sets by name for assert entries of the form pack: name; a name also used by a built-in pack (prompt_injection / pii_leakage / system_prompt_leakage / stays_in_scope / discloses_ai / harmful_content / excessive_agency / policy_consistency) replaces it. | `packs: { tone: [ { judge: "The agent stays polite" } ] }` |
+| `red_team` | [RedTeam](#redteam) |  | Red team playbooks: one adversarial test per attack of the chosen playbooks is added to the suite when it loads (tamesu playbooks lists them). | `red_team: { target: api, agent: "Shop support; never more than 30-day returns" }` |
+| `tests` | list of [Test](#test) | yes | The tests | `tests: [ { name: refund policy, target: api, scenario: { goal: "Ask about returns" } } ]` |
 
 Example:
 
@@ -62,59 +62,59 @@ tests:
 
 ## Target
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `type` | one of `browser`, `rest`, `livekit`, `sip`, `realtime`, `grpc`, `pipecat`, `model`, `twilio`, `mcp` | yes | What the target is; it decides which other keys apply |
-| `url` | string |  | The page (browser) or endpoint (rest / realtime / pipecat / twilio) or grpc://host:port (grpc) or LiveKit server (livekit). |
-| `connect` | [ConnectConfig](#connectconfig) |  | How reaching the agent is retried (attempts / backoff / max_backoff) |
-| `handoff` | [HandoffSignal](#handoffsignal) |  | How the agent signals that a person took over (tool / json_path / regex plus where the destination and summary are) |
-| `browser` | [BrowserOptions](#browseroptions) |  | browser targets; engine / viewport / locale / mocks / recording |
-| `auth` | [BrowserAuth](#browserauth) |  | browser targets; a pre-authenticated storage state |
-| `allowed_domains` | list of string |  | Domains the browser agent may navigate to; defaults to the url's domain. |
-| `method` | string |  | HTTP method; defaults to POST. |
-| `headers` | map of string to string |  | Request (rest) or handshake (realtime / pipecat / twilio) headers or call metadata (grpc); put credentials here as {{secrets.NAME}}. |
-| `request` | [RESTRequest](#restrequest) |  | rest targets; how a user turn is sent |
-| `response` | [RESTResponse](#restresponse) |  | rest targets; how the agent turn is read back (JSONPaths into the response) |
-| `streaming` | one of `none`, `sse`, `websocket` |  | rest targets; none (default) or sse or websocket |
-| `session` | [RESTSession](#restsession) |  | rest targets; the session id template |
-| `api_key` | string |  | Use {{secrets.NAME}}. |
-| `api_secret` | string |  | Use {{secrets.NAME}}. |
-| `room` | string |  | Room name template; defaults to tamesu-{{uuid}}. |
-| `dispatch` | [Dispatch](#dispatch) |  | livekit targets; an explicit agent dispatch for the room |
-| `agent_identity_prefix` | string |  | How to recognise the agent participant; defaults to kind=agent. |
-| `mode` | one of `text`, `audio` |  | livekit / realtime / pipecat: text (default) or audio. |
-| `data_topic` | string |  | Text-mode transport topic; defaults to lk.chat. |
-| `join_timeout` | [Duration](#duration) |  | livekit targets; how long to wait for the agent to join the room (default 20s) |
-| `transcript_source` | one of `auto`, `agent`, `stt` |  | Audio mode: where the agent's words come from; auto (default) takes the agent's own transcription when it publishes one and transcribes its audio otherwise. |
-| `direction` | one of `outbound`, `inbound` |  | sip targets; outbound (tamesu calls the agent) or inbound (a trigger makes the agent call tamesu) |
-| `to` | string |  | The agent's phone number in E.164 (outbound); twilio: the To the agent sees in customParameters. |
-| `from` | string |  | Caller ID presented by the trunk; twilio: the From the agent sees in customParameters. |
-| `trunk_id` | string |  | LiveKit SIP trunk; defaults to sip.outbound_trunk_id. |
-| `ring_timeout` | [Duration](#duration) |  | sip targets; how long the call may ring before it counts as no_answer |
-| `max_call_duration` | [Duration](#duration) |  | sip targets; the call is ended after this long |
-| `trigger` | [Trigger](#trigger) |  | inbound sip targets; the command or HTTP request that makes the agent call sip.inbound_number |
-| `model` | string |  | realtime: added as ?model= to the url (such as gpt-realtime). model: the Genkit model reference the prompt runs on (default models.default). |
-| `session_update` | object (any keys) |  | realtime: merged into the session.update event (instructions / tools / voice / output modalities). |
-| `protocol` | one of `ga`, `beta` |  | realtime: the event dialect; ga (default) or beta (modalities and the OpenAI-Beta header). |
-| `done_tool` | string |  | realtime and model: a function call with this name ends the session; default end_session. |
-| `turn_timeout` | [Duration](#duration) |  | realtime / grpc / pipecat: how long to wait for the end of a turn; default 60s. |
-| `tool_results` | object (any keys) |  | realtime and pipecat: answers to the agent's function calls by function name. The value (any JSON; string leaves may use {{args.<key>}}) goes back as the function's output and the response continues. Unlisted functions and done_tool are recorded only. |
-| `audio_format` | one of `pcm16`, `g711_ulaw`, `g711_alaw` |  | realtime audio mode: the agent's output audio; pcm16 (default) or G.711 at 8 kHz. |
-| `sample_rate` | integer |  | pipecat audio mode: the transport's sample rate in Hz; default 16000. |
-| `idle` | [Duration](#duration) |  | pipecat and twilio: silence after the agent's last message or audio that ends a turn; default 2s. |
-| `parameters` | map of string to string |  | twilio: the customParameters of the start event (the Parameter elements of the TwiML Stream); values render {{vars.x}} and {{secrets.X}}. |
-| `command` | string |  | mcp: the stdio server to spawn (an executable); url is the alternative for a streamable HTTP server. |
-| `args` | list of string |  | mcp: arguments of command. |
-| `env` | map of string to string |  | mcp: environment variables for command (templates allowed). |
-| `allow_tools` | list of string |  | mcp: offer only these of the server's tools to the model. |
-| `call_timeout` | [Duration](#duration) |  | mcp: how long one tool call may take; default 60s. |
-| `system` | string |  | model: the system prompt under test; {{vars.x}} and {{secrets.X}} render. |
-| `system_file` | string |  | model: a file next to the suite holding the system prompt (instead of system). |
-| `tools` | list of [ToolDef](#tooldef) |  | model: the tools offered to the model and the result tamesu answers each call with. |
-| `temperature` | number |  | model: sampling temperature; the provider's default when unset. |
-| `max_tokens` | integer |  | model: the most output tokens per call. |
-| `max_tool_rounds` | integer |  | model: the most call-and-answer rounds in one turn; default 5. |
-| `fallback` | list of string |  | model: Genkit model references tried in order when model fails; the run records which one answered. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `type` | one of `browser`, `rest`, `livekit`, `sip`, `realtime`, `grpc`, `pipecat`, `model`, `twilio`, `mcp` | yes | What the target is; it decides which other keys apply | `type: rest` |
+| `url` | string |  | The page (browser) or endpoint (rest / realtime / pipecat / twilio) or grpc://host:port (grpc) or LiveKit server (livekit). | `url: "${AGENT_URL:-http://localhost:8080/chat}"` |
+| `connect` | [ConnectConfig](#connectconfig) |  | How reaching the agent is retried (attempts / backoff / max_backoff) | `connect: { attempts: 5, backoff: 1s, max_backoff: 10s }` |
+| `handoff` | [HandoffSignal](#handoffsignal) |  | How the agent signals that a person took over (tool / json_path / regex plus where the destination and summary are) | `handoff: { tool: transfer_to_human, to: department, summary: summary }` |
+| `browser` | [BrowserOptions](#browseroptions) |  | browser targets; engine / viewport / locale / mocks / recording | `browser: { viewport: 1280x800, locale: en-GB, recording: gif }` |
+| `auth` | [BrowserAuth](#browserauth) |  | browser targets; a pre-authenticated storage state | `auth: { storage_state: auth/state.json }` |
+| `allowed_domains` | list of string |  | Domains the browser agent may navigate to; defaults to the url's domain. | `allowed_domains: [shop.example, cdn.example]` |
+| `method` | string |  | HTTP method; defaults to POST. | `method: POST` |
+| `headers` | map of string to string |  | Request (rest) or handshake (realtime / pipecat / twilio) headers or call metadata (grpc); put credentials here as {{secrets.NAME}}. | `headers: { Authorization: "Bearer {{secrets.AGENT_TOKEN}}" }` |
+| `request` | [RESTRequest](#restrequest) |  | rest targets; how a user turn is sent | `request: { body: { session_id: "{{session}}", message: "{{message}}" } }` |
+| `response` | [RESTResponse](#restresponse) |  | rest targets; how the agent turn is read back (JSONPaths into the response) | `response: { text: $.reply, tool_calls: "$.tool_calls[*]", done: $.end_session }` |
+| `streaming` | one of `none`, `sse`, `websocket` |  | rest targets; none (default) or sse or websocket | `streaming: sse` |
+| `session` | [RESTSession](#restsession) |  | rest targets; the session id template | `session: { id: "{{uuid}}" }` |
+| `api_key` | string |  | Use {{secrets.NAME}}. | `api_key: "{{secrets.LIVEKIT_API_KEY}}"` |
+| `api_secret` | string |  | Use {{secrets.NAME}}. | `api_secret: "{{secrets.LIVEKIT_API_SECRET}}"` |
+| `room` | string |  | Room name template; defaults to tamesu-{{uuid}}. | `room: "tamesu-{{uuid}}"` |
+| `dispatch` | [Dispatch](#dispatch) |  | livekit targets; an explicit agent dispatch for the room | `dispatch: { agent_name: support-agent }` |
+| `agent_identity_prefix` | string |  | How to recognise the agent participant; defaults to kind=agent. | `agent_identity_prefix: agent-` |
+| `mode` | one of `text`, `audio` |  | livekit / realtime / pipecat: text (default) or audio. | `mode: audio` |
+| `data_topic` | string |  | Text-mode transport topic; defaults to lk.chat. | `data_topic: lk.chat` |
+| `join_timeout` | [Duration](#duration) |  | livekit targets; how long to wait for the agent to join the room (default 20s) | `join_timeout: 20s` |
+| `transcript_source` | one of `auto`, `agent`, `stt` |  | Audio mode: where the agent's words come from; auto (default) takes the agent's own transcription when it publishes one and transcribes its audio otherwise. | `transcript_source: stt` |
+| `direction` | one of `outbound`, `inbound` |  | sip targets; outbound (tamesu calls the agent) or inbound (a trigger makes the agent call tamesu) | `direction: outbound` |
+| `to` | string |  | The agent's phone number in E.164 (outbound); twilio: the To the agent sees in customParameters. | `to: "+34910000000"` |
+| `from` | string |  | Caller ID presented by the trunk; twilio: the From the agent sees in customParameters. | `from: "+34600000000"` |
+| `trunk_id` | string |  | LiveKit SIP trunk; defaults to sip.outbound_trunk_id. | `trunk_id: ST_abc123` |
+| `ring_timeout` | [Duration](#duration) |  | sip targets; how long the call may ring before it counts as no_answer | `ring_timeout: 30s` |
+| `max_call_duration` | [Duration](#duration) |  | sip targets; the call is ended after this long | `max_call_duration: 5m` |
+| `trigger` | [Trigger](#trigger) |  | inbound sip targets; the command or HTTP request that makes the agent call sip.inbound_number | `trigger: { http: { url: "https://agent.example/call", method: POST, body: { to: "{{env.INBOUND}}" } } }` |
+| `model` | string |  | realtime: added as ?model= to the url (such as gpt-realtime). model: the Genkit model reference the prompt runs on (default models.default). | `model: googleai/gemini-2.5-flash` |
+| `session_update` | object (any keys) |  | realtime: merged into the session.update event (instructions / tools / voice / output modalities). | `session_update: { instructions: "You are the support agent", voice: alloy }` |
+| `protocol` | one of `ga`, `beta` |  | realtime: the event dialect; ga (default) or beta (modalities and the OpenAI-Beta header). | `protocol: ga` |
+| `done_tool` | string |  | realtime and model: a function call with this name ends the session; default end_session. | `done_tool: end_session` |
+| `turn_timeout` | [Duration](#duration) |  | realtime / grpc / pipecat: how long to wait for the end of a turn; default 60s. | `turn_timeout: 60s` |
+| `tool_results` | object (any keys) |  | realtime and pipecat: answers to the agent's function calls by function name. The value (any JSON; string leaves may use {{args.<key>}}) goes back as the function's output and the response continues. Unlisted functions and done_tool are recorded only. | `tool_results: { lookup_order: { id: "{{args.id}}", status: shipped } }` |
+| `audio_format` | one of `pcm16`, `g711_ulaw`, `g711_alaw` |  | realtime audio mode: the agent's output audio; pcm16 (default) or G.711 at 8 kHz. | `audio_format: pcm16` |
+| `sample_rate` | integer |  | pipecat audio mode: the transport's sample rate in Hz; default 16000. | `sample_rate: 16000` |
+| `idle` | [Duration](#duration) |  | pipecat and twilio: silence after the agent's last message or audio that ends a turn; default 2s. | `idle: 2s` |
+| `parameters` | map of string to string |  | twilio: the customParameters of the start event (the Parameter elements of the TwiML Stream); values render {{vars.x}} and {{secrets.X}}. | `parameters: { campaign: autumn, caller_tier: gold }` |
+| `command` | string |  | mcp: the stdio server to spawn (an executable); url is the alternative for a streamable HTTP server. | `command: ./bin/orders-mcp` |
+| `args` | list of string |  | mcp: arguments of command. | `args: ["--data", "fixtures/orders.json"]` |
+| `env` | map of string to string |  | mcp: environment variables for command (templates allowed). | `env: { LOG_LEVEL: warn, API_KEY: "{{secrets.MCP_KEY}}" }` |
+| `allow_tools` | list of string |  | mcp: offer only these of the server's tools to the model. | `allow_tools: [lookup_order, cancel_order]` |
+| `call_timeout` | [Duration](#duration) |  | mcp: how long one tool call may take; default 60s. | `call_timeout: 20s` |
+| `system` | string |  | model: the system prompt under test; {{vars.x}} and {{secrets.X}} render. | `system: "You are the Mochi Shoes support agent."` |
+| `system_file` | string |  | model: a file next to the suite holding the system prompt (instead of system). | `system_file: prompts/support.md` |
+| `tools` | list of [ToolDef](#tooldef) |  | model: the tools offered to the model and the result tamesu answers each call with. | `tools: [ { name: lookup_policy, description: The policy for a topic, result: { window_days: 30 } } ]` |
+| `temperature` | number |  | model: sampling temperature; the provider's default when unset. | `temperature: 0.2` |
+| `max_tokens` | integer |  | model: the most output tokens per call. | `max_tokens: 800` |
+| `max_tool_rounds` | integer |  | model: the most call-and-answer rounds in one turn; default 5. | `max_tool_rounds: 4` |
+| `fallback` | list of string |  | model: Genkit model references tried in order when model fails; the run records which one answered. | `fallback: [googleai/gemini-2.5-pro, openai/gpt-4.1-mini]` |
 
 Example:
 
@@ -145,12 +145,12 @@ targets:
 
 ## ToolDef
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `name` | string | yes | The tool name the model calls |
-| `description` | string |  | What the tool does; the model reads it to decide when to call it |
-| `parameters` | object (any keys) |  | A JSON schema of the arguments (an object schema); none means no arguments. |
-| `result` | any |  | What the call returns to the model (any JSON; string leaves may use {{args.<key>}}). Without it the model gets an error object. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `name` | string | yes | The tool name the model calls | `name: lookup_policy` |
+| `description` | string |  | What the tool does; the model reads it to decide when to call it | `description: The store policy for a topic` |
+| `parameters` | object (any keys) |  | A JSON schema of the arguments (an object schema); none means no arguments. | `parameters: { type: object, properties: { topic: { type: string } }, required: [topic] }` |
+| `result` | any |  | What the call returns to the model (any JSON; string leaves may use {{args.<key>}}). Without it the model gets an error object. | `result: { topic: "{{args.topic}}", window_days: 30 }` |
 
 Example:
 
@@ -166,13 +166,13 @@ tools:
 
 ## BrowserOptions
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `engine` | one of `chromium` |  | chromium (the default and only engine) |
-| `viewport` | string |  | WIDTHxHEIGHT such as 1280x800. |
-| `locale` | string |  | The browser locale such as en-GB; sets Accept-Language |
-| `mocks` | list of [BrowserMock](#browsermock) |  | Requests answered by tamesu instead of the network from the start of the session; the mock action adds more at run time. |
-| `recording` | one of `auto`, `gif`, `webm`, `off` |  | The session recording written next to the screenshots. auto (the default) writes recording.webm when ffmpeg is installed and recording.gif otherwise; off disables it. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `engine` | one of `chromium` |  | chromium (the default and only engine) | `engine: chromium` |
+| `viewport` | string |  | WIDTHxHEIGHT such as 1280x800. | `viewport: 1280x800` |
+| `locale` | string |  | The browser locale such as en-GB; sets Accept-Language | `locale: en-GB` |
+| `mocks` | list of [BrowserMock](#browsermock) |  | Requests answered by tamesu instead of the network from the start of the session; the mock action adds more at run time. | `mocks: [ { url: "**/api/stock*", status: 200, body: { stock: 0 } } ]` |
+| `recording` | one of `auto`, `gif`, `webm`, `off` |  | The session recording written next to the screenshots. auto (the default) writes recording.webm when ffmpeg is installed and recording.gif otherwise; off disables it. | `recording: webm` |
 
 Example:
 
@@ -187,15 +187,15 @@ browser:
 
 ## BrowserMock
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `url` | string | yes | A glob on the full URL (** crosses slashes) or a substring. |
-| `method` | string |  | Only this method; default any. |
-| `status` | integer |  | The answer's status; default 200. |
-| `body` | any |  | The answer: a string as is or any value as JSON. |
-| `headers` | map of string to string |  | Response headers of the mocked reply |
-| `delay_ms` | integer |  | Hold the answer back this long. |
-| `abort` | boolean |  | Fail the request instead of answering. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `url` | string | yes | A glob on the full URL (** crosses slashes) or a substring. | `url: "**/api/stock*"` |
+| `method` | string |  | Only this method; default any. | `method: GET` |
+| `status` | integer |  | The answer's status; default 200. | `status: 503` |
+| `body` | any |  | The answer: a string as is or any value as JSON. | `body: { error: "warehouse unavailable" }` |
+| `headers` | map of string to string |  | Response headers of the mocked reply | `headers: { Content-Type: application/json, Retry-After: "30" }` |
+| `delay_ms` | integer |  | Hold the answer back this long. | `delay_ms: 2000` |
+| `abort` | boolean |  | Fail the request instead of answering. | `abort: true` |
 
 Example:
 
@@ -207,9 +207,9 @@ mocks:
 
 ## BrowserAuth
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `storage_state` | string |  | Path to a saved storage state (cookies and local storage). |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `storage_state` | string |  | Path to a saved storage state (cookies and local storage). | `storage_state: auth/state.json` |
 
 Example:
 
@@ -219,10 +219,10 @@ auth: { storage_state: auth/customer.json }
 
 ## RESTRequest
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `body` | any |  | Request body template; {{message}} is the user turn and {{session}} the session id. |
-| `open` | any |  | streaming websocket: a message template sent once after connecting. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `body` | any |  | Request body template; {{message}} is the user turn and {{session}} the session id. | `body: { session_id: "{{session}}", message: "{{message}}" }` |
+| `open` | any |  | streaming websocket: a message template sent once after connecting. | `open: { type: open, session_id: "{{session}}" }` |
 
 Example:
 
@@ -234,13 +234,13 @@ request:
 
 ## RESTResponse
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `text` | string |  | JSONPath of the agent's reply such as $.reply. |
-| `tool_calls` | string |  | JSONPath of the tool call names. |
-| `done` | string |  | JSONPath of a boolean that ends the session. |
-| `turn_done` | string |  | streaming websocket: JSONPath of a boolean that ends the turn; otherwise the turn ends after idle. |
-| `idle` | [Duration](#duration) |  | streaming websocket: silence that ends a turn when no message marks it; default 2s. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `text` | string |  | JSONPath of the agent's reply such as $.reply. | `text: $.reply` |
+| `tool_calls` | string |  | JSONPath of the tool call names. | `tool_calls: "$.tool_calls[*]"` |
+| `done` | string |  | JSONPath of a boolean that ends the session. | `done: $.end_session` |
+| `turn_done` | string |  | streaming websocket: JSONPath of a boolean that ends the turn; otherwise the turn ends after idle. | `turn_done: $.done` |
+| `idle` | [Duration](#duration) |  | streaming websocket: silence that ends a turn when no message marks it; default 2s. | `idle: 2s` |
 
 Example:
 
@@ -255,9 +255,9 @@ response:
 
 ## RESTSession
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `id` | string |  | Session id template; defaults to {{uuid}}. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `id` | string |  | Session id template; defaults to {{uuid}}. | `id: "{{uuid}}"` |
 
 Example:
 
@@ -267,9 +267,9 @@ session: { id: "{{uuid}}" }
 
 ## Dispatch
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `agent_name` | string | yes | The agent to dispatch explicitly into the room (LiveKit agent dispatch) |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `agent_name` | string | yes | The agent to dispatch explicitly into the room (LiveKit agent dispatch) | `agent_name: support-agent` |
 
 Example:
 
@@ -279,10 +279,10 @@ dispatch: { agent_name: support-agent }
 
 ## Trigger
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `http` | [HTTPTrigger](#httptrigger) |  | An HTTP request that makes the agent call sip.inbound_number |
-| `command` | string |  | A shell command that makes the agent dial sip.inbound_number. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `http` | [HTTPTrigger](#httptrigger) |  | An HTTP request that makes the agent call sip.inbound_number | `http: { url: "https://agent.example/call", method: POST, body: { to: "{{env.INBOUND}}" } }` |
+| `command` | string |  | A shell command that makes the agent dial sip.inbound_number. | `command: "./scripts/call.sh {{env.INBOUND}}"` |
 
 Example:
 
@@ -293,12 +293,12 @@ trigger:
 
 ## HTTPTrigger
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `url` | string | yes | The request URL (templates allowed) |
-| `method` | string |  | HTTP method; default POST |
-| `body` | any |  | A string is sent as is; a mapping as JSON (templates allowed) |
-| `headers` | map of string to string |  | Request headers (templates allowed) |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `url` | string | yes | The request URL (templates allowed) | `url: "{{vars.admin_url}}/test/reset"` |
+| `method` | string |  | HTTP method; default POST | `method: POST` |
+| `body` | any |  | A string is sent as is; a mapping as JSON (templates allowed) | `body: { suite: "{{env.TAMESU_SUITE}}" }` |
+| `headers` | map of string to string |  | Request headers (templates allowed) | `headers: { Authorization: "Bearer {{secrets.ADMIN_TOKEN}}" }` |
 
 Example:
 
@@ -308,28 +308,28 @@ http: { url: "https://agent.example.com/dial", method: POST, headers: { Authoriz
 
 ## Test
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `name` | string | yes | The test name; unique in the suite |
-| `target` | string | yes | A key of targets. |
-| `tags` | list of string |  | Tags for --tags selection and the reports; the suite's tags apply too |
-| `mode` | one of `text`, `audio` |  | Voice tests: overrides the target's mode. |
-| `repeat` | integer |  | Times the test runs to measure variance. |
-| `pass_threshold` | number |  | The fraction of repeated runs that must pass (0 to 1); default 1 |
-| `retries` | integer |  | Re-runs after an infrastructure failure (never after a failed assertion) |
-| `timeout` | [Duration](#duration) |  | How long one run may take; default defaults.timeout |
-| `seed` | integer |  | Seed for the simulator prompts and the behaviour RNG. |
-| `vars` | map of string to string |  | Values for {{vars.<key>}} in this test; on top of the suite's vars and under --var. |
-| `cases` | list of [Case](#case) |  | Parameterised: the test runs once per case with the case's vars; each becomes a test named <name> [<case>] tagged case:<name>. |
-| `cases_file` | string |  | Cases from a file next to the suite: a CSV with a header row (a name column names the case) or a JSON array of objects (a name key names the case). |
-| `fuzz_tools` | map of string to [Fuzz](#fuzz) |  | Tool result fuzzing: by tool name the answer the agent gets instead of the configured result (a mode such as error / empty / malformed / hostile or a mapping with mode and delay and result); realtime and pipecat and model targets. |
-| `languages` | list of string |  | The test runs once per language (BCP 47 such as es or en-GB): each becomes a test named <name> [<lang>] tagged lang:<lang> whose persona speaks that language and whose judges know it; {{vars.language}} holds it. |
-| `steps` | list of [Step](#step) |  | Browser tests only. |
-| `persona` | [Persona](#persona) |  | Who the simulated user is |
-| `scenario` | [Scenario](#scenario) |  | What the simulated user wants and when to stop |
-| `capture` | list of [Capture](#capture) |  | Values taken from the agent's turns as they arrive (the first match wins) and offered as {{captured.<name>}} to later script say steps / tool_results / hooks / assertions. |
-| `assert` | list of [Assertion](#assertion) |  | The checks on the run; all must pass |
-| `quarantine` | [Quarantine](#quarantine) |  | Known flaky: the test still runs and its failure is reported as quarantined but it does not fail the run or count as a regression. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `name` | string | yes | The test name; unique in the suite | `name: refund after 40 days` |
+| `target` | string | yes | A key of targets. | `target: api` |
+| `tags` | list of string |  | Tags for --tags selection and the reports; the suite's tags apply too | `tags: [returns, smoke]` |
+| `mode` | one of `text`, `audio` |  | Voice tests: overrides the target's mode. | `mode: audio` |
+| `repeat` | integer |  | Times the test runs to measure variance. | `repeat: 3` |
+| `pass_threshold` | number |  | The fraction of repeated runs that must pass (0 to 1); default 1 | `pass_threshold: 0.67` |
+| `retries` | integer |  | Re-runs after an infrastructure failure (never after a failed assertion) | `retries: 1` |
+| `timeout` | [Duration](#duration) |  | How long one run may take; default defaults.timeout | `timeout: 2m` |
+| `seed` | integer |  | Seed for the simulator prompts and the behaviour RNG. | `seed: 42` |
+| `vars` | map of string to string |  | Values for {{vars.<key>}} in this test; on top of the suite's vars and under --var. | `vars: { days: "40" }` |
+| `cases` | list of [Case](#case) |  | Parameterised: the test runs once per case with the case's vars; each becomes a test named <name> [<case>] tagged case:<name>. | `cases: [ { name: late, vars: { days: "40" } }, { name: early, vars: { days: "10" } } ]` |
+| `cases_file` | string |  | Cases from a file next to the suite: a CSV with a header row (a name column names the case) or a JSON array of objects (a name key names the case). | `cases_file: cases.csv` |
+| `fuzz_tools` | map of string to [Fuzz](#fuzz) |  | Tool result fuzzing: by tool name the answer the agent gets instead of the configured result (a mode such as error / empty / malformed / hostile or a mapping with mode and delay and result); realtime and pipecat and model targets. | `fuzz_tools: { lookup_order: error, get_balance: { mode: delay, delay: 8s } }` |
+| `languages` | list of string |  | The test runs once per language (BCP 47 such as es or en-GB): each becomes a test named <name> [<lang>] tagged lang:<lang> whose persona speaks that language and whose judges know it; {{vars.language}} holds it. | `languages: [en, es, de]` |
+| `steps` | list of [Step](#step) |  | Browser tests only. | `steps: [ { action: { navigate: / } }, { goal: "Add the blue sneakers to the cart" } ]` |
+| `persona` | [Persona](#persona) |  | Who the simulated user is | `persona: { name: Marta, style: "polite, slightly confused", language: en }` |
+| `scenario` | [Scenario](#scenario) |  | What the simulated user wants and when to stop | `scenario: { goal: "Find out if you can return shoes bought 40 days ago", max_turns: 6 }` |
+| `capture` | list of [Capture](#capture) |  | Values taken from the agent's turns as they arrive (the first match wins) and offered as {{captured.<name>}} to later script say steps / tool_results / hooks / assertions. | `capture: [ { name: order_id, regex: "(ORD-[0-9]+)" } ]` |
+| `assert` | list of [Assertion](#assertion) |  | The checks on the run; all must pass | `assert: [ { contains: "30 days" }, { judge: "The agent states the policy" } ]` |
+| `quarantine` | [Quarantine](#quarantine) |  | Known flaky: the test still runs and its failure is reported as quarantined but it does not fail the run or count as a regression. | `quarantine: { reason: "SUP-412 flaky since the migration", until: 2026-12-31 }` |
 
 Example:
 
@@ -358,10 +358,10 @@ tests:
 
 ## Case
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `name` | string |  | The case's name; default case 1 / case 2... |
-| `vars` | map of string to string | yes | Values for {{vars.<key>}} in this case. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `name` | string |  | The case's name; default case 1 / case 2... | `name: late` |
+| `vars` | map of string to string | yes | Values for {{vars.<key>}} in this case. | `vars: { days: "40", expect: "not possible" }` |
 
 Example:
 
@@ -373,11 +373,11 @@ cases:
 
 ## Capture
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `name` | string | yes | The name; the value is {{captured.<name>}}. |
-| `regex` | string |  | A regular expression on the agent's text; the first group (else the whole match) is the value. |
-| `json_path` | string |  | A JSONPath on the turn's raw response (rest / websocket / realtime events). |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `name` | string | yes | The name; the value is {{captured.<name>}}. | `name: order_id` |
+| `regex` | string |  | A regular expression on the agent's text; the first group (else the whole match) is the value. | `regex: "(ORD-[0-9]+)"` |
+| `json_path` | string |  | A JSONPath on the turn's raw response (rest / websocket / realtime events). | `json_path: $.order.id` |
 
 Example:
 
@@ -389,11 +389,11 @@ capture:
 
 ## Step
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `goal` | string |  | Agentic: the browser agent acts until the goal is met. |
-| `expect` | string |  | Agentic assertion against the current page. |
-| `action` | object (any keys) |  | Deterministic: one of navigate click fill press wait screenshot eval_js assert_url assert_text mock a11y visual. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `goal` | string |  | Agentic: the browser agent acts until the goal is met. | `goal: "Log in as {{secrets.USER}} and add the blue sneakers to the cart"` |
+| `expect` | string |  | Agentic assertion against the current page. | `expect: "The cart shows one pair of blue sneakers"` |
+| `action` | object (any keys) |  | Deterministic: one of navigate click fill press wait screenshot eval_js assert_url assert_text mock a11y visual. | `action: { fill: { ref: "#email", text: "{{secrets.USER}}" } }` |
 
 Example:
 
@@ -408,15 +408,15 @@ steps:
 
 ## Persona
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `name` | string |  | How the persona introduces itself when asked |
-| `style` | string |  | How the persona talks such as polite or impatient. |
-| `language` | string |  | BCP 47 language such as es or en-GB. |
-| `voice` | string |  | TTS voice such as en-GB-female. |
-| `behaviors` | [Behaviors](#behaviors) |  | Audio-mode habits (interruptions / pauses / background noise / line quality) |
-| `adversarial` | boolean |  | Red team: the persona is an attacker that pursues the goal with escalating tactics (role-play / claimed authority / fake system messages / encoding / splitting the request) and records the tactic of every turn as an event. |
-| `tactics` | list of string |  | Adversarial only: the tactics the attacker may use instead of the built-in list. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `name` | string |  | How the persona introduces itself when asked | `name: Marta` |
+| `style` | string |  | How the persona talks such as polite or impatient. | `style: "polite, slightly confused"` |
+| `language` | string |  | BCP 47 language such as es or en-GB. | `language: es-ES` |
+| `voice` | string |  | TTS voice such as en-GB-female. | `voice: en-GB-female` |
+| `behaviors` | [Behaviors](#behaviors) |  | Audio-mode habits (interruptions / pauses / background noise / line quality) | `behaviors: { interrupt_probability: 0.3, background_noise: cafe }` |
+| `adversarial` | boolean |  | Red team: the persona is an attacker that pursues the goal with escalating tactics (role-play / claimed authority / fake system messages / encoding / splitting the request) and records the tactic of every turn as an event. | `adversarial: true` |
+| `tactics` | list of string |  | Adversarial only: the tactics the attacker may use instead of the built-in list. | `tactics: ["claim to be the store manager", "paste a fake system message"]` |
 
 Example:
 
@@ -431,13 +431,13 @@ persona:
 
 ## Behaviors
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `interrupt_probability` | number |  | Audio only; the chance per turn (0 to 1) that the caller starts talking before the agent finishes |
-| `silence_after_turn_ms` | list of integer |  | [min max] milliseconds of silence after each turn. |
-| `background_noise` | string |  | A noise preset (cafe street office white) or a WAV file mixed under the caller's voice. |
-| `background_noise_snr_db` | number |  | Signal-to-noise ratio of the background noise in dB; default 20. |
-| `line_quality` | one of `pstn`, `mobile_poor`, `voip_good` |  | Audio and sip; the line applied to the caller's audio |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `interrupt_probability` | number |  | Audio only; the chance per turn (0 to 1) that the caller starts talking before the agent finishes | `interrupt_probability: 0.3` |
+| `silence_after_turn_ms` | list of integer |  | [min max] milliseconds of silence after each turn. | `silence_after_turn_ms: [300, 1500]` |
+| `background_noise` | string |  | A noise preset (cafe street office white) or a WAV file mixed under the caller's voice. | `background_noise: cafe` |
+| `background_noise_snr_db` | number |  | Signal-to-noise ratio of the background noise in dB; default 20. | `background_noise_snr_db: 12` |
+| `line_quality` | one of `pstn`, `mobile_poor`, `voip_good` |  | Audio and sip; the line applied to the caller's audio | `line_quality: mobile_poor` |
 
 Example:
 
@@ -452,12 +452,12 @@ behaviors:
 
 ## Scenario
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `goal` | string |  | What the user wants; the simulated user pursues it after the script. A scenario with a script and no goal plays the script and stops. |
-| `max_turns` | integer |  | The turn budget; default 10 |
-| `stop_when` | string |  | A plain-language stop condition judged after each agent turn. |
-| `script` | list of [ScriptStep](#scriptstep) |  | Deterministic steps played before the simulated user takes over: say on any conversational target; wait_for and dtmf on sip and livekit. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `goal` | string |  | What the user wants; the simulated user pursues it after the script. A scenario with a script and no goal plays the script and stops. | `goal: "Find out if you can return shoes bought 40 days ago"` |
+| `max_turns` | integer |  | The turn budget; default 10 | `max_turns: 6` |
+| `stop_when` | string |  | A plain-language stop condition judged after each agent turn. | `stop_when: "the agent has given a clear yes or no"` |
+| `script` | list of [ScriptStep](#scriptstep) |  | Deterministic steps played before the simulated user takes over: say on any conversational target; wait_for and dtmf on sip and livekit. | `script: [ { say: "Hi, I have a question about order ORD-1001" }, { wait_for: "press 2" }, { dtmf: "2" } ]` |
 
 Example:
 
@@ -474,11 +474,11 @@ scenario:
 
 ## ScriptStep
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `wait_for` | string |  | Wait until the transcript fuzzily contains this text. |
-| `dtmf` | string |  | Digits to send. |
-| `say` | string |  | Exact text to say before the persona takes over. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `wait_for` | string |  | Wait until the transcript fuzzily contains this text. | `wait_for: "press 2 for billing"` |
+| `dtmf` | string |  | Digits to send. | `dtmf: "2"` |
+| `say` | string |  | Exact text to say before the persona takes over. | `say: "What is the status of {{captured.order_id}}?"` |
 
 Example:
 
@@ -491,34 +491,34 @@ script:
 
 ## Assertion
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `judge` | [Judge](#judge) |  | A model grades the run against a rubric (a string or an object with rubric / model / scale / min) |
-| `contains` | string |  | The agent transcript contains this text. |
-| `not_contains` | string |  | No agent turn contains this text |
-| `regex` | string |  | A regular expression the agent transcript matches. |
-| `not_regex` | string |  | A regular expression no agent turn matches. |
-| `similar_to` | [Similar](#similar) |  | Some agent turn means the same as this text (embedding similarity of at least min). |
-| `json_path` | [JSONPathAssertion](#jsonpathassertion) |  | rest only. |
-| `status` | integer |  | rest only: the HTTP status of every turn. |
-| `tool_called` | [ToolCall](#toolcall) |  | The agent called the tool (a name or an object with name / args / schema) |
-| `tool_not_called` | [ToolCall](#toolcall) |  | The agent never called the tool (a name or an object with name / args) |
-| `tool_sequence` | [ToolSequence](#toolsequence) |  | The agent called these tools in this order (a subsequence of its calls; exact for the whole list). |
-| `dtmf_received` | [DTMFAssertion](#dtmfassertion) |  | sip and livekit audio: digits the agent sent. |
-| `call_ended_by` | [StringList](#stringlist) |  | sip: agent caller timeout error no_answer busy. |
-| `transferred_to` | [Matches](#matches) |  | sip: target of a SIP REFER. |
-| `evaluator` | [Evaluator](#evaluator) |  | A registered Genkit evaluator scores the run (a name or an object with name / min) |
-| `metric` | [MetricAssertion](#metricassertion) |  | A metric of the run satisfies one comparator (lt / lte / gt / gte / eq) |
-| `turns` | [IntCompare](#intcompare) |  | Number of agent turns. |
-| `captured` | [CapturedAssertion](#capturedassertion) |  | A value captured during the run exists and equals or matches. |
-| `golden` | [GoldenAssertion](#goldenassertion) |  | The agent's turns against reference turns: a file next to the suite or inline turns; exact / similar / judge. |
-| `custom` | string |  | A Go-registered assertion by name. |
-| `grounded` | [GroundedAssertion](#groundedassertion) |  | Every factual claim the agent made is supported by the retrieval context (a tool's results or a response field or given text); a judge lists the claims. |
-| `handoff` | [HandoffAssertion](#handoffassertion) |  | The agent handed the conversation to a person (true) or did not (false); or when and to whom and with what summary. |
-| `http` | [StateHTTP](#statehttp) |  | The state of your backend after the conversation: a request whose status and body are checked. |
-| `command` | [StateCommand](#statecommand) |  | The state of your backend after the conversation: a shell command whose exit code and output are checked. |
-| `pack` | string |  | A reusable assertion set: a built-in red-team pack (prompt_injection / pii_leakage / system_prompt_leakage / stays_in_scope / discloses_ai / harmful_content / excessive_agency / policy_consistency) or one of the suite's packs; it expands into its assertions when the suite loads. |
-| `on_turn` | [OnTurn](#onturn) |  | Apply the assertion to one agent turn (a number or last) instead of the whole run |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `judge` | [Judge](#judge) |  | A model grades the run against a rubric (a string or an object with rubric / model / scale / min) | `judge: "The agent states the 30-day window and promises no exception"` |
+| `contains` | string |  | The agent transcript contains this text. | `contains: "30 days"` |
+| `not_contains` | string |  | No agent turn contains this text | `not_contains: "90 days"` |
+| `regex` | string |  | A regular expression the agent transcript matches. | `regex: "(?i)30 days"` |
+| `not_regex` | string |  | A regular expression no agent turn matches. | `not_regex: '\b\d{16}\b'` |
+| `similar_to` | [Similar](#similar) |  | Some agent turn means the same as this text (embedding similarity of at least min). | `similar_to: { text: "Returning after 40 days is not possible", min: 0.7 }` |
+| `json_path` | [JSONPathAssertion](#jsonpathassertion) |  | rest only. | `json_path: { path: $.status, equals: ok }` |
+| `status` | integer |  | rest only: the HTTP status of every turn. | `status: 200` |
+| `tool_called` | [ToolCall](#toolcall) |  | The agent called the tool (a name or an object with name / args / schema) | `tool_called: { name: lookup_policy, args: { topic: returns } }` |
+| `tool_not_called` | [ToolCall](#toolcall) |  | The agent never called the tool (a name or an object with name / args) | `tool_not_called: issue_refund` |
+| `tool_sequence` | [ToolSequence](#toolsequence) |  | The agent called these tools in this order (a subsequence of its calls; exact for the whole list). | `tool_sequence: { calls: [lookup_order, issue_refund], exact: false }` |
+| `dtmf_received` | [DTMFAssertion](#dtmfassertion) |  | sip and livekit audio: digits the agent sent. | `dtmf_received: { equals: "1234#" }` |
+| `call_ended_by` | [StringList](#stringlist) |  | sip: agent caller timeout error no_answer busy. | `call_ended_by: [agent, caller]` |
+| `transferred_to` | [Matches](#matches) |  | sip: target of a SIP REFER. | `transferred_to: { matches: "^sip:billing@" }` |
+| `evaluator` | [Evaluator](#evaluator) |  | A registered Genkit evaluator scores the run (a name or an object with name / min) | `evaluator: { name: genkitEval/faithfulness, min: 0.8 }` |
+| `metric` | [MetricAssertion](#metricassertion) |  | A metric of the run satisfies one comparator (lt / lte / gt / gte / eq) | `metric: { name: turn_latency_ms_p95, lt: 3000 }` |
+| `turns` | [IntCompare](#intcompare) |  | Number of agent turns. | `turns: { lte: 6 }` |
+| `captured` | [CapturedAssertion](#capturedassertion) |  | A value captured during the run exists and equals or matches. | `captured: { name: order_id, matches: "^ORD-" }` |
+| `golden` | [GoldenAssertion](#goldenassertion) |  | The agent's turns against reference turns: a file next to the suite or inline turns; exact / similar / judge. | `golden: { file: golden/refund.json, mode: similar, min: 0.8 }` |
+| `custom` | string |  | A Go-registered assertion by name. | `custom: no_competitor_names` |
+| `grounded` | [GroundedAssertion](#groundedassertion) |  | Every factual claim the agent made is supported by the retrieval context (a tool's results or a response field or given text); a judge lists the claims. | `grounded: { context: { tool: search_docs }, min: 0.9 }` |
+| `handoff` | [HandoffAssertion](#handoffassertion) |  | The agent handed the conversation to a person (true) or did not (false); or when and to whom and with what summary. | `handoff: { within_turns: 3, to: "^billing$" }` |
+| `http` | [StateHTTP](#statehttp) |  | The state of your backend after the conversation: a request whose status and body are checked. | `http: { url: "{{vars.admin_url}}/orders/{{captured.order_id}}", json_path: { path: $.status, equals: refunded } }` |
+| `command` | [StateCommand](#statecommand) |  | The state of your backend after the conversation: a shell command whose exit code and output are checked. | `command: { run: "./scripts/ledger.sh {{captured.order_id}}", contains: credited }` |
+| `pack` | string |  | A reusable assertion set: a built-in red-team pack (prompt_injection / pii_leakage / system_prompt_leakage / stays_in_scope / discloses_ai / harmful_content / excessive_agency / policy_consistency) or one of the suite's packs; it expands into its assertions when the suite loads. | `pack: pii_leakage` |
+| `on_turn` | [OnTurn](#onturn) |  | Apply the assertion to one agent turn (a number or last) instead of the whole run | `on_turn: last` |
 
 Example:
 
@@ -546,12 +546,12 @@ assert:
 
 Either a string (The rubric; the judge model and a binary scale are the defaults), or an object with:
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `rubric` | string | yes | What the judge checks in plain language. |
-| `model` | string |  | Genkit model reference; defaults to models.judge. |
-| `scale` | one of `binary`, `1-5` |  | binary (pass or fail) or 1-5 with min. |
-| `min` | number |  | Minimum score to pass on the 1-5 scale. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `rubric` | string | yes | What the judge checks in plain language. | `rubric: "The agent apologises before explaining the policy"` |
+| `model` | string |  | Genkit model reference; defaults to models.judge. | `model: anthropic/claude-sonnet-4-6` |
+| `scale` | one of `binary`, `1-5` |  | binary (pass or fail) or 1-5 with min. | `scale: 1-5` |
+| `min` | number |  | Minimum score to pass on the 1-5 scale. | `min: 4` |
 
 Example:
 
@@ -563,11 +563,11 @@ judge: { rubric: "The agent apologises before explaining the policy", scale: "1-
 
 Either a string (The tool name), or an object with:
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `name` | string | yes | Tool name as the target reports it. |
-| `args` | object (any keys) |  | Argument values that must match (a subset of the call's arguments). |
-| `schema` | object (any keys) |  | tool_called: a JSON Schema every call's arguments must validate against. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `name` | string | yes | Tool name as the target reports it. | `name: reschedule_booking` |
+| `args` | object (any keys) |  | Argument values that must match (a subset of the call's arguments). | `args: { day: saturday }` |
+| `schema` | object (any keys) |  | tool_called: a JSON Schema every call's arguments must validate against. | `schema: { type: object, required: [day], properties: { day: { enum: [saturday, sunday] } } }` |
 
 Example:
 
@@ -577,10 +577,10 @@ tool_called: { name: lookup_policy, args: { topic: returns } }
 
 ## ToolSequence
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `calls` | list of string | yes | Tool names in the order they must be called. |
-| `exact` | boolean |  | The run's tool calls must be exactly this list; default a subsequence. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `calls` | list of string | yes | Tool names in the order they must be called. | `calls: [lookup_order, issue_refund]` |
+| `exact` | boolean |  | The run's tool calls must be exactly this list; default a subsequence. | `exact: true` |
 
 Example:
 
@@ -592,10 +592,10 @@ tool_sequence: { calls: [lookup_policy, issue_refund], exact: false }
 
 Either a string (The evaluator name), or an object with:
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `name` | string | yes | Genkit evaluator name such as genkitEval/faithfulness. |
-| `min` | number |  | Minimum score to pass (0 to 1). |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `name` | string | yes | Genkit evaluator name such as genkitEval/faithfulness. | `name: genkitEval/faithfulness` |
+| `min` | number |  | Minimum score to pass (0 to 1). | `min: 0.8` |
 
 Example:
 
@@ -605,10 +605,10 @@ evaluator: { name: genkitEval/faithfulness, min: 0.8 }
 
 ## JSONPathAssertion
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `path` | string | yes | JSONPath into the response body such as $.status. |
-| `equals` | any |  | The value the path must equal. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `path` | string | yes | JSONPath into the response body such as $.status. | `path: $.status` |
+| `equals` | any |  | The value the path must equal. | `equals: refunded` |
 
 Example:
 
@@ -618,9 +618,9 @@ json_path: { path: "$.status", equals: ok }
 
 ## DTMFAssertion
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `equals` | string | yes | The exact digits such as 1234#. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `equals` | string | yes | The exact digits such as 1234#. | `equals: "1234#"` |
 
 Example:
 
@@ -630,9 +630,9 @@ dtmf_received: { equals: "9" }
 
 ## Matches
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `matches` | string | yes | A regular expression such as ^sip:billing@. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `matches` | string | yes | A regular expression such as ^sip:billing@. | `matches: "^sip:billing@"` |
 
 Example:
 
@@ -642,14 +642,14 @@ transferred_to: { matches: "^sip:billing@" }
 
 ## MetricAssertion
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `name` | string | yes | Metric name such as turn_latency_p95_ms. |
-| `lt` | number |  | Passes when the metric is below this value |
-| `lte` | number |  | Passes when the metric is at most this value |
-| `gt` | number |  | Passes when the metric is above this value |
-| `gte` | number |  | Passes when the metric is at least this value |
-| `eq` | number |  | Passes when the metric equals this value |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `name` | string | yes | Metric name such as turn_latency_p95_ms. | `name: turn_latency_ms_p95` |
+| `lt` | number |  | Passes when the metric is below this value | `lt: 3000` |
+| `lte` | number |  | Passes when the metric is at most this value | `lte: 3000` |
+| `gt` | number |  | Passes when the metric is above this value | `gt: 0` |
+| `gte` | number |  | Passes when the metric is at least this value | `gte: 1` |
+| `eq` | number |  | Passes when the metric equals this value | `eq: 1` |
 
 Example:
 
@@ -659,13 +659,13 @@ metric: { name: time_to_first_audio_ms_p95, lt: 1500 }
 
 ## IntCompare
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `lt` | integer |  | Passes when the count is below this value |
-| `lte` | integer |  | Passes when the count is at most this value |
-| `gt` | integer |  | Passes when the count is above this value |
-| `gte` | integer |  | Passes when the count is at least this value |
-| `eq` | integer |  | Passes when the count equals this value |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `lt` | integer |  | Passes when the count is below this value | `lt: 7` |
+| `lte` | integer |  | Passes when the count is at most this value | `lte: 6` |
+| `gt` | integer |  | Passes when the count is above this value | `gt: 1` |
+| `gte` | integer |  | Passes when the count is at least this value | `gte: 2` |
+| `eq` | integer |  | Passes when the count equals this value | `eq: 3` |
 
 Example:
 
@@ -675,11 +675,11 @@ turns: { lte: 6 }
 
 ## CapturedAssertion
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `name` | string | yes | The captured value's name (capture.name) |
-| `equals` | string |  | The exact value expected |
-| `matches` | string |  | A regular expression the value must match. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `name` | string | yes | The captured value's name (capture.name) | `name: order_id` |
+| `equals` | string |  | The exact value expected | `equals: ORD-1001` |
+| `matches` | string |  | A regular expression the value must match. | `matches: "^ORD-[0-9]+$"` |
 
 Example:
 
@@ -689,12 +689,12 @@ captured: { name: order_id, matches: "^ORD-[0-9]+$" }
 
 ## GoldenAssertion
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `file` | string |  | A JSON file next to the suite: an array of agent turns or a transcript.json; written by tamesu run --update-golden. |
-| `turns` | list of string |  | Inline reference turns instead of a file. |
-| `mode` | one of `exact`, `similar`, `judge` |  | exact (normalised text) / similar (word overlap at least min; the default) / judge (the judge decides whether each turn means the same). |
-| `min` | number |  | similar: the minimum word overlap (0 to 1); default 0.8. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `file` | string |  | A JSON file next to the suite: an array of agent turns or a transcript.json; written by tamesu run --update-golden. | `file: golden/refund.json` |
+| `turns` | list of string |  | Inline reference turns instead of a file. | `turns: ["Our return window is 30 days.", "You're welcome!"]` |
+| `mode` | one of `exact`, `similar`, `judge` |  | exact (normalised text) / similar (word overlap at least min; the default) / judge (the judge decides whether each turn means the same). | `mode: similar` |
+| `min` | number |  | similar: the minimum word overlap (0 to 1); default 0.8. | `min: 0.8` |
 
 Example:
 
@@ -727,12 +727,12 @@ call_ended_by: [agent, caller]
 
 ## Hooks
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `before_all` | list of [Hook](#hook) |  | Run once before the suite's first test (the project's first). |
-| `after_all` | list of [Hook](#hook) |  | Run once after the suite's last test. |
-| `before_each` | list of [Hook](#hook) |  | Run before every run of every test; a failure is an infrastructure error for that run. |
-| `after_each` | list of [Hook](#hook) |  | Run after every run; a failure is logged and does not change the run's result. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `before_all` | list of [Hook](#hook) |  | Run once before the suite's first test (the project's first). | `before_all: [ { command: ./scripts/seed.sh } ]` |
+| `after_all` | list of [Hook](#hook) |  | Run once after the suite's last test. | `after_all: [ { command: ./scripts/teardown.sh, timeout: 2m } ]` |
+| `before_each` | list of [Hook](#hook) |  | Run before every run of every test; a failure is an infrastructure error for that run. | `before_each: [ { http: { url: "{{vars.admin_url}}/reset", method: POST } } ]` |
+| `after_each` | list of [Hook](#hook) |  | Run after every run; a failure is logged and does not change the run's result. | `after_each: [ { command: "./scripts/cleanup.sh $TAMESU_SESSION" } ]` |
 
 Example:
 
@@ -745,11 +745,11 @@ hooks:
 
 ## Hook
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `command` | string |  | A shell command (sh -c). |
-| `http` | [HTTPTrigger](#httptrigger) |  | An HTTP request; a status of 400 or more fails the hook. |
-| `timeout` | [Duration](#duration) |  | How long the hook may take; default 60s. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `command` | string |  | A shell command (sh -c). | `command: ./scripts/seed.sh` |
+| `http` | [HTTPTrigger](#httptrigger) |  | An HTTP request; a status of 400 or more fails the hook. | `http: { url: "https://admin.example.com/reset", method: POST }` |
+| `timeout` | [Duration](#duration) |  | How long the hook may take; default 60s. | `timeout: 30s` |
 
 Example:
 
@@ -760,15 +760,15 @@ Example:
 
 ## Defaults
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `timeout` | [Duration](#duration) |  | How long one run may take; default 3m |
-| `repeat` | integer |  | Times each test runs. |
-| `retries` | integer |  | Re-runs after an infrastructure failure; default 0 |
-| `pass_threshold` | number |  | Fraction of repeats that must pass (0 to 1]. |
-| `max_goal_steps` | integer |  | Browser: the most actions the agent may take per goal step; default 15. |
-| `assert` | list of [Assertion](#assertion) |  | Assertions every test must pass (results named defaults/<name>); a suite's entries run after the project's. Packs apply. |
-| `slo` | map of string to number |  | Maximum per metric on every test such as turn_latency_ms_p95: 3000 or llm_cost_usd: 0.05 (results named slo/<metric>); a metric a test does not measure passes. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `timeout` | [Duration](#duration) |  | How long one run may take; default 3m | `timeout: 3m` |
+| `repeat` | integer |  | Times each test runs. | `repeat: 3` |
+| `retries` | integer |  | Re-runs after an infrastructure failure; default 0 | `retries: 1` |
+| `pass_threshold` | number |  | Fraction of repeats that must pass (0 to 1]. | `pass_threshold: 0.67` |
+| `max_goal_steps` | integer |  | Browser: the most actions the agent may take per goal step; default 15. | `max_goal_steps: 15` |
+| `assert` | list of [Assertion](#assertion) |  | Assertions every test must pass (results named defaults/<name>); a suite's entries run after the project's. Packs apply. | `assert: [ { pack: pii_leakage } ]` |
+| `slo` | map of string to number |  | Maximum per metric on every test such as turn_latency_ms_p95: 3000 or llm_cost_usd: 0.05 (results named slo/<metric>); a metric a test does not measure passes. | `slo: { turn_latency_ms_p95: 3000, llm_cost_usd: 0.05 }` |
 
 Example:
 
@@ -787,17 +787,17 @@ defaults:
 
 ## Models
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `default` | string |  | The model for every job not given its own (a Genkit reference such as googleai/gemini-2.5-flash) |
-| `judge` | string |  | The model that grades rubrics and grounding checks; default the default model |
-| `browser_agent` | string |  | The model that plans and acts on browser goals |
-| `simulator` | string |  | The model that plays the simulated user |
-| `scenario_generator` | string |  | The model tamesu generate drafts tests with |
-| `embedder` | string |  | The embedding model of similar_to assertions such as googleai/text-embedding-004 or openai/text-embedding-3-small; defaults to the usual embedder of default's provider. |
-| `credentials` | map of string to string |  | Plugin name to {{secrets.NAME}} when the secret is not named conventionally. |
-| `fallback` | [ModelFallback](#modelfallback) |  | The models tried in order when a job's model keeps failing. |
-| `retry` | [ModelRetry](#modelretry) |  | How a model call is retried before the next model is tried. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `default` | string |  | The model for every job not given its own (a Genkit reference such as googleai/gemini-2.5-flash) | `default: googleai/gemini-2.5-flash` |
+| `judge` | string |  | The model that grades rubrics and grounding checks; default the default model | `judge: anthropic/claude-sonnet-4-6` |
+| `browser_agent` | string |  | The model that plans and acts on browser goals | `browser_agent: googleai/gemini-2.5-pro` |
+| `simulator` | string |  | The model that plays the simulated user | `simulator: openai/gpt-4.1-mini` |
+| `scenario_generator` | string |  | The model tamesu generate drafts tests with | `scenario_generator: googleai/gemini-2.5-pro` |
+| `embedder` | string |  | The embedding model of similar_to assertions such as googleai/text-embedding-004 or openai/text-embedding-3-small; defaults to the usual embedder of default's provider. | `embedder: googleai/text-embedding-004` |
+| `credentials` | map of string to string |  | Plugin name to {{secrets.NAME}} when the secret is not named conventionally. | `credentials: { googleai: "{{secrets.MY_GEMINI_KEY}}" }` |
+| `fallback` | [ModelFallback](#modelfallback) |  | The models tried in order when a job's model keeps failing. | `fallback: { judge: [googleai/gemini-2.5-pro] }` |
+| `retry` | [ModelRetry](#modelretry) |  | How a model call is retried before the next model is tried. | `retry: { attempts: 3, backoff: 500ms, max_backoff: 10s }` |
 
 Example:
 
@@ -814,10 +814,10 @@ models:
 
 ## Budgets
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `max_cost_usd` | number |  | Cap on tamesu's own model spend per run (exit code 4 when exceeded); default 5 |
-| `max_tokens` | integer |  | Cap on tamesu's own tokens per run; default 2_000_000 |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `max_cost_usd` | number |  | Cap on tamesu's own model spend per run (exit code 4 when exceeded); default 5 | `max_cost_usd: 2` |
+| `max_tokens` | integer |  | Cap on tamesu's own tokens per run; default 2_000_000 | `max_tokens: 500000` |
 
 Example:
 
@@ -839,11 +839,11 @@ timeout: 90s
 
 ## ConnectConfig
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `attempts` | integer |  | Tries to reach the agent when the connection is refused or the agent answers 5xx; default 3 and 1 retries nothing. |
-| `backoff` | [Duration](#duration) |  | The wait before the second try; default 500ms and doubled every try with jitter. |
-| `max_backoff` | [Duration](#duration) |  | The longest wait between tries; default 5s. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `attempts` | integer |  | Tries to reach the agent when the connection is refused or the agent answers 5xx; default 3 and 1 retries nothing. | `attempts: 5` |
+| `backoff` | [Duration](#duration) |  | The wait before the second try; default 500ms and doubled every try with jitter. | `backoff: 1s` |
+| `max_backoff` | [Duration](#duration) |  | The longest wait between tries; default 5s. | `max_backoff: 10s` |
 
 Example:
 
@@ -855,11 +855,11 @@ connect: { attempts: 5, backoff: 1s, max_backoff: 10s }
 
 Either a string (The fuzz mode: error, empty, null, malformed, hostile, huge, wrong_type or delay), or an object with:
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `mode` | one of `error`, `empty`, `null`, `malformed`, `hostile`, `huge`, `wrong_type`, `delay`, `custom` | yes | What the tool answers instead of its result. |
-| `delay` | string |  | How long the answer is held back (any mode; the whole point of delay). |
-| `result` | any |  | The answer in custom mode (any JSON). |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `mode` | one of `error`, `empty`, `null`, `malformed`, `hostile`, `huge`, `wrong_type`, `delay`, `custom` | yes | What the tool answers instead of its result. | `mode: delay` |
+| `delay` | string |  | How long the answer is held back (any mode; the whole point of delay). | `delay: 8s` |
+| `result` | any |  | The answer in custom mode (any JSON). | `result: { ok: false, reason: "insufficient funds" }` |
 
 Example:
 
@@ -872,11 +872,11 @@ fuzz_tools:
 
 ## GroundedAssertion
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `context` | [GroundedContext](#groundedcontext) | yes | Where the retrieval context is: a tool whose results tamesu saw or a JSONPath into every raw response or text given here. |
-| `min` | number |  | The fraction of claims that must be supported (0 to 1); all of them when omitted. |
-| `model` | string |  | The judge model for this check (a Genkit reference); defaults to models.judge. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `context` | [GroundedContext](#groundedcontext) | yes | Where the retrieval context is: a tool whose results tamesu saw or a JSONPath into every raw response or text given here. | `context: { tool: search_docs }` |
+| `min` | number |  | The fraction of claims that must be supported (0 to 1); all of them when omitted. | `min: 0.9` |
+| `model` | string |  | The judge model for this check (a Genkit reference); defaults to models.judge. | `model: googleai/gemini-2.5-pro` |
 
 Example:
 
@@ -886,11 +886,11 @@ grounded: { context: { tool: search_docs }, min: 0.9 }
 
 ## GroundedContext
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `tool` | string |  | A tool whose results are the context (model and realtime and pipecat targets). |
-| `json_path` | string |  | A JSONPath into every raw response selecting the passages (rest / websocket / realtime events). |
-| `text` | list of string |  | Passages given in the suite. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `tool` | string |  | A tool whose results are the context (model and realtime and pipecat targets). | `tool: search_docs` |
+| `json_path` | string |  | A JSONPath into every raw response selecting the passages (rest / websocket / realtime events). | `json_path: "$.sources[*].text"` |
+| `text` | list of string |  | Passages given in the suite. | `text: ["Returns are accepted within 30 days of delivery."]` |
 
 Example:
 
@@ -902,13 +902,13 @@ context: { json_path: "$.sources[*].text" }
 
 Either a string (Whether the agent must have handed the conversation to a person), or an object with:
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `expected` | boolean |  | Whether a handoff must have happened; true when omitted. |
-| `within_turns` | integer |  | The latest agent turn the handoff may happen on. |
-| `to` | string |  | A regular expression the destination must match. |
-| `summary_contains` | list of string |  | Texts the handoff summary must contain. |
-| `summary` | string |  | A judge rubric for the handoff summary. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `expected` | boolean |  | Whether a handoff must have happened; true when omitted. | `expected: false` |
+| `within_turns` | integer |  | The latest agent turn the handoff may happen on. | `within_turns: 3` |
+| `to` | string |  | A regular expression the destination must match. | `to: "^billing$"` |
+| `summary_contains` | list of string |  | Texts the handoff summary must contain. | `summary_contains: ["ORD-1001", "late"]` |
+| `summary` | string |  | A judge rubric for the handoff summary. | `summary: "The summary names the order and the problem"` |
 
 Example:
 
@@ -918,13 +918,13 @@ handoff: { within_turns: 3, to: "^billing$", summary_contains: ["ORD-"], summary
 
 ## HandoffSignal
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `tool` | string |  | A tool call that hands off such as transfer_to_human. |
-| `json_path` | string |  | A path in the turn's raw response that is present and not false when the agent hands off (rest / websocket / realtime). |
-| `regex` | string |  | A regular expression on the agent's reply that means a handoff. |
-| `to` | string |  | Where the destination is: the tool argument name or a JSONPath in the response (or the regex's first group when tool and json_path are unset). |
-| `summary` | string |  | Where the summary passed to the person is: the tool argument name or a JSONPath in the response. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `tool` | string |  | A tool call that hands off such as transfer_to_human. | `tool: transfer_to_human` |
+| `json_path` | string |  | A path in the turn's raw response that is present and not false when the agent hands off (rest / websocket / realtime). | `json_path: $.handoff` |
+| `regex` | string |  | A regular expression on the agent's reply that means a handoff. | `regex: "(?i)transferring you to (\w+)"` |
+| `to` | string |  | Where the destination is: the tool argument name or a JSONPath in the response (or the regex's first group when tool and json_path are unset). | `to: department` |
+| `summary` | string |  | Where the summary passed to the person is: the tool argument name or a JSONPath in the response. | `summary: $.handoff.note` |
 
 Example:
 
@@ -934,14 +934,14 @@ handoff: { tool: transfer_to_human, to: department, summary: summary }
 
 ## ModelFallback
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `default` | list of string |  | Models tried in order after a job's model failed; for every job without a list of its own. |
-| `judge` | list of string |  | Models tried in order after the judge's model failed. |
-| `simulator` | list of string |  | Models tried in order after the simulator's model failed. |
-| `browser_agent` | list of string |  | Models tried in order after the browser agent's model failed. |
-| `scenario_generator` | list of string |  | Models tried in order after the scenario generator's model failed. |
-| `embedder` | list of string |  | Embedding models tried in order after embedder failed; the default list does not apply to embeddings. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `default` | list of string |  | Models tried in order after a job's model failed; for every job without a list of its own. | `default: [openai/gpt-4.1-mini]` |
+| `judge` | list of string |  | Models tried in order after the judge's model failed. | `judge: [googleai/gemini-2.5-pro]` |
+| `simulator` | list of string |  | Models tried in order after the simulator's model failed. | `simulator: [anthropic/claude-sonnet-4-6]` |
+| `browser_agent` | list of string |  | Models tried in order after the browser agent's model failed. | `browser_agent: [googleai/gemini-2.5-flash]` |
+| `scenario_generator` | list of string |  | Models tried in order after the scenario generator's model failed. | `scenario_generator: [googleai/gemini-2.5-flash]` |
+| `embedder` | list of string |  | Embedding models tried in order after embedder failed; the default list does not apply to embeddings. | `embedder: [openai/text-embedding-3-small]` |
 
 Example:
 
@@ -954,11 +954,11 @@ fallback:
 
 ## ModelRetry
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `attempts` | integer |  | Tries per model on a rate limit or an outage or a timeout before the next fallback; default 3 and 1 retries nothing. |
-| `backoff` | [Duration](#duration) |  | The wait before the second try; default 500ms and doubled every try with jitter. |
-| `max_backoff` | [Duration](#duration) |  | The longest wait between tries; default 10s. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `attempts` | integer |  | Tries per model on a rate limit or an outage or a timeout before the next fallback; default 3 and 1 retries nothing. | `attempts: 3` |
+| `backoff` | [Duration](#duration) |  | The wait before the second try; default 500ms and doubled every try with jitter. | `backoff: 500ms` |
+| `max_backoff` | [Duration](#duration) |  | The longest wait between tries; default 10s. | `max_backoff: 10s` |
 
 Example:
 
@@ -968,10 +968,10 @@ retry: { attempts: 3, backoff: 500ms, max_backoff: 10s }
 
 ## Quarantine
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `reason` | string | yes | Why the test is quarantined; usually the ticket that tracks it. |
-| `until` | string |  | The last day (YYYY-MM-DD) of the quarantine; from the next day the test counts again. Without it the quarantine lasts until removed. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `reason` | string | yes | Why the test is quarantined; usually the ticket that tracks it. | `reason: "SUP-412 flaky since the payments migration"` |
+| `until` | string |  | The last day (YYYY-MM-DD) of the quarantine; from the next day the test counts again. Without it the quarantine lasts until removed. | `until: 2026-12-31` |
 
 Example:
 
@@ -981,17 +981,17 @@ quarantine: { reason: "SUP-412 flaky since the payments migration", until: 2026-
 
 ## RedTeam
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `target` | string | yes | The target the attacks talk to (a key of targets). |
-| `agent` | string | yes | What the agent is and what it must never do; the attacks pursue goals written against it. |
-| `playbooks` | list of string |  | The built-in playbooks to run (tamesu playbooks lists them); every playbook when empty. |
-| `max_turns` | integer |  | Turns each attack gets (default 8). |
-| `repeat` | integer |  | Times each attack runs. |
-| `language` | string |  | The attacker's language (BCP 47). |
-| `tags` | list of string |  | Extra tags on every generated test (red-team and playbook:<name> and owasp:<id> are always set). |
-| `vars` | map of string to string |  | Values for {{vars.<key>}} in the generated tests. |
-| `assert` | list of [Assertion](#assertion) |  | Assertions added to every generated test (a pack or a not_contains with the forbidden outcome). |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `target` | string | yes | The target the attacks talk to (a key of targets). | `target: api` |
+| `agent` | string | yes | What the agent is and what it must never do; the attacks pursue goals written against it. | `agent: "Shop support for orders and returns; never more than 30-day returns, never other customers' data"` |
+| `playbooks` | list of string |  | The built-in playbooks to run (tamesu playbooks lists them); every playbook when empty. | `playbooks: [prompt_injection, pii_extraction, policy_drift]` |
+| `max_turns` | integer |  | Turns each attack gets (default 8). | `max_turns: 8` |
+| `repeat` | integer |  | Times each attack runs. | `repeat: 3` |
+| `language` | string |  | The attacker's language (BCP 47). | `language: es` |
+| `tags` | list of string |  | Extra tags on every generated test (red-team and playbook:<name> and owasp:<id> are always set). | `tags: [nightly]` |
+| `vars` | map of string to string |  | Values for {{vars.<key>}} in the generated tests. | `vars: { shop: Mochi Shoes }` |
+| `assert` | list of [Assertion](#assertion) |  | Assertions added to every generated test (a pack or a not_contains with the forbidden outcome). | `assert: [ { not_contains: "90 days" } ]` |
 
 Example:
 
@@ -1009,11 +1009,11 @@ red_team:
 
 Either a string (The text some agent turn should mean; the configured embedding model and a 0.8 minimum are the defaults), or an object with:
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `text` | string | yes | What an agent turn should mean. |
-| `min` | number |  | Minimum cosine similarity between the embeddings (0 to 1); default 0.8. |
-| `model` | string |  | Embedding model (a Genkit reference); defaults to models.embedder. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `text` | string | yes | What an agent turn should mean. | `text: "Returning after 40 days is not possible"` |
+| `min` | number |  | Minimum cosine similarity between the embeddings (0 to 1); default 0.8. | `min: 0.7` |
+| `model` | string |  | Embedding model (a Genkit reference); defaults to models.embedder. | `model: googleai/text-embedding-004` |
 
 Example:
 
@@ -1024,13 +1024,13 @@ Example:
 
 ## StateCommand
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `run` | string | yes | The command (sh -c); templates render with the run's vars and captured values and secrets. |
-| `exit` | integer |  | The expected exit code; 0 when omitted. |
-| `contains` | string |  | Text the output must contain. |
-| `regex` | string |  | A regular expression the output must match. |
-| `timeout` | [Duration](#duration) |  | How long the command may take; default 30s. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `run` | string | yes | The command (sh -c); templates render with the run's vars and captured values and secrets. | `run: "psql -tAc \"select status from orders where id = '{{captured.order_id}}'\""` |
+| `exit` | integer |  | The expected exit code; 0 when omitted. | `exit: 0` |
+| `contains` | string |  | Text the output must contain. | `contains: refunded` |
+| `regex` | string |  | A regular expression the output must match. | `regex: "refund(ed\|ing)"` |
+| `timeout` | [Duration](#duration) |  | How long the command may take; default 30s. | `timeout: 20s` |
 
 Example:
 
@@ -1040,17 +1040,17 @@ command: { run: "psql -tAc \"select status from orders where id = '{{captured.or
 
 ## StateHTTP
 
-| Key | Type | Required | Description |
-|---|---|---|---|
-| `url` | string | yes | The request URL; templates render with the run's vars and captured values and secrets. |
-| `method` | string |  | GET when empty. |
-| `headers` | map of string to string |  | Request headers (templates allowed) |
-| `body` | any |  | A string is sent as is; a mapping as JSON. |
-| `status` | integer |  | The expected status code; any code under 400 when omitted. |
-| `json_path` | [JSONPathAssertion](#jsonpathassertion) |  | A path that must exist in the JSON body and with equals have that value. |
-| `contains` | string |  | Text the body must contain. |
-| `regex` | string |  | A regular expression the body must match. |
-| `timeout` | [Duration](#duration) |  | How long the request may take; default 30s. |
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `url` | string | yes | The request URL; templates render with the run's vars and captured values and secrets. | `url: "{{vars.admin_url}}/orders/{{captured.order_id}}"` |
+| `method` | string |  | GET when empty. | `method: GET` |
+| `headers` | map of string to string |  | Request headers (templates allowed) | `headers: { Authorization: "Bearer {{secrets.ADMIN_TOKEN}}" }` |
+| `body` | any |  | A string is sent as is; a mapping as JSON. | `body: { reason: "test {{env.TAMESU_TEST}}" }` |
+| `status` | integer |  | The expected status code; any code under 400 when omitted. | `status: 200` |
+| `json_path` | [JSONPathAssertion](#jsonpathassertion) |  | A path that must exist in the JSON body and with equals have that value. | `json_path: { path: $.status, equals: refunded }` |
+| `contains` | string |  | Text the body must contain. | `contains: refunded` |
+| `regex` | string |  | A regular expression the body must match. | `regex: '"type":"refund_issued"'` |
+| `timeout` | [Duration](#duration) |  | How long the request may take; default 30s. | `timeout: 10s` |
 
 Example:
 
