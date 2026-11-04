@@ -68,6 +68,10 @@ type Config struct {
 	URL       string
 	APIKey    string
 	APISecret string
+	// Token is a ready-made access token (a hosted platform's web call); it
+	// replaces APIKey and APISecret, and Identity must be the token's
+	// identity.
+	Token string
 	// Room is the room name template; empty means tamesu-{{uuid}}.
 	Room string
 	// AgentName requests an explicit agent dispatch when the room is created.
@@ -173,6 +177,7 @@ type events struct {
 // connectConfig is what a connector needs.
 type connectConfig struct {
 	URL, APIKey, APISecret string
+	Token                  string
 	Room, Identity         string
 	AgentName              string
 	ReplyTopics            []string
@@ -197,12 +202,12 @@ func (t *Target) Start(ctx context.Context, run *target.RunContext) (target.Sess
 		name string
 		src  string
 		dst  *string
-	}{{"url", t.cfg.URL, &cc.URL}, {"api_key", t.cfg.APIKey, &cc.APIKey}, {"api_secret", t.cfg.APISecret, &cc.APISecret}, {"room", t.cfg.Room, &cc.Room}} {
+	}{{"url", t.cfg.URL, &cc.URL}, {"api_key", t.cfg.APIKey, &cc.APIKey}, {"api_secret", t.cfg.APISecret, &cc.APISecret}, {"room", t.cfg.Room, &cc.Room}, {"token", t.cfg.Token, &cc.Token}} {
 		if *f.dst, err = run.Render(f.src); err != nil {
 			return nil, fmt.Errorf("livekit %s: %s: %w", t.name, f.name, err)
 		}
 	}
-	if cc.URL == "" || cc.APIKey == "" || cc.APISecret == "" {
+	if cc.URL == "" || (cc.Token == "" && (cc.APIKey == "" || cc.APISecret == "")) {
 		return nil, fmt.Errorf("livekit %s: url, api_key and api_secret are required", t.name)
 	}
 	cc.Identity = t.cfg.Identity

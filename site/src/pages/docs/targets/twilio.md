@@ -37,7 +37,7 @@ tests:
         - dtmf: "2"
     assert:
       - judge: "The agent states the 30-day window and does not promise an exception"
-      - metric: { name: time_to_first_audio_ms, p95: { lt: 2500 } }
+      - metric: { name: time_to_first_audio_ms_p95, lt: 2500 }
 ```
 
 The target is audio only, like the phone: it needs the speech models (`speech.tts.model` and

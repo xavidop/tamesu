@@ -1417,7 +1417,9 @@
             "model",
             "twilio",
             "mcp",
-            "a2a"
+            "a2a",
+            "vapi",
+            "retell"
           ],
           "description": "What the target is; it decides which other keys apply"
         },
@@ -1482,7 +1484,7 @@
         },
         "api_key": {
           "type": "string",
-          "description": "Use {{secrets.NAME}}."
+          "description": "livekit / vapi / retell: use {{secrets.NAME}}."
         },
         "api_secret": {
           "type": "string",
@@ -1514,7 +1516,7 @@
         },
         "join_timeout": {
           "$ref": "#/$defs/Duration",
-          "description": "livekit targets; how long to wait for the agent to join the room (default 20s)"
+          "description": "livekit / retell: how long to wait for the agent to join the room (default 20s)"
         },
         "transcript_source": {
           "type": "string",
@@ -1579,7 +1581,7 @@
         },
         "turn_timeout": {
           "$ref": "#/$defs/Duration",
-          "description": "realtime / grpc / pipecat / a2a: how long to wait for the end of a turn; default 60s."
+          "description": "realtime / grpc / pipecat / twilio / a2a / vapi / retell: how long to wait for the end of a turn; default 60s."
         },
         "tool_results": {
           "type": "object",
@@ -1596,11 +1598,11 @@
         },
         "sample_rate": {
           "type": "integer",
-          "description": "pipecat audio mode: the transport's sample rate in Hz; default 16000."
+          "description": "pipecat audio mode and vapi: the audio sample rate in Hz; default 16000."
         },
         "idle": {
           "$ref": "#/$defs/Duration",
-          "description": "pipecat and twilio: silence after the agent's last message or audio that ends a turn; default 2s."
+          "description": "pipecat / twilio / vapi / retell: silence after the agent's last message or audio that ends a turn; default 2s."
         },
         "parameters": {
           "additionalProperties": {
@@ -1638,6 +1640,45 @@
           "$ref": "#/$defs/Duration",
           "description": "mcp: how long one tool call may take; default 60s."
         },
+        "assistant_id": {
+          "type": "string",
+          "description": "vapi: the saved assistant to call (templates allowed); or assistant / squad_id."
+        },
+        "assistant": {
+          "type": "object",
+          "description": "vapi: a transient assistant (the assistant object of the call API) instead of assistant_id; string leaves render templates."
+        },
+        "assistant_overrides": {
+          "type": "object",
+          "description": "vapi: assistantOverrides of the call (first message / voice / model...)."
+        },
+        "squad_id": {
+          "type": "string",
+          "description": "vapi: a squad to call instead of an assistant."
+        },
+        "variables": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "vapi: the assistant's variableValues; retell: the retell_llm_dynamic_variables (templates allowed)."
+        },
+        "base_url": {
+          "type": "string",
+          "description": "vapi / retell: the platform API (default https://api.vapi.ai or https://api.retellai.com)."
+        },
+        "agent_id": {
+          "type": "string",
+          "description": "retell: the agent to call (templates allowed)."
+        },
+        "agent_version": {
+          "type": "string",
+          "description": "retell: the agent version such as latest_published."
+        },
+        "livekit_url": {
+          "type": "string",
+          "description": "retell: the LiveKit server the web call runs on; default Retell's cloud."
+        },
         "stream": {
           "type": "boolean",
           "description": "a2a: read the agent's turn from message/stream (server-sent events) instead of message/send; falls back to message/send when the card says the agent does not stream."
@@ -1648,7 +1689,7 @@
         },
         "metadata": {
           "type": "object",
-          "description": "a2a: metadata sent with every message (a tenant or a locale)."
+          "description": "a2a: metadata sent with every message (a tenant or a locale); vapi / retell: metadata stored on the call."
         },
         "system": {
           "type": "string",

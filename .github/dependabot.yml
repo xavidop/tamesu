@@ -77,6 +77,18 @@ updates:
     schedule: { interval: weekly }
     labels: [dependencies, go, target]
 
+  # Vapi target (own go.mod; coder/websocket and the audio module)
+  - package-ecosystem: gomod
+    directory: "/targets/vapi"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, target]
+
+  # Retell target (own go.mod; the livekit target)
+  - package-ecosystem: gomod
+    directory: "/targets/retell"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, target]
+
   # gRPC target (own go.mod; grpc-go and protobuf)
   - package-ecosystem: gomod
     directory: "/targets/grpc"

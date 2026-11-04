@@ -64,7 +64,7 @@ tests:
 
 | Key | Type | Required | Description | Example |
 |---|---|---|---|---|
-| `type` | one of `browser`, `rest`, `livekit`, `sip`, `realtime`, `grpc`, `pipecat`, `model`, `twilio`, `mcp`, `a2a` | yes | What the target is; it decides which other keys apply | `type: rest` |
+| `type` | one of `browser`, `rest`, `livekit`, `sip`, `realtime`, `grpc`, `pipecat`, `model`, `twilio`, `mcp`, `a2a`, `vapi`, `retell` | yes | What the target is; it decides which other keys apply | `type: rest` |
 | `url` | string |  | The page (browser) or endpoint (rest / realtime / pipecat / twilio / a2a) or grpc://host:port (grpc) or LiveKit server (livekit). | `url: "${AGENT_URL:-http://localhost:8080/chat}"` |
 | `connect` | [ConnectConfig](#connectconfig) |  | How reaching the agent is retried (attempts / backoff / max_backoff) | `connect: { attempts: 5, backoff: 1s, max_backoff: 10s }` |
 | `handoff` | [HandoffSignal](#handoffsignal) |  | How the agent signals that a person took over (tool / json_path / regex plus where the destination and summary are) | `handoff: { tool: transfer_to_human, to: department, summary: summary }` |
@@ -77,14 +77,14 @@ tests:
 | `response` | [RESTResponse](#restresponse) |  | rest targets; how the agent turn is read back (JSONPaths into the response) | `response: { text: $.reply, tool_calls: "$.tool_calls[*]", done: $.end_session }` |
 | `streaming` | one of `none`, `sse`, `websocket` |  | rest targets; none (default) or sse or websocket | `streaming: sse` |
 | `session` | [RESTSession](#restsession) |  | rest targets; the session id template | `session: { id: "{{uuid}}" }` |
-| `api_key` | string |  | Use {{secrets.NAME}}. | `api_key: "{{secrets.LIVEKIT_API_KEY}}"` |
+| `api_key` | string |  | livekit / vapi / retell: use {{secrets.NAME}}. | `api_key: "{{secrets.LIVEKIT_API_KEY}}"` |
 | `api_secret` | string |  | Use {{secrets.NAME}}. | `api_secret: "{{secrets.LIVEKIT_API_SECRET}}"` |
 | `room` | string |  | Room name template; defaults to tamesu-{{uuid}}. | `room: "tamesu-{{uuid}}"` |
 | `dispatch` | [Dispatch](#dispatch) |  | livekit targets; an explicit agent dispatch for the room | `dispatch: { agent_name: support-agent }` |
 | `agent_identity_prefix` | string |  | How to recognise the agent participant; defaults to kind=agent. | `agent_identity_prefix: agent-` |
 | `mode` | one of `text`, `audio` |  | livekit / realtime / pipecat: text (default) or audio. | `mode: audio` |
 | `data_topic` | string |  | Text-mode transport topic; defaults to lk.chat. | `data_topic: lk.chat` |
-| `join_timeout` | [Duration](#duration) |  | livekit targets; how long to wait for the agent to join the room (default 20s) | `join_timeout: 20s` |
+| `join_timeout` | [Duration](#duration) |  | livekit / retell: how long to wait for the agent to join the room (default 20s) | `join_timeout: 20s` |
 | `transcript_source` | one of `auto`, `agent`, `stt` |  | Audio mode: where the agent's words come from; auto (default) takes the agent's own transcription when it publishes one and transcribes its audio otherwise. | `transcript_source: stt` |
 | `direction` | one of `outbound`, `inbound` |  | sip targets; outbound (tamesu calls the agent) or inbound (a trigger makes the agent call tamesu) | `direction: outbound` |
 | `to` | string |  | The agent's phone number in E.164 (outbound); twilio: the To the agent sees in customParameters. | `to: "+34910000000"` |
@@ -97,20 +97,29 @@ tests:
 | `session_update` | object (any keys) |  | realtime: merged into the session.update event (instructions / tools / voice / output modalities). | `session_update: { instructions: "You are the support agent", voice: alloy }` |
 | `protocol` | one of `ga`, `beta` |  | realtime: the event dialect; ga (default) or beta (modalities and the OpenAI-Beta header). | `protocol: ga` |
 | `done_tool` | string |  | realtime and model: a function call with this name ends the session; default end_session. | `done_tool: end_session` |
-| `turn_timeout` | [Duration](#duration) |  | realtime / grpc / pipecat / a2a: how long to wait for the end of a turn; default 60s. | `turn_timeout: 60s` |
+| `turn_timeout` | [Duration](#duration) |  | realtime / grpc / pipecat / twilio / a2a / vapi / retell: how long to wait for the end of a turn; default 60s. | `turn_timeout: 60s` |
 | `tool_results` | object (any keys) |  | realtime and pipecat: answers to the agent's function calls by function name. The value (any JSON; string leaves may use {{args.<key>}}) goes back as the function's output and the response continues. Unlisted functions and done_tool are recorded only. | `tool_results: { lookup_order: { id: "{{args.id}}", status: shipped } }` |
 | `audio_format` | one of `pcm16`, `g711_ulaw`, `g711_alaw` |  | realtime audio mode: the agent's output audio; pcm16 (default) or G.711 at 8 kHz. | `audio_format: pcm16` |
-| `sample_rate` | integer |  | pipecat audio mode: the transport's sample rate in Hz; default 16000. | `sample_rate: 16000` |
-| `idle` | [Duration](#duration) |  | pipecat and twilio: silence after the agent's last message or audio that ends a turn; default 2s. | `idle: 2s` |
+| `sample_rate` | integer |  | pipecat audio mode and vapi: the audio sample rate in Hz; default 16000. | `sample_rate: 16000` |
+| `idle` | [Duration](#duration) |  | pipecat / twilio / vapi / retell: silence after the agent's last message or audio that ends a turn; default 2s. | `idle: 2s` |
 | `parameters` | map of string to string |  | twilio: the customParameters of the start event (the Parameter elements of the TwiML Stream); values render {{vars.x}} and {{secrets.X}}. | `parameters: { campaign: autumn, caller_tier: gold }` |
 | `command` | string |  | mcp: the stdio server to spawn (an executable); url is the alternative for a streamable HTTP server. | `command: ./bin/orders-mcp` |
 | `args` | list of string |  | mcp: arguments of command. | `args: ["--data", "fixtures/orders.json"]` |
 | `env` | map of string to string |  | mcp: environment variables for command (templates allowed). | `env: { LOG_LEVEL: warn, API_KEY: "{{secrets.MCP_KEY}}" }` |
 | `allow_tools` | list of string |  | mcp: offer only these of the server's tools to the model. | `allow_tools: [lookup_order, cancel_order]` |
 | `call_timeout` | [Duration](#duration) |  | mcp: how long one tool call may take; default 60s. | `call_timeout: 20s` |
+| `assistant_id` | string |  | vapi: the saved assistant to call (templates allowed); or assistant / squad_id. | `assistant_id: "{{vars.assistant_id}}"` |
+| `assistant` | object (any keys) |  | vapi: a transient assistant (the assistant object of the call API) instead of assistant_id; string leaves render templates. | `assistant: { firstMessage: "Hi, how can I help?", model: { provider: openai, model: gpt-4o } }` |
+| `assistant_overrides` | object (any keys) |  | vapi: assistantOverrides of the call (first message / voice / model...). | `assistant_overrides: { firstMessage: "Welcome back" }` |
+| `squad_id` | string |  | vapi: a squad to call instead of an assistant. | `squad_id: 7f1c2b3a-0000-4000-8000-000000000000` |
+| `variables` | map of string to string |  | vapi: the assistant's variableValues; retell: the retell_llm_dynamic_variables (templates allowed). | `variables: { customer_name: Marta }` |
+| `base_url` | string |  | vapi / retell: the platform API (default https://api.vapi.ai or https://api.retellai.com). | `base_url: https://api.vapi.ai` |
+| `agent_id` | string |  | retell: the agent to call (templates allowed). | `agent_id: agent_2b3c4d5e6f` |
+| `agent_version` | string |  | retell: the agent version such as latest_published. | `agent_version: latest_published` |
+| `livekit_url` | string |  | retell: the LiveKit server the web call runs on; default Retell's cloud. | `livekit_url: wss://retell-ai-4ihahnq7.livekit.cloud` |
 | `stream` | boolean |  | a2a: read the agent's turn from message/stream (server-sent events) instead of message/send; falls back to message/send when the card says the agent does not stream. | `stream: true` |
 | `skill` | string |  | a2a: a skill id or name the agent card must offer; the session fails to start otherwise. | `skill: order-status` |
-| `metadata` | object (any keys) |  | a2a: metadata sent with every message (a tenant or a locale). | `metadata: { tenant: acme }` |
+| `metadata` | object (any keys) |  | a2a: metadata sent with every message (a tenant or a locale); vapi / retell: metadata stored on the call. | `metadata: { tenant: acme }` |
 | `system` | string |  | model: the system prompt under test; {{vars.x}} and {{secrets.X}} render. | `system: "You are the Mochi Shoes support agent."` |
 | `system_file` | string |  | model: a file next to the suite holding the system prompt (instead of system). | `system_file: prompts/support.md` |
 | `tools` | list of [ToolDef](#tooldef) |  | model: the tools offered to the model and the result tamesu answers each call with. | `tools: [ { name: lookup_policy, description: The policy for a topic, result: { window_days: 30 } } ]` |

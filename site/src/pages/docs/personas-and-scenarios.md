@@ -49,7 +49,7 @@ tests:
 Give the persona what the agent will ask for: a name, an order reference in the goal, a date. The
 simulator invents plausible details that fit the persona when it must, and never gives a real
 secret, card number or password. The audio behaviours take effect in livekit audio mode and on
-sip calls; `interrupt_probability` also in realtime, pipecat and twilio audio mode (the barge-in
+sip calls; `interrupt_probability` also in realtime, pipecat, twilio, vapi and retell (the barge-in
 test: the caller talks over the agent and `interruption_stop_ms` measures how long it kept
 talking). Text mode ignores them. A test's `seed` drives the behaviour RNG, so a run
 with the same seed pauses and interrupts at the same points.
@@ -120,7 +120,7 @@ or ID (`Puck`, an ElevenLabs or Cartesia voice ID) passes through. The hint's la
 the TTS language when `speech.tts.language` is not set.
 
 The behaviours shape the caller's audio, in livekit audio mode and on sip calls (and
-`interrupt_probability` on realtime, pipecat and twilio too):
+`interrupt_probability` on realtime, pipecat, twilio, vapi and retell too):
 
 ```yaml
 persona:

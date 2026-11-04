@@ -57,6 +57,16 @@ const targets = [
     body: "An agent speaking the Agent2Agent protocol: its card and skills, message/send or a streamed task, input-required turns and artifacts, judged like any other agent.",
   },
   {
+    tag: "vapi",
+    title: "Vapi assistants",
+    body: "A Vapi assistant called over its websocket transport: tamesu creates the call, speaks, listens, interrupts and reads the transcripts and tool calls Vapi sends, with no phone number.",
+  },
+  {
+    tag: "retell",
+    title: "Retell agents",
+    body: "A Retell agent through a web call: tamesu creates the call and joins its room with the token Retell issues, then talks to it as a caller would.",
+  },
+  {
     tag: "model",
     title: "Prompts, no server yet",
     body: "A system prompt and its tool definitions straight against a model; tool calls are answered from the suite, so a prompt is regression-tested before the agent exists.",
@@ -132,7 +142,7 @@ ok   secret API_TOKEN: env (link 1 of 1)`;
         <p class="hero__status">
           One YAML schema for <code>browser</code>, <code>rest</code>, <code>grpc</code>,
           <code>livekit</code>, <code>sip</code>, <code>twilio</code>, <code>realtime</code>,
-          <code>pipecat</code>, <code>model</code>, <code>mcp</code> and <code>a2a</code> targets, validated with file and line numbers.
+          <code>pipecat</code>, <code>model</code>, <code>mcp</code>, <code>a2a</code>, <code>vapi</code> and <code>retell</code> targets, validated with file and line numbers.
           <code>tamesu doctor</code> resolves every secret through mamori and checks the setup.
         </p>
       </div>

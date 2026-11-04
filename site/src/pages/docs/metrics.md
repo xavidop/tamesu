@@ -14,8 +14,8 @@ frames, the SIP events), never from a model. They appear in `result.json`, in th
 | `turn_latency_ms` (`_p50`, `_p95`, `_max`) | rest, livekit, sip, realtime | user turn sent → agent turn complete |
 | `time_to_first_token_ms` | rest (sse, websocket), realtime | user turn sent → first delta |
 | `time_to_first_audio_ms` | livekit audio, sip, realtime audio | user speech end (VAD, or the audio commit) → agent speech start |
-| `interruption_stop_ms` | livekit audio, sip, realtime, pipecat, twilio audio | user starts talking over the agent → agent audio stops (its cancel, `clear` or interruption signal, or the end of the audio it had queued) |
-| `interruptions` | livekit audio, sip, realtime, pipecat, twilio audio | how many times the caller talked over the agent (`behaviors.interrupt_probability`) |
+| `interruption_stop_ms` | livekit audio, sip, realtime, pipecat, twilio, vapi, retell | user starts talking over the agent → agent audio stops (its cancel, `clear` or interruption signal, or the end of the audio it had queued) |
+| `interruptions` | livekit audio, sip, realtime, pipecat, twilio, vapi, retell | how many times the caller talked over the agent (`behaviors.interrupt_probability`) |
 | `talk_over_ratio` | livekit audio, sip | overlapping speech time / total agent speech time |
 | `silence_gap_max_ms` | livekit audio, sip | longest dead air while a reply was expected |
 | `call_setup_ms` | sip | dial (or trigger, inbound) → call active |

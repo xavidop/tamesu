@@ -49,18 +49,20 @@ var (
 // belongs to, so a field on the wrong kind of target earns a warning.
 var targetFieldTypes = map[string][]string{
 	"browser": {TargetBrowser}, "auth": {TargetBrowser}, "allowed_domains": {TargetBrowser},
-	"method": {TargetREST}, "headers": {TargetREST, TargetRealtime, TargetGRPC, TargetPipecat, TargetTwilio, TargetMCP, TargetA2A}, "request": {TargetREST}, "response": {TargetREST}, "streaming": {TargetREST}, "session": {TargetREST, TargetGRPC},
-	"api_key": {TargetLiveKit}, "api_secret": {TargetLiveKit}, "room": {TargetLiveKit}, "dispatch": {TargetLiveKit},
-	"agent_identity_prefix": {TargetLiveKit}, "mode": {TargetLiveKit, TargetRealtime, TargetPipecat}, "data_topic": {TargetLiveKit}, "join_timeout": {TargetLiveKit},
-	"transcript_source": {TargetLiveKit},
+	"method": {TargetREST}, "headers": {TargetREST, TargetRealtime, TargetGRPC, TargetPipecat, TargetTwilio, TargetMCP, TargetA2A},
+	"api_key": {TargetLiveKit, TargetVapi, TargetRetell}, "assistant_id": {TargetVapi}, "assistant": {TargetVapi}, "assistant_overrides": {TargetVapi}, "squad_id": {TargetVapi}, "variables": {TargetVapi, TargetRetell}, "base_url": {TargetVapi, TargetRetell},
+	"agent_id": {TargetRetell}, "agent_version": {TargetRetell}, "livekit_url": {TargetRetell}, "request": {TargetREST}, "response": {TargetREST}, "streaming": {TargetREST}, "session": {TargetREST, TargetGRPC},
+	"api_secret": {TargetLiveKit}, "room": {TargetLiveKit}, "dispatch": {TargetLiveKit},
+	"agent_identity_prefix": {TargetLiveKit}, "mode": {TargetLiveKit, TargetRealtime, TargetPipecat}, "data_topic": {TargetLiveKit}, "join_timeout": {TargetLiveKit, TargetRetell},
+	"transcript_source": {TargetLiveKit, TargetVapi, TargetRetell},
 	"direction":         {TargetSIP}, "to": {TargetSIP, TargetTwilio}, "from": {TargetSIP, TargetTwilio}, "trunk_id": {TargetSIP}, "ring_timeout": {TargetSIP},
 	"max_call_duration": {TargetSIP}, "trigger": {TargetSIP},
-	"model": {TargetRealtime, TargetModel, TargetMCP}, "session_update": {TargetRealtime}, "protocol": {TargetRealtime}, "done_tool": {TargetRealtime, TargetModel, TargetMCP}, "turn_timeout": {TargetRealtime, TargetGRPC, TargetPipecat, TargetTwilio, TargetA2A},
+	"model": {TargetRealtime, TargetModel, TargetMCP}, "session_update": {TargetRealtime}, "protocol": {TargetRealtime}, "done_tool": {TargetRealtime, TargetModel, TargetMCP}, "turn_timeout": {TargetRealtime, TargetGRPC, TargetPipecat, TargetTwilio, TargetA2A, TargetVapi, TargetRetell},
 	"tool_results": {TargetRealtime, TargetPipecat}, "audio_format": {TargetRealtime},
-	"sample_rate": {TargetPipecat}, "idle": {TargetPipecat, TargetTwilio}, "parameters": {TargetTwilio},
+	"sample_rate": {TargetPipecat, TargetVapi}, "idle": {TargetPipecat, TargetTwilio, TargetVapi, TargetRetell}, "parameters": {TargetTwilio},
 	"system": {TargetModel, TargetMCP}, "system_file": {TargetModel, TargetMCP}, "tools": {TargetModel}, "temperature": {TargetModel, TargetMCP}, "max_tokens": {TargetModel, TargetMCP}, "max_tool_rounds": {TargetModel, TargetMCP}, "fallback": {TargetModel, TargetMCP},
 	"command": {TargetMCP}, "args": {TargetMCP}, "env": {TargetMCP}, "allow_tools": {TargetMCP}, "call_timeout": {TargetMCP},
-	"stream": {TargetA2A}, "skill": {TargetA2A}, "metadata": {TargetA2A},
+	"stream": {TargetA2A}, "skill": {TargetA2A}, "metadata": {TargetA2A, TargetVapi, TargetRetell},
 }
 
 // RealtimeProtocols are the event dialects of the realtime target.
@@ -353,6 +355,41 @@ func (v *validator) target(name string, t Target) {
 		if t.Idle < 0 {
 			v.errorf(with(tp, "idle"), "idle cannot be negative")
 		}
+	case TargetVapi:
+		if t.APIKey == "" {
+			v.errorf(tp, "vapi target needs api_key (use {{secrets.VAPI_API_KEY}})")
+		}
+		n := 0
+		for _, set := range []bool{t.AssistantID != "", t.Assistant != nil, t.SquadID != ""} {
+			if set {
+				n++
+			}
+		}
+		if n != 1 {
+			v.errorf(tp, "vapi target needs exactly one of assistant_id, assistant or squad_id")
+		}
+		if t.SampleRate < 0 {
+			v.errorf(with(tp, "sample_rate"), "sample_rate cannot be negative")
+		}
+		if t.Idle < 0 {
+			v.errorf(with(tp, "idle"), "idle cannot be negative")
+		}
+		if t.TranscriptSource != "" && !slices.Contains(TranscriptSources, t.TranscriptSource) {
+			v.errorf(with(tp, "transcript_source"), "transcript_source must be one of %s", strings.Join(TranscriptSources, ", "))
+		}
+	case TargetRetell:
+		if t.APIKey == "" {
+			v.errorf(tp, "retell target needs api_key (use {{secrets.RETELL_API_KEY}})")
+		}
+		if t.AgentID == "" {
+			v.errorf(tp, "retell target needs agent_id")
+		}
+		if t.Idle < 0 {
+			v.errorf(with(tp, "idle"), "idle cannot be negative")
+		}
+		if t.TranscriptSource != "" && !slices.Contains(TranscriptSources, t.TranscriptSource) {
+			v.errorf(with(tp, "transcript_source"), "transcript_source must be one of %s", strings.Join(TranscriptSources, ", "))
+		}
 	case TargetA2A:
 		if t.URL == "" {
 			v.errorf(tp, "a2a target needs url (the agent's JSON-RPC endpoint; the agent card is read from its origin)")
@@ -619,7 +656,7 @@ func (v *validator) scenario(sp []string, sc Scenario, ttype string) {
 	if sc.MaxTurns < 0 {
 		v.errorf(with(sp, "max_turns"), "max_turns cannot be negative")
 	}
-	voice := ttype == "" || ttype == TargetSIP || ttype == TargetLiveKit
+	voice := ttype == "" || ttype == TargetSIP || ttype == TargetLiveKit || ttype == TargetVapi || ttype == TargetRetell
 	for i, st := range sc.Script {
 		p := with(sp, "script", idx(i))
 		kind := st.Kind()

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -48,4 +49,4 @@ func TestRecipesValidate(t *testing.T) {
 	require.GreaterOrEqual(t, suites, 5)
 }
 
-func itoa(i int) string { return strings.TrimSpace(strings.Repeat(" ", 0) + string(rune('a'+i))) }
+func itoa(i int) string { return strconv.Itoa(i) }

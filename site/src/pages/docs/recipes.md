@@ -934,3 +934,49 @@ tests:
 The bots behind both simulators are the real ones, with their real prompts, state and backend,
 so the assertions, captures, grounding checks and packs of any other suite apply unchanged; what
 stays outside the test is the platform between the user and the bot.
+
+## A Bland agent, by phone
+
+Bland agents live on phone numbers and have no audio socket a test can open, so tamesu meets them
+on the phone: the [SIP target](/docs/targets/sip/) in `inbound` direction, with a `trigger.http`
+that asks Bland's call API to dial tamesu's number. The agent calls in, tamesu answers, and the
+conversation runs on the LiveKit SIP service like any other phone test. The same shape works for
+any platform with a "start an outbound call" API.
+
+```yaml
+suite: bland-agent
+tags: [bland, phone]
+secrets: { BLAND_API_KEY: env:BLAND_API_KEY }
+targets:
+  bland:
+    type: sip
+    direction: inbound
+    ring_timeout: 45s
+    trigger:
+      http:
+        url: https://api.bland.ai/v1/calls
+        method: POST
+        headers: { Authorization: "Bearer {{secrets.BLAND_API_KEY}}" }
+        body:
+          phone_number: "{{sip.inbound_number}}"
+          agent_id: "00000000-0000-4000-8000-000000000001"
+          agent_version: production
+          request_data: { customer_name: Marta }
+tests:
+  - name: return after 40 days
+    target: bland
+    persona: { name: Marta, style: "polite, slightly confused", language: en }
+    scenario:
+      goal: "Find out if the shoes you bought 40 days ago can still be returned"
+      max_turns: 6
+    assert:
+      - judge: "The agent states the 30-day window and does not promise an exception"
+      - call_ended_by: agent
+      - metric: { name: time_to_first_audio_ms_p95, lt: 3000 }
+```
+
+`sip.inbound_number` and the LiveKit SIP service come from `tamesu sip setup` (see
+[SIP setup](/docs/sip-setup/)); Bland bills the call as any outbound call of that agent. A Vapi
+or Retell agent on a phone number is dialled the same way, with their call APIs in the trigger,
+when the websocket and web-call paths of the [Vapi](/docs/targets/vapi/) and
+[Retell](/docs/targets/retell/) targets are not what you want to test.

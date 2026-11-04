@@ -76,6 +76,11 @@ This is a multi-module repository tied together by a `go.work` file:
 - `targets/a2a`: the Agent2Agent target, its own module on the standard library: the agent card,
   JSON-RPC `message/send` and `message/stream` over server-sent events, tasks followed through
   input-required to their final state, artifacts read as the agent's words.
+- `targets/vapi`: the Vapi target, its own module on `coder/websocket` and the audio module:
+  the call is created on the `vapi.websocket` transport and tamesu speaks raw PCM to it and reads
+  its audio and control messages (transcripts, speech updates, tool calls, the end of the call).
+- `targets/retell`: the Retell target, its own module on the livekit target: the web call is
+  created with Retell's API and the room joined with the token it issues.
 - `targets/grpc`: the target for agents behind the turn API of `proto/tamesu/turn/v1`, its own
   module on grpc-go; `turnv1` is the generated code (`make proto` regenerates it).
 - `targets/realtime`: the target for agents speaking the OpenAI Realtime protocol (the API itself

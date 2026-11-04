@@ -1,0 +1,20 @@
+suite: hosted-voice-bad
+targets:
+  v:
+    type: vapi
+    assistant_id: asst_1
+    squad_id: squad_1
+    idle: -1s
+  r:
+    type: retell
+    api_key: "{{secrets.RETELL_API_KEY}}"
+    transcript_source: lips
+secrets:
+  RETELL_API_KEY: env:RETELL_API_KEY
+tests:
+  - name: t
+    target: v
+    persona: { name: A }
+    scenario: { goal: say hi }
+    assert:
+      - contains: hi

@@ -15,11 +15,13 @@ const (
 	TargetTwilio   = "twilio"
 	TargetMCP      = "mcp"
 	TargetA2A      = "a2a"
+	TargetVapi     = "vapi"
+	TargetRetell   = "retell"
 )
 
 // TargetTypes lists the target types a suite may declare, in documentation order.
 func TargetTypes() []string {
-	return []string{TargetBrowser, TargetREST, TargetLiveKit, TargetSIP, TargetRealtime, TargetGRPC, TargetPipecat, TargetModel, TargetTwilio, TargetMCP, TargetA2A}
+	return []string{TargetBrowser, TargetREST, TargetLiveKit, TargetSIP, TargetRealtime, TargetGRPC, TargetPipecat, TargetModel, TargetTwilio, TargetMCP, TargetA2A, TargetVapi, TargetRetell}
 }
 
 // IsConversational reports whether a target type talks in turns (everything
@@ -57,7 +59,7 @@ type Suite struct {
 
 // Target is a system under test. Type selects which of the other fields apply.
 type Target struct {
-	Type string `yaml:"type" json:"type" jsonschema:"required,enum=browser,enum=rest,enum=livekit,enum=sip,enum=realtime,enum=grpc,enum=pipecat,enum=model,enum=twilio,enum=mcp,enum=a2a,description=What the target is; it decides which other keys apply"`
+	Type string `yaml:"type" json:"type" jsonschema:"required,enum=browser,enum=rest,enum=livekit,enum=sip,enum=realtime,enum=grpc,enum=pipecat,enum=model,enum=twilio,enum=mcp,enum=a2a,enum=vapi,enum=retell,description=What the target is; it decides which other keys apply"`
 	URL  string `yaml:"url,omitempty" json:"url,omitempty" jsonschema:"description=The page (browser) or endpoint (rest / realtime / pipecat / twilio / a2a) or grpc://host:port (grpc) or LiveKit server (livekit)."`
 	// Connect is how the target retries reaching the agent (every type but browser).
 	Connect *ConnectConfig `yaml:"connect,omitempty" json:"connect,omitempty" jsonschema:"description=How reaching the agent is retried (attempts / backoff / max_backoff)"`
@@ -78,14 +80,14 @@ type Target struct {
 	Session   *RESTSession      `yaml:"session,omitempty" json:"session,omitempty" jsonschema:"description=rest targets; the session id template"`
 
 	// livekit
-	APIKey              string    `yaml:"api_key,omitempty" json:"api_key,omitempty" jsonschema:"description=Use {{secrets.NAME}}."`
+	APIKey              string    `yaml:"api_key,omitempty" json:"api_key,omitempty" jsonschema:"description=livekit / vapi / retell: use {{secrets.NAME}}."`
 	APISecret           string    `yaml:"api_secret,omitempty" json:"api_secret,omitempty" jsonschema:"description=Use {{secrets.NAME}}."`
 	Room                string    `yaml:"room,omitempty" json:"room,omitempty" jsonschema:"description=Room name template; defaults to tamesu-{{uuid}}."`
 	Dispatch            *Dispatch `yaml:"dispatch,omitempty" json:"dispatch,omitempty" jsonschema:"description=livekit targets; an explicit agent dispatch for the room"`
 	AgentIdentityPrefix string    `yaml:"agent_identity_prefix,omitempty" json:"agent_identity_prefix,omitempty" jsonschema:"description=How to recognise the agent participant; defaults to kind=agent."`
 	Mode                string    `yaml:"mode,omitempty" json:"mode,omitempty" jsonschema:"enum=text,enum=audio,description=livekit / realtime / pipecat: text (default) or audio."`
 	DataTopic           string    `yaml:"data_topic,omitempty" json:"data_topic,omitempty" jsonschema:"description=Text-mode transport topic; defaults to lk.chat."`
-	JoinTimeout         Duration  `yaml:"join_timeout,omitempty" json:"join_timeout,omitempty" jsonschema:"description=livekit targets; how long to wait for the agent to join the room (default 20s)"`
+	JoinTimeout         Duration  `yaml:"join_timeout,omitempty" json:"join_timeout,omitempty" jsonschema:"description=livekit / retell: how long to wait for the agent to join the room (default 20s)"`
 	TranscriptSource    string    `yaml:"transcript_source,omitempty" json:"transcript_source,omitempty" jsonschema:"enum=auto,enum=agent,enum=stt,description=Audio mode: where the agent's words come from; auto (default) takes the agent's own transcription when it publishes one and transcribes its audio otherwise."`
 
 	// sip
@@ -102,13 +104,13 @@ type Target struct {
 	SessionUpdate map[string]any `yaml:"session_update,omitempty" json:"session_update,omitempty" jsonschema:"description=realtime: merged into the session.update event (instructions / tools / voice / output modalities)."`
 	Protocol      string         `yaml:"protocol,omitempty" json:"protocol,omitempty" jsonschema:"enum=ga,enum=beta,description=realtime: the event dialect; ga (default) or beta (modalities and the OpenAI-Beta header)."`
 	DoneTool      string         `yaml:"done_tool,omitempty" json:"done_tool,omitempty" jsonschema:"description=realtime and model: a function call with this name ends the session; default end_session."`
-	TurnTimeout   Duration       `yaml:"turn_timeout,omitempty" json:"turn_timeout,omitempty" jsonschema:"description=realtime / grpc / pipecat / a2a: how long to wait for the end of a turn; default 60s."`
+	TurnTimeout   Duration       `yaml:"turn_timeout,omitempty" json:"turn_timeout,omitempty" jsonschema:"description=realtime / grpc / pipecat / twilio / a2a / vapi / retell: how long to wait for the end of a turn; default 60s."`
 	ToolResults   map[string]any `yaml:"tool_results,omitempty" json:"tool_results,omitempty" jsonschema:"description=realtime and pipecat: answers to the agent's function calls by function name. The value (any JSON; string leaves may use {{args.<key>}}) goes back as the function's output and the response continues. Unlisted functions and done_tool are recorded only."`
 	AudioFormat   string         `yaml:"audio_format,omitempty" json:"audio_format,omitempty" jsonschema:"enum=pcm16,enum=g711_ulaw,enum=g711_alaw,description=realtime audio mode: the agent's output audio; pcm16 (default) or G.711 at 8 kHz."`
 
 	// pipecat (a Pipecat websocket transport with the protobuf frame serializer; url, headers, mode, turn_timeout and tool_results apply too)
-	SampleRate int      `yaml:"sample_rate,omitempty" json:"sample_rate,omitempty" jsonschema:"description=pipecat audio mode: the transport's sample rate in Hz; default 16000."`
-	Idle       Duration `yaml:"idle,omitempty" json:"idle,omitempty" jsonschema:"description=pipecat and twilio: silence after the agent's last message or audio that ends a turn; default 2s."`
+	SampleRate int      `yaml:"sample_rate,omitempty" json:"sample_rate,omitempty" jsonschema:"description=pipecat audio mode and vapi: the audio sample rate in Hz; default 16000."`
+	Idle       Duration `yaml:"idle,omitempty" json:"idle,omitempty" jsonschema:"description=pipecat / twilio / vapi / retell: silence after the agent's last message or audio that ends a turn; default 2s."`
 
 	// twilio (Twilio Media Streams: url, headers, from, to, idle and turn_timeout apply too)
 	Parameters map[string]string `yaml:"parameters,omitempty" json:"parameters,omitempty" jsonschema:"description=twilio: the customParameters of the start event (the Parameter elements of the TwiML Stream); values render {{vars.x}} and {{secrets.X}}."`
@@ -120,10 +122,23 @@ type Target struct {
 	AllowTools  []string          `yaml:"allow_tools,omitempty" json:"allow_tools,omitempty" jsonschema:"description=mcp: offer only these of the server's tools to the model."`
 	CallTimeout Duration          `yaml:"call_timeout,omitempty" json:"call_timeout,omitempty" jsonschema:"description=mcp: how long one tool call may take; default 60s."`
 
+	// vapi (a Vapi assistant over the vapi.websocket transport; api_key, sample_rate, idle, turn_timeout and transcript_source apply too)
+	AssistantID        string            `yaml:"assistant_id,omitempty" json:"assistant_id,omitempty" jsonschema:"description=vapi: the saved assistant to call (templates allowed); or assistant / squad_id."`
+	Assistant          map[string]any    `yaml:"assistant,omitempty" json:"assistant,omitempty" jsonschema:"description=vapi: a transient assistant (the assistant object of the call API) instead of assistant_id; string leaves render templates."`
+	AssistantOverrides map[string]any    `yaml:"assistant_overrides,omitempty" json:"assistant_overrides,omitempty" jsonschema:"description=vapi: assistantOverrides of the call (first message / voice / model...)."`
+	SquadID            string            `yaml:"squad_id,omitempty" json:"squad_id,omitempty" jsonschema:"description=vapi: a squad to call instead of an assistant."`
+	Variables          map[string]string `yaml:"variables,omitempty" json:"variables,omitempty" jsonschema:"description=vapi: the assistant's variableValues; retell: the retell_llm_dynamic_variables (templates allowed)."`
+	BaseURL            string            `yaml:"base_url,omitempty" json:"base_url,omitempty" jsonschema:"description=vapi / retell: the platform API (default https://api.vapi.ai or https://api.retellai.com)."`
+
+	// retell (a Retell agent through a web call; api_key, join_timeout, idle, turn_timeout and transcript_source apply too)
+	AgentID      string `yaml:"agent_id,omitempty" json:"agent_id,omitempty" jsonschema:"description=retell: the agent to call (templates allowed)."`
+	AgentVersion string `yaml:"agent_version,omitempty" json:"agent_version,omitempty" jsonschema:"description=retell: the agent version such as latest_published."`
+	LiveKitURL   string `yaml:"livekit_url,omitempty" json:"livekit_url,omitempty" jsonschema:"description=retell: the LiveKit server the web call runs on; default Retell's cloud."`
+
 	// a2a (an Agent2Agent agent; url, headers, turn_timeout and connect apply too)
 	Stream   bool           `yaml:"stream,omitempty" json:"stream,omitempty" jsonschema:"description=a2a: read the agent's turn from message/stream (server-sent events) instead of message/send; falls back to message/send when the card says the agent does not stream."`
 	Skill    string         `yaml:"skill,omitempty" json:"skill,omitempty" jsonschema:"description=a2a: a skill id or name the agent card must offer; the session fails to start otherwise."`
-	Metadata map[string]any `yaml:"metadata,omitempty" json:"metadata,omitempty" jsonschema:"description=a2a: metadata sent with every message (a tenant or a locale)."`
+	Metadata map[string]any `yaml:"metadata,omitempty" json:"metadata,omitempty" jsonschema:"description=a2a: metadata sent with every message (a tenant or a locale); vapi / retell: metadata stored on the call."`
 
 	// model (a system prompt and tools tested directly against a model; model and done_tool apply too)
 	System        string    `yaml:"system,omitempty" json:"system,omitempty" jsonschema:"description=model: the system prompt under test; {{vars.x}} and {{secrets.X}} render."`

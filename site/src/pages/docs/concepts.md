@@ -15,7 +15,7 @@ then shows how a conversational test flows and how a result is graded.
 | Concept | Description |
 |---|---|
 | **Suite** | A YAML file (or Go package) containing targets, defaults and tests. |
-| **Target** | The system under test: `browser`, `rest`, `grpc`, `livekit`, `sip`, `twilio`, `realtime`, `pipecat`, `model`, `mcp` or `a2a`. |
+| **Target** | The system under test: `browser`, `rest`, `grpc`, `livekit`, `sip`, `twilio`, `realtime`, `pipecat`, `model`, `mcp`, `a2a`, `vapi` or `retell`. |
 | **Test** | One scenario run against one target. |
 | **Step** | For browser tests: a natural-language `goal`, a deterministic `action`, or an `expect`. |
 | **Persona** | The simulated user for agent tests: identity, goal, style, voice, behaviours (interrupts, silence, noise). |
@@ -68,6 +68,13 @@ apply; `tamesu validate` warns when a key belongs to another type.
   `message/stream`, a `skill` the card must offer and `metadata` sent on every message. Each user
   turn is one message; a task that asks for input is continued, a completed one is followed by
   a new task in the same context, and a failed, canceled or rejected one ends the session.
+- **`vapi`**: a Vapi assistant, called over the `vapi.websocket` transport with `api_key` and
+  one of `assistant_id`, `assistant` (a transient assistant) or `squad_id`, plus
+  `assistant_overrides`, `variables` and `metadata`. Audio only: tamesu speaks PCM at
+  `sample_rate` and reads the assistant's audio, transcripts, tool calls and the end of the call.
+- **`retell`**: a Retell agent through a web call: `api_key`, `agent_id` (and `agent_version`),
+  `variables` and `metadata`; tamesu joins the call's LiveKit room (`livekit_url`) with the token
+  Retell issues. Audio only, with `join_timeout`, `idle` and `turn_timeout`.
 
 Any conversational target may also declare `connect` (how reaching the agent is retried) and
 `handoff` (how the agent signals that a person took over). The full key list is in

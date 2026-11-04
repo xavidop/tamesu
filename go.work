@@ -20,6 +20,8 @@ use (
 	./targets/livekit
 	./targets/mcp
 	./targets/a2a
+	./targets/vapi
+	./targets/retell
 	./targets/model
 	./targets/realtime
 	./targets/rest
