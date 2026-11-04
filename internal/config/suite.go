@@ -15,11 +15,12 @@ const (
 	TargetTwilio   = "twilio"
 	TargetMCP      = "mcp"
 	TargetA2A      = "a2a"
+	TargetVoice    = "voice"
 )
 
 // TargetTypes lists the target types a suite may declare, in documentation order.
 func TargetTypes() []string {
-	return []string{TargetBrowser, TargetREST, TargetLiveKit, TargetSIP, TargetRealtime, TargetGRPC, TargetPipecat, TargetModel, TargetTwilio, TargetMCP, TargetA2A}
+	return []string{TargetBrowser, TargetREST, TargetLiveKit, TargetSIP, TargetRealtime, TargetGRPC, TargetPipecat, TargetModel, TargetTwilio, TargetMCP, TargetA2A, TargetVoice}
 }
 
 // IsConversational reports whether a target type talks in turns (everything
@@ -57,8 +58,8 @@ type Suite struct {
 
 // Target is a system under test. Type selects which of the other fields apply.
 type Target struct {
-	Type string `yaml:"type" json:"type" jsonschema:"required,enum=browser,enum=rest,enum=livekit,enum=sip,enum=realtime,enum=grpc,enum=pipecat,enum=model,enum=twilio,enum=mcp,enum=a2a,description=What the target is; it decides which other keys apply"`
-	URL  string `yaml:"url,omitempty" json:"url,omitempty" jsonschema:"description=The page (browser) or endpoint (rest / realtime / pipecat / twilio / a2a) or grpc://host:port (grpc) or LiveKit server (livekit)."`
+	Type string `yaml:"type" json:"type" jsonschema:"required,enum=browser,enum=rest,enum=livekit,enum=sip,enum=realtime,enum=grpc,enum=pipecat,enum=model,enum=twilio,enum=mcp,enum=a2a,enum=voice,description=What the target is; it decides which other keys apply"`
+	URL  string `yaml:"url,omitempty" json:"url,omitempty" jsonschema:"description=The page (browser) or endpoint (rest / realtime / pipecat / twilio / a2a / voice) or grpc://host:port (grpc) or LiveKit server (livekit)."`
 	// Connect is how the target retries reaching the agent (every type but browser).
 	Connect *ConnectConfig `yaml:"connect,omitempty" json:"connect,omitempty" jsonschema:"description=How reaching the agent is retried (attempts / backoff / max_backoff)"`
 	// Handoff is how this agent signals that it handed the conversation to a person.
@@ -71,11 +72,11 @@ type Target struct {
 
 	// rest (headers also realtime)
 	Method    string            `yaml:"method,omitempty" json:"method,omitempty" jsonschema:"description=HTTP method; defaults to POST."`
-	Headers   map[string]string `yaml:"headers,omitempty" json:"headers,omitempty" jsonschema:"description=Request (rest / a2a) or handshake (realtime / pipecat / twilio) headers or call metadata (grpc); put credentials here as {{secrets.NAME}}."`
+	Headers   map[string]string `yaml:"headers,omitempty" json:"headers,omitempty" jsonschema:"description=Request (rest / a2a) or handshake (realtime / pipecat / twilio / voice) headers or call metadata (grpc); put credentials here as {{secrets.NAME}}."`
 	Request   *RESTRequest      `yaml:"request,omitempty" json:"request,omitempty" jsonschema:"description=rest targets; how a user turn is sent"`
 	Response  *RESTResponse     `yaml:"response,omitempty" json:"response,omitempty" jsonschema:"description=rest targets; how the agent turn is read back (JSONPaths into the response)"`
 	Streaming string            `yaml:"streaming,omitempty" json:"streaming,omitempty" jsonschema:"enum=none,enum=sse,enum=websocket,description=rest targets; none (default) or sse or websocket"`
-	Session   *RESTSession      `yaml:"session,omitempty" json:"session,omitempty" jsonschema:"description=rest targets; the session id template"`
+	Session   *RESTSession      `yaml:"session,omitempty" json:"session,omitempty" jsonschema:"description=rest and voice targets; the session id template and the request that opens the session"`
 
 	// livekit
 	APIKey              string    `yaml:"api_key,omitempty" json:"api_key,omitempty" jsonschema:"description=Use {{secrets.NAME}}."`
@@ -102,13 +103,13 @@ type Target struct {
 	SessionUpdate map[string]any `yaml:"session_update,omitempty" json:"session_update,omitempty" jsonschema:"description=realtime: merged into the session.update event (instructions / tools / voice / output modalities)."`
 	Protocol      string         `yaml:"protocol,omitempty" json:"protocol,omitempty" jsonschema:"enum=ga,enum=beta,description=realtime: the event dialect; ga (default) or beta (modalities and the OpenAI-Beta header)."`
 	DoneTool      string         `yaml:"done_tool,omitempty" json:"done_tool,omitempty" jsonschema:"description=realtime and model: a function call with this name ends the session; default end_session."`
-	TurnTimeout   Duration       `yaml:"turn_timeout,omitempty" json:"turn_timeout,omitempty" jsonschema:"description=realtime / grpc / pipecat / a2a: how long to wait for the end of a turn; default 60s."`
+	TurnTimeout   Duration       `yaml:"turn_timeout,omitempty" json:"turn_timeout,omitempty" jsonschema:"description=realtime / grpc / pipecat / a2a / voice: how long to wait for the end of a turn; default 60s."`
 	ToolResults   map[string]any `yaml:"tool_results,omitempty" json:"tool_results,omitempty" jsonschema:"description=realtime and pipecat: answers to the agent's function calls by function name. The value (any JSON; string leaves may use {{args.<key>}}) goes back as the function's output and the response continues. Unlisted functions and done_tool are recorded only."`
 	AudioFormat   string         `yaml:"audio_format,omitempty" json:"audio_format,omitempty" jsonschema:"enum=pcm16,enum=g711_ulaw,enum=g711_alaw,description=realtime audio mode: the agent's output audio; pcm16 (default) or G.711 at 8 kHz."`
 
 	// pipecat (a Pipecat websocket transport with the protobuf frame serializer; url, headers, mode, turn_timeout and tool_results apply too)
 	SampleRate int      `yaml:"sample_rate,omitempty" json:"sample_rate,omitempty" jsonschema:"description=pipecat audio mode: the transport's sample rate in Hz; default 16000."`
-	Idle       Duration `yaml:"idle,omitempty" json:"idle,omitempty" jsonschema:"description=pipecat and twilio: silence after the agent's last message or audio that ends a turn; default 2s."`
+	Idle       Duration `yaml:"idle,omitempty" json:"idle,omitempty" jsonschema:"description=pipecat / twilio / voice: silence after the agent's last message or audio that ends a turn; default 2s."`
 
 	// twilio (Twilio Media Streams: url, headers, from, to, idle and turn_timeout apply too)
 	Parameters map[string]string `yaml:"parameters,omitempty" json:"parameters,omitempty" jsonschema:"description=twilio: the customParameters of the start event (the Parameter elements of the TwiML Stream); values render {{vars.x}} and {{secrets.X}}."`
@@ -119,6 +120,10 @@ type Target struct {
 	Env         map[string]string `yaml:"env,omitempty" json:"env,omitempty" jsonschema:"description=mcp: environment variables for command (templates allowed)."`
 	AllowTools  []string          `yaml:"allow_tools,omitempty" json:"allow_tools,omitempty" jsonschema:"description=mcp: offer only these of the server's tools to the model."`
 	CallTimeout Duration          `yaml:"call_timeout,omitempty" json:"call_timeout,omitempty" jsonschema:"description=mcp: how long one tool call may take; default 60s."`
+
+	// voice (a voice agent behind a websocket that carries audio; url, headers, session.open, idle, turn_timeout, transcript_source and connect apply too)
+	Audio    *VoiceAudio    `yaml:"audio,omitempty" json:"audio,omitempty" jsonschema:"description=voice: how the audio travels (encoding / sample_rate / frames binary or json with send and receive)."`
+	Messages *VoiceMessages `yaml:"messages,omitempty" json:"messages,omitempty" jsonschema:"description=voice: the JSON control messages of the protocol (open / transcript / done / interrupted / tool_calls / dtmf / close); all optional."`
 
 	// a2a (an Agent2Agent agent; url, headers, turn_timeout and connect apply too)
 	Stream   bool           `yaml:"stream,omitempty" json:"stream,omitempty" jsonschema:"description=a2a: read the agent's turn from message/stream (server-sent events) instead of message/send; falls back to message/send when the card says the agent does not stream."`
@@ -236,6 +241,26 @@ type RESTListen struct {
 	Status  int      `yaml:"status,omitempty" json:"status,omitempty" jsonschema:"description=The status answered; default 200."`
 	Timeout Duration `yaml:"timeout,omitempty" json:"timeout,omitempty" jsonschema:"description=How long to wait for the agent's request before the turn fails; default 60s."`
 	Idle    Duration `yaml:"idle,omitempty" json:"idle,omitempty" jsonschema:"description=Keep reading after the first reply until nothing new arrives for this long (an agent that answers in several messages); unset completes the turn on the first request with content."`
+}
+
+// VoiceAudio says how a voice target's audio travels.
+type VoiceAudio struct {
+	Encoding   string `yaml:"encoding,omitempty" json:"encoding,omitempty" jsonschema:"enum=pcm16,enum=mulaw,enum=alaw,description=The wire encoding; default pcm16."`
+	SampleRate int    `yaml:"sample_rate,omitempty" json:"sample_rate,omitempty" jsonschema:"description=The sample rate in Hz; default 16000 for pcm16 and 8000 for mulaw / alaw."`
+	Frames     string `yaml:"frames,omitempty" json:"frames,omitempty" jsonschema:"enum=binary,enum=json,description=binary (default): one chunk per binary websocket frame; json: the chunk travels base64-encoded inside a JSON message (send and receive say where)."`
+	Send       any    `yaml:"send,omitempty" json:"send,omitempty" jsonschema:"description=frames json: the message template per outgoing chunk; {{audio}} is the base64 chunk."`
+	Receive    string `yaml:"receive,omitempty" json:"receive,omitempty" jsonschema:"description=frames json: JSONPath of the base64 audio in an incoming message; evaluated against the message as a one-element list such as $[*].audio_event.audio_base_64."`
+}
+
+// VoiceMessages are a voice target's JSON control messages.
+type VoiceMessages struct {
+	Open        any    `yaml:"open,omitempty" json:"open,omitempty" jsonschema:"description=A message template sent once after connecting."`
+	Transcript  string `yaml:"transcript,omitempty" json:"transcript,omitempty" jsonschema:"description=JSONPath of the agent's words in a message (its final transcripts); evaluated against the message as a one-element list such as $[?(@.type=='transcript' && @.role=='assistant')].transcript. Without it the audio is transcribed."`
+	Done        string `yaml:"done,omitempty" json:"done,omitempty" jsonschema:"description=JSONPath that is truthy on the message that ends the call."`
+	Interrupted string `yaml:"interrupted,omitempty" json:"interrupted,omitempty" jsonschema:"description=JSONPath that is truthy on the message that says the agent stopped for the caller."`
+	ToolCalls   string `yaml:"tool_calls,omitempty" json:"tool_calls,omitempty" jsonschema:"description=JSONPath of the tool calls in a message: names or objects with name / args (or function.name / function.arguments)."`
+	DTMF        any    `yaml:"dtmf,omitempty" json:"dtmf,omitempty" jsonschema:"description=A message template per keypad digit; {{digit}} renders. Without it a dtmf step is recorded as unsupported."`
+	Close       any    `yaml:"close,omitempty" json:"close,omitempty" jsonschema:"description=A message template sent before the connection is closed (a hangup)."`
 }
 
 // RESTSession configures the session id and how a session is opened.

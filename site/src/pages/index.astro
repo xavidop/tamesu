@@ -57,6 +57,11 @@ const targets = [
     body: "An agent speaking the Agent2Agent protocol: its card and skills, message/send or a streamed task, input-required turns and artifacts, judged like any other agent.",
   },
   {
+    tag: "voice",
+    title: "Any voice websocket",
+    body: "A websocket that carries audio, PCM or G.711, binary or base64 in JSON, with the protocol's control messages read by JSONPath: hosted voice platforms and in-house stacks, from YAML.",
+  },
+  {
     tag: "model",
     title: "Prompts, no server yet",
     body: "A system prompt and its tool definitions straight against a model; tool calls are answered from the suite, so a prompt is regression-tested before the agent exists.",
@@ -132,7 +137,7 @@ ok   secret API_TOKEN: env (link 1 of 1)`;
         <p class="hero__status">
           One YAML schema for <code>browser</code>, <code>rest</code>, <code>grpc</code>,
           <code>livekit</code>, <code>sip</code>, <code>twilio</code>, <code>realtime</code>,
-          <code>pipecat</code>, <code>model</code>, <code>mcp</code> and <code>a2a</code> targets, validated with file and line numbers.
+          <code>pipecat</code>, <code>voice</code>, <code>model</code>, <code>mcp</code> and <code>a2a</code> targets, validated with file and line numbers.
           <code>tamesu doctor</code> resolves every secret through mamori and checks the setup.
         </p>
       </div>

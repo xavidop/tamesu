@@ -20,6 +20,8 @@ var fieldExamples = map[string]map[string]string{
 		"tests":    `tests: [ { name: refund policy, target: api, scenario: { goal: "Ask about returns" } } ]`,
 	},
 	"Target": {
+		"audio":                 `audio: { encoding: pcm16, sample_rate: 16000, frames: binary }`,
+		"messages":              `messages: { transcript: "$[?(@.type=='transcript' && @.role=='assistant')].transcript", done: "$[?(@.type=='status-update' && @.status=='ended')].status", close: { type: hangup } }`,
 		"stream":                `stream: true`,
 		"skill":                 `skill: order-status`,
 		"metadata":              `metadata: { tenant: acme }`,
@@ -132,6 +134,22 @@ var fieldExamples = map[string]map[string]string{
 		"status":  `status: 200`,
 		"timeout": `timeout: 30s`,
 		"idle":    `idle: 1s`,
+	},
+	"VoiceAudio": {
+		"encoding":    `encoding: mulaw`,
+		"sample_rate": `sample_rate: 8000`,
+		"frames":      `frames: json`,
+		"send":        `send: { user_audio_chunk: "{{audio}}" }`,
+		"receive":     `receive: "$[*].audio_event.audio_base_64"`,
+	},
+	"VoiceMessages": {
+		"open":        `open: { type: start, call_id: "{{session.call_id}}" }`,
+		"transcript":  `transcript: "$[?(@.type=='transcript' && @.role=='assistant' && @.transcriptType=='final')].transcript"`,
+		"done":        `done: "$[?(@.type=='status-update' && @.status=='ended')].status"`,
+		"interrupted": `interrupted: "$[?(@.type=='user-interrupted')].type"`,
+		"tool_calls":  `tool_calls: "$[?(@.type=='tool-calls')].toolCallList[*]"`,
+		"dtmf":        `dtmf: { type: dtmf, digit: "{{digit}}" }`,
+		"close":       `close: { type: hangup }`,
 	},
 	"RESTSession": {
 		"id":   `id: "{{uuid}}"`,

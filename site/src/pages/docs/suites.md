@@ -64,19 +64,19 @@ tests:
 
 | Key | Type | Required | Description | Example |
 |---|---|---|---|---|
-| `type` | one of `browser`, `rest`, `livekit`, `sip`, `realtime`, `grpc`, `pipecat`, `model`, `twilio`, `mcp`, `a2a` | yes | What the target is; it decides which other keys apply | `type: rest` |
-| `url` | string |  | The page (browser) or endpoint (rest / realtime / pipecat / twilio / a2a) or grpc://host:port (grpc) or LiveKit server (livekit). | `url: "${AGENT_URL:-http://localhost:8080/chat}"` |
+| `type` | one of `browser`, `rest`, `livekit`, `sip`, `realtime`, `grpc`, `pipecat`, `model`, `twilio`, `mcp`, `a2a`, `voice` | yes | What the target is; it decides which other keys apply | `type: rest` |
+| `url` | string |  | The page (browser) or endpoint (rest / realtime / pipecat / twilio / a2a / voice) or grpc://host:port (grpc) or LiveKit server (livekit). | `url: "${AGENT_URL:-http://localhost:8080/chat}"` |
 | `connect` | [ConnectConfig](#connectconfig) |  | How reaching the agent is retried (attempts / backoff / max_backoff) | `connect: { attempts: 5, backoff: 1s, max_backoff: 10s }` |
 | `handoff` | [HandoffSignal](#handoffsignal) |  | How the agent signals that a person took over (tool / json_path / regex plus where the destination and summary are) | `handoff: { tool: transfer_to_human, to: department, summary: summary }` |
 | `browser` | [BrowserOptions](#browseroptions) |  | browser targets; engine / viewport / locale / mocks / recording | `browser: { viewport: 1280x800, locale: en-GB, recording: gif }` |
 | `auth` | [BrowserAuth](#browserauth) |  | browser targets; a pre-authenticated storage state | `auth: { storage_state: auth/state.json }` |
 | `allowed_domains` | list of string |  | Domains the browser agent may navigate to; defaults to the url's domain. | `allowed_domains: [shop.example, cdn.example]` |
 | `method` | string |  | HTTP method; defaults to POST. | `method: POST` |
-| `headers` | map of string to string |  | Request (rest / a2a) or handshake (realtime / pipecat / twilio) headers or call metadata (grpc); put credentials here as {{secrets.NAME}}. | `headers: { Authorization: "Bearer {{secrets.AGENT_TOKEN}}" }` |
+| `headers` | map of string to string |  | Request (rest / a2a) or handshake (realtime / pipecat / twilio / voice) headers or call metadata (grpc); put credentials here as {{secrets.NAME}}. | `headers: { Authorization: "Bearer {{secrets.AGENT_TOKEN}}" }` |
 | `request` | [RESTRequest](#restrequest) |  | rest targets; how a user turn is sent | `request: { body: { session_id: "{{session}}", message: "{{message}}" } }` |
 | `response` | [RESTResponse](#restresponse) |  | rest targets; how the agent turn is read back (JSONPaths into the response) | `response: { text: $.reply, tool_calls: "$.tool_calls[*]", done: $.end_session }` |
 | `streaming` | one of `none`, `sse`, `websocket` |  | rest targets; none (default) or sse or websocket | `streaming: sse` |
-| `session` | [RESTSession](#restsession) |  | rest targets; the session id template | `session: { id: "{{uuid}}" }` |
+| `session` | [RESTSession](#restsession) |  | rest and voice targets; the session id template and the request that opens the session | `session: { id: "{{uuid}}" }` |
 | `api_key` | string |  | Use {{secrets.NAME}}. | `api_key: "{{secrets.LIVEKIT_API_KEY}}"` |
 | `api_secret` | string |  | Use {{secrets.NAME}}. | `api_secret: "{{secrets.LIVEKIT_API_SECRET}}"` |
 | `room` | string |  | Room name template; defaults to tamesu-{{uuid}}. | `room: "tamesu-{{uuid}}"` |
@@ -97,17 +97,19 @@ tests:
 | `session_update` | object (any keys) |  | realtime: merged into the session.update event (instructions / tools / voice / output modalities). | `session_update: { instructions: "You are the support agent", voice: alloy }` |
 | `protocol` | one of `ga`, `beta` |  | realtime: the event dialect; ga (default) or beta (modalities and the OpenAI-Beta header). | `protocol: ga` |
 | `done_tool` | string |  | realtime and model: a function call with this name ends the session; default end_session. | `done_tool: end_session` |
-| `turn_timeout` | [Duration](#duration) |  | realtime / grpc / pipecat / a2a: how long to wait for the end of a turn; default 60s. | `turn_timeout: 60s` |
+| `turn_timeout` | [Duration](#duration) |  | realtime / grpc / pipecat / a2a / voice: how long to wait for the end of a turn; default 60s. | `turn_timeout: 60s` |
 | `tool_results` | object (any keys) |  | realtime and pipecat: answers to the agent's function calls by function name. The value (any JSON; string leaves may use {{args.<key>}}) goes back as the function's output and the response continues. Unlisted functions and done_tool are recorded only. | `tool_results: { lookup_order: { id: "{{args.id}}", status: shipped } }` |
 | `audio_format` | one of `pcm16`, `g711_ulaw`, `g711_alaw` |  | realtime audio mode: the agent's output audio; pcm16 (default) or G.711 at 8 kHz. | `audio_format: pcm16` |
 | `sample_rate` | integer |  | pipecat audio mode: the transport's sample rate in Hz; default 16000. | `sample_rate: 16000` |
-| `idle` | [Duration](#duration) |  | pipecat and twilio: silence after the agent's last message or audio that ends a turn; default 2s. | `idle: 2s` |
+| `idle` | [Duration](#duration) |  | pipecat / twilio / voice: silence after the agent's last message or audio that ends a turn; default 2s. | `idle: 2s` |
 | `parameters` | map of string to string |  | twilio: the customParameters of the start event (the Parameter elements of the TwiML Stream); values render {{vars.x}} and {{secrets.X}}. | `parameters: { campaign: autumn, caller_tier: gold }` |
 | `command` | string |  | mcp: the stdio server to spawn (an executable); url is the alternative for a streamable HTTP server. | `command: ./bin/orders-mcp` |
 | `args` | list of string |  | mcp: arguments of command. | `args: ["--data", "fixtures/orders.json"]` |
 | `env` | map of string to string |  | mcp: environment variables for command (templates allowed). | `env: { LOG_LEVEL: warn, API_KEY: "{{secrets.MCP_KEY}}" }` |
 | `allow_tools` | list of string |  | mcp: offer only these of the server's tools to the model. | `allow_tools: [lookup_order, cancel_order]` |
 | `call_timeout` | [Duration](#duration) |  | mcp: how long one tool call may take; default 60s. | `call_timeout: 20s` |
+| `audio` | [VoiceAudio](#voiceaudio) |  | voice: how the audio travels (encoding / sample_rate / frames binary or json with send and receive). | `audio: { encoding: pcm16, sample_rate: 16000, frames: binary }` |
+| `messages` | [VoiceMessages](#voicemessages) |  | voice: the JSON control messages of the protocol (open / transcript / done / interrupted / tool_calls / dtmf / close); all optional. | `messages: { transcript: "$[?(@.type=='transcript' && @.role=='assistant')].transcript", done: "$[?(@.type=='status-update' && @.status=='ended')].status", close: { type: hangup } }` |
 | `stream` | boolean |  | a2a: read the agent's turn from message/stream (server-sent events) instead of message/send; falls back to message/send when the card says the agent does not stream. | `stream: true` |
 | `skill` | string |  | a2a: a skill id or name the agent card must offer; the session fails to start otherwise. | `skill: order-status` |
 | `metadata` | object (any keys) |  | a2a: metadata sent with every message (a tenant or a locale). | `metadata: { tenant: acme }` |
@@ -1100,4 +1102,26 @@ Example:
 ```yaml
 http: { url: "{{vars.admin_url}}/orders/{{captured.order_id}}", headers: { Authorization: "Bearer {{secrets.ADMIN_TOKEN}}" }, json_path: { path: "$.status", equals: refunded } }
 ```
+
+## VoiceAudio
+
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `encoding` | one of `pcm16`, `mulaw`, `alaw` |  | The wire encoding; default pcm16. | `encoding: mulaw` |
+| `sample_rate` | integer |  | The sample rate in Hz; default 16000 for pcm16 and 8000 for mulaw / alaw. | `sample_rate: 8000` |
+| `frames` | one of `binary`, `json` |  | binary (default): one chunk per binary websocket frame; json: the chunk travels base64-encoded inside a JSON message (send and receive say where). | `frames: json` |
+| `send` | any |  | frames json: the message template per outgoing chunk; {{audio}} is the base64 chunk. | `send: { user_audio_chunk: "{{audio}}" }` |
+| `receive` | string |  | frames json: JSONPath of the base64 audio in an incoming message; evaluated against the message as a one-element list such as $[*].audio_event.audio_base_64. | `receive: "$[*].audio_event.audio_base_64"` |
+
+## VoiceMessages
+
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `open` | any |  | A message template sent once after connecting. | `open: { type: start, call_id: "{{session.call_id}}" }` |
+| `transcript` | string |  | JSONPath of the agent's words in a message (its final transcripts); evaluated against the message as a one-element list such as $[?(@.type=='transcript' && @.role=='assistant')].transcript. Without it the audio is transcribed. | `transcript: "$[?(@.type=='transcript' && @.role=='assistant' && @.transcriptType=='final')].transcript"` |
+| `done` | string |  | JSONPath that is truthy on the message that ends the call. | `done: "$[?(@.type=='status-update' && @.status=='ended')].status"` |
+| `interrupted` | string |  | JSONPath that is truthy on the message that says the agent stopped for the caller. | `interrupted: "$[?(@.type=='user-interrupted')].type"` |
+| `tool_calls` | string |  | JSONPath of the tool calls in a message: names or objects with name / args (or function.name / function.arguments). | `tool_calls: "$[?(@.type=='tool-calls')].toolCallList[*]"` |
+| `dtmf` | any |  | A message template per keypad digit; {{digit}} renders. Without it a dtmf step is recorded as unsupported. | `dtmf: { type: dtmf, digit: "{{digit}}" }` |
+| `close` | any |  | A message template sent before the connection is closed (a hangup). | `close: { type: hangup }` |
 
