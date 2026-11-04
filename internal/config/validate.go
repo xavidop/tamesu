@@ -49,17 +49,18 @@ var (
 // belongs to, so a field on the wrong kind of target earns a warning.
 var targetFieldTypes = map[string][]string{
 	"browser": {TargetBrowser}, "auth": {TargetBrowser}, "allowed_domains": {TargetBrowser},
-	"method": {TargetREST}, "headers": {TargetREST, TargetRealtime, TargetGRPC, TargetPipecat, TargetTwilio, TargetMCP}, "request": {TargetREST}, "response": {TargetREST}, "streaming": {TargetREST}, "session": {TargetREST, TargetGRPC},
+	"method": {TargetREST}, "headers": {TargetREST, TargetRealtime, TargetGRPC, TargetPipecat, TargetTwilio, TargetMCP, TargetA2A}, "request": {TargetREST}, "response": {TargetREST}, "streaming": {TargetREST}, "session": {TargetREST, TargetGRPC},
 	"api_key": {TargetLiveKit}, "api_secret": {TargetLiveKit}, "room": {TargetLiveKit}, "dispatch": {TargetLiveKit},
 	"agent_identity_prefix": {TargetLiveKit}, "mode": {TargetLiveKit, TargetRealtime, TargetPipecat}, "data_topic": {TargetLiveKit}, "join_timeout": {TargetLiveKit},
 	"transcript_source": {TargetLiveKit},
 	"direction":         {TargetSIP}, "to": {TargetSIP, TargetTwilio}, "from": {TargetSIP, TargetTwilio}, "trunk_id": {TargetSIP}, "ring_timeout": {TargetSIP},
 	"max_call_duration": {TargetSIP}, "trigger": {TargetSIP},
-	"model": {TargetRealtime, TargetModel, TargetMCP}, "session_update": {TargetRealtime}, "protocol": {TargetRealtime}, "done_tool": {TargetRealtime, TargetModel, TargetMCP}, "turn_timeout": {TargetRealtime, TargetGRPC, TargetPipecat, TargetTwilio},
+	"model": {TargetRealtime, TargetModel, TargetMCP}, "session_update": {TargetRealtime}, "protocol": {TargetRealtime}, "done_tool": {TargetRealtime, TargetModel, TargetMCP}, "turn_timeout": {TargetRealtime, TargetGRPC, TargetPipecat, TargetTwilio, TargetA2A},
 	"tool_results": {TargetRealtime, TargetPipecat}, "audio_format": {TargetRealtime},
 	"sample_rate": {TargetPipecat}, "idle": {TargetPipecat, TargetTwilio}, "parameters": {TargetTwilio},
 	"system": {TargetModel, TargetMCP}, "system_file": {TargetModel, TargetMCP}, "tools": {TargetModel}, "temperature": {TargetModel, TargetMCP}, "max_tokens": {TargetModel, TargetMCP}, "max_tool_rounds": {TargetModel, TargetMCP}, "fallback": {TargetModel, TargetMCP},
 	"command": {TargetMCP}, "args": {TargetMCP}, "env": {TargetMCP}, "allow_tools": {TargetMCP}, "call_timeout": {TargetMCP},
+	"stream": {TargetA2A}, "skill": {TargetA2A}, "metadata": {TargetA2A},
 }
 
 // RealtimeProtocols are the event dialects of the realtime target.
@@ -351,6 +352,10 @@ func (v *validator) target(name string, t Target) {
 		}
 		if t.Idle < 0 {
 			v.errorf(with(tp, "idle"), "idle cannot be negative")
+		}
+	case TargetA2A:
+		if t.URL == "" {
+			v.errorf(tp, "a2a target needs url (the agent's JSON-RPC endpoint; the agent card is read from its origin)")
 		}
 	case TargetMCP:
 		if t.URL == "" && t.Command == "" {
@@ -696,7 +701,9 @@ func (v *validator) assertion(ap []string, a Assertion, ttype, mode string) {
 			v.errorf(kp, "unknown pack %q (have %s)", *a.Pack, strings.Join(PackNames(v.s), ", "))
 		}
 	case "json_path":
-		restOnly()
+		if ttype != "" && ttype != TargetREST && ttype != TargetA2A {
+			v.errorf(kp, "json_path applies to rest and a2a targets only; this target is %s", ttype)
+		}
 		if a.JSONPath.Path == "" {
 			v.errorf(kp, "json_path needs path")
 		}

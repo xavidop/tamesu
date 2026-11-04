@@ -140,6 +140,16 @@ echo "==> mcp: the example server's tools must be listed and the suite must pass
 ./bin/tamesu-llmfake run --config examples/mcp-server/tamesu.llmfake.yaml --out "$out/mcp-server"
 grep -q '"mcp_tools": 3' "$out"/mcp-server/tests/the-server-offers-its-tools/run-1/result.json || { echo "the mcp target listed no tools" >&2; exit 1; }
 
+echo "==> a2a: the example agent's card must be read and the suite must pass with the fake models"
+(cd examples/a2a-agent && go build -o ../../bin/a2a-agent .)
+a2a_port="${A2A_PORT:-18091}"
+./bin/a2a-agent --addr "127.0.0.1:$a2a_port" &
+a2a_pid=$!
+for _ in $(seq 1 50); do (echo >"/dev/tcp/127.0.0.1/$a2a_port") 2>/dev/null && break; sleep 0.2; done
+A2A_URL="http://127.0.0.1:$a2a_port/a2a" ./bin/tamesu-llmfake run --config examples/a2a-agent/tamesu.llmfake.yaml --out "$out/a2a-agent"
+kill "$a2a_pid" 2>/dev/null || true
+grep -q '"a2a_skills": 2' "$out"/a2a-agent/tests/the-card-offers-its-skills/run-1/result.json || { echo "the a2a target read no card" >&2; exit 1; }
+
 echo "==> judge calibrate: the fake judge must agree with every label"
 ./bin/tamesu-llmfake judge calibrate examples/rest-agent/labels.yaml --config examples/rest-agent/tamesu.llmfake.yaml --out "$out/calibration.json"
 grep -q '"agreement": 1' "$out/calibration.json" || { echo "calibration.json does not report full agreement" >&2; cat "$out/calibration.json" >&2; exit 1; }

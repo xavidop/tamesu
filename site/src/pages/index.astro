@@ -52,6 +52,11 @@ const targets = [
     body: "An MCP server's tools, driven by a model: descriptions, argument schemas, answers and errors tested as an agent built on the server would meet them.",
   },
   {
+    tag: "a2a",
+    title: "A2A agents",
+    body: "An agent speaking the Agent2Agent protocol: its card and skills, message/send or a streamed task, input-required turns and artifacts, judged like any other agent.",
+  },
+  {
     tag: "model",
     title: "Prompts, no server yet",
     body: "A system prompt and its tool definitions straight against a model; tool calls are answered from the suite, so a prompt is regression-tested before the agent exists.",
@@ -127,7 +132,7 @@ ok   secret API_TOKEN: env (link 1 of 1)`;
         <p class="hero__status">
           One YAML schema for <code>browser</code>, <code>rest</code>, <code>grpc</code>,
           <code>livekit</code>, <code>sip</code>, <code>twilio</code>, <code>realtime</code>,
-          <code>pipecat</code>, <code>model</code> and <code>mcp</code> targets, validated with file and line numbers.
+          <code>pipecat</code>, <code>model</code>, <code>mcp</code> and <code>a2a</code> targets, validated with file and line numbers.
           <code>tamesu doctor</code> resolves every secret through mamori and checks the setup.
         </p>
       </div>

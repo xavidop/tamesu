@@ -33,9 +33,10 @@ OpenAI Realtime API and a web checkout.
   <img src="site/public/demo.gif" alt="tamesu init, validate, list and doctor in a terminal" width="900" />
 </p>
 
-- **Ten targets, one model.** `browser`, `rest`, `grpc`, `livekit`, `sip`, `twilio`,
-  `realtime`, `pipecat`, `model` (a prompt with no server yet) and `mcp` (an MCP server's tools
-  driven by a model) share the schema, the assertions, the metrics and the reports.
+- **Eleven targets, one model.** `browser`, `rest`, `grpc`, `livekit`, `sip`, `twilio`,
+  `realtime`, `pipecat`, `model` (a prompt with no server yet), `mcp` (an MCP server's tools
+  driven by a model) and `a2a` (an agent speaking the Agent2Agent protocol) share the schema,
+  the assertions, the metrics and the reports.
 - **Judges you can trust.** Rubrics with structured output, versioned prompts recorded in every
   result, replayable verdicts, and `tamesu judge calibrate` to measure a judge against
   transcripts people have already marked.
@@ -140,6 +141,7 @@ runs the same tests from `go test`.
 | `model` | a system prompt and tool definitions, directly against a model: no agent server, tool calls answered from the suite | text | [`examples/model-prompt`](examples/model-prompt/) |
 | `twilio` | a Twilio Media Streams agent, with tamesu playing Twilio's side of the websocket: μ-law media, DTMF, marks and clear, no phone number needed | audio | any agent behind a `<Stream url>` |
 | `mcp` | an MCP server, over stdio or streamable HTTP: its tools are offered to a model and every call runs on the server | text | [`examples/mcp-server`](examples/mcp-server/) |
+| `a2a` | an agent speaking the Agent2Agent protocol: its card, `message/send` or `message/stream`, tasks through input-required to completed | text | [`examples/a2a-agent`](examples/a2a-agent/) |
 
 Audio tests speak through TTS, hear through VAD and STT, interrupt, add background noise and
 degrade the line, and measure time to first audio, interruption stop time, talk-over and silence

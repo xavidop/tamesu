@@ -71,6 +71,12 @@ updates:
     schedule: { interval: weekly }
     labels: [dependencies, go, target]
 
+  # A2A target (own go.mod; standard library JSON-RPC client plus the root module)
+  - package-ecosystem: gomod
+    directory: "/targets/a2a"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, target]
+
   # gRPC target (own go.mod; grpc-go and protobuf)
   - package-ecosystem: gomod
     directory: "/targets/grpc"
@@ -133,6 +139,11 @@ updates:
 
   - package-ecosystem: gomod
     directory: "/examples/mcp-server"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, examples]
+
+  - package-ecosystem: gomod
+    directory: "/examples/a2a-agent"
     schedule: { interval: weekly }
     labels: [dependencies, go, examples]
 

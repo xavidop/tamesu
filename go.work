@@ -6,6 +6,7 @@ use (
 	./cmd/tamesu
 	./examples/livekit-agent
 	./examples/mcp-server
+	./examples/a2a-agent
 	./examples/rest-agent
 	./examples/webapp
 	./llm
@@ -18,6 +19,7 @@ use (
 	./targets/pipecat
 	./targets/livekit
 	./targets/mcp
+	./targets/a2a
 	./targets/model
 	./targets/realtime
 	./targets/rest
