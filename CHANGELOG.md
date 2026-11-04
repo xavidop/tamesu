@@ -2,6 +2,13 @@
 
 All notable changes to tamesu are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/). Each new release is added at the top, with notes generated from the commit messages.
 
+# [1.8.0](https://github.com/xavidop/tamesu/compare/v1.7.0...v1.8.0) (2026-11-04)
+
+
+### Features
+
+* RAG grounding checks, an MCP server target and suite linting ([bafd880](https://github.com/xavidop/tamesu/commit/bafd880efeb6d40874ef71f74e0db2e6bb019135))
+
 # [1.7.0](https://github.com/xavidop/tamesu/compare/v1.6.0...v1.7.0) (2026-11-04)
 
 
