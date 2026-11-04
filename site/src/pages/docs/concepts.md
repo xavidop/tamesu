@@ -45,8 +45,25 @@ apply; `tamesu validate` warns when a key belongs to another type.
   `inbound` (a `trigger` makes the agent call `sip.inbound_number`), the trunk, ring timeout and
   maximum call duration. A SIP call is bridged into a LiveKit room, so everything audio mode does
   applies.
+- **`realtime`**: a websocket URL speaking the OpenAI Realtime protocol (the API or your own
+  server), `headers`, `model`, a `session_update` merged into the session, `tool_results` that
+  answer the agent's function calls, `done_tool`, `mode: text|audio` and `audio_format`.
+- **`grpc`**: `grpc://host:port` of an agent implementing the turn API, with `headers` as call
+  metadata and `turn_timeout`.
+- **`pipecat`**: the websocket URL of a Pipecat bot's transport, `mode: text|audio`,
+  `sample_rate`, `idle`, `tool_results` for client-side function calls.
+- **`twilio`**: the stream URL of a Twilio Media Streams agent, with `from`, `to` and
+  `parameters` as the custom parameters the agent sees; tamesu plays Twilio's side of the socket.
+- **`model`**: a `system` prompt (or `system_file`) and `tools` with their `result`, run directly
+  against a `model` (with `fallback`, `temperature`, `max_tokens`, `max_tool_rounds`), no agent
+  server.
+- **`mcp`**: an MCP server, `command` (with `args` and `env`) over stdio or `url` (with
+  `headers`) over streamable HTTP; its tools are offered to a driving `model` with a short
+  `system`, narrowed by `allow_tools`, each call bounded by `call_timeout`.
 
-The full key list is in [Suites](/docs/suites/).
+Any conversational target may also declare `connect` (how reaching the agent is retried) and
+`handoff` (how the agent signals that a person took over). The full key list is in
+[Suites](/docs/suites/).
 
 ## Personas and scenarios
 

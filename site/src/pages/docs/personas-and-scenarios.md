@@ -68,6 +68,80 @@ the agent cannot help), when the persona hangs up, when the agent ends the sessi
 (`response.done` for rest), when `max_turns` is reached, or when a script with no goal has played
 out. `result.json` records which (`stop_reason`).
 
+## Script steps
+
+A `script` plays before the persona takes over (or instead of it, when the scenario has no
+`goal`): the same words every run, so a recorded conversation, a fixed opening or an IVR menu is
+reproduced exactly.
+
+| Step | Meaning |
+|---|---|
+| `say: "text"` | Sends exactly this text on any conversational target. Templates render at send time, so `{{vars.x}}` and values captured earlier in the conversation (`{{captured.order_id}}`) work. |
+| `dtmf: "1234#"` | Presses keypad digits (sip, livekit audio, twilio): `0`-`9`, `*`, `#`. |
+| `wait_for: "text"` | Waits until the agent's transcript contains the text, fuzzily (case, punctuation and spelled digits do not matter), up to half the test timeout; a step that never hears it fails the run with `stop_reason: script`. |
+
+```yaml
+tests:
+  - name: order status, then a human
+    target: api
+    capture:
+      - { name: order_id, regex: "(ORD-[0-9]+)" }
+    scenario:
+      script:
+        - say: "I placed an order yesterday for the blue sneakers in a 42"
+        - say: "What is the status of {{captured.order_id}}?"
+        - say: "Can I speak to a person about it?"
+    assert:
+      - handoff: true
+
+  - name: through the IVR to billing
+    target: phone
+    scenario:
+      script:
+        - wait_for: "press 2 for billing"
+        - dtmf: "2"
+        - wait_for: "how can I help"
+      goal: "Ask why last month's invoice is higher than usual"
+      max_turns: 6
+    assert:
+      - transferred_to: { matches: "^sip:billing@" }
+```
+
+A script with a `goal` hands over to the simulated user once the last step has played; one
+without a goal needs no simulator model at all, which is how imported conversations and the
+fake-free CI suites run.
+
+## Voices, behaviours and seeds
+
+`voice` is a hint the speech layer maps to the provider's voices: `<language>-<gender>` such as
+`en-GB-female`, `es-ES-male` or just `female` picks the provider's default voice of that gender
+(Gemini `Kore`/`Puck`, ElevenLabs `Rachel`/`Adam`, OpenAI `nova`/`onyx`); a provider voice name
+or ID (`Puck`, an ElevenLabs or Cartesia voice ID) passes through. The hint's language is also
+the TTS language when `speech.tts.language` is not set.
+
+The behaviours shape the caller's audio, in livekit audio mode and on sip calls (and
+`interrupt_probability` on realtime, pipecat and twilio too):
+
+```yaml
+persona:
+  name: Alice
+  style: "impatient, cuts in"
+  voice: en-GB-female
+  behaviors:
+    interrupt_probability: 0.5        # half the turns start before the agent has finished
+    silence_after_turn_ms: [200, 900] # a short, variable pause before answering
+    background_noise: street          # cafe, office, street, white, or a .wav next to the suite
+    background_noise_snr_db: 12       # louder than the default 20 dB under the voice
+    line_quality: mobile_poor         # pstn (8 kHz μ-law), mobile_poor (loss and jitter), voip_good
+```
+
+`seed` on the test fixes the random choices (when to interrupt, how long to pause, which noise
+segment plays), so a failing run can be reproduced; `repeat` with different seeds explores the
+space. The results carry what happened: `interruptions`, `interruption_stop_ms` (how long the
+agent kept talking after being cut off), `talk_over_ratio`, `user_speech_ms` and
+`agent_speech_ms`, plus `interrupting`, `interruption` and `interruption_stopped` events with
+their timestamps (see [Metrics](/docs/metrics/)).
+
 ## One test, several languages
 
 A bilingual agent is tested one language at a time; `languages` runs the same test in each:
@@ -95,7 +169,8 @@ and language.
 An agent is only as good as its worst day with its tools. `fuzz_tools` on a test replaces what
 the named tools answer, for that test only, so you can see the agent cope (or not) with a
 failing backend. It applies to the targets where tamesu answers the agent's tool calls:
-`realtime`, `pipecat` and `model`.
+`realtime`, `pipecat`, `model` and `mcp`. The mode may be a template (`"{{vars.mode}}"`), so
+`cases` can sweep the modes.
 
 ```yaml
 tests:

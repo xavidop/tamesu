@@ -167,7 +167,7 @@ type Fuzz struct {
 var FuzzModes = []string{"error", "empty", "null", "malformed", "hostile", "huge", "wrong_type", "delay", "custom"}
 
 // FuzzTargets are the target types that answer tool calls, so fuzzing applies.
-var FuzzTargets = []string{TargetRealtime, TargetPipecat, TargetModel}
+var FuzzTargets = []string{TargetRealtime, TargetPipecat, TargetModel, TargetMCP}
 
 // UnmarshalYAML accepts a mode string or a mapping.
 func (f *Fuzz) UnmarshalYAML(n *yaml.Node) error {

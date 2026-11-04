@@ -62,7 +62,7 @@ func TestValidateInvalidSuites(t *testing.T) {
 		{file: "handoff-bad.yaml", line: 20, msg: "within_turns cannot be negative", path: `tests[0] "t".assert[0].handoff.within_turns`},
 		{file: "handoff-bad.yaml", line: 21, msg: "expected: false with other fields", path: `tests[0] "t".assert[1].handoff`, warning: true},
 		{file: "handoff-bad.yaml", line: 26, msg: "handoff applies to conversational tests", path: `tests[1] "w".assert[0].handoff`},
-		{file: "fuzz-bad.yaml", line: 9, msg: "fuzz_tools applies to targets that answer tool calls (realtime, pipecat, model); this target is rest", path: `tests[0] "rest".fuzz_tools`},
+		{file: "fuzz-bad.yaml", line: 9, msg: "fuzz_tools applies to targets that answer tool calls (realtime, pipecat, model, mcp); this target is rest", path: `tests[0] "rest".fuzz_tools`},
 		{file: "fuzz-bad.yaml", line: 14, msg: `unknown fuzz mode "explode"`, path: `tests[1] "modes".fuzz_tools.lookup_order`},
 		{file: "fuzz-bad.yaml", line: 15, msg: "mode delay needs a delay", path: `tests[1] "modes".fuzz_tools.get_balance.delay`},
 		{file: "fuzz-bad.yaml", line: 16, msg: "mode custom needs a result", path: `tests[1] "modes".fuzz_tools.refund.result`},

@@ -156,8 +156,8 @@ factual claim the agent made and whether the context supports it, and passes whe
 (or `min` of them, a fraction) are supported. The context is what the agent could legitimately
 draw on:
 
-- `tool: search_docs`: the results of that tool, on the targets where tamesu answers tool calls
-  (`model`, `realtime`, `pipecat`) and so sees them;
+- `tool: search_docs`: the results of that tool, on the targets where tamesu sees them (`model`,
+  `mcp`, `realtime`, `pipecat`);
 - `json_path: "$.sources[*].text"`: passages selected from every raw response (`rest`, websocket,
   realtime events), for agents that return their sources;
 - `text: [...]`: passages written in the suite.

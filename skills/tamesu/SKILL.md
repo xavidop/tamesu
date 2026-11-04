@@ -236,7 +236,7 @@ assertion implements; `metrics` names the built-in metrics.
 
 ## Breaking the agent's tools
 
-`fuzz_tools` on a test (realtime, pipecat and model targets) replaces the named tools' answers for
+`fuzz_tools` on a test (realtime, pipecat, model and mcp targets) replaces the named tools' answers for
 that test: `lookup_order: error` (or `empty`, `null`, `malformed`, `hostile`, `huge`, `wrong_type`,
 `{ mode: delay, delay: 8s }`, `{ mode: custom, result: ... }`); pair it with `pack: graceful_degradation`.
 A `red_team:` block on a suite (`target`, `agent`, `playbooks`, `max_turns`, `assert`) adds one adversarial

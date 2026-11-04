@@ -464,7 +464,8 @@ func (v *validator) test(i int, t Test) {
 	for _, name := range sortedKeys(t.FuzzTools) {
 		f := t.FuzzTools[name]
 		fp := with(tp, "fuzz_tools", name)
-		if !slices.Contains(FuzzModes, f.Mode) {
+		if !slices.Contains(FuzzModes, f.Mode) && !strings.Contains(f.Mode, "{{") {
+			// A templated mode ("{{vars.mode}}") renders at run time, so a case can sweep the modes.
 			v.errorf(fp, "unknown fuzz mode %q (one of %s)", f.Mode, strings.Join(FuzzModes, ", "))
 		}
 		if f.Delay < 0 {

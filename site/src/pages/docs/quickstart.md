@@ -175,9 +175,12 @@ The voice test runs in text mode against a LiveKit room; see the
 
 ## Next
 
+- [Recipes](/docs/recipes/): complete projects to copy, from a REST support agent to a nightly
+  red team, a phone IVR and an MCP server.
 - [Suites](/docs/suites/): every key of the YAML, generated from the schema.
 - [Configuration](/docs/configuration/): `tamesu.yaml`, secrets with mamori, interpolation.
 - [Personas and scenarios](/docs/personas-and-scenarios/), [Assertions](/docs/assertions/) and
   [Judges](/docs/judges/): how a test is written and graded.
-- [CLI reference](/docs/cli/): every command, flag and exit code.
+- [CLI reference](/docs/cli/): every command, flag and exit code; `tamesu lint` finds the weak
+  tests validation accepts.
 - [CI](/docs/ci/): run, validate and doctor in GitHub Actions, GitLab and Docker.
