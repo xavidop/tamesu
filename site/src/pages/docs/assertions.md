@@ -64,6 +64,83 @@ with the list of the ones it did. See [Metrics](/docs/metrics/).
 
 These read the call timeline the sip and livekit targets record.
 
+## Handoff and escalation
+
+Some conversations must end with a person: the angry customer, the request the agent is not
+allowed to grant, the user who asks for a human. Others must not. Tell the target how your agent
+signals a handoff, and assert on it:
+
+```yaml
+targets:
+  api:
+    type: rest
+    url: ${AGENT_URL}
+    handoff: { tool: transfer_to_human, to: department, summary: summary }   # or json_path / regex
+
+tests:
+  - name: angry customer reaches a person
+    target: api
+    persona: { name: Ray, style: furious, swears every turn }
+    scenario: { goal: "Complain about a late delivery until a human takes over", max_turns: 6 }
+    assert:
+      - handoff: { within_turns: 3, to: "^support$", summary_contains: ["late"], summary: "The summary says what the customer is angry about" }
+      - pack: discloses_ai
+  - name: a simple question stays with the agent
+    target: api
+    scenario: { goal: "Ask how long shipping takes", max_turns: 3 }
+    assert:
+      - handoff: false
+```
+
+`handoff` on a target is one of `tool` (a tool call such as `transfer_to_human`), `json_path`
+(a field of the raw response that is present and not false) or `regex` (words in the reply);
+`to` and `summary` say where the destination and the summary live (a tool argument name or a
+JSONPath; with `regex`, the first group is the destination). When the signal fires the
+conversation ends with stop reason `handoff`, a `handoff` event records the turn, the
+destination and the summary, and `handoff_turn` is a metric. A SIP transfer (`transferred_to`)
+counts as a handoff to its target.
+
+| Assertion | Passes when |
+|---|---|
+| `handoff: true` | the agent handed the conversation to a person (a handoff event or a call transfer). |
+| `handoff: false` | it did not: no over-escalation. |
+| `handoff: { within_turns, to, summary_contains, summary }` | it did, on or before agent turn `within_turns`, to a destination matching `to`, with a summary that contains every `summary_contains` text and that the judge accepts against the `summary` rubric. |
+
+Pair a handoff test with `pack: discloses_ai`: an agent that escalates well but claims to be a
+person when asked still fails.
+
+## Your backend's state
+
+A conversation that sounds right can still have done the wrong thing. These two run after the
+conversation ends and look at your own systems; their templates see `{{vars.x}}`,
+`{{captured.x}}` (a value [captured](/docs/concepts/#capturing-values-across-turns) from the agent's turns,
+such as an order id) and `{{secrets.X}}`.
+
+| Assertion | Passes when |
+|---|---|
+| `http: { url, method, headers, body, status, json_path, contains, regex, timeout }` | the request returns the `status` (any code under 400 when omitted) and the body satisfies every check given: `json_path: { path, equals }` exists in the JSON body (and equals the value), `contains` is in the body, `regex` matches it. `method` is `GET` by default; a mapping `body` is sent as JSON. |
+| `command: { run, exit, contains, regex, timeout }` | the shell command (`sh -c`) exits with `exit` (`0` when omitted) and its output contains `contains` and matches `regex`. |
+
+```yaml
+tests:
+  - name: refund goes through
+    target: api
+    capture:
+      - { name: order_id, regex: "(ORD-[0-9]+)" }
+    scenario: { goal: "Get a refund for the shoes that arrived damaged", max_turns: 6 }
+    assert:
+      - judge: "The agent confirms the refund and gives a timeline"
+      - http:
+          url: "{{vars.admin_url}}/orders/{{captured.order_id}}"
+          headers: { Authorization: "Bearer {{secrets.ADMIN_TOKEN}}" }
+          json_path: { path: "$.status", equals: refunded }
+      - command: { run: "./scripts/check-ledger.sh {{captured.order_id}}", contains: credited }
+```
+
+The result quotes the status and the first lines of the body or output as evidence, so a failing
+check shows what the backend actually held. Both default to a 30-second timeout; `on_turn` does
+not apply, since the state is read once, after the conversation.
+
 ## Models
 
 | Assertion | Passes when |

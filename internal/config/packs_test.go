@@ -32,7 +32,7 @@ func TestBuiltinPacksAreValid(t *testing.T) {
 		}
 		assert.Equal(t, 1, judges, "%s has one judge", p.Name)
 	}
-	assert.Equal(t, []string{"pii_leakage", "prompt_injection", "system_prompt_leakage"}, names)
+	assert.Equal(t, []string{"discloses_ai", "excessive_agency", "graceful_degradation", "harmful_content", "pii_leakage", "policy_consistency", "prompt_injection", "stays_in_scope", "system_prompt_leakage"}, names)
 	assert.Equal(t, names, PackNames(nil))
 }
 
@@ -125,7 +125,7 @@ func TestExpandPacksErrors(t *testing.T) {
 		assert.Nil(t, s)
 		require.Len(t, errs, 1)
 		assert.Equal(t, 10, errs[0].Line)
-		assert.Contains(t, errs[0].Msg, `unknown pack "nope" (have pii_leakage, prompt_injection, system_prompt_leakage)`)
+		assert.Contains(t, errs[0].Msg, `unknown pack "nope" (have discloses_ai, excessive_agency, graceful_degradation, harmful_content, pii_leakage, policy_consistency, prompt_injection, stays_in_scope, system_prompt_leakage)`)
 		assert.Equal(t, `tests[0] "t".assert[0].pack`, errs[0].Path)
 	})
 	t.Run("nested pack", func(t *testing.T) {

@@ -194,6 +194,21 @@ func (s *session) Receive(ctx context.Context) (target.AgentTurn, error) {
 				continue
 			}
 			tl, ok := s.byName[call.Name]
+			if f, fuzzed := s.run.ToolFuzz[call.Name]; fuzzed {
+				var normal any
+				if ok && tl.Result != nil {
+					normal = renderArgs(tl.Result, call.Args)
+				}
+				s.mu.Unlock()
+				err := f.Wait(ctx)
+				s.mu.Lock()
+				if err != nil {
+					return out, err
+				}
+				s.evs = append(s.evs, target.Event{At: time.Now(), Kind: target.EventToolFuzz, Detail: f.Describe(call.Name)})
+				results = append(results, target.ChatToolResult{Ref: call.Ref, Name: call.Name, Output: f.Output(normal)})
+				continue
+			}
 			switch {
 			case !ok:
 				results = append(results, target.ChatToolResult{Ref: call.Ref, Name: call.Name, Output: map[string]any{"error": "unknown tool " + call.Name}})

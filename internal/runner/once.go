@@ -114,6 +114,16 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 	if cm, ok := r.o.Provider.(target.ChatModel); ok {
 		rc.Chat = cm
 	}
+	if len(it.test.FuzzTools) > 0 {
+		rc.ToolFuzz = make(map[string]target.ToolFuzz, len(it.test.FuzzTools))
+		for name, f := range it.test.FuzzTools {
+			mode := f.Mode
+			if m, err := render(mode); err == nil {
+				mode = m
+			}
+			rc.ToolFuzz[name] = target.ToolFuzz{Mode: mode, Delay: time.Duration(f.Delay), Result: f.Result}
+		}
+	}
 	if it.mode == "audio" {
 		if sp, ok := r.o.Provider.(target.Speech); ok {
 			rc.Speech = sp
@@ -130,7 +140,7 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 	if err != nil {
 		return fail(report.KindInfra, err)
 	}
-	loop := &persona.Loop{Sim: r.simulator(), Seed: it.seed, Mode: it.mode, Logger: logger, Now: r.now, ScriptTimeout: it.timeout / 2, OnAgentTurn: caps.turn}
+	loop := &persona.Loop{Sim: r.simulator(), Seed: it.seed, Mode: it.mode, Logger: logger, Now: r.now, ScriptTimeout: it.timeout / 2, OnAgentTurn: caps.turn, Handoff: handoffDetector(it.target.Handoff)}
 	var lo *persona.Outcome
 	var loopErr error
 	var stepFails []assert.Result
@@ -180,6 +190,9 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 	metrics.Summarize(out.Metrics, metrics.TurnLatencyMs, lo.LatenciesMs)
 	metrics.Summarize(out.Metrics, metrics.TimeToFirstTokenMs, lo.FirstTokenMs)
 	out.Metrics[metrics.Turns] = float64(len(lo.AgentTurns))
+	if hs := assert.Handoffs(&assert.RunResult{Events: out.Events}); len(hs) > 0 && hs[0].Turn > 0 {
+		out.Metrics[metrics.HandoffTurn] = float64(hs[0].Turn)
+	}
 	for k, v := range arts.Metrics {
 		out.Metrics[k] = v
 	}
@@ -248,6 +261,7 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 	all = append(all, it.test.Assert...)
 	for i, ca := range all {
 		ca = renderAssertion(ca, renderForModel)
+		ca = renderStateAssertion(ca, render)
 		var a assert.Assertion
 		var err error
 		if ca.Golden != nil {

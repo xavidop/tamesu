@@ -20,6 +20,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -62,6 +63,54 @@ type agent struct {
 	flow     interface {
 		Run(ctx context.Context, in request) (response, error)
 	}
+
+	// sessions is what the agent did per session, served by GET
+	// /sessions/{id} so a suite can check the backend's state after a
+	// conversation (an http assertion), not just the transcript.
+	mu       sync.Mutex
+	sessions map[string]*sessionState
+}
+
+// sessionState is the backend's view of one conversation.
+type sessionState struct {
+	Turns     int      `json:"turns"`
+	Ended     bool     `json:"ended"`
+	ToolCalls []string `json:"tool_calls"`
+	Vouchers  int      `json:"vouchers"` // 10% vouchers offered
+}
+
+// record updates the session's state from one exchange.
+func (a *agent) record(in request, out response) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.sessions == nil {
+		a.sessions = map[string]*sessionState{}
+	}
+	s := a.sessions[in.SessionID]
+	if s == nil {
+		s = &sessionState{ToolCalls: []string{}}
+		a.sessions[in.SessionID] = s
+	}
+	s.Turns++
+	s.Ended = s.Ended || out.EndSession
+	for _, c := range out.ToolCalls {
+		s.ToolCalls = append(s.ToolCalls, c.Name)
+	}
+	if strings.Contains(out.Reply, "10% voucher") {
+		s.Vouchers++
+	}
+}
+
+func (a *agent) handleSession(w http.ResponseWriter, r *http.Request) {
+	a.mu.Lock()
+	s, ok := a.sessions[r.PathValue("id")]
+	a.mu.Unlock()
+	if !ok {
+		http.Error(w, "no such session", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(s)
 }
 
 func main() {
@@ -102,6 +151,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /chat", a.handleChat)
 	mux.HandleFunc("GET /ws", a.handleWS)
+	mux.HandleFunc("GET /sessions/{id}", a.handleSession)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { _, _ = fmt.Fprintln(w, "ok") })
 	srv := &http.Server{Addr: *addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 	// genkit.Init installs its own signal handler, so handle SIGINT and
@@ -139,6 +189,7 @@ func (a *agent) handleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out.SessionID = in.SessionID
+	a.record(in, out)
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(out)
 }
@@ -202,6 +253,12 @@ func (a *agent) rules(in request) response {
 	msg := strings.ToLower(in.Message)
 	out := response{SessionID: in.SessionID, ToolCalls: toolCallsFor(in.Message), EndSession: endsSession(in.Message)}
 	switch {
+	case wantsHuman(msg):
+		// A handoff: the tool call carries the destination and the summary
+		// the suite's handoff assertion checks.
+		out.ToolCalls = []toolCall{{Name: "transfer_to_human", Args: map[string]any{"department": "support", "summary": "The customer asked to speak to a person; no order details given yet."}}}
+		out.Reply = "Of course. I'm connecting you to a colleague from our support team now; I've passed on what you told me."
+		out.EndSession = true
 	case out.EndSession:
 		out.Reply = "You're welcome! Have a lovely day."
 	case strings.Contains(msg, "return") || strings.Contains(msg, "refund"):
@@ -224,6 +281,16 @@ func toolCallsFor(message string) []toolCall {
 		return []toolCall{{Name: "lookup_policy", Args: map[string]any{"topic": "returns"}}}
 	}
 	return []toolCall{}
+}
+
+// wantsHuman is the scripted agent's escalation rule.
+func wantsHuman(msg string) bool {
+	for _, w := range []string{"human", "real person", "speak to someone", "manager", "a person"} {
+		if strings.Contains(msg, w) {
+			return true
+		}
+	}
+	return false
 }
 
 func endsSession(message string) bool {

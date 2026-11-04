@@ -29,6 +29,7 @@ const (
 	StopMaxTurns  = "max_turns"  // the turn budget ran out
 	StopScript    = "script"     // a scripted step failed (Outcome.ScriptError)
 	StopScriptEnd = "script_end" // the script played out and the scenario has no goal
+	StopHandoff   = "handoff"    // the agent handed the conversation to a person
 )
 
 // ErrNoSimulator is returned when the loop has no model to play the user.
@@ -54,6 +55,10 @@ type Loop struct {
 	Render func(string) (string, error)
 	// ScriptTimeout bounds each wait_for step (default 30 s).
 	ScriptTimeout time.Duration
+	// Handoff, when set, inspects every agent turn (1-based) for a handoff
+	// to a person; a non-empty detail ends the conversation with a handoff
+	// event carrying it.
+	Handoff func(agent target.AgentTurn, turn int) string
 }
 
 // Outcome is what a finished conversation produced.
@@ -166,6 +171,13 @@ func (l *Loop) Run(ctx context.Context, sess target.Session) (*Outcome, error) {
 			l.OnAgentTurn(agent)
 		}
 		logger.Debug("turn", "n", turn, "latency_ms", out.LatenciesMs[len(out.LatenciesMs)-1], "done", agent.Done)
+		if l.Handoff != nil {
+			if detail := l.Handoff(agent, agentIndex); detail != "" {
+				out.Events = append(out.Events, target.Event{At: endedAt, Kind: assert.EventHandoff, Detail: detail})
+				out.StopReason = StopHandoff
+				return out, nil
+			}
+		}
 		switch {
 		case sim.HangUp:
 			out.StopReason = StopHangUp

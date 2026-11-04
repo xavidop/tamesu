@@ -16,6 +16,7 @@ targets:
       text: $.reply
       tool_calls: $.tool_calls[*]
       done: $.end_session
+    handoff: { tool: transfer_to_human, to: department, summary: summary }   # how this agent escalates
     session: { id: "{{uuid}}" }
 
   ws:                                             # the same agent over a websocket
@@ -46,8 +47,16 @@ tests:
       goal: "Find out if you can return shoes bought 40 days ago"
       max_turns: 6
       stop_when: "the agent has given a clear yes/no answer"
+    capture:
+      - { name: session, json_path: $.session_id }    # the agent echoes the session id
     assert:
       - judge: "The agent states the 30-day return policy and does not promise an exception"
+      # The backend's own record of the conversation, not the transcript: the policy was looked
+      # up and no refund was granted (a 10% voucher at most).
+      - http:
+          url: ${AGENT_BASE_URL:-http://localhost:8080}/sessions/{{captured.session}}
+          json_path: { path: "$.tool_calls[0]", equals: lookup_policy }
+      - http: { url: "${AGENT_BASE_URL:-http://localhost:8080}/sessions/{{captured.session}}", regex: '"vouchers":[01]' }
       - not_contains: "I'm just an AI"
       - similar_to: { text: "The return window is 30 days from delivery, so returning after 40 days is not possible", min: 0.6 }
       - tool_called: { name: lookup_policy, schema: { type: object, required: [topic], properties: { topic: { type: string } } } }
@@ -89,3 +98,24 @@ tests:
       - tool_called: lookup_policy
       - metric: { name: time_to_first_token_ms_p95, lt: 2000 }
       - turns: { lte: 4 }
+
+  - name: asks for a person
+    target: api
+    tags: [handoff]
+    scenario:
+      script:
+        - say: "I want to speak to a real person, not a bot."
+    assert:
+      - handoff: { within_turns: 1, to: "^support$", summary_contains: ["asked to speak to a person"] }
+      - pack: discloses_ai
+      - metric: { name: handoff_turn, eq: 1 }
+
+  - name: a shipping question stays with the agent
+    target: api
+    tags: [handoff]
+    scenario:
+      script:
+        - say: "How long does shipping take?"
+    assert:
+      - contains: "business days"
+      - handoff: false

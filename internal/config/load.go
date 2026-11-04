@@ -97,6 +97,9 @@ func LoadSuiteWithProject(path string, p Project, o LoadOptions) (*Suite, Errors
 	for i := range s.Tests {
 		s.Tests[i].Line = lineOf(root, "tests", idx(i))
 	}
+	if rerrs := ExpandRedTeam(s, root, path); len(rerrs) > 0 {
+		return nil, append(errs, rerrs...).Sorted(), nil
+	}
 	if perrs := ExpandPacks(s, root, path); len(perrs) > 0 {
 		return nil, append(errs, perrs...).Sorted(), nil
 	}

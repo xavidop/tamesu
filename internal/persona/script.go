@@ -125,6 +125,13 @@ func (l *Loop) exchange(ctx context.Context, sess target.Session, out *Outcome, 
 	if !ut.At.IsZero() {
 		out.LatenciesMs = append(out.LatenciesMs, ms(endedAt.Sub(ut.At)))
 	}
+	if l.Handoff != nil {
+		if detail := l.Handoff(agent, len(out.AgentTurns)); detail != "" {
+			out.Events = append(out.Events, target.Event{At: endedAt, Kind: assert.EventHandoff, Detail: detail})
+			out.StopReason = StopHandoff
+			return agent, nil
+		}
+	}
 	if agent.Done {
 		out.StopReason = StopAgentDone
 	}

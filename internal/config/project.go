@@ -1,6 +1,11 @@
 package config
 
-import "time"
+import (
+	"fmt"
+	"sort"
+	"strings"
+	"time"
+)
 
 // Project is the project-level configuration in tamesu.yaml (design.md §4).
 // Suites can override Defaults, Models and Budgets.
@@ -22,6 +27,77 @@ type Project struct {
 	Secrets   map[string]string `yaml:"secrets,omitempty" json:"secrets,omitempty" jsonschema:"description=Secret name to mamori ref (env:X or aws-sm://... or a precedence chain)."`
 	Labels    map[string]string `yaml:"labels,omitempty" json:"labels,omitempty" jsonschema:"description=Key-value labels written into every run's summary such as env: staging; tamesu run --label adds or overrides them. Values take ${VAR}."`
 	Vars      map[string]string `yaml:"vars,omitempty" json:"vars,omitempty" jsonschema:"description=Project-wide values for {{vars.x}} and ${VAR} expansion in secret refs."`
+	// Environments are named deployments (staging, production): vars,
+	// secrets and labels that tamesu run --env <name> applies on top of
+	// the project's, so one config reaches every environment.
+	Environments map[string]Environment `yaml:"environments,omitempty" json:"environments,omitempty" jsonschema:"description=Named environments (staging / production): vars and secrets and labels applied by tamesu run --env <name> or --matrix env=a,b."`
+
+	// ActiveEnvironment is the environment ApplyEnvironment applied. Not
+	// part of the format.
+	ActiveEnvironment string `yaml:"-" json:"-"`
+}
+
+// Environment is one deployment the suites can run against.
+type Environment struct {
+	Vars    map[string]string `yaml:"vars,omitempty" json:"vars,omitempty" jsonschema:"description=Values for {{vars.x}} and ${VAR} in secret refs; they win over the project's and the suites' vars (--var still wins)."`
+	Secrets map[string]string `yaml:"secrets,omitempty" json:"secrets,omitempty" jsonschema:"description=Secret name to mamori ref; overrides the project entry of the same name."`
+	Labels  map[string]string `yaml:"labels,omitempty" json:"labels,omitempty" jsonschema:"description=Labels added to every run; env: <name> is always set."`
+}
+
+// EnvironmentNames lists the project's environments, sorted.
+func (p Project) EnvironmentNames() []string {
+	names := make([]string, 0, len(p.Environments))
+	for name := range p.Environments {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// ApplyEnvironment makes name the project's active environment: its secrets
+// override the project's, its labels join them with env: <name>, and its
+// vars are what EnvironmentVars returns for the run. An unknown name is an
+// error that lists the environments.
+func (p *Project) ApplyEnvironment(name string) error {
+	if name == "" {
+		return nil
+	}
+	env, ok := p.Environments[name]
+	if !ok {
+		if len(p.Environments) == 0 {
+			return fmt.Errorf("environment %q: tamesu.yaml declares no environments", name)
+		}
+		return fmt.Errorf("unknown environment %q (have %s)", name, strings.Join(p.EnvironmentNames(), ", "))
+	}
+	if len(env.Secrets) > 0 {
+		secrets := make(map[string]string, len(p.Secrets)+len(env.Secrets))
+		for k, v := range p.Secrets {
+			secrets[k] = v
+		}
+		for k, v := range env.Secrets {
+			secrets[k] = v
+		}
+		p.Secrets = secrets
+	}
+	labels := make(map[string]string, len(p.Labels)+len(env.Labels)+1)
+	for k, v := range p.Labels {
+		labels[k] = v
+	}
+	labels["env"] = name
+	for k, v := range env.Labels {
+		labels[k] = v
+	}
+	p.Labels = labels
+	p.ActiveEnvironment = name
+	return nil
+}
+
+// EnvironmentVars are the active environment's vars (nil without one).
+func (p Project) EnvironmentVars() map[string]string {
+	if p.ActiveEnvironment == "" {
+		return nil
+	}
+	return p.Environments[p.ActiveEnvironment].Vars
 }
 
 // Genkit configures the Genkit instance of a run.

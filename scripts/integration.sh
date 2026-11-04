@@ -16,6 +16,7 @@ echo "==> build rest-agent"
 
 port="${AGENT_PORT:-18080}"
 export AGENT_URL="http://127.0.0.1:$port/chat"
+export AGENT_BASE_URL="http://127.0.0.1:$port"
 export AGENT_WS_URL="ws://127.0.0.1:$port/ws"
 grpc_port="${AGENT_GRPC_PORT:-18090}"
 export AGENT_GRPC_URL="grpc://127.0.0.1:$grpc_port"
@@ -124,7 +125,7 @@ out = sys.argv[1]
 shards = [json.load(open(f"{out}/shard-{i}/summary.json")) for i in (1, 2)]
 names = [sorted(t["name"] for t in s["tests"]) for s in shards]
 assert not set(names[0]) & set(names[1]), names
-assert len(names[0]) + len(names[1]) == 3, names
+assert len(names[0]) + len(names[1]) == 5, names  # every test of examples/rest-agent/suite.yaml, once
 assert all(s["labels"]["shard"] == f"{i}/2" for i, s in enumerate(shards, 1)), [s.get("labels") for s in shards]
 print("shards: %d + %d tests" % (len(names[0]), len(names[1])))
 PY

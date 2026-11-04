@@ -184,6 +184,9 @@ Every assertion is one key under `assert:`; a test may have any number, and `on_
 | `evaluator` | all | any registered Genkit evaluator: `{ evaluator: genkitEval/faithfulness, min: 0.8 }` |
 | `metric` | all | `{ name: time_to_first_audio_ms, lt: 1500 }` |
 | `turns` | conversational | `{ lte: 6 }` |
+| `handoff` | conversational | `true`, `false`, or `{ within_turns: 3, to: "^billing$", summary_contains: [...], summary: "rubric" }`: the agent handed the conversation to a person, as the target's `handoff` signal says ([details](/docs/assertions/#handoff-and-escalation)) |
+| `http` | all | `{ url: "{{vars.admin_url}}/orders/{{captured.order_id}}", json_path: { path: "$.status", equals: refunded } }`: the state of your backend after the conversation ([details](/docs/assertions/#your-backends-state)) |
+| `command` | all | `{ run: "./scripts/check.sh {{captured.order_id}}", contains: refunded }`: a shell command's exit code and output after the conversation |
 | `custom` | all | a Go-registered assertion by name |
 | `pack` | all | `pack: prompt_injection`: a reusable set of assertions, built-in or defined under `packs:` ([red-team packs](/docs/red-team/)) |
 

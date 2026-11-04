@@ -40,8 +40,8 @@ OpenAI Realtime API and a web checkout.
   result, replayable verdicts, and `tamesu judge calibrate` to measure a judge against
   transcripts people have already marked.
 - **Real conversations as tests.** `tamesu import` replays recorded conversations against the
-  agent; `tamesu generate` drafts tests from a PRD or system prompt; red-team packs cover prompt
-  injection and leaks.
+  agent; `tamesu generate` drafts tests from a PRD or system prompt; red-team playbooks run
+  packaged attacks (prompt injection, data extraction, policy drift, ...) mapped to the OWASP LLM Top 10.
 - **Built for CI.** Repeats with a pass threshold, retries, budgets, sharding, baselines with
   regression limits, quarantine for known flakes, and JUnit, HTML, Markdown, GitHub and Slack
   reports.
@@ -102,11 +102,12 @@ The commands:
 tamesu init [dir]                scaffold tamesu.yaml and examples/ (--force)
 tamesu validate [paths...]       schema-validate suites (--strict)
 tamesu list [paths...]           list tests (--json, --filter, --tags, --target, --shard)
-tamesu run [paths...]            run suites (--filter, --tags, --target, --shard, --fail-fast, --parallel, --repeat, --load, --mode, --replay, --baseline, --label, --out, --reporter, --estimate, --matrix)
+tamesu run [paths...]            run suites (--filter, --tags, --target, --shard, --fail-fast, --parallel, --repeat, --load, --mode, --replay, --baseline, --env, --label, --out, --reporter, --estimate, --matrix)
 tamesu doctor [paths...]         check config, suites, secrets, models, speech, Chromium, LiveKit and SIP
 tamesu report <run-dir>          rebuild report.html from a run directory
 tamesu merge <run-dir>...        combine shards or repeated runs into one run directory and verdict (--out)
 tamesu coverage <run-dir>        what a run exercised: targets, tags, tools (and tools never called), assertion kinds (--json)
+tamesu playbooks [name]          the red-team playbooks a suite's red_team block can run, with their OWASP categories and attacks (--json)
 tamesu history                   each test's results and p95 over the last runs; flaky tests (--runs-dir, --last, --flaky, --json)
 tamesu baseline save <run-dir>   keep a run as the baseline (--dir)
 tamesu compare <base> <run>      compare a run with a baseline; exit 1 on a regression

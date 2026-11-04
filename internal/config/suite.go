@@ -30,8 +30,8 @@ var ActionNames = []string{"navigate", "click", "fill", "press", "wait", "screen
 // AssertionKinds lists every assertion key, in documentation order.
 var AssertionKinds = []string{
 	"judge", "contains", "not_contains", "regex", "not_regex", "similar_to", "json_path", "status",
-	"tool_called", "tool_not_called", "tool_sequence", "dtmf_received", "call_ended_by", "transferred_to",
-	"evaluator", "metric", "turns", "captured", "golden", "custom", "pack",
+	"tool_called", "tool_not_called", "tool_sequence", "dtmf_received", "call_ended_by", "transferred_to", "handoff",
+	"evaluator", "metric", "turns", "captured", "golden", "http", "command", "custom", "pack",
 }
 
 // Suite is one YAML suite file (design.md §5): targets, defaults and tests.
@@ -45,7 +45,8 @@ type Suite struct {
 	Budgets  *Budgets               `yaml:"budgets,omitempty" json:"budgets,omitempty"`
 	Targets  map[string]Target      `yaml:"targets" json:"targets" jsonschema:"required,description=The systems under test by name."`
 	Hooks    *Hooks                 `yaml:"hooks,omitempty" json:"hooks,omitempty"`
-	Packs    map[string][]Assertion `yaml:"packs,omitempty" json:"packs,omitempty" jsonschema:"description=Reusable assertion sets by name for assert entries of the form pack: name; a name also used by a built-in pack (prompt_injection / pii_leakage / system_prompt_leakage) replaces it."`
+	Packs    map[string][]Assertion `yaml:"packs,omitempty" json:"packs,omitempty" jsonschema:"description=Reusable assertion sets by name for assert entries of the form pack: name; a name also used by a built-in pack (prompt_injection / pii_leakage / system_prompt_leakage / stays_in_scope / discloses_ai / harmful_content / excessive_agency / policy_consistency) replaces it."`
+	RedTeam  *RedTeam               `yaml:"red_team,omitempty" json:"red_team,omitempty" jsonschema:"description=Red team playbooks: one adversarial test per attack of the chosen playbooks is added to the suite when it loads (tamesu playbooks lists them)."`
 	Tests    []Test                 `yaml:"tests" json:"tests" jsonschema:"required"`
 
 	// Path is the file the suite was loaded from. It is not part of the format.
@@ -58,6 +59,8 @@ type Target struct {
 	URL  string `yaml:"url,omitempty" json:"url,omitempty" jsonschema:"description=The page (browser) or endpoint (rest / realtime / pipecat / twilio) or grpc://host:port (grpc) or LiveKit server (livekit)."`
 	// Connect is how the target retries reaching the agent (every type but browser).
 	Connect *ConnectConfig `yaml:"connect,omitempty" json:"connect,omitempty"`
+	// Handoff is how this agent signals that it handed the conversation to a person.
+	Handoff *HandoffSignal `yaml:"handoff,omitempty" json:"handoff,omitempty"`
 
 	// browser
 	Browser        *BrowserOptions `yaml:"browser,omitempty" json:"browser,omitempty"`
@@ -116,6 +119,19 @@ type Target struct {
 	MaxTokens     int       `yaml:"max_tokens,omitempty" json:"max_tokens,omitempty" jsonschema:"description=model: the most output tokens per call."`
 	MaxToolRounds int       `yaml:"max_tool_rounds,omitempty" json:"max_tool_rounds,omitempty" jsonschema:"description=model: the most call-and-answer rounds in one turn; default 5."`
 	Fallback      []string  `yaml:"fallback,omitempty" json:"fallback,omitempty" jsonschema:"description=model: Genkit model references tried in order when model fails; the run records which one answered."`
+}
+
+// HandoffSignal is how an agent says it handed the conversation to a person:
+// a tool it calls, a field of its response, or words in its reply. When the
+// signal fires the conversation ends with stop reason handoff, a handoff
+// event records the turn, the destination and the summary, and the handoff
+// assertion reads them.
+type HandoffSignal struct {
+	Tool     string `yaml:"tool,omitempty" json:"tool,omitempty" jsonschema:"description=A tool call that hands off such as transfer_to_human."`
+	JSONPath string `yaml:"json_path,omitempty" json:"json_path,omitempty" jsonschema:"description=A path in the turn's raw response that is present and not false when the agent hands off (rest / websocket / realtime)."`
+	Regex    string `yaml:"regex,omitempty" json:"regex,omitempty" jsonschema:"description=A regular expression on the agent's reply that means a handoff."`
+	To       string `yaml:"to,omitempty" json:"to,omitempty" jsonschema:"description=Where the destination is: the tool argument name or a JSONPath in the response (or the regex's first group when tool and json_path are unset)."`
+	Summary  string `yaml:"summary,omitempty" json:"summary,omitempty" jsonschema:"description=Where the summary passed to the person is: the tool argument name or a JSONPath in the response."`
 }
 
 // ConnectConfig is how a target retries reaching the agent: joining the
@@ -238,6 +254,7 @@ type Test struct {
 	Vars          map[string]string `yaml:"vars,omitempty" json:"vars,omitempty" jsonschema:"description=Values for {{vars.<key>}} in this test; on top of the suite's vars and under --var."`
 	Cases         []Case            `yaml:"cases,omitempty" json:"cases,omitempty" jsonschema:"description=Parameterised: the test runs once per case with the case's vars; each becomes a test named <name> [<case>] tagged case:<name>."`
 	CasesFile     string            `yaml:"cases_file,omitempty" json:"cases_file,omitempty" jsonschema:"description=Cases from a file next to the suite: a CSV with a header row (a name column names the case) or a JSON array of objects (a name key names the case)."`
+	FuzzTools     map[string]Fuzz   `yaml:"fuzz_tools,omitempty" json:"fuzz_tools,omitempty" jsonschema:"description=Tool result fuzzing: by tool name the answer the agent gets instead of the configured result (a mode such as error / empty / malformed / hostile or a mapping with mode and delay and result); realtime and pipecat and model targets."`
 	Languages     []string          `yaml:"languages,omitempty" json:"languages,omitempty" jsonschema:"description=The test runs once per language (BCP 47 such as es or en-GB): each becomes a test named <name> [<lang>] tagged lang:<lang> whose persona speaks that language and whose judges know it; {{vars.language}} holds it."`
 	Steps         []Step            `yaml:"steps,omitempty" json:"steps,omitempty" jsonschema:"description=Browser tests only."`
 	Persona       *Persona          `yaml:"persona,omitempty" json:"persona,omitempty"`
@@ -436,12 +453,40 @@ type Assertion struct {
 	Captured      *CapturedAssertion `yaml:"captured,omitempty" json:"captured,omitempty" jsonschema:"description=A value captured during the run exists and equals or matches."`
 	Golden        *GoldenAssertion   `yaml:"golden,omitempty" json:"golden,omitempty" jsonschema:"description=The agent's turns against reference turns: a file next to the suite or inline turns; exact / similar / judge."`
 	Custom        *string            `yaml:"custom,omitempty" json:"custom,omitempty" jsonschema:"description=A Go-registered assertion by name."`
-	Pack          *string            `yaml:"pack,omitempty" json:"pack,omitempty" jsonschema:"description=A reusable assertion set: a built-in red-team pack (prompt_injection / pii_leakage / system_prompt_leakage) or one of the suite's packs; it expands into its assertions when the suite loads."`
+	Handoff       *HandoffAssertion  `yaml:"handoff,omitempty" json:"handoff,omitempty" jsonschema:"description=The agent handed the conversation to a person (true) or did not (false); or when and to whom and with what summary."`
+	HTTP          *StateHTTP         `yaml:"http,omitempty" json:"http,omitempty" jsonschema:"description=The state of your backend after the conversation: a request whose status and body are checked."`
+	Command       *StateCommand      `yaml:"command,omitempty" json:"command,omitempty" jsonschema:"description=The state of your backend after the conversation: a shell command whose exit code and output are checked."`
+	Pack          *string            `yaml:"pack,omitempty" json:"pack,omitempty" jsonschema:"description=A reusable assertion set: a built-in red-team pack (prompt_injection / pii_leakage / system_prompt_leakage / stays_in_scope / discloses_ai / harmful_content / excessive_agency / policy_consistency) or one of the suite's packs; it expands into its assertions when the suite loads."`
 	OnTurn        OnTurn             `yaml:"on_turn,omitempty" json:"on_turn,omitempty"`
 
 	// From is the pack this assertion came from, set when a pack expands;
 	// results are reported as <pack>/<assertion>. Not part of the format.
 	From string `yaml:"-" json:"-"`
+}
+
+// StateHTTP checks your backend after the conversation: the request is made
+// once the run ends (templates see {{vars.x}} and {{captured.x}} and
+// {{secrets.X}}) and passes when the status and the body checks hold.
+type StateHTTP struct {
+	URL      string             `yaml:"url" json:"url" jsonschema:"required,description=The request URL; templates render with the run's vars and captured values and secrets."`
+	Method   string             `yaml:"method,omitempty" json:"method,omitempty" jsonschema:"description=GET when empty."`
+	Headers  map[string]string  `yaml:"headers,omitempty" json:"headers,omitempty"`
+	Body     any                `yaml:"body,omitempty" json:"body,omitempty" jsonschema:"description=A string is sent as is; a mapping as JSON."`
+	Status   *int               `yaml:"status,omitempty" json:"status,omitempty" jsonschema:"description=The expected status code; any code under 400 when omitted."`
+	JSONPath *JSONPathAssertion `yaml:"json_path,omitempty" json:"json_path,omitempty" jsonschema:"description=A path that must exist in the JSON body and with equals have that value."`
+	Contains *string            `yaml:"contains,omitempty" json:"contains,omitempty" jsonschema:"description=Text the body must contain."`
+	Regex    *string            `yaml:"regex,omitempty" json:"regex,omitempty" jsonschema:"description=A regular expression the body must match."`
+	Timeout  Duration           `yaml:"timeout,omitempty" json:"timeout,omitempty" jsonschema:"description=How long the request may take; default 30s."`
+}
+
+// StateCommand checks your backend after the conversation with a shell
+// command (sh -c): its exit code and its output.
+type StateCommand struct {
+	Run      string   `yaml:"run" json:"run" jsonschema:"required,description=The command (sh -c); templates render with the run's vars and captured values and secrets."`
+	Exit     *int     `yaml:"exit,omitempty" json:"exit,omitempty" jsonschema:"description=The expected exit code; 0 when omitted."`
+	Contains *string  `yaml:"contains,omitempty" json:"contains,omitempty" jsonschema:"description=Text the output must contain."`
+	Regex    *string  `yaml:"regex,omitempty" json:"regex,omitempty" jsonschema:"description=A regular expression the output must match."`
+	Timeout  Duration `yaml:"timeout,omitempty" json:"timeout,omitempty" jsonschema:"description=How long the command may take; default 30s."`
 }
 
 // Kinds lists the assertion keys that are set, in AssertionKinds order.
@@ -461,11 +506,14 @@ func (a Assertion) Kinds() []string {
 		"dtmf_received":   a.DTMFReceived != nil,
 		"call_ended_by":   len(a.CallEndedBy) > 0,
 		"transferred_to":  a.TransferredTo != nil,
+		"handoff":         a.Handoff != nil,
 		"evaluator":       a.Evaluator != nil,
 		"metric":          a.Metric != nil,
 		"turns":           a.Turns != nil,
 		"captured":        a.Captured != nil,
 		"golden":          a.Golden != nil,
+		"http":            a.HTTP != nil,
+		"command":         a.Command != nil,
 		"custom":          a.Custom != nil,
 		"pack":            a.Pack != nil,
 	}

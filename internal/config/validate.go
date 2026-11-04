@@ -213,6 +213,20 @@ func (v *validator) target(name string, t Target) {
 			v.errorf(with(tp, "connect"), "backoff and max_backoff cannot be negative")
 		}
 	}
+	if h := t.Handoff; h != nil {
+		hp := with(tp, "handoff")
+		if h.Tool == "" && h.JSONPath == "" && h.Regex == "" {
+			v.errorf(hp, "handoff needs one of tool, json_path or regex: how the agent signals a handoff")
+		}
+		if h.Regex != "" {
+			if _, err := regexp.Compile(h.Regex); err != nil {
+				v.errorf(with(hp, "regex"), "invalid regex: %v", err)
+			}
+		}
+		if t.Type == TargetBrowser {
+			v.errorf(hp, "handoff applies to conversational targets")
+		}
+	}
 	switch t.Type {
 	case "":
 		v.errorf(tp, "target needs a type (one of %s)", strings.Join(TargetTypes(), ", "))
@@ -417,6 +431,25 @@ func (v *validator) test(i int, t Test) {
 	}
 	if t.Timeout != nil && *t.Timeout < 0 {
 		v.errorf(with(tp, "timeout"), "timeout cannot be negative")
+	}
+	if len(t.FuzzTools) > 0 && ok && !slices.Contains(FuzzTargets, target.Type) {
+		v.errorf(with(tp, "fuzz_tools"), "fuzz_tools applies to targets that answer tool calls (%s); this target is %s", strings.Join(FuzzTargets, ", "), target.Type)
+	}
+	for _, name := range sortedKeys(t.FuzzTools) {
+		f := t.FuzzTools[name]
+		fp := with(tp, "fuzz_tools", name)
+		if !slices.Contains(FuzzModes, f.Mode) {
+			v.errorf(fp, "unknown fuzz mode %q (one of %s)", f.Mode, strings.Join(FuzzModes, ", "))
+		}
+		if f.Delay < 0 {
+			v.errorf(with(fp, "delay"), "delay cannot be negative")
+		}
+		if f.Mode == "delay" && f.Delay == 0 {
+			v.errorf(with(fp, "delay"), "mode delay needs a delay")
+		}
+		if f.Mode == "custom" && f.Result == nil {
+			v.errorf(with(fp, "result"), "mode custom needs a result")
+		}
 	}
 	if q := t.Quarantine; q != nil {
 		if strings.TrimSpace(q.Reason) == "" {
@@ -721,11 +754,74 @@ func (v *validator) assertion(ap []string, a Assertion, ttype, mode string) {
 		if *a.Custom == "" {
 			v.errorf(kp, "custom needs the name of a registered assertion")
 		}
+	case "handoff":
+		h := a.Handoff
+		if h.To != nil {
+			if _, err := regexp.Compile(*h.To); err != nil {
+				v.errorf(with(kp, "to"), "invalid regex: %v", err)
+			}
+		}
+		if h.WithinTurns < 0 {
+			v.errorf(with(kp, "within_turns"), "within_turns cannot be negative")
+		}
+		if h.Expected != nil && !*h.Expected && (h.WithinTurns > 0 || h.To != nil || len(h.SummaryContains) > 0 || h.Summary != "") {
+			v.warnf(kp, "expected: false with other fields: only the absence of a handoff is checked")
+		}
+		if ttype == TargetBrowser {
+			v.errorf(kp, "handoff applies to conversational tests")
+		}
+	case "http":
+		h := a.HTTP
+		if strings.TrimSpace(h.URL) == "" {
+			v.errorf(kp, "http needs a url")
+		}
+		if m := strings.ToUpper(h.Method); m != "" && !slices.Contains(StateHTTPMethods, m) {
+			v.errorf(with(kp, "method"), "method must be one of %s", strings.Join(StateHTTPMethods, ", "))
+		}
+		if h.JSONPath != nil && strings.TrimSpace(h.JSONPath.Path) == "" {
+			v.errorf(with(kp, "json_path"), "json_path needs a path")
+		}
+		if h.Regex != nil {
+			if _, err := regexp.Compile(*h.Regex); err != nil {
+				v.errorf(with(kp, "regex"), "invalid regex: %v", err)
+			}
+		}
+		if h.Status != nil && (*h.Status < 100 || *h.Status > 599) {
+			v.errorf(with(kp, "status"), "status must be an HTTP status code")
+		}
+		if h.Timeout < 0 {
+			v.errorf(with(kp, "timeout"), "timeout cannot be negative")
+		}
+		if a.OnTurn.IsSet() {
+			v.errorf(with(ap, "on_turn"), "on_turn does not apply to http: the state is checked after the conversation")
+		}
+	case "command":
+		c := a.Command
+		if strings.TrimSpace(c.Run) == "" {
+			v.errorf(kp, "command needs run: the shell command")
+		}
+		if c.Regex != nil {
+			if _, err := regexp.Compile(*c.Regex); err != nil {
+				v.errorf(with(kp, "regex"), "invalid regex: %v", err)
+			}
+		}
+		if c.Exit != nil && (*c.Exit < 0 || *c.Exit > 255) {
+			v.errorf(with(kp, "exit"), "exit must be between 0 and 255")
+		}
+		if c.Timeout < 0 {
+			v.errorf(with(kp, "timeout"), "timeout cannot be negative")
+		}
+		if a.OnTurn.IsSet() {
+			v.errorf(with(ap, "on_turn"), "on_turn does not apply to command: the state is checked after the conversation")
+		}
 	}
 	if a.OnTurn.IsSet() && ttype == TargetBrowser {
 		v.errorf(with(ap, "on_turn"), "on_turn applies to conversational tests")
 	}
 }
+
+// StateHTTPMethods are the methods an http state assertion may use.
+var StateHTTPMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"}
 
 // secretRef checks that a declared secret ref parses as a mamori ref (chains
 // included). ${VAR} ref vars are replaced by a placeholder first.
@@ -875,6 +971,19 @@ func ValidateProject(p Project, file string, root *yaml.Node) Errors {
 	}
 	if p.SIP.InboundNumber != "" && !e164Re.MatchString(p.SIP.InboundNumber) {
 		v.errorf(at("sip", "inbound_number"), "inbound_number must be an E.164 number such as +34910000000")
+	}
+	for _, name := range p.EnvironmentNames() {
+		env := p.Environments[name]
+		ep := at("environments", name)
+		if strings.TrimSpace(name) == "" {
+			v.errorf(ep, "an environment needs a name")
+		}
+		if len(env.Vars) == 0 && len(env.Secrets) == 0 && len(env.Labels) == 0 {
+			v.warnf(ep, "environment %q sets no vars, secrets or labels", name)
+		}
+		for _, sname := range sortedKeys(env.Secrets) {
+			v.secretRef(with(ep, "secrets", sname), env.Secrets[sname])
+		}
 	}
 	if p.LiveKit.MaxConcurrentRooms < 1 {
 		v.errorf(at("livekit", "max_concurrent_rooms"), "max_concurrent_rooms must be 1 or more")

@@ -78,9 +78,21 @@
           "type": "string",
           "description": "A Go-registered assertion by name."
         },
+        "handoff": {
+          "$ref": "#/$defs/HandoffAssertion",
+          "description": "The agent handed the conversation to a person (true) or did not (false); or when and to whom and with what summary."
+        },
+        "http": {
+          "$ref": "#/$defs/StateHTTP",
+          "description": "The state of your backend after the conversation: a request whose status and body are checked."
+        },
+        "command": {
+          "$ref": "#/$defs/StateCommand",
+          "description": "The state of your backend after the conversation: a shell command whose exit code and output are checked."
+        },
         "pack": {
           "type": "string",
-          "description": "A reusable assertion set: a built-in red-team pack (prompt_injection / pii_leakage / system_prompt_leakage) or one of the suite's packs; it expands into its assertions when the suite loads."
+          "description": "A reusable assertion set: a built-in red-team pack (prompt_injection / pii_leakage / system_prompt_leakage / stays_in_scope / discloses_ai / harmful_content / excessive_agency / policy_consistency) or one of the suite's packs; it expands into its assertions when the suite loads."
         },
         "on_turn": {
           "$ref": "#/$defs/OnTurn"
@@ -390,6 +402,46 @@
         }
       ]
     },
+    "Fuzz": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "The fuzz mode: error, empty, null, malformed, hostile, huge, wrong_type or delay."
+        },
+        {
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "error",
+                "empty",
+                "null",
+                "malformed",
+                "hostile",
+                "huge",
+                "wrong_type",
+                "delay",
+                "custom"
+              ],
+              "description": "What the tool answers instead of its result."
+            },
+            "delay": {
+              "type": "string",
+              "pattern": "^(\\d+(\\.\\d+)?(ns|us|µs|ms|s|m|h))+$",
+              "description": "How long the answer is held back (any mode; the whole point of delay)."
+            },
+            "result": {
+              "description": "The answer in custom mode (any JSON)."
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "mode"
+          ]
+        }
+      ]
+    },
     "GoldenAssertion": {
       "properties": {
         "file": {
@@ -441,6 +493,69 @@
       "required": [
         "url"
       ]
+    },
+    "HandoffAssertion": {
+      "oneOf": [
+        {
+          "type": "boolean",
+          "description": "Whether the agent must have handed the conversation to a person."
+        },
+        {
+          "properties": {
+            "expected": {
+              "type": "boolean",
+              "description": "Whether a handoff must have happened; true when omitted."
+            },
+            "within_turns": {
+              "type": "integer",
+              "description": "The latest agent turn the handoff may happen on."
+            },
+            "to": {
+              "type": "string",
+              "description": "A regular expression the destination must match."
+            },
+            "summary_contains": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "description": "Texts the handoff summary must contain."
+            },
+            "summary": {
+              "type": "string",
+              "description": "A judge rubric for the handoff summary."
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
+        }
+      ]
+    },
+    "HandoffSignal": {
+      "properties": {
+        "tool": {
+          "type": "string",
+          "description": "A tool call that hands off such as transfer_to_human."
+        },
+        "json_path": {
+          "type": "string",
+          "description": "A path in the turn's raw response that is present and not false when the agent hands off (rest / websocket / realtime)."
+        },
+        "regex": {
+          "type": "string",
+          "description": "A regular expression on the agent's reply that means a handoff."
+        },
+        "to": {
+          "type": "string",
+          "description": "Where the destination is: the tool argument name or a JSONPath in the response (or the regex's first group when tool and json_path are unset)."
+        },
+        "summary": {
+          "type": "string",
+          "description": "Where the summary passed to the person is: the tool argument name or a JSONPath in the response."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "Hook": {
       "properties": {
@@ -830,6 +945,64 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "RedTeam": {
+      "properties": {
+        "target": {
+          "type": "string",
+          "description": "The target the attacks talk to (a key of targets)."
+        },
+        "agent": {
+          "type": "string",
+          "description": "What the agent is and what it must never do; the attacks pursue goals written against it."
+        },
+        "playbooks": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "The built-in playbooks to run (tamesu playbooks lists them); every playbook when empty."
+        },
+        "max_turns": {
+          "type": "integer",
+          "description": "Turns each attack gets (default 8)."
+        },
+        "repeat": {
+          "type": "integer",
+          "description": "Times each attack runs."
+        },
+        "language": {
+          "type": "string",
+          "description": "The attacker's language (BCP 47)."
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Extra tags on every generated test (red-team and playbook:\u003cname\u003e and owasp:\u003cid\u003e are always set)."
+        },
+        "vars": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Values for {{vars.\u003ckey\u003e}} in the generated tests."
+        },
+        "assert": {
+          "items": {
+            "$ref": "#/$defs/Assertion"
+          },
+          "type": "array",
+          "description": "Assertions added to every generated test (a pack or a not_contains with the forbidden outcome)."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "target",
+        "agent"
+      ]
+    },
     "Scenario": {
       "properties": {
         "goal": {
@@ -901,6 +1074,81 @@
         }
       ]
     },
+    "StateCommand": {
+      "properties": {
+        "run": {
+          "type": "string",
+          "description": "The command (sh -c); templates render with the run's vars and captured values and secrets."
+        },
+        "exit": {
+          "type": "integer",
+          "description": "The expected exit code; 0 when omitted."
+        },
+        "contains": {
+          "type": "string",
+          "description": "Text the output must contain."
+        },
+        "regex": {
+          "type": "string",
+          "description": "A regular expression the output must match."
+        },
+        "timeout": {
+          "$ref": "#/$defs/Duration",
+          "description": "How long the command may take; default 30s."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "run"
+      ]
+    },
+    "StateHTTP": {
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "The request URL; templates render with the run's vars and captured values and secrets."
+        },
+        "method": {
+          "type": "string",
+          "description": "GET when empty."
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "body": {
+          "description": "A string is sent as is; a mapping as JSON."
+        },
+        "status": {
+          "type": "integer",
+          "description": "The expected status code; any code under 400 when omitted."
+        },
+        "json_path": {
+          "$ref": "#/$defs/JSONPathAssertion",
+          "description": "A path that must exist in the JSON body and with equals have that value."
+        },
+        "contains": {
+          "type": "string",
+          "description": "Text the body must contain."
+        },
+        "regex": {
+          "type": "string",
+          "description": "A regular expression the body must match."
+        },
+        "timeout": {
+          "$ref": "#/$defs/Duration",
+          "description": "How long the request may take; default 30s."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "url"
+      ]
+    },
     "Step": {
       "properties": {
         "goal": {
@@ -954,6 +1202,9 @@
         },
         "connect": {
           "$ref": "#/$defs/ConnectConfig"
+        },
+        "handoff": {
+          "$ref": "#/$defs/HandoffSignal"
         },
         "browser": {
           "$ref": "#/$defs/BrowserOptions"
@@ -1218,6 +1469,13 @@
           "type": "string",
           "description": "Cases from a file next to the suite: a CSV with a header row (a name column names the case) or a JSON array of objects (a name key names the case)."
         },
+        "fuzz_tools": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Fuzz"
+          },
+          "type": "object",
+          "description": "Tool result fuzzing: by tool name the answer the agent gets instead of the configured result (a mode such as error / empty / malformed / hostile or a mapping with mode and delay and result); realtime and pipecat and model targets."
+        },
         "languages": {
           "items": {
             "type": "string"
@@ -1401,7 +1659,11 @@
         "type": "array"
       },
       "type": "object",
-      "description": "Reusable assertion sets by name for assert entries of the form pack: name; a name also used by a built-in pack (prompt_injection / pii_leakage / system_prompt_leakage) replaces it."
+      "description": "Reusable assertion sets by name for assert entries of the form pack: name; a name also used by a built-in pack (prompt_injection / pii_leakage / system_prompt_leakage / stays_in_scope / discloses_ai / harmful_content / excessive_agency / policy_consistency) replaces it."
+    },
+    "red_team": {
+      "$ref": "#/$defs/RedTeam",
+      "description": "Red team playbooks: one adversarial test per attack of the chosen playbooks is added to the suite when it loads (tamesu playbooks lists them)."
     },
     "tests": {
       "items": {

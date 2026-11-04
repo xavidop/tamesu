@@ -77,6 +77,7 @@ targets:
 | `protocol` | `ga` (default) or `beta`, the event dialect of the server. |
 | `done_tool` | The function whose call ends the session (default `end_session`). Give the agent such a tool, or rely on `stop_when` and `max_turns`. |
 | `tool_results` | Answers to the agent's function calls, by name: any YAML value, string leaves may use `{{args.<key>}}`. Functions not listed are recorded without an answer. |
+| `fuzz_tools` (on a test) | Replaces the named tools' answers for that test: `error`, `empty`, `malformed`, `hostile`, `delay`, ... See [when the tools fail](/docs/personas-and-scenarios/#when-the-tools-fail). |
 | `audio_format` | Audio mode: the agent's output audio, `pcm16` (default, 24 kHz) or `g711_ulaw` / `g711_alaw` (8 kHz, decoded and upsampled into the WAV). The caller's audio is always PCM16. |
 | `turn_timeout` | The wait for `response.done`, and the handshake (default `60s`). |
 

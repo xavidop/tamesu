@@ -1,0 +1,17 @@
+suite: fuzz-bad
+targets:
+  api: { type: rest, url: http://localhost:8080/chat }
+  prompt: { type: model, system: "You help.", tools: [ { name: lookup_order } ] }
+tests:
+  - name: rest
+    target: api
+    scenario: { goal: g }
+    fuzz_tools: { lookup_order: error }
+  - name: modes
+    target: prompt
+    scenario: { goal: g }
+    fuzz_tools:
+      lookup_order: explode
+      get_balance: { mode: delay }
+      refund: { mode: custom }
+      cancel: { mode: error, delay: -1s }

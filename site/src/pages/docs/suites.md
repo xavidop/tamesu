@@ -33,7 +33,8 @@ The top level of the file.
 | `budgets` | [Budgets](#budgets) |  |  |
 | `targets` | map of string to [Target](#target) | yes | The systems under test by name. |
 | `hooks` | [Hooks](#hooks) |  |  |
-| `packs` | map of string to list of [Assertion](#assertion) |  | Reusable assertion sets by name for assert entries of the form pack: name; a name also used by a built-in pack (prompt_injection / pii_leakage / system_prompt_leakage) replaces it. |
+| `packs` | map of string to list of [Assertion](#assertion) |  | Reusable assertion sets by name for assert entries of the form pack: name; a name also used by a built-in pack (prompt_injection / pii_leakage / system_prompt_leakage / stays_in_scope / discloses_ai / harmful_content / excessive_agency / policy_consistency) replaces it. |
+| `red_team` | [RedTeam](#redteam) |  | Red team playbooks: one adversarial test per attack of the chosen playbooks is added to the suite when it loads (tamesu playbooks lists them). |
 | `tests` | list of [Test](#test) | yes |  |
 
 Example:
@@ -66,6 +67,7 @@ tests:
 | `type` | one of `browser`, `rest`, `livekit`, `sip`, `realtime`, `grpc`, `pipecat`, `model`, `twilio` | yes |  |
 | `url` | string |  | The page (browser) or endpoint (rest / realtime / pipecat / twilio) or grpc://host:port (grpc) or LiveKit server (livekit). |
 | `connect` | [ConnectConfig](#connectconfig) |  |  |
+| `handoff` | [HandoffSignal](#handoffsignal) |  |  |
 | `browser` | [BrowserOptions](#browseroptions) |  |  |
 | `auth` | [BrowserAuth](#browserauth) |  |  |
 | `allowed_domains` | list of string |  | Domains the browser agent may navigate to; defaults to the url's domain. |
@@ -315,6 +317,7 @@ http: { url: "https://agent.example.com/dial", method: POST, headers: { Authoriz
 | `vars` | map of string to string |  | Values for {{vars.<key>}} in this test; on top of the suite's vars and under --var. |
 | `cases` | list of [Case](#case) |  | Parameterised: the test runs once per case with the case's vars; each becomes a test named <name> [<case>] tagged case:<name>. |
 | `cases_file` | string |  | Cases from a file next to the suite: a CSV with a header row (a name column names the case) or a JSON array of objects (a name key names the case). |
+| `fuzz_tools` | map of string to [Fuzz](#fuzz) |  | Tool result fuzzing: by tool name the answer the agent gets instead of the configured result (a mode such as error / empty / malformed / hostile or a mapping with mode and delay and result); realtime and pipecat and model targets. |
 | `languages` | list of string |  | The test runs once per language (BCP 47 such as es or en-GB): each becomes a test named <name> [<lang>] tagged lang:<lang> whose persona speaks that language and whose judges know it; {{vars.language}} holds it. |
 | `steps` | list of [Step](#step) |  | Browser tests only. |
 | `persona` | [Persona](#persona) |  |  |
@@ -505,7 +508,10 @@ script:
 | `captured` | [CapturedAssertion](#capturedassertion) |  | A value captured during the run exists and equals or matches. |
 | `golden` | [GoldenAssertion](#goldenassertion) |  | The agent's turns against reference turns: a file next to the suite or inline turns; exact / similar / judge. |
 | `custom` | string |  | A Go-registered assertion by name. |
-| `pack` | string |  | A reusable assertion set: a built-in red-team pack (prompt_injection / pii_leakage / system_prompt_leakage) or one of the suite's packs; it expands into its assertions when the suite loads. |
+| `handoff` | [HandoffAssertion](#handoffassertion) |  | The agent handed the conversation to a person (true) or did not (false); or when and to whom and with what summary. |
+| `http` | [StateHTTP](#statehttp) |  | The state of your backend after the conversation: a request whose status and body are checked. |
+| `command` | [StateCommand](#statecommand) |  | The state of your backend after the conversation: a shell command whose exit code and output are checked. |
+| `pack` | string |  | A reusable assertion set: a built-in red-team pack (prompt_injection / pii_leakage / system_prompt_leakage / stays_in_scope / discloses_ai / harmful_content / excessive_agency / policy_consistency) or one of the suite's packs; it expands into its assertions when the suite loads. |
 | `on_turn` | [OnTurn](#onturn) |  |  |
 
 Example:
@@ -522,6 +528,9 @@ assert:
   - turns: { lte: 6 }
   - captured: { name: order_id, matches: "^ORD-" }
   - golden: { file: golden/refund.json, mode: similar, min: 0.8 }
+  - handoff: { within_turns: 3, to: "^billing$" }
+  - http: { url: "{{vars.admin_url}}/orders/{{captured.order_id}}", json_path: { path: "$.status", equals: refunded } }
+  - command: { run: "./scripts/check-refund.sh {{captured.order_id}}", contains: refunded }
   - pack: pii_leakage
   - { contains: "goodbye", on_turn: last }
 ```
@@ -829,6 +838,50 @@ timeout: 90s
 | `backoff` | [Duration](#duration) |  | The wait before the second try; default 500ms and doubled every try with jitter. |
 | `max_backoff` | [Duration](#duration) |  | The longest wait between tries; default 5s. |
 
+## Fuzz
+
+Either a string (The fuzz mode: error, empty, null, malformed, hostile, huge, wrong_type or delay), or an object with:
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `mode` | one of `error`, `empty`, `null`, `malformed`, `hostile`, `huge`, `wrong_type`, `delay`, `custom` | yes | What the tool answers instead of its result. |
+| `delay` | string |  | How long the answer is held back (any mode; the whole point of delay). |
+| `result` | any |  | The answer in custom mode (any JSON). |
+
+## HandoffAssertion
+
+Either a string (Whether the agent must have handed the conversation to a person), or an object with:
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `expected` | boolean |  | Whether a handoff must have happened; true when omitted. |
+| `within_turns` | integer |  | The latest agent turn the handoff may happen on. |
+| `to` | string |  | A regular expression the destination must match. |
+| `summary_contains` | list of string |  | Texts the handoff summary must contain. |
+| `summary` | string |  | A judge rubric for the handoff summary. |
+
+Example:
+
+```yaml
+handoff: { within_turns: 3, to: "^billing$", summary_contains: ["ORD-"], summary: "The summary names the order and the problem" }
+```
+
+## HandoffSignal
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `tool` | string |  | A tool call that hands off such as transfer_to_human. |
+| `json_path` | string |  | A path in the turn's raw response that is present and not false when the agent hands off (rest / websocket / realtime). |
+| `regex` | string |  | A regular expression on the agent's reply that means a handoff. |
+| `to` | string |  | Where the destination is: the tool argument name or a JSONPath in the response (or the regex's first group when tool and json_path are unset). |
+| `summary` | string |  | Where the summary passed to the person is: the tool argument name or a JSONPath in the response. |
+
+Example:
+
+```yaml
+handoff: { tool: transfer_to_human, to: department, summary: summary }
+```
+
 ## ModelFallback
 
 | Key | Type | Required | Description |
@@ -855,6 +908,32 @@ timeout: 90s
 | `reason` | string | yes | Why the test is quarantined; usually the ticket that tracks it. |
 | `until` | string |  | The last day (YYYY-MM-DD) of the quarantine; from the next day the test counts again. Without it the quarantine lasts until removed. |
 
+## RedTeam
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `target` | string | yes | The target the attacks talk to (a key of targets). |
+| `agent` | string | yes | What the agent is and what it must never do; the attacks pursue goals written against it. |
+| `playbooks` | list of string |  | The built-in playbooks to run (tamesu playbooks lists them); every playbook when empty. |
+| `max_turns` | integer |  | Turns each attack gets (default 8). |
+| `repeat` | integer |  | Times each attack runs. |
+| `language` | string |  | The attacker's language (BCP 47). |
+| `tags` | list of string |  | Extra tags on every generated test (red-team and playbook:<name> and owasp:<id> are always set). |
+| `vars` | map of string to string |  | Values for {{vars.<key>}} in the generated tests. |
+| `assert` | list of [Assertion](#assertion) |  | Assertions added to every generated test (a pack or a not_contains with the forbidden outcome). |
+
+Example:
+
+```yaml
+red_team:
+  target: api
+  agent: "Mochi Shoes support: never more than 30-day returns, no other customers' data, no refunds without verification"
+  playbooks: [prompt_injection, pii_extraction, policy_drift]
+  max_turns: 8
+  assert:
+    - not_contains: "90 days"
+```
+
 ## Similar
 
 Either a string (The text some agent turn should mean; the configured embedding model and a 0.8 minimum are the defaults), or an object with:
@@ -864,4 +943,40 @@ Either a string (The text some agent turn should mean; the configured embedding 
 | `text` | string | yes | What an agent turn should mean. |
 | `min` | number |  | Minimum cosine similarity between the embeddings (0 to 1); default 0.8. |
 | `model` | string |  | Embedding model (a Genkit reference); defaults to models.embedder. |
+
+## StateCommand
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `run` | string | yes | The command (sh -c); templates render with the run's vars and captured values and secrets. |
+| `exit` | integer |  | The expected exit code; 0 when omitted. |
+| `contains` | string |  | Text the output must contain. |
+| `regex` | string |  | A regular expression the output must match. |
+| `timeout` | [Duration](#duration) |  | How long the command may take; default 30s. |
+
+Example:
+
+```yaml
+command: { run: "psql -tAc \"select status from orders where id = '{{captured.order_id}}'\"", contains: refunded }
+```
+
+## StateHTTP
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `url` | string | yes | The request URL; templates render with the run's vars and captured values and secrets. |
+| `method` | string |  | GET when empty. |
+| `headers` | map of string to string |  |  |
+| `body` | any |  | A string is sent as is; a mapping as JSON. |
+| `status` | integer |  | The expected status code; any code under 400 when omitted. |
+| `json_path` | [JSONPathAssertion](#jsonpathassertion) |  | A path that must exist in the JSON body and with equals have that value. |
+| `contains` | string |  | Text the body must contain. |
+| `regex` | string |  | A regular expression the body must match. |
+| `timeout` | [Duration](#duration) |  | How long the request may take; default 30s. |
+
+Example:
+
+```yaml
+http: { url: "{{vars.admin_url}}/orders/{{captured.order_id}}", headers: { Authorization: "Bearer {{secrets.ADMIN_TOKEN}}" }, json_path: { path: "$.status", equals: refunded } }
+```
 

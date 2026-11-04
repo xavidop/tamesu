@@ -1,6 +1,7 @@
 package realtime
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -16,15 +17,27 @@ const maxToolRounds = 5
 // a function_call_output item carries: a string result as is, anything else
 // as JSON. String leaves may use {{args.<key>}}. The done tool and unknown
 // functions have no answer.
-func (s *session) toolOutput(call target.ToolCall) (string, bool) {
+func (s *session) toolOutput(ctx context.Context, call target.ToolCall) (string, bool) {
 	if call.Name == s.t.cfg.DoneTool {
 		return "", false
 	}
 	result, ok := s.t.cfg.ToolResults[call.Name]
+	var rendered any
+	if ok {
+		rendered = renderArgs(result, call.Args)
+	}
+	if f, fuzzed := s.run.ToolFuzz[call.Name]; fuzzed {
+		// The test replaces this tool's answer; a tool with no configured
+		// result is answered too, since the point is the agent's reaction.
+		if err := f.Wait(ctx); err != nil {
+			return "", false
+		}
+		rendered, ok = f.Output(rendered), true
+		s.event(target.EventToolFuzz, f.Describe(call.Name))
+	}
 	if !ok {
 		return "", false
 	}
-	rendered := renderArgs(result, call.Args)
 	if str, ok := rendered.(string); ok {
 		return str, true
 	}

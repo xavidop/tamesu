@@ -22,6 +22,9 @@ type Coverage struct {
 	Assertions  []CoverageItem `json:"assertions,omitempty"`
 	StopReasons []CoverageItem `json:"stop_reasons,omitempty"`
 	Tactics     []CoverageItem `json:"tactics,omitempty"`
+	// Playbooks are the red-team playbooks the run exercised and how they
+	// fared.
+	Playbooks []PlaybookResult `json:"playbooks,omitempty"`
 }
 
 // CoverageItem counts the tests of one target, tag, assertion kind, stop
@@ -137,6 +140,7 @@ func BuildCoverage(s *Summary, declared map[string][]string) *Coverage {
 	c.Assertions = sortedItems(kinds)
 	c.StopReasons = sortedItems(stops)
 	c.Tactics = sortedItems(tactics)
+	c.Playbooks = BuildRedTeam(s)
 	for _, tc := range tools {
 		c.Tools = append(c.Tools, *tc)
 	}
@@ -224,6 +228,7 @@ func (c *Coverage) Markdown() string {
 	table("Assertions", "Kind", c.Assertions)
 	table("Stop reasons", "Reason", c.StopReasons)
 	table("Attack tactics", "Tactic", c.Tactics)
+	b.WriteString(RedTeamMarkdown(c.Playbooks))
 	return b.String()
 }
 
@@ -258,6 +263,7 @@ func (c *Coverage) Console() string {
 	section("assertions", c.Assertions)
 	section("stop reasons", c.StopReasons)
 	section("attack tactics", c.Tactics)
+	b.WriteString(RedTeamConsole(c.Playbooks))
 	return b.String()
 }
 

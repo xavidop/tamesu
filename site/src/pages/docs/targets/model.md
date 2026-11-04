@@ -58,6 +58,7 @@ event in the result, so a passing run that silently tested another model cannot 
 | `system` | The prompt under test. `{{vars.x}}` and `{{secrets.X}}` render, so one suite can test the prompt with several variable sets through `cases`. |
 | `system_file` | A file next to the suite holding the prompt, instead of `system`. |
 | `tools` | The tools the model may call: `name`, `description`, `parameters` (a JSON schema of the arguments, an object schema) and `result`, what the call returns (any JSON; string leaves may use `{{args.<key>}}`). A tool without a `result` returns an error object, so a prompt that depends on it shows it. |
+| `fuzz_tools` (on a test) | Replaces the named tools' results for that test: `error`, `empty`, `malformed`, `hostile`, `delay`, ... See [when the tools fail](/docs/personas-and-scenarios/#when-the-tools-fail). |
 | `done_tool` | The tool whose call ends the session (default `end_session`); declare it under `tools` so the model knows about it. |
 | `temperature`, `max_tokens` | Sampling temperature (0 to 2) and the most output tokens per call; the provider's defaults when unset. |
 | `max_tool_rounds` | The most call-and-answer rounds in one turn before tamesu stops and reports the turn without text (default 5). |

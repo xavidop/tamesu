@@ -57,6 +57,9 @@ type RunContext struct {
 	SuiteDir string
 	// UpdateBaselines rewrites baselines (visual) from this run.
 	UpdateBaselines bool
+	// ToolFuzz replaces the results of the named tools for this run (the
+	// test's fuzz_tools); targets that answer tool calls honour it.
+	ToolFuzz map[string]ToolFuzz
 }
 
 // UserTurn is what the simulated user sends.

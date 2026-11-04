@@ -155,6 +155,90 @@ func (Similar) JSONSchema() *jsonschema.Schema {
 	return oneOfStringOr(&plain{}, "The text some agent turn should mean; the configured embedding model and a 0.8 minimum are the defaults.")
 }
 
+// Fuzz is one tool's fuzzed result: `lookup_order: error` or
+// `lookup_order: { mode: delay, delay: 8s }` or `{ mode: custom, result: {...} }`.
+type Fuzz struct {
+	Mode   string   `yaml:"mode" json:"mode" jsonschema:"required,enum=error,enum=empty,enum=null,enum=malformed,enum=hostile,enum=huge,enum=wrong_type,enum=delay,enum=custom,description=What the tool answers instead of its result."`
+	Delay  Duration `yaml:"delay,omitempty" json:"delay,omitempty" jsonschema:"description=How long the answer is held back (any mode; the whole point of delay)."`
+	Result any      `yaml:"result,omitempty" json:"result,omitempty" jsonschema:"description=The answer in custom mode (any JSON)."`
+}
+
+// FuzzModes lists the fuzz modes a test may name.
+var FuzzModes = []string{"error", "empty", "null", "malformed", "hostile", "huge", "wrong_type", "delay", "custom"}
+
+// FuzzTargets are the target types that answer tool calls, so fuzzing applies.
+var FuzzTargets = []string{TargetRealtime, TargetPipecat, TargetModel}
+
+// UnmarshalYAML accepts a mode string or a mapping.
+func (f *Fuzz) UnmarshalYAML(n *yaml.Node) error {
+	if n.Kind == yaml.ScalarNode {
+		f.Mode = n.Value
+		return nil
+	}
+	if err := checkKeys(n, "Fuzz", "mode", "delay", "result"); err != nil {
+		return err
+	}
+	type plain Fuzz
+	var p plain
+	if err := n.Decode(&p); err != nil {
+		return err
+	}
+	*f = Fuzz(p)
+	return nil
+}
+
+// JSONSchema describes the string and object forms.
+func (Fuzz) JSONSchema() *jsonschema.Schema {
+	type plain Fuzz
+	return oneOfStringOr(&plain{}, "The fuzz mode: error, empty, null, malformed, hostile, huge, wrong_type or delay.")
+}
+
+// HandoffAssertion is `handoff: true`, `handoff: false` or a mapping that
+// says when and to whom the agent must have handed the conversation to a
+// person, and what its summary must say.
+type HandoffAssertion struct {
+	Expected        *bool    `yaml:"expected,omitempty" json:"expected,omitempty" jsonschema:"description=Whether a handoff must have happened; true when omitted."`
+	WithinTurns     int      `yaml:"within_turns,omitempty" json:"within_turns,omitempty" jsonschema:"description=The latest agent turn the handoff may happen on."`
+	To              *string  `yaml:"to,omitempty" json:"to,omitempty" jsonschema:"description=A regular expression the destination must match."`
+	SummaryContains []string `yaml:"summary_contains,omitempty" json:"summary_contains,omitempty" jsonschema:"description=Texts the handoff summary must contain."`
+	Summary         string   `yaml:"summary,omitempty" json:"summary,omitempty" jsonschema:"description=A judge rubric for the handoff summary."`
+}
+
+// UnmarshalYAML accepts a boolean or a mapping.
+func (h *HandoffAssertion) UnmarshalYAML(n *yaml.Node) error {
+	if n.Kind == yaml.ScalarNode {
+		var b bool
+		if err := n.Decode(&b); err != nil {
+			return fmt.Errorf("line %d: handoff is true, false or a mapping", n.Line)
+		}
+		h.Expected = &b
+		return nil
+	}
+	if err := checkKeys(n, "HandoffAssertion", "expected", "within_turns", "to", "summary_contains", "summary"); err != nil {
+		return err
+	}
+	type plain HandoffAssertion
+	var p plain
+	if err := n.Decode(&p); err != nil {
+		return err
+	}
+	*h = HandoffAssertion(p)
+	return nil
+}
+
+// JSONSchema describes the boolean and object forms.
+func (HandoffAssertion) JSONSchema() *jsonschema.Schema {
+	type plain HandoffAssertion
+	r := &jsonschema.Reflector{ExpandedStruct: true, DoNotReference: true, RequiredFromJSONSchemaTags: true}
+	o := r.Reflect(&plain{})
+	o.Version = ""
+	o.ID = ""
+	return &jsonschema.Schema{OneOf: []*jsonschema.Schema{
+		{Type: "boolean", Description: "Whether the agent must have handed the conversation to a person."},
+		o,
+	}}
+}
+
 // Evaluator names a registered Genkit evaluator and the minimum score.
 type Evaluator struct {
 	Name string  `yaml:"name" json:"name" jsonschema:"required,description=Genkit evaluator name such as genkitEval/faithfulness."`

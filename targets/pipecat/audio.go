@@ -235,12 +235,23 @@ func bytesOf(samples []int16) []byte {
 }
 
 // toolOutput renders the configured result of a function call.
-func (s *session) toolOutput(call target.ToolCall) (any, bool) {
+func (s *session) toolOutput(ctx context.Context, call target.ToolCall) (any, bool) {
 	result, ok := s.t.cfg.ToolResults[call.Name]
+	var rendered any
+	if ok {
+		rendered = renderArgs(result, call.Args)
+	}
+	if f, fuzzed := s.run.ToolFuzz[call.Name]; fuzzed {
+		if err := f.Wait(ctx); err != nil {
+			return nil, false
+		}
+		rendered, ok = f.Output(rendered), true
+		s.event(target.EventToolFuzz, f.Describe(call.Name))
+	}
 	if !ok {
 		return nil, false
 	}
-	return renderArgs(result, call.Args), true
+	return rendered, true
 }
 
 // renderArgs returns v with every {{args.<key>}} in its string leaves

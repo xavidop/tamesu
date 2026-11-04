@@ -64,6 +64,7 @@ A bot that says goodbye does not end the session on this transport, so rely on
 | `idle` | Silence after the bot's last message or audio that ends a turn when no stop message arrives (default `2s`). |
 | `turn_timeout` | The wait for the end of a turn, and the connection (default `60s`). |
 | `tool_results` | Answers to client-side function calls, by name: any YAML value, string leaves may use `{{args.<key>}}`. |
+| `fuzz_tools` (on a test) | Replaces the named tools' answers for that test: `error`, `empty`, `malformed`, `hostile`, `delay`, ... See [when the tools fail](/docs/personas-and-scenarios/#when-the-tools-fail). |
 
 ## Metrics
 

@@ -84,6 +84,35 @@ secrets:                                    # resolved with mamori, see below
 | `slack.webhook` | | The incoming webhook of the `slack` reporter, as `{{secrets.NAME}}`; `slack.only_failures` posts only on failures or a regression; `slack.link` goes at the end of the message. |
 | `secrets` | none | Secret name to mamori ref. |
 | `vars` | none | Project-wide values for `{{vars.x}}` and `${VAR}` in secret refs. |
+| `environments` | none | Named deployments (`staging`, `production`): `vars`, `secrets` and `labels` that `tamesu run --env <name>` applies on top of the project's. See [Environments](#environments). |
+
+## Environments
+
+One configuration, several deployments. An environment names the vars, secrets and labels of
+one of them; `tamesu run --env staging` applies it on top of the project's, and the run is
+labelled `env: staging`.
+
+```yaml
+vars: { agent_url: http://localhost:8080/chat }           # the default: a local agent
+environments:
+  staging:
+    vars: { agent_url: https://staging.example.com/chat }
+    secrets: { AGENT_TOKEN: env:STAGING_AGENT_TOKEN }
+  production:
+    vars: { agent_url: https://api.example.com/chat }
+    secrets: { AGENT_TOKEN: aws-sm://prod/agent-token }
+    labels: { tier: prod }
+```
+
+Suites reach the agent through the var (`url: "{{vars.agent_url}}"`), so nothing in a suite
+names an environment. The environment's vars win over the project's and the suites'; `--var`
+still wins over everything. Its secrets override the project entries of the same name, and are
+resolved like any other ([secrets with mamori](#secrets-with-mamori)).
+
+`tamesu run --matrix env=staging,production` runs the selection against both and compares them
+in `matrix.md` (see [comparing models and prompts](/docs/cli/#comparing-models-and-prompts));
+`tamesu compare` puts two runs side by side after the fact, whichever environments they came
+from. A name that is not declared is a configuration error that lists the environments.
 
 ## Hooks: setup and teardown
 

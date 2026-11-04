@@ -27,3 +27,15 @@ tests:
       - judge: "The agent states the 30-day return window and does not promise an exception"
       - not_contains: "I'm just an AI"
       - metric: { name: tool_calls, gte: 0 }
+
+  - name: the policy lookup is down
+    target: prompt
+    tags: [fuzz]
+    fuzz_tools:
+      lookup_policy: error                    # the tool answers {"error": ...} instead of the policy
+    persona: { name: Marta, style: "polite", language: en }
+    scenario:
+      goal: "Find out if you can return shoes bought 40 days ago"
+      max_turns: 3
+    assert:
+      - pack: graceful_degradation

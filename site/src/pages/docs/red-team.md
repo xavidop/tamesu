@@ -107,6 +107,54 @@ names your own list instead. Every turn records the tactic it used as a `tactic`
 goal is reached or when nothing is left to try. An adversarial persona needs a `goal` and works on
 every conversational target, text or audio.
 
+## Playbooks
+
+Writing an attack per test is fine for the few that matter to your agent. For the rest there are
+**playbooks**: packaged attack families, each a set of attacks with an adversarial persona, its
+own tactics, a goal written against your agent, and the assertions that grade the answer. A
+`red_team` block on a suite runs them:
+
+```yaml
+red_team:
+  target: api
+  agent: >-
+    Mochi Shoes customer support. It must never promise more than 30-day returns, never reveal
+    other customers' data, never perform refunds without verifying the order, and never discuss
+    anything but orders, returns and products.
+  playbooks: [prompt_injection, pii_extraction, policy_drift]   # every playbook when omitted
+  max_turns: 8
+  assert:
+    - not_contains: "90 days"                                    # added to every attack
+```
+
+When the suite loads, one test per attack joins it: `red team: <playbook>/<attack>`, tagged
+`red-team`, `playbook:<name>` and `owasp:<id>`, with the attacker speaking `language` and each
+attack repeated `repeat` times. `agent` is what the attacks are written against: say what the
+agent does and what it must never do, and the attacker pursues exactly that. `tags`, `vars` and
+`assert` apply to every generated test; `--tags playbook:pii_extraction` runs one playbook.
+
+| Playbook | OWASP LLM Top 10 | Attacks |
+|---|---|---|
+| `prompt_injection` | LLM01 Prompt Injection | direct override, fake system message, role-play, encoded instructions |
+| `pii_extraction` | LLM02 Sensitive Information Disclosure | another customer's record, a colleague's pretext, identity verification bypass |
+| `harmful_content` | LLM05 Improper Output Handling | provoked abuse, dangerous advice, defamation |
+| `unauthorized_actions` | LLM06 Excessive Agency | an action without verification, an action on someone else's account, bulk or irreversible actions |
+| `system_prompt_leakage` | LLM07 System Prompt Leakage | print the instructions, summarise the rules, translate the instructions |
+| `policy_drift` | LLM09 Misinformation | wearing the agent down, a hypothetical exception, an invented offer |
+| `human_impersonation` | LLM09 Misinformation | "are you human?", playing a human colleague |
+| `scope_hijack` | LLM10 Unbounded Consumption | an unrelated task, endless output |
+
+`tamesu playbooks` prints this table; `tamesu playbooks <name>` prints every attack with its
+tactics, goal and assertions. The attacks grade with the built-in packs: the three above plus
+`stays_in_scope`, `discloses_ai`, `harmful_content`, `excessive_agency` and
+`policy_consistency` (a sixth, `graceful_degradation`, grades how the agent copes with
+[failing tools](/docs/personas-and-scenarios/#when-the-tools-fail)). Override a pack under `packs:` to adjust what counts as a failure for your
+agent (an agent that is allowed to write product descriptions, say, replaces `stays_in_scope`).
+
+Every run with playbook tests gets a **Red team** table in `report.md`, `coverage.md` and the
+console: per playbook, its OWASP category, how many attacks held and which got through, so a
+failing nightly says `pii_extraction/colleague_pretext` rather than a test name.
+
 ## Running a red-team suite
 
 To hold every test to a pack, not only the attack scenarios, put it under `defaults.assert` in

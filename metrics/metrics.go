@@ -19,9 +19,11 @@ const (
 	CallDurationMs     = "call_duration_ms"       // sip: active → hangup
 	STTWordErrorRate   = "stt_word_error_rate"    // livekit audio, sip: agent's transcript of the caller vs. what tamesu said
 	Turns              = "turns"                  // conversational: number of agent turns
-	GoalSteps          = "goal_steps"             // browser: agent steps per goal
-	LLMCostUSD         = "llm_cost_usd"           // all: tamesu's own model spend
-	LLMTokens          = "llm_tokens"             // all: tamesu's own tokens
+	// HandoffTurn is the agent turn on which the agent handed the conversation to a person.
+	HandoffTurn = "handoff_turn"
+	GoalSteps   = "goal_steps"   // browser: agent steps per goal
+	LLMCostUSD  = "llm_cost_usd" // all: tamesu's own model spend
+	LLMTokens   = "llm_tokens"   // all: tamesu's own tokens
 )
 
 // Percentiles are the summaries published for per-turn metrics.

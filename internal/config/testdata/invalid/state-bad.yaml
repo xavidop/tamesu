@@ -1,0 +1,11 @@
+suite: state-bad
+targets:
+  api: { type: rest, url: http://localhost:8080/chat }
+tests:
+  - name: t
+    target: api
+    scenario: { goal: g }
+    assert:
+      - http: { url: "", method: FETCH, json_path: { path: "" }, regex: "(", status: 42 }
+      - { http: { url: "http://x/orders" }, on_turn: last }
+      - command: { run: "", regex: "[", exit: 300 }

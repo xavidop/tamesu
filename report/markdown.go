@@ -79,6 +79,9 @@ func RenderMarkdown(s *Summary) string {
 		}
 		fmt.Fprintf(&b, "| %s | %s | %s · %s (%s) | %s | %s |\n", status, mdEscape(t.Name), mdEscape(t.Suite), mdEscape(t.Target), t.Type, runs, fmtDuration(t.FinishedAt.Sub(t.StartedAt)))
 	}
+	if rt := RedTeamMarkdown(BuildRedTeam(s)); rt != "" {
+		b.WriteString("\n" + rt)
+	}
 	details := failureDetails(s)
 	if len(details) > 0 {
 		b.WriteString("\n<details><summary>Failures</summary>\n\n")

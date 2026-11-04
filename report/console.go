@@ -160,6 +160,9 @@ func (c *Console) Finish(_ context.Context, s *Summary) error {
 	if s.BudgetExceeded {
 		line += " · BUDGET EXCEEDED: the run was stopped"
 	}
+	if rt := RedTeamLine(BuildRedTeam(s)); rt != "" {
+		line += "\n" + rt
+	}
 	c.printf("%s\n", line)
 	return nil
 }

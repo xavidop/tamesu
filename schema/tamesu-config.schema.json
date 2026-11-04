@@ -78,9 +78,21 @@
           "type": "string",
           "description": "A Go-registered assertion by name."
         },
+        "handoff": {
+          "$ref": "#/$defs/HandoffAssertion",
+          "description": "The agent handed the conversation to a person (true) or did not (false); or when and to whom and with what summary."
+        },
+        "http": {
+          "$ref": "#/$defs/StateHTTP",
+          "description": "The state of your backend after the conversation: a request whose status and body are checked."
+        },
+        "command": {
+          "$ref": "#/$defs/StateCommand",
+          "description": "The state of your backend after the conversation: a shell command whose exit code and output are checked."
+        },
         "pack": {
           "type": "string",
-          "description": "A reusable assertion set: a built-in red-team pack (prompt_injection / pii_leakage / system_prompt_leakage) or one of the suite's packs; it expands into its assertions when the suite loads."
+          "description": "A reusable assertion set: a built-in red-team pack (prompt_injection / pii_leakage / system_prompt_leakage / stays_in_scope / discloses_ai / harmful_content / excessive_agency / policy_consistency) or one of the suite's packs; it expands into its assertions when the suite loads."
         },
         "on_turn": {
           "$ref": "#/$defs/OnTurn"
@@ -212,6 +224,33 @@
       "pattern": "^(\\d+(\\.\\d+)?(ns|us|µs|ms|s|m|h))+$",
       "description": "A duration such as 30s, 3m or 1h30m."
     },
+    "Environment": {
+      "properties": {
+        "vars": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Values for {{vars.x}} and ${VAR} in secret refs; they win over the project's and the suites' vars (--var still wins)."
+        },
+        "secrets": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Secret name to mamori ref; overrides the project entry of the same name."
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Labels added to every run; env: \u003cname\u003e is always set."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "Evaluator": {
       "oneOf": [
         {
@@ -304,6 +343,43 @@
       "type": "object",
       "required": [
         "url"
+      ]
+    },
+    "HandoffAssertion": {
+      "oneOf": [
+        {
+          "type": "boolean",
+          "description": "Whether the agent must have handed the conversation to a person."
+        },
+        {
+          "properties": {
+            "expected": {
+              "type": "boolean",
+              "description": "Whether a handoff must have happened; true when omitted."
+            },
+            "within_turns": {
+              "type": "integer",
+              "description": "The latest agent turn the handoff may happen on."
+            },
+            "to": {
+              "type": "string",
+              "description": "A regular expression the destination must match."
+            },
+            "summary_contains": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "description": "Texts the handoff summary must contain."
+            },
+            "summary": {
+              "type": "string",
+              "description": "A judge rubric for the handoff summary."
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
+        }
       ]
     },
     "Hook": {
@@ -782,6 +858,81 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "StateCommand": {
+      "properties": {
+        "run": {
+          "type": "string",
+          "description": "The command (sh -c); templates render with the run's vars and captured values and secrets."
+        },
+        "exit": {
+          "type": "integer",
+          "description": "The expected exit code; 0 when omitted."
+        },
+        "contains": {
+          "type": "string",
+          "description": "Text the output must contain."
+        },
+        "regex": {
+          "type": "string",
+          "description": "A regular expression the output must match."
+        },
+        "timeout": {
+          "$ref": "#/$defs/Duration",
+          "description": "How long the command may take; default 30s."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "run"
+      ]
+    },
+    "StateHTTP": {
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "The request URL; templates render with the run's vars and captured values and secrets."
+        },
+        "method": {
+          "type": "string",
+          "description": "GET when empty."
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "body": {
+          "description": "A string is sent as is; a mapping as JSON."
+        },
+        "status": {
+          "type": "integer",
+          "description": "The expected status code; any code under 400 when omitted."
+        },
+        "json_path": {
+          "$ref": "#/$defs/JSONPathAssertion",
+          "description": "A path that must exist in the JSON body and with equals have that value."
+        },
+        "contains": {
+          "type": "string",
+          "description": "Text the body must contain."
+        },
+        "regex": {
+          "type": "string",
+          "description": "A regular expression the body must match."
+        },
+        "timeout": {
+          "$ref": "#/$defs/Duration",
+          "description": "How long the request may take; default 30s."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "url"
+      ]
+    },
     "StringList": {
       "oneOf": [
         {
@@ -935,6 +1086,13 @@
       },
       "type": "object",
       "description": "Project-wide values for {{vars.x}} and ${VAR} expansion in secret refs."
+    },
+    "environments": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Environment"
+      },
+      "type": "object",
+      "description": "Named environments (staging / production): vars and secrets and labels applied by tamesu run --env \u003cname\u003e or --matrix env=a"
     }
   },
   "additionalProperties": false,

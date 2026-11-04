@@ -2,6 +2,7 @@ package runner
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/xavidop/tamesu/assert"
 	"github.com/xavidop/tamesu/internal/config"
@@ -107,6 +108,19 @@ func buildKind(a config.Assertion) (assert.Assertion, error) {
 			v = *a.Turns.Eq
 		}
 		return assert.Turns(assert.Comparison{Op: ops[0], Value: float64(v)}), nil
+	case "handoff":
+		h := a.Handoff
+		return assert.Handoff(assert.HandoffCheck{Expected: h.Expected, WithinTurns: h.WithinTurns, To: h.To, SummaryContains: h.SummaryContains, Summary: h.Summary})
+	case "http":
+		h := a.HTTP
+		check := assert.HTTPCheck{URL: h.URL, Method: h.Method, Headers: h.Headers, Body: h.Body, Status: h.Status, Contains: h.Contains, Regex: h.Regex, Timeout: time.Duration(h.Timeout)}
+		if h.JSONPath != nil {
+			check.JSONPath, check.Equals = h.JSONPath.Path, h.JSONPath.Equals
+		}
+		return assert.HTTPState(check)
+	case "command":
+		c := a.Command
+		return assert.CommandState(assert.CommandCheck{Run: c.Run, Exit: c.Exit, Contains: c.Contains, Regex: c.Regex, Timeout: time.Duration(c.Timeout)})
 	case "custom":
 		if c, ok := assert.Lookup(*a.Custom); ok {
 			return c, nil
@@ -154,4 +168,56 @@ func renderAssertion(a config.Assertion, render func(string) (string, error)) co
 		a.Judge = &j
 	}
 	return a
+}
+
+// renderStateAssertion renders the http and command state assertions with
+// the full run scope (secrets included: they go to your backend, not to a
+// model): the url, headers, body and the command.
+func renderStateAssertion(a config.Assertion, render func(string) (string, error)) config.Assertion {
+	str := func(s string) string {
+		if r, err := render(s); err == nil {
+			return r
+		}
+		return s
+	}
+	if a.HTTP != nil {
+		h := *a.HTTP
+		h.URL = str(h.URL)
+		if len(h.Headers) > 0 {
+			headers := make(map[string]string, len(h.Headers))
+			for k, v := range h.Headers {
+				headers[k] = str(v)
+			}
+			h.Headers = headers
+		}
+		h.Body = renderAny(h.Body, str)
+		a.HTTP = &h
+	}
+	if a.Command != nil {
+		c := *a.Command
+		c.Run = str(c.Run)
+		a.Command = &c
+	}
+	return a
+}
+
+// renderAny renders every string leaf of v.
+func renderAny(v any, str func(string) string) any {
+	switch x := v.(type) {
+	case string:
+		return str(x)
+	case map[string]any:
+		out := make(map[string]any, len(x))
+		for k, e := range x {
+			out[k] = renderAny(e, str)
+		}
+		return out
+	case []any:
+		out := make([]any, len(x))
+		for i, e := range x {
+			out[i] = renderAny(e, str)
+		}
+		return out
+	}
+	return v
 }

@@ -449,7 +449,7 @@ func (s *session) readTurn(ctx context.Context, spoken *spokenTurn) (target.Agen
 						agent.ToolCalls = append(agent.ToolCalls, call)
 						s.event("tool_call", call.Name)
 						if m.Type == "llm-function-call" && rounds < maxToolRounds {
-							if out, ok := s.toolOutput(call); ok {
+							if out, ok := s.toolOutput(ctx, call); ok {
 								rounds++
 								res := newRTVI("llm-function-call-result", map[string]any{"function_name": call.Name, "tool_call_id": id, "arguments": call.Args, "result": out})
 								if err := s.sendRTVI(ctx, res); err != nil {

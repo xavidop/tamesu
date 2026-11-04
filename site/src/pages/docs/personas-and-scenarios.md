@@ -90,6 +90,44 @@ to it. The judges are told the language, so a correct answer in Spanish is not m
 not being English. `languages` combines with `cases`: a parameterised test runs once per case
 and language.
 
+## When the tools fail
+
+An agent is only as good as its worst day with its tools. `fuzz_tools` on a test replaces what
+the named tools answer, for that test only, so you can see the agent cope (or not) with a
+failing backend. It applies to the targets where tamesu answers the agent's tool calls:
+`realtime`, `pipecat` and `model`.
+
+```yaml
+tests:
+  - name: the order lookup is down
+    target: prompt
+    fuzz_tools:
+      lookup_order: error                       # {"error": "internal error ...", "code": 503}
+      get_balance: { mode: delay, delay: 8s }   # the normal answer, 8 seconds late
+    scenario: { goal: "Ask where order ORD-77 is", max_turns: 4 }
+    assert:
+      - pack: graceful_degradation
+      - not_contains: "ORD-77 has shipped"       # nothing invented
+```
+
+| Mode | The tool answers |
+|---|---|
+| `error` | `{"error": "internal error: the service is unavailable", "code": 503}` |
+| `empty` | `{}` |
+| `null` | `null` |
+| `malformed` | a truncated JSON document, as a string |
+| `hostile` | a result that carries instructions for the agent (an injection through the tool channel) |
+| `huge` | a 200 000 character string |
+| `wrong_type` | `42` where a document was expected |
+| `delay` | the configured result, after `delay` |
+| `custom` | `result`, as given |
+
+`delay` combines with any mode. A fuzzed call is a `tool_fuzz` event in `result.json`
+(`lookup_order: error`), and a tool with no configured result is answered too. The
+`graceful_degradation` pack grades the reaction: no invented data, no instruction followed from a
+tool result, no raw error shown, and a next step for the user. `cases` turn one test into a
+sweep: `fuzz_tools: { lookup_order: "{{vars.mode}}" }` with a case per mode.
+
 ## Templates
 
 Persona and scenario strings take `{{vars.x}}`, `{{env.X}}`, `{{uuid}}` and `{{faker.*}}`:

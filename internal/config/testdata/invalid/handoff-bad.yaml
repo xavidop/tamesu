@@ -1,0 +1,26 @@
+suite: handoff-bad
+targets:
+  api:
+    type: rest
+    url: http://localhost:8080/chat
+    handoff: { regex: "(" }
+  web:
+    type: browser
+    url: http://localhost:3000
+    handoff: { tool: transfer_to_human }
+  bare:
+    type: rest
+    url: http://localhost:8080/chat
+    handoff: { to: department }
+tests:
+  - name: t
+    target: api
+    scenario: { goal: g }
+    assert:
+      - handoff: { to: "[", within_turns: -1 }
+      - handoff: { expected: false, to: billing }
+  - name: w
+    target: web
+    steps: [ { action: { navigate: / } } ]
+    assert:
+      - handoff: true

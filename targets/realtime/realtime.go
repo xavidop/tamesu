@@ -362,7 +362,7 @@ func (s *session) Send(ctx context.Context, turn target.UserTurn) error {
 	for round := 0; round < maxToolRounds && !agent.Done; round++ {
 		answered := 0
 		for i, call := range calls {
-			out, ok := s.toolOutput(call.call)
+			out, ok := s.toolOutput(tctx, call.call)
 			if !ok {
 				continue
 			}

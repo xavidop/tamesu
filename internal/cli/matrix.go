@@ -25,7 +25,7 @@ type matrixAssign struct {
 type matrixVariant []matrixAssign
 
 // matrixKeyRe is what --matrix accepts on the left of the equals sign.
-var matrixKeyRe = regexp.MustCompile(`^(models\.(default|judge|simulator|browser_agent|scenario_generator|embedder)|speech\.(tts|stt)\.model|vars\.[A-Za-z_][A-Za-z0-9_]*|targets\.[A-Za-z0-9_-]+\.(model|system|system_file|url|mode|streaming))$`)
+var matrixKeyRe = regexp.MustCompile(`^(env|models\.(default|judge|simulator|browser_agent|scenario_generator|embedder)|speech\.(tts|stt)\.model|vars\.[A-Za-z_][A-Za-z0-9_]*|targets\.[A-Za-z0-9_-]+\.(model|system|system_file|url|mode|streaming))$`)
 
 // parseMatrixFlags turns --matrix KEY=v1,v2 flags into every combination of
 // their values (the cartesian product, in flag order). No flags is no matrix.
@@ -39,7 +39,7 @@ func parseMatrixFlags(flags []string) ([]matrixVariant, error) {
 			return nil, fmt.Errorf("--matrix %q: want KEY=value1,value2", f)
 		}
 		if !matrixKeyRe.MatchString(k) {
-			return nil, fmt.Errorf("--matrix %q: the key is one of models.<job>, speech.tts.model, speech.stt.model, vars.<name> or targets.<name>.<model|system|system_file|url|mode|streaming>", k)
+			return nil, fmt.Errorf("--matrix %q: the key is one of env, models.<job>, speech.tts.model, speech.stt.model, vars.<name> or targets.<name>.<model|system|system_file|url|mode|streaming>", k)
 		}
 		var vals []string
 		for _, part := range strings.Split(v, ",") {
@@ -102,13 +102,17 @@ func (v matrixVariant) Labels() map[string]string {
 }
 
 // applyMatrix writes a variant's values into the loaded project and suites:
-// a model for a job (on the project and on every suite that overrides
-// models), a speech model, a suite var, or a field of a named target in
-// every suite that declares it.
+// an environment, a model for a job (on the project and on every suite that
+// overrides models), a speech model, a suite var, or a field of a named
+// target in every suite that declares it.
 func applyMatrix(p *config.Project, suites []*config.Suite, v matrixVariant) error {
 	for _, a := range v {
 		parts := strings.Split(a.Key, ".")
 		switch parts[0] {
+		case "env":
+			if err := p.ApplyEnvironment(a.Value); err != nil {
+				return fmt.Errorf("--matrix env: %w", err)
+			}
 		case "models":
 			set := func(m *config.Models) {
 				switch parts[1] {

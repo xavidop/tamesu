@@ -101,6 +101,7 @@ func (a *app) newRunCmd() *cobra.Command {
 		loadFor      time.Duration
 		estimateOnly bool
 		matrixFlags  []string
+		envName      string
 	)
 	cmd := &cobra.Command{
 		Use:   "run [paths...]",
@@ -179,6 +180,9 @@ func (a *app) newRunCmd() *cobra.Command {
 				}
 				if nErr > 0 {
 					return nil, ExitConfig, nil
+				}
+				if err := p.ApplyEnvironment(envName); err != nil {
+					return nil, 0, configError(err)
 				}
 				if err := applyMatrix(&p, suites, variant); err != nil {
 					return nil, 0, usageError(err)
@@ -269,6 +273,17 @@ func (a *app) newRunCmd() *cobra.Command {
 				flagVars, err := a.refVars(nil)
 				if err != nil {
 					return nil, 0, err
+				}
+				if envVars := p.EnvironmentVars(); len(envVars) > 0 {
+					// The environment's vars win over the suites'; --var still wins.
+					merged := make(map[string]string, len(envVars)+len(flagVars))
+					for k, v := range envVars {
+						merged[k] = v
+					}
+					for k, v := range flagVars {
+						merged[k] = v
+					}
+					flagVars = merged
 				}
 				if err := checkAllowedNumbers(p, suites, filter, sel.tags, sel.target, flagVars, a.env()); err != nil {
 					return nil, 0, configError(err)
@@ -410,6 +425,7 @@ func (a *app) newRunCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&updateGolden, "update-golden", false, "golden assertions: rewrite every golden file from this run's transcripts")
 	cmd.Flags().BoolVar(&updateVisual, "update-visual", false, "browser visual steps: rewrite the baseline images from this run")
 	cmd.Flags().StringArrayVar(&labelFlags, "label", nil, "label the run, KEY=VALUE (repeatable; on top of labels: in tamesu.yaml): the agent's build, the environment")
+	cmd.Flags().StringVar(&envName, "env", "", "run against a named environment from environments: in tamesu.yaml (its vars, secrets and an env label)")
 	cmd.Flags().BoolVar(&failFast, "fail-fast", false, "stop starting new runs after the first failed run; runs in flight finish, the rest are reported as skipped")
 	cmd.Flags().StringVar(&out, "out", "", "run output directory (default .tamesu/runs/<timestamp>)")
 	cmd.Flags().StringSliceVar(&reporters, "reporter", nil, "reporters: console, json, junit, html, markdown, github, slack (default from tamesu.yaml)")
