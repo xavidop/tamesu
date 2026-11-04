@@ -1132,12 +1132,6 @@ tests:
 Retell's newer `v3` endpoint issues tokens for its own WebRTC gateway rather than LiveKit; the
 `v2` endpoint above is the one that works with the LiveKit target. The same agent on a phone
 number is dialled with the [SIP target](/docs/targets/sip/).
-`sip.inbound_number` and the LiveKit SIP service come from `tamesu sip setup` (see
-[SIP setup](/docs/sip-setup/)); Bland bills the call as any outbound call of that agent. A Vapi
-or Retell agent on a phone number is dialled the same way, with their call APIs in the trigger,
-when the websocket and web-call paths of the [Vapi](/docs/targets/vapi/) and
-[Retell](/docs/targets/retell/) targets are not what you want to test.
-
 
 ## An orchestrator and the agents it delegates to
 
