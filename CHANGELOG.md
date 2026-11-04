@@ -2,6 +2,13 @@
 
 All notable changes to tamesu are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/). Each new release is added at the top, with notes generated from the commit messages.
 
+# [1.7.0](https://github.com/xavidop/tamesu/compare/v1.6.0...v1.7.0) (2026-11-04)
+
+
+### Features
+
+* red-team playbooks, backend state assertions, handoff testing, environments and tool result fuzzing ([2077182](https://github.com/xavidop/tamesu/commit/2077182e276d02c535dd4bb355fde2c768a3d475))
+
 # [1.6.0](https://github.com/xavidop/tamesu/compare/v1.5.0...v1.6.0) (2026-11-03)
 
 
