@@ -1,15 +1,21 @@
-// Package deepgram is a Genkit model plugin for Deepgram speech to text:
-// models named deepgram/<model> (nova-3 by default) take an audio media part
-// in a user message and answer with the transcript as text. It is an
+// Package deepgram is a Genkit model plugin for Deepgram speech: speech to
+// text with the Nova models (deepgram/nova-3 takes an audio media part in a
+// user message and answers with the transcript as text) and text to speech
+// with the Aura voices (deepgram/aura-2-thalia-en speaks the request's text
+// and answers with an audio media part, a data URL of 16-bit PCM). It is an
 // ordinary Genkit plugin, usable in any Genkit Go app:
 //
 //	g := genkit.Init(ctx, genkit.WithPlugins(&deepgram.Deepgram{APIKey: key}))
 //	resp, err := genkit.Generate(ctx, g, ai.WithModelName("deepgram/nova-3"),
 //	    ai.WithMessages(ai.NewUserMessage(ai.NewMediaPart("audio/wav", dataURL))))
+//	resp, err = genkit.Generate(ctx, g, ai.WithModelName("deepgram/aura-2"),
+//	    ai.WithPrompt("Hello there"), ai.WithConfig(deepgram.Config{Voice: "apollo"}))
 //
-// Requests go to the prerecorded endpoint (POST /v1/listen) with the audio as
-// the body; the response's confidence and duration are reported in the
-// usage's Custom map (confidence, audio_seconds).
+// Transcription goes to the prerecorded endpoint (POST /v1/listen) with the
+// audio as the body; the response's confidence and duration are reported in
+// the usage's Custom map (confidence, audio_seconds). Speech goes to POST
+// /v1/speak; an Aura voice is a model of its own (aura-2-<voice>-<lang>), so
+// the Voice config, when set, picks the model that speaks.
 package deepgram
 
 import (
@@ -23,6 +29,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -36,8 +43,19 @@ const Provider = "deepgram"
 // DefaultBaseURL is Deepgram's API.
 const DefaultBaseURL = "https://api.deepgram.com"
 
-// DefaultModels are defined when Models is empty.
+// DefaultModels are the speech-to-text models defined when Models is empty.
 var DefaultModels = []string{"nova-3", "nova-2", "enhanced", "base"}
+
+// DefaultTTSModels are the text-to-speech models defined when Models is
+// empty: the Aura-2 and Aura-1 families, where a bare family name takes its
+// voice from the Voice config (DefaultVoice when none).
+var DefaultTTSModels = []string{"aura-2", "aura-2-thalia-en", "aura-2-apollo-en", "aura", "aura-asteria-en"}
+
+// DefaultVoice is the Aura voice used when a bare family model names none.
+const DefaultVoice = "thalia"
+
+// DefaultSampleRate is the PCM rate asked of the Aura models.
+const DefaultSampleRate = 24000
 
 // Deepgram is the plugin.
 type Deepgram struct {
@@ -47,12 +65,20 @@ type Deepgram struct {
 	BaseURL string
 	// HTTPClient overrides the client (default: 60 s timeout).
 	HTTPClient *http.Client
-	// Models to define, without the provider prefix.
+	// Models to define, without the provider prefix. Names starting with
+	// "aura" are text to speech, the rest speech to text.
 	Models []string
 }
 
 // Config is the per-request configuration (ai.WithConfig).
 type Config struct {
+	// Voice is an Aura voice: a full model name (aura-2-apollo-en) or a bare
+	// voice name (apollo), completed with the family and language of the
+	// model called. Text to speech.
+	Voice string `json:"voice,omitempty"`
+	// SampleRate of the PCM returned, in Hz (DefaultSampleRate). Text to
+	// speech.
+	SampleRate int `json:"sample_rate,omitempty"`
 	// Language is a BCP-47 tag such as en or es-ES; omitted means Deepgram's
 	// default for the model (or detection where supported).
 	Language string `json:"language,omitempty"`
@@ -82,7 +108,7 @@ func (d *Deepgram) Init(context.Context) []api.Action {
 	}
 	models := d.Models
 	if len(models) == 0 {
-		models = DefaultModels
+		models = append(append([]string(nil), DefaultModels...), DefaultTTSModels...)
 	}
 	var actions []api.Action
 	for _, m := range models {
@@ -91,7 +117,17 @@ func (d *Deepgram) Init(context.Context) []api.Action {
 	return actions
 }
 
+// IsTTS reports whether a model name (without the prefix) speaks.
+func IsTTS(model string) bool { return strings.HasPrefix(model, "aura") }
+
 func (d *Deepgram) model(name string) api.Action {
+	if IsTTS(name) {
+		supports := &ai.ModelSupports{Media: false, Multiturn: false, Output: []string{"media"}}
+		return ai.NewModelAction(Provider+"/"+name, &ai.ModelOptions{Label: "Deepgram " + name, Supports: supports},
+			func(ctx context.Context, req *ai.ModelRequest, cfg Config, _ ai.ModelStreamCallback) (*ai.ModelResponse, error) {
+				return d.synthesize(ctx, name, req, cfg)
+			})
+	}
 	supports := &ai.ModelSupports{Media: true, Multiturn: false, Output: []string{"text"}}
 	return ai.NewModelAction(Provider+"/"+name, &ai.ModelOptions{Label: "Deepgram " + name, Supports: supports},
 		func(ctx context.Context, req *ai.ModelRequest, cfg Config, _ ai.ModelStreamCallback) (*ai.ModelResponse, error) {
@@ -175,6 +211,93 @@ func (d *Deepgram) transcribe(ctx context.Context, model string, req *ai.ModelRe
 			Custom:           map[string]float64{"audio_seconds": out.Metadata.Duration, "confidence": confidence},
 		},
 	}, nil
+}
+
+func (d *Deepgram) synthesize(ctx context.Context, model string, req *ai.ModelRequest, cfg Config) (*ai.ModelResponse, error) {
+	if d.APIKey == "" {
+		return nil, errors.New("deepgram: no API key (set DEEPGRAM_API_KEY or Deepgram.APIKey)")
+	}
+	text := promptText(req)
+	if text == "" {
+		return nil, errors.New("deepgram: the request has no text to speak")
+	}
+	rate := cfg.SampleRate
+	if rate <= 0 {
+		rate = DefaultSampleRate
+	}
+	q := url.Values{"model": {VoiceModel(model, cfg.Voice)}, "encoding": {"linear16"}, "sample_rate": {strconv.Itoa(rate)}}
+	payload, _ := json.Marshal(map[string]string{"text": text})
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(d.BaseURL, "/")+"/v1/speak?"+q.Encode(), bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Authorization", "Token "+d.APIKey)
+	httpReq.Header.Set("Content-Type", "application/json")
+	res, err := d.HTTPClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("deepgram: %w", err)
+	}
+	defer func() { _ = res.Body.Close() }()
+	data, err := io.ReadAll(io.LimitReader(res.Body, 64<<20))
+	if err != nil {
+		return nil, fmt.Errorf("deepgram: %w", err)
+	}
+	if res.StatusCode/100 != 2 {
+		return nil, fmt.Errorf("deepgram: %s: %s", res.Status, strings.TrimSpace(string(data)))
+	}
+	mime := fmt.Sprintf("audio/L16;rate=%d", rate)
+	return &ai.ModelResponse{
+		Request:      req,
+		FinishReason: ai.FinishReasonStop,
+		Message:      ai.NewModelMessage(ai.NewMediaPart(mime, "data:"+mime+";base64,"+base64.StdEncoding.EncodeToString(data))),
+		Usage: &ai.GenerationUsage{
+			InputCharacters:  len(text),
+			OutputAudioFiles: 1,
+			Custom:           map[string]float64{"audio_seconds": float64(len(data)) / 2 / float64(rate)},
+		},
+	}, nil
+}
+
+// VoiceModel is the Aura model that speaks with voice: voice itself when it
+// is a full model name (aura-2-apollo-en), otherwise the bare voice name
+// completed with model's family (aura-2 or aura) and language (the last
+// segment of a full model name, en by default). An empty voice keeps a full
+// model name and gives a bare family DefaultVoice.
+func VoiceModel(model, voice string) string {
+	voice = strings.ToLower(strings.TrimSpace(voice))
+	if strings.HasPrefix(voice, "aura") {
+		return voice
+	}
+	family, lang := "aura", "en"
+	if strings.HasPrefix(model, "aura-2") {
+		family = "aura-2"
+	}
+	rest := strings.TrimPrefix(strings.TrimPrefix(model, family), "-")
+	if voice == "" {
+		if rest != "" {
+			return model
+		}
+		voice = DefaultVoice
+	}
+	if i := strings.LastIndex(rest, "-"); i >= 0 {
+		lang = rest[i+1:]
+	}
+	return family + "-" + voice + "-" + lang
+}
+
+func promptText(req *ai.ModelRequest) string {
+	var b strings.Builder
+	for _, m := range req.Messages {
+		if m.Role == ai.RoleSystem {
+			continue
+		}
+		for _, p := range m.Content {
+			if p.IsText() {
+				b.WriteString(p.Text)
+			}
+		}
+	}
+	return strings.TrimSpace(b.String())
 }
 
 // audioPart finds the audio in the request: the last media part, as a data

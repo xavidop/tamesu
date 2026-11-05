@@ -194,6 +194,7 @@ func checkSpeech(_ context.Context, env cli.DoctorEnv) []cli.DoctorResult {
 	for _, ref := range sp.STT.Fallback {
 		jobs = append(jobs, struct{ job, ref string }{"stt.fallback", ref})
 	}
+	companionWarned := map[string]bool{}
 	for _, j := range jobs {
 		if j.ref == "" {
 			details = append(details, j.job+" not configured")
@@ -215,6 +216,14 @@ func checkSpeech(_ context.Context, env cli.DoctorEnv) []cli.DoctorResult {
 			status = cli.StatusFail
 		case hasSecret(env.Secrets, cred):
 			details = append(details, fmt.Sprintf("%s=%s (%s resolved)", j.job, j.ref, cred))
+			// Some providers need a second secret next to the key; said once.
+			if extra := companionSecret(provider, j.job); extra != "" && !companionWarned[extra] && !hasSecret(env.Secrets, extra) {
+				companionWarned[extra] = true
+				details = append(details, extra+" is not declared under secrets:")
+				if status == cli.StatusOK {
+					status = cli.StatusWarn
+				}
+			}
 		default:
 			details = append(details, fmt.Sprintf("%s=%s (%s is not declared under secrets:)", j.job, j.ref, cred))
 			if status == cli.StatusOK {
@@ -273,10 +282,35 @@ func credentialFor(provider string, custom map[string]string) (name string, need
 		return "CARTESIA_API_KEY", true
 	case "soniox":
 		return "SONIOX_API_KEY", true
+	case "assemblyai":
+		return "ASSEMBLYAI_API_KEY", true
+	case "azure":
+		return "AZURE_SPEECH_KEY", true
+	case "rime":
+		return "RIME_API_KEY", true
+	case "google":
+		return "GOOGLE_CLOUD_API_KEY", true
+	case "speechmatics":
+		return "SPEECHMATICS_API_KEY", true
+	case "gladia":
+		return "GLADIA_API_KEY", true
 	case "ollama", "fake":
 		return "", false
 	}
 	return "", true
+}
+
+// companionSecret names the secret a speech provider needs next to its key
+// for a job (tts, stt, or their fallbacks): Azure wants the resource's region
+// and Google Speech-to-Text v2 the Cloud project.
+func companionSecret(provider, job string) string {
+	switch {
+	case provider == "azure":
+		return "AZURE_SPEECH_REGION"
+	case provider == "google" && strings.HasPrefix(job, "stt"):
+		return "GOOGLE_CLOUD_PROJECT"
+	}
+	return ""
 }
 
 func hasSecret(st *secrets.Store, name string) bool {
@@ -286,7 +320,7 @@ func hasSecret(st *secrets.Store, name string) bool {
 	if _, ok := st.Get(name); ok {
 		return true
 	}
-	if name == "GEMINI_API_KEY" {
+	if name == "GEMINI_API_KEY" || name == "GOOGLE_CLOUD_API_KEY" {
 		_, ok := st.Get("GOOGLE_API_KEY")
 		return ok
 	}

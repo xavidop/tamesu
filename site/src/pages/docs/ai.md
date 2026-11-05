@@ -32,12 +32,18 @@ secrets:
 |---|---|---|
 | `googlegenai` | `googleai/gemini-2.5-flash`, `googleai/gemini-2.5-pro`, ... | `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) |
 | `anthropic` | `anthropic/claude-sonnet-4-6`, ... | `ANTHROPIC_API_KEY` |
-| `openai` | `openai/gpt-4.1-mini`, ... | `OPENAI_API_KEY` |
+| `openai` | `openai/gpt-4.1-mini`, ... and the speech models `openai/gpt-4o-mini-tts`, `openai/tts-1` (text to speech), `openai/gpt-4o-transcribe`, `openai/whisper-1` (speech to text) | `OPENAI_API_KEY` |
 | `ollama` | `ollama/llama3.1`, any local model | none (`OLLAMA_URL` for a remote server) |
-| `deepgram` | `deepgram/nova-3`, `deepgram/nova-2` (speech to text) | `DEEPGRAM_API_KEY` |
-| `elevenlabs` | `elevenlabs/eleven_flash_v2_5`, `elevenlabs/eleven_multilingual_v2`, `elevenlabs/eleven_v3` (text to speech) | `ELEVENLABS_API_KEY` |
+| `deepgram` | `deepgram/nova-3`, `deepgram/nova-2` (speech to text), `deepgram/aura-2`, `deepgram/aura-2-thalia-en` (text to speech) | `DEEPGRAM_API_KEY` |
+| `elevenlabs` | `elevenlabs/eleven_flash_v2_5`, `elevenlabs/eleven_multilingual_v2`, `elevenlabs/eleven_v3` (text to speech), `elevenlabs/scribe_v1` (speech to text) | `ELEVENLABS_API_KEY` |
 | `cartesia` | `cartesia/sonic-3.6`, `cartesia/sonic-3` (text to speech), `cartesia/ink-whisper` (speech to text) | `CARTESIA_API_KEY` |
 | `soniox` | `soniox/stt-async-v6` (speech to text) | `SONIOX_API_KEY` |
+| `assemblyai` | `assemblyai/universal`, `assemblyai/slam-1`, `assemblyai/nano` (speech to text) | `ASSEMBLYAI_API_KEY` |
+| `azure` | `azure/tts` (text to speech, the voice picks the neural model), `azure/stt` (speech to text, fast transcription) | `AZURE_SPEECH_KEY` and `AZURE_SPEECH_REGION` |
+| `rime` | `rime/arcana`, `rime/mistv2` (text to speech) | `RIME_API_KEY` |
+| `googlespeech` | `google/chirp3-hd`, `google/neural2`, `google/studio` (text to speech, the voice family), `google/chirp_3`, `google/chirp_2`, `google/long` (speech to text, Speech-to-Text v2) | `GOOGLE_CLOUD_API_KEY` (or `GOOGLE_API_KEY`); speech to text also needs `GOOGLE_CLOUD_PROJECT` and optionally `GOOGLE_CLOUD_LOCATION` |
+| `speechmatics` | `speechmatics/enhanced`, `speechmatics/standard` (speech to text, batch) | `SPEECHMATICS_API_KEY` |
+| `gladia` | `gladia/solaria-1` (speech to text, pre-recorded) | `GLADIA_API_KEY` |
 | `evaluators` | the evaluators `genkitEval/deep_equal`, `genkitEval/regex`, `genkitEval/jsonata` | none |
 | `fake` | `fake/simulator`, `fake/judge`, `fake/text`, `fake/tts`, `fake/stt` | none; only in a build with `-tags llmfake` |
 
@@ -119,24 +125,47 @@ speech:
 ```
 
 Text to speech is a Genkit model that answers with audio: Gemini TTS
-(`googleai/gemini-2.5-flash-preview-tts`, `googleai/gemini-2.5-pro-preview-tts`), ElevenLabs
-through the bundled `elevenlabs` plugin or Cartesia Sonic (`cartesia/sonic-3.6`) through the
-bundled `cartesia` plugin. Speech to text is a Genkit model that takes the agent's audio and
-answers with text: Gemini (`googleai/gemini-2.5-flash`), Deepgram (`deepgram/nova-3`), Cartesia
-Ink (`cartesia/ink-whisper`) or Soniox (`soniox/stt-async-v6`) through their bundled plugins.
+(`googleai/gemini-2.5-flash-preview-tts`, `googleai/gemini-2.5-pro-preview-tts`), OpenAI
+(`openai/gpt-4o-mini-tts`, `openai/tts-1`), ElevenLabs (`elevenlabs/eleven_flash_v2_5`),
+Cartesia Sonic (`cartesia/sonic-3.6`), Deepgram Aura (`deepgram/aura-2`), Azure AI Speech
+(`azure/tts`), Google Cloud Text-to-Speech (`google/chirp3-hd`, `google/neural2`) or Rime
+(`rime/arcana`) through the bundled plugins. Speech to text is a Genkit
+model that takes the agent's audio and answers with text: Gemini (`googleai/gemini-2.5-flash`),
+Deepgram (`deepgram/nova-3`), OpenAI (`openai/gpt-4o-transcribe`, `openai/whisper-1`),
+ElevenLabs Scribe (`elevenlabs/scribe_v1`), Cartesia Ink (`cartesia/ink-whisper`), Soniox
+(`soniox/stt-async-v6`), AssemblyAI (`assemblyai/universal`), Azure (`azure/stt`), Google Cloud
+Speech-to-Text (`google/chirp_3`), Speechmatics (`speechmatics/enhanced`) or Gladia
+(`gladia/solaria-1`).
 Switching provider is a config change, and `fallback: [...]` on either names the models that
 take over when the first fails (see [retries and fallbacks](#retries-and-fallbacks)).
 
 A persona's `voice` is a hint, `<language>-<gender>` such as `en-GB-female`, `es-ES-male` or
 just `female`, mapped to each provider's voices (Gemini `Kore`/`Puck`, ElevenLabs
-`Rachel`/`Adam`, OpenAI `nova`/`onyx`); a provider voice name or ID passes through. Cartesia
-voices are IDs from its voice library, so name one in the hint or `speech.tts.voice`; without
-one every persona speaks with the same library voice. The hint's language is also the TTS
-language when `speech.tts.language` is not set.
+`Rachel`/`Adam`, OpenAI `nova`/`onyx`, Deepgram Aura `thalia`/`apollo`, Azure
+`en-US-AvaMultilingualNeural`/`en-US-AndrewMultilingualNeural`, Rime `luna`/`orion`, Google Cloud
+`Aoede`/`Charon`); a provider voice name or ID passes through. Cartesia voices are IDs from its voice library, so name one in
+the hint or `speech.tts.voice`; without one every persona speaks with the same library voice. A
+Deepgram Aura voice is a model of its own (`aura-2-thalia-en`), so `deepgram/aura-2` with a
+voice hint speaks with that voice, and a full voice name in the hint picks it outright. Rime
+speakers belong to a model (`luna` and `orion` to Arcana), so name a Mist speaker when the model
+is `rime/mistv2`. A Google Cloud voice is the family in the model plus the hint's language and
+speaker: `google/chirp3-hd` with `en-GB-female` speaks as `en-GB-Chirp3-HD-Aoede`, and a full
+voice name such as `en-US-Neural2-F` in the hint is used as is. The hint's language is also the
+TTS language when `speech.tts.language` is not set.
 
-The four plugins under `github.com/xavidop/tamesu/llm/plugins/` (`deepgram`, `elevenlabs`,
-`cartesia` and `soniox`) are ordinary Genkit model plugins and work in any Genkit Go app. Speech is priced too, TTS per character and STT per minute of audio,
-into the same budget. `tamesu doctor` has a `speech` check: the models and their credentials, the
+Azure needs two secrets: `AZURE_SPEECH_KEY` and the resource's region in
+`AZURE_SPEECH_REGION` (`westeurope`, `eastus`, ...), both declared under `secrets:` like any
+other credential. Google Cloud speech takes a Cloud API key in `GOOGLE_CLOUD_API_KEY` (or the
+`GOOGLE_API_KEY` Gemini already uses, when that key's project has the speech APIs enabled);
+speech to text also needs the project in `GOOGLE_CLOUD_PROJECT` and, for a regional endpoint,
+`GOOGLE_CLOUD_LOCATION` (default `global`). Speechmatics and Gladia transcribe as batch jobs, so
+each turn's transcript takes a few seconds longer than a streaming provider's.
+
+The plugins under `github.com/xavidop/tamesu/llm/plugins/` (`deepgram`, `elevenlabs`,
+`cartesia`, `soniox`, `openaispeech`, `azure`, `assemblyai`, `rime`, `googlespeech`,
+`speechmatics` and `gladia`) are ordinary Genkit model plugins and work in any Genkit Go app; `openaispeech` adds the speech models Genkit's own
+OpenAI plugin leaves out, under the same `openai/` prefix. Speech is priced too, TTS per
+character and STT per minute of audio, into the same budget. `tamesu doctor` has a `speech` check: the models and their credentials, the
 voice activity detector and whether this build has audio support.
 
 The voice activity detector (`speech.vad.provider`) decides when the agent is speaking:

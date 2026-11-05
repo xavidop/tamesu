@@ -13,14 +13,21 @@ import (
 	"github.com/firebase/genkit/go/plugins/googlegenai"
 	"github.com/firebase/genkit/go/plugins/ollama"
 
+	"github.com/xavidop/tamesu/llm/plugins/assemblyai"
+	"github.com/xavidop/tamesu/llm/plugins/azure"
 	"github.com/xavidop/tamesu/llm/plugins/cartesia"
 	"github.com/xavidop/tamesu/llm/plugins/deepgram"
 	"github.com/xavidop/tamesu/llm/plugins/elevenlabs"
+	"github.com/xavidop/tamesu/llm/plugins/gladia"
+	"github.com/xavidop/tamesu/llm/plugins/googlespeech"
+	"github.com/xavidop/tamesu/llm/plugins/openaispeech"
+	"github.com/xavidop/tamesu/llm/plugins/rime"
 	"github.com/xavidop/tamesu/llm/plugins/soniox"
+	"github.com/xavidop/tamesu/llm/plugins/speechmatics"
 )
 
 // KnownPlugins are the plugin names tamesu.yaml may list.
-var KnownPlugins = []string{"googlegenai", "anthropic", "openai", "ollama", "deepgram", "elevenlabs", "cartesia", "soniox", "evaluators", "fake"}
+var KnownPlugins = []string{"googlegenai", "anthropic", "openai", "ollama", "deepgram", "elevenlabs", "cartesia", "soniox", "assemblyai", "azure", "rime", "googlespeech", "speechmatics", "gladia", "evaluators", "fake"}
 
 // fakePlugin builds the fake provider; a build with -tags llmfake sets it.
 var fakePlugin func() api.Plugin
@@ -56,7 +63,11 @@ func (c *Client) plugins(cfg Config) ([]api.Plugin, error) {
 		case "anthropic":
 			out = append(out, &anthropic.Anthropic{APIKey: cred("ANTHROPIC_API_KEY")})
 		case "openai":
-			out = append(out, &openai.OpenAI{APIKey: cred("OPENAI_API_KEY")})
+			// Genkit's plugin has the chat and embedding models; the speech
+			// models (gpt-4o-mini-tts, gpt-4o-transcribe, whisper-1) come from
+			// tamesu's own plugin under the same openai/ prefix.
+			key := cred("OPENAI_API_KEY")
+			out = append(out, &openai.OpenAI{APIKey: key}, &openaispeech.OpenAISpeech{APIKey: key})
 		case "ollama":
 			addr := cfg.OllamaURL
 			if addr == "" {
@@ -82,6 +93,18 @@ func (c *Client) plugins(cfg Config) ([]api.Plugin, error) {
 			out = append(out, &cartesia.Cartesia{APIKey: cred("CARTESIA_API_KEY")})
 		case "soniox":
 			out = append(out, &soniox.Soniox{APIKey: cred("SONIOX_API_KEY")})
+		case "assemblyai":
+			out = append(out, &assemblyai.AssemblyAI{APIKey: cred("ASSEMBLYAI_API_KEY")})
+		case "azure":
+			out = append(out, &azure.Azure{Key: cred("AZURE_SPEECH_KEY"), Region: cred("AZURE_SPEECH_REGION")})
+		case "rime":
+			out = append(out, &rime.Rime{APIKey: cred("RIME_API_KEY")})
+		case "googlespeech":
+			out = append(out, &googlespeech.GoogleSpeech{APIKey: cred("GOOGLE_CLOUD_API_KEY", "GOOGLE_API_KEY"), Project: cred("GOOGLE_CLOUD_PROJECT"), Location: cred("GOOGLE_CLOUD_LOCATION")})
+		case "speechmatics":
+			out = append(out, &speechmatics.Speechmatics{APIKey: cred("SPEECHMATICS_API_KEY")})
+		case "gladia":
+			out = append(out, &gladia.Gladia{APIKey: cred("GLADIA_API_KEY")})
 		default:
 			return nil, fmt.Errorf("llm: unknown Genkit plugin %q (known: %s)", name, strings.Join(KnownPlugins, ", "))
 		}
@@ -94,7 +117,9 @@ func pluginForProvider(provider string) string {
 	switch provider {
 	case "googleai", "vertexai":
 		return "googlegenai"
-	case "anthropic", "openai", "ollama", "deepgram", "elevenlabs", "cartesia", "soniox", "fake":
+	case "google":
+		return "googlespeech"
+	case "anthropic", "openai", "ollama", "deepgram", "elevenlabs", "cartesia", "soniox", "assemblyai", "azure", "rime", "speechmatics", "gladia", "fake":
 		return provider
 	}
 	return ""
