@@ -501,10 +501,10 @@ func (s *Server) Handle(ctx context.Context, method string, params json.RawMessa
 		if err := json.Unmarshal(params, &p); err != nil || len(p.Message.Parts) == 0 && p.Message.MessageID == "" {
 			return nil, &Error{Code: CodeInvalidParams, Message: "message/send needs a message"}
 		}
-		t, d := s.answer(ctx, p.Message, p.Configuration.Push)
+		view, d := s.answer(ctx, p.Message, p.Configuration.Push)
 		d.Transport = transport
 		s.record(d)
-		return marshal(s.snapshot(t, p.Configuration.HistoryLength)), nil
+		return marshal(trimHistory(view, p.Configuration.HistoryLength)), nil
 	case "tasks/get":
 		var p idParams
 		_ = json.Unmarshal(params, &p)
@@ -626,13 +626,11 @@ func (s *Server) Stream(ctx context.Context, method string, params json.RawMessa
 		if err := json.Unmarshal(params, &p); err != nil || len(p.Message.Parts) == 0 && p.Message.MessageID == "" {
 			return &Error{Code: CodeInvalidParams, Message: "message/stream needs a message"}
 		}
-		t, d := s.answer(ctx, p.Message, nil)
+		view, d := s.answer(ctx, p.Message, nil)
 		d.Streamed = true
 		d.Transport = transport
 		s.record(d)
-		s.mu.Lock()
-		id, cid, st := t.ID, t.ContextID, t.Status
-		s.mu.Unlock()
+		id, cid, st := view.ID, view.ContextID, view.Status
 		if err := emit(marshal(task{Kind: "task", ID: id, ContextID: cid, Status: status{State: StateSubmitted}})); err != nil {
 			return nil
 		}
@@ -674,6 +672,11 @@ func (s *Server) snapshot(t *task, historyLength *int) task {
 func (s *Server) view(t *task, historyLength *int) task {
 	out := *t
 	out.History = append([]message(nil), t.History...)
+	return trimHistory(out, historyLength)
+}
+
+// trimHistory keeps the last historyLength messages of a task copy.
+func trimHistory(out task, historyLength *int) task {
 	if historyLength != nil && *historyLength >= 0 && len(out.History) > *historyLength {
 		out.History = out.History[len(out.History)-*historyLength:]
 	}
@@ -704,10 +707,11 @@ func textOf(m message) string {
 }
 
 // answer builds the task for a message: the task it continues or a new
-// one, with the reply the script (or the fuzz) gives. With a push config the
-// task is returned as submitted and finished by a push notification instead,
-// which is what a caller that asked for push notifications expects.
-func (s *Server) answer(ctx context.Context, msg message, push *pushConfig) (*task, Delegation) {
+// one, with the reply the script (or the fuzz) gives, and returns the copy
+// the caller sees. With a push config that copy is the task as submitted:
+// it is finished in the background and the finished task is pushed, which
+// is what a caller that asked for push notifications expects.
+func (s *Server) answer(ctx context.Context, msg message, push *pushConfig) (task, Delegation) {
 	text := textOf(msg)
 	s.mu.Lock()
 	t := s.tasks[msg.TaskID]
@@ -750,6 +754,7 @@ func (s *Server) answer(ctx context.Context, msg message, push *pushConfig) (*ta
 		d.Pushed = true
 		s.mu.Lock()
 		t.Status = status{State: StateSubmitted, Timestamp: time.Now().UTC().Format(time.RFC3339)}
+		view := s.view(t, nil)
 		s.mu.Unlock()
 		s.wg.Add(1)
 		go func() {
@@ -757,11 +762,11 @@ func (s *Server) answer(ctx context.Context, msg message, push *pushConfig) (*ta
 			s.finish(t, reply)
 			s.notify(t)
 		}()
-		return t, d
+		return view, d
 	}
 	s.finish(t, reply)
 	s.notify(t)
-	return t, d
+	return s.snapshot(t, nil), d
 }
 
 // finish writes the reply into the task.
