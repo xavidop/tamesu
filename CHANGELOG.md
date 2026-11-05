@@ -2,6 +2,13 @@
 
 All notable changes to tamesu are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/). Each new release is added at the top, with notes generated from the commit messages.
 
+# [1.17.0](https://github.com/xavidop/tamesu/compare/v1.16.0...v1.17.0) (2026-11-05)
+
+
+### Features
+
+* **cli:** colours in the console, with --color auto|always|never ([4b21fe2](https://github.com/xavidop/tamesu/commit/4b21fe2e4e6b677937a150a51c66e0f711aa893a))
+
 # [1.16.0](https://github.com/xavidop/tamesu/compare/v1.15.1...v1.16.0) (2026-11-05)
 
 
