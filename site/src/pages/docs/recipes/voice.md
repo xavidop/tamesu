@@ -280,7 +280,7 @@ tests:
     persona: { name: Marta, style: insistent, language: en }
     scenario: { goal: "Dispute a double charge and insist on speaking to billing", max_turns: 4 }
     assert:
-      - transferred_to: { equals: "+15550155" }
+      - transferred_to: { matches: "15550155" }       # the billing line the agent forwards to
       - pack: discloses_ai
 ```
 
