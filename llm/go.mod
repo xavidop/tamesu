@@ -8,10 +8,17 @@ require (
 	github.com/stretchr/testify v1.12.1
 	github.com/xavidop/tamesu v0.0.0
 	github.com/xavidop/tamesu/audio v0.0.0
+	github.com/xavidop/tamesu/llm/plugins/assemblyai v0.0.0
+	github.com/xavidop/tamesu/llm/plugins/azure v0.0.0
 	github.com/xavidop/tamesu/llm/plugins/cartesia v0.0.0
 	github.com/xavidop/tamesu/llm/plugins/deepgram v0.0.0
 	github.com/xavidop/tamesu/llm/plugins/elevenlabs v0.0.0
+	github.com/xavidop/tamesu/llm/plugins/gladia v0.0.0
+	github.com/xavidop/tamesu/llm/plugins/googlespeech v0.0.0
+	github.com/xavidop/tamesu/llm/plugins/openaispeech v0.0.0
+	github.com/xavidop/tamesu/llm/plugins/rime v0.0.0
 	github.com/xavidop/tamesu/llm/plugins/soniox v0.0.0
+	github.com/xavidop/tamesu/llm/plugins/speechmatics v0.0.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -93,3 +100,17 @@ replace github.com/xavidop/tamesu/llm/plugins/elevenlabs => ./plugins/elevenlabs
 replace github.com/xavidop/tamesu/llm/plugins/cartesia => ./plugins/cartesia
 
 replace github.com/xavidop/tamesu/llm/plugins/soniox => ./plugins/soniox
+
+replace github.com/xavidop/tamesu/llm/plugins/assemblyai => ./plugins/assemblyai
+
+replace github.com/xavidop/tamesu/llm/plugins/azure => ./plugins/azure
+
+replace github.com/xavidop/tamesu/llm/plugins/openaispeech => ./plugins/openaispeech
+
+replace github.com/xavidop/tamesu/llm/plugins/rime => ./plugins/rime
+
+replace github.com/xavidop/tamesu/llm/plugins/googlespeech => ./plugins/googlespeech
+
+replace github.com/xavidop/tamesu/llm/plugins/speechmatics => ./plugins/speechmatics
+
+replace github.com/xavidop/tamesu/llm/plugins/gladia => ./plugins/gladia

@@ -119,6 +119,48 @@ updates:
     schedule: { interval: weekly }
     labels: [dependencies, go, ai]
 
+  # OpenAI speech (TTS and STT) Genkit plugin (own go.mod; Genkit only)
+  - package-ecosystem: gomod
+    directory: "/llm/plugins/openaispeech"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, ai]
+
+  # Azure AI Speech (TTS and STT) Genkit plugin (own go.mod; Genkit only)
+  - package-ecosystem: gomod
+    directory: "/llm/plugins/azure"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, ai]
+
+  # AssemblyAI STT Genkit plugin (own go.mod; Genkit only)
+  - package-ecosystem: gomod
+    directory: "/llm/plugins/assemblyai"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, ai]
+
+  # Rime TTS Genkit plugin (own go.mod; Genkit only)
+  - package-ecosystem: gomod
+    directory: "/llm/plugins/rime"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, ai]
+
+  # Google Cloud speech Genkit plugin (own go.mod; Genkit only)
+  - package-ecosystem: gomod
+    directory: "/llm/plugins/googlespeech"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, ai]
+
+  # Speechmatics STT Genkit plugin (own go.mod; Genkit only)
+  - package-ecosystem: gomod
+    directory: "/llm/plugins/speechmatics"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, ai]
+
+  # Gladia STT Genkit plugin (own go.mod; Genkit only)
+  - package-ecosystem: gomod
+    directory: "/llm/plugins/gladia"
+    schedule: { interval: weekly }
+    labels: [dependencies, go, ai]
+
   # Audio pipeline (own go.mod; onnxruntime_go behind -tags onnx, libopus via cgo)
   - package-ecosystem: gomod
     directory: "/audio"

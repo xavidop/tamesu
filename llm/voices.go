@@ -10,7 +10,8 @@ import (
 // Voice is a resolved voice hint.
 type Voice struct {
 	// Name is what the provider wants: a Gemini prebuilt voice, an ElevenLabs
-	// voice name or ID, a Cartesia voice ID, an OpenAI voice.
+	// voice name or ID, a Cartesia voice ID, an OpenAI voice, a Deepgram Aura
+	// voice, an Azure neural voice, a Rime speaker.
 	Name string
 	// Language is the BCP-47 tag the hint carried, if any (en-GB).
 	Language string
@@ -33,6 +34,10 @@ var defaultVoices = map[string]map[string]string{
 	"elevenlabs": {"female": "Rachel", "male": "Adam", "": "Rachel"},
 	"cartesia":   {"female": cartesia.DefaultVoice, "male": cartesia.DefaultVoice, "": cartesia.DefaultVoice},
 	"openai":     {"female": "nova", "male": "onyx", "": "alloy"},
+	"deepgram":   {"female": "thalia", "male": "apollo", "": "thalia"},
+	"azure":      {"female": "en-US-AvaMultilingualNeural", "male": "en-US-AndrewMultilingualNeural", "": "en-US-AvaMultilingualNeural"},
+	"rime":       {"female": "luna", "male": "orion", "": "luna"},
+	"google":     {"female": "Aoede", "male": "Charon", "": "Aoede"},
 	"fake":       {"female": "female", "male": "male", "": "neutral"},
 }
 

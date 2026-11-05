@@ -237,10 +237,17 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xavidop/mamori v1.13.0 // indirect
 	github.com/xavidop/mamori/providers/httpcore v0.0.0-00010101000000-000000000000 // indirect
+	github.com/xavidop/tamesu/llm/plugins/assemblyai v0.0.0 // indirect
+	github.com/xavidop/tamesu/llm/plugins/azure v0.0.0 // indirect
 	github.com/xavidop/tamesu/llm/plugins/cartesia v0.0.0 // indirect
 	github.com/xavidop/tamesu/llm/plugins/deepgram v0.0.0 // indirect
 	github.com/xavidop/tamesu/llm/plugins/elevenlabs v0.0.0 // indirect
+	github.com/xavidop/tamesu/llm/plugins/gladia v0.0.0 // indirect
+	github.com/xavidop/tamesu/llm/plugins/googlespeech v0.0.0 // indirect
+	github.com/xavidop/tamesu/llm/plugins/openaispeech v0.0.0 // indirect
+	github.com/xavidop/tamesu/llm/plugins/rime v0.0.0 // indirect
 	github.com/xavidop/tamesu/llm/plugins/soniox v0.0.0 // indirect
+	github.com/xavidop/tamesu/llm/plugins/speechmatics v0.0.0 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
@@ -311,6 +318,14 @@ replace github.com/xavidop/tamesu/llm/plugins/cartesia => ../../llm/plugins/cart
 
 replace github.com/xavidop/tamesu/llm/plugins/soniox => ../../llm/plugins/soniox
 
+replace github.com/xavidop/tamesu/llm/plugins/assemblyai => ../../llm/plugins/assemblyai
+
+replace github.com/xavidop/tamesu/llm/plugins/azure => ../../llm/plugins/azure
+
+replace github.com/xavidop/tamesu/llm/plugins/openaispeech => ../../llm/plugins/openaispeech
+
+replace github.com/xavidop/tamesu/llm/plugins/rime => ../../llm/plugins/rime
+
 replace github.com/xavidop/tamesu/targets/rest => ../../targets/rest
 
 replace github.com/xavidop/tamesu/targets/model => ../../targets/model
@@ -336,3 +351,9 @@ replace github.com/xavidop/tamesu/targets/sip => ../../targets/sip
 replace github.com/xavidop/tamesu/targets/browser => ../../targets/browser
 
 replace github.com/xavidop/mamori/providers/httpcore => github.com/xavidop/mamori/providers/httpcore v0.0.0-20261025123623-b7a7aaf2c85a
+
+replace github.com/xavidop/tamesu/llm/plugins/googlespeech => ../../llm/plugins/googlespeech
+
+replace github.com/xavidop/tamesu/llm/plugins/speechmatics => ../../llm/plugins/speechmatics
+
+replace github.com/xavidop/tamesu/llm/plugins/gladia => ../../llm/plugins/gladia

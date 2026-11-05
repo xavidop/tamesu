@@ -69,6 +69,22 @@ func pluginForCredential(name string) string {
 		return "deepgram"
 	case "ELEVENLABS_API_KEY":
 		return "elevenlabs"
+	case "CARTESIA_API_KEY":
+		return "cartesia"
+	case "SONIOX_API_KEY":
+		return "soniox"
+	case "ASSEMBLYAI_API_KEY":
+		return "assemblyai"
+	case "AZURE_SPEECH_KEY":
+		return "azure"
+	case "RIME_API_KEY":
+		return "rime"
+	case "GOOGLE_CLOUD_API_KEY":
+		return "google"
+	case "SPEECHMATICS_API_KEY":
+		return "speechmatics"
+	case "GLADIA_API_KEY":
+		return "gladia"
 	}
 	return ""
 }

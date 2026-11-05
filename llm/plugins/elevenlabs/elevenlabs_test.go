@@ -120,3 +120,65 @@ func TestMimeFor(t *testing.T) {
 	assert.Equal(t, "audio/mpeg", mime)
 	assert.Equal(t, 0, rate)
 }
+
+func TestTranscribe(t *testing.T) {
+	g := setup(t)
+	audio := []byte("RIFF....WAVEfmt fake")
+	var got *http.Request
+	var fields map[string]string
+	var file []byte
+	var filename string
+	serve(t, func(w http.ResponseWriter, r *http.Request) {
+		got = r
+		require.NoError(t, r.ParseMultipartForm(1<<20))
+		fields = map[string]string{}
+		for k, v := range r.MultipartForm.Value {
+			fields[k] = v[0]
+		}
+		f, hdr, err := r.FormFile("file")
+		require.NoError(t, err)
+		filename = hdr.Filename
+		file, _ = io.ReadAll(f)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"language_code":"en","language_probability":0.99,"text":"Hello, I need a refund.","words":[` +
+			`{"text":"Hello,","start":0.1,"end":0.5,"type":"word","logprob":0},` +
+			`{"text":" ","start":0.5,"end":0.6,"type":"spacing","logprob":0},` +
+			`{"text":"I need a refund.","start":0.6,"end":2.5,"type":"word","logprob":-0.6931471805599453}]}`))
+	})
+	resp, err := genkit.Generate(context.Background(), g, ai.WithModelName("elevenlabs/scribe_v1"),
+		ai.WithMessages(ai.NewUserMessage(ai.NewMediaPart("audio/wav", "data:audio/wav;base64,"+base64.StdEncoding.EncodeToString(audio)))),
+		ai.WithConfig(Config{Language: "en-GB", Diarize: true}))
+	require.NoError(t, err)
+	assert.Equal(t, "Hello, I need a refund.", resp.Text())
+	assert.Equal(t, 1, resp.Usage.InputAudioFiles)
+	assert.Equal(t, 2.5, resp.Usage.Custom["audio_seconds"], "the last word's end")
+	assert.InDelta(t, 0.75, resp.Usage.Custom["confidence"], 1e-9, "the mean word probability, spacing left out")
+
+	require.NotNil(t, got)
+	assert.Equal(t, "/v1/speech-to-text", got.URL.Path)
+	assert.Equal(t, "xi-test", got.Header.Get("xi-api-key"))
+	assert.True(t, strings.HasPrefix(got.Header.Get("Content-Type"), "multipart/form-data"))
+	assert.Equal(t, "scribe_v1", fields["model_id"])
+	assert.Equal(t, "en", fields["language_code"], "the locale is cut to its ISO 639-1 code")
+	assert.Equal(t, "false", fields["tag_audio_events"])
+	assert.Equal(t, "true", fields["diarize"])
+	assert.Equal(t, "audio.wav", filename)
+	assert.Equal(t, audio, file, "the audio bytes are the uploaded file")
+
+	_, err = genkit.Generate(context.Background(), g, ai.WithModelName("elevenlabs/scribe_v1"), ai.WithPrompt("no audio here"))
+	assert.ErrorContains(t, err, "no audio media part")
+	_, err = genkit.Generate(context.Background(), g, ai.WithModelName("elevenlabs/scribe_v1"),
+		ai.WithMessages(ai.NewUserMessage(ai.NewMediaPart("audio/wav", "https://example.com/a.wav"))))
+	assert.ErrorContains(t, err, "data URL")
+	serve(t, func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, `{"detail":"invalid_api_key"}`, http.StatusUnauthorized)
+	})
+	_, err = genkit.Generate(context.Background(), g, ai.WithModelName("elevenlabs/scribe_v2"),
+		ai.WithMessages(ai.NewUserMessage(ai.NewMediaPart("audio/wav", "data:audio/wav;base64,AAAA"))))
+	assert.ErrorContains(t, err, "401")
+	assert.ErrorContains(t, err, "invalid_api_key")
+	assert.True(t, IsSTT("scribe_v1"))
+	assert.False(t, IsSTT("eleven_v3"))
+	assert.Equal(t, ".mp3", extensionFor("audio/mpeg"))
+	assert.Equal(t, ".wav", extensionFor("audio/L16;rate=16000"))
+}

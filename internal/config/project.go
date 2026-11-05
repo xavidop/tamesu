@@ -102,7 +102,7 @@ func (p Project) EnvironmentVars() map[string]string {
 
 // Genkit configures the Genkit instance of a run.
 type Genkit struct {
-	Plugins []string `yaml:"plugins,omitempty" json:"plugins,omitempty" jsonschema:"description=Genkit plugins to initialise: googlegenai anthropic openai ollama deepgram elevenlabs."`
+	Plugins []string `yaml:"plugins,omitempty" json:"plugins,omitempty" jsonschema:"description=Genkit plugins to initialise: googlegenai anthropic openai ollama deepgram elevenlabs cartesia soniox assemblyai azure rime googlespeech speechmatics gladia evaluators."`
 	DevUI   bool     `yaml:"dev_ui,omitempty" json:"dev_ui,omitempty" jsonschema:"description=Export traces to the Genkit Developer UI."`
 }
 

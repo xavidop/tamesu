@@ -333,7 +333,7 @@
             "type": "string"
           },
           "type": "array",
-          "description": "Genkit plugins to initialise: googlegenai anthropic openai ollama deepgram elevenlabs."
+          "description": "Genkit plugins to initialise: googlegenai anthropic openai ollama deepgram elevenlabs cartesia soniox assemblyai azure rime googlespeech speechmatics gladia evaluators."
         },
         "dev_ui": {
           "type": "boolean",

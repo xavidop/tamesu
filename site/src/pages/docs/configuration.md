@@ -15,7 +15,7 @@ and `secrets`. The file is optional: without it, the defaults below apply. Its J
 version: 1
 suites: ["tests/**/*.yaml"]               # what validate, list (and the runner) use when no paths are given
 genkit:
-  plugins: [googlegenai, anthropic, openai, ollama, deepgram, elevenlabs, cartesia, soniox]   # only these are initialised
+  plugins: [googlegenai, anthropic, openai, ollama, deepgram, elevenlabs, cartesia, soniox, assemblyai, azure, rime, googlespeech, speechmatics, gladia]   # only these are initialised
   dev_ui: false                             # true: export traces to the Genkit Developer UI
 models:                                     # every value is a Genkit model reference
   default: googleai/gemini-2.5-flash
@@ -67,7 +67,7 @@ secrets:                                    # resolved with mamori, see below
 |---|---|---|
 | `version` | `1` | Format version; always 1. |
 | `suites` | `["tests/**/*.yaml"]` | Globs (`**` allowed) of suite files, relative to `tamesu.yaml`. Paths on the command line win. |
-| `genkit.plugins` | none | Genkit plugins to initialise: `googlegenai`, `anthropic`, `openai`, `ollama`, `deepgram`, `elevenlabs`, `cartesia`, `soniox`, `evaluators`. Credentials come from the secrets with the conventional names below. |
+| `genkit.plugins` | none | Genkit plugins to initialise: `googlegenai`, `anthropic`, `openai`, `ollama`, `deepgram`, `elevenlabs`, `cartesia`, `soniox`, `assemblyai`, `azure`, `rime`, `googlespeech`, `speechmatics`, `gladia`, `evaluators`. Credentials come from the secrets with the conventional names below. |
 | `genkit.dev_ui` | `false` | Export traces to the Genkit Developer UI. |
 | `models.*` | `default: googleai/gemini-2.5-flash` | The model for each job: `default`, `judge`, `browser_agent`, `simulator`, `scenario_generator`, and `embedder` for `similar_to` assertions. `models.fallback` and `models.retry` are the [retries and fallbacks](/docs/ai/#retries-and-fallbacks). `models.credentials` maps a plugin to `{{secrets.X}}` when the secret is not named conventionally. |
 | `speech.stt`, `speech.tts`, `speech.vad` | `vad: energy` | Speech models (Genkit references, with `language` and `voice` defaults) and the voice activity detector, for audio mode and sip. See [AI](/docs/ai/) for the speech models. |
@@ -184,8 +184,11 @@ initialisation, a value typed into a browser field.
 
 **Model credentials.** Genkit plugins are initialised from the resolved secrets by conventional
 name (`GEMINI_API_KEY` or `GOOGLE_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`,
-`DEEPGRAM_API_KEY`, `ELEVENLABS_API_KEY`, `CARTESIA_API_KEY`, `SONIOX_API_KEY`), or from `models.credentials: { googleai:
-"{{secrets.X}}" }`.
+`DEEPGRAM_API_KEY`, `ELEVENLABS_API_KEY`, `CARTESIA_API_KEY`, `SONIOX_API_KEY`,
+`ASSEMBLYAI_API_KEY`, `AZURE_SPEECH_KEY` with `AZURE_SPEECH_REGION`, `RIME_API_KEY`,
+`GOOGLE_CLOUD_API_KEY` with `GOOGLE_CLOUD_PROJECT` for speech to text, `SPEECHMATICS_API_KEY`,
+`GLADIA_API_KEY`), or from
+`models.credentials: { googleai: "{{secrets.X}}" }`.
 
 **`--env-file .env`** maps to mamori's dotenv provider: an `env:` ref that is not set in the
 process environment is looked up in the file, and so is a `${VAR}`. The process environment is

@@ -10,10 +10,17 @@ use (
 	./examples/rest-agent
 	./examples/webapp
 	./llm
+	./llm/plugins/assemblyai
+	./llm/plugins/azure
 	./llm/plugins/cartesia
 	./llm/plugins/deepgram
 	./llm/plugins/elevenlabs
+	./llm/plugins/gladia
+	./llm/plugins/googlespeech
+	./llm/plugins/openaispeech
+	./llm/plugins/rime
 	./llm/plugins/soniox
+	./llm/plugins/speechmatics
 	./targets/a2a
 	./targets/browser
 	./targets/grpc

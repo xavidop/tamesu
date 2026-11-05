@@ -117,9 +117,11 @@ fake-free CI suites run.
 
 `voice` is a hint the speech layer maps to the provider's voices: `<language>-<gender>` such as
 `en-GB-female`, `es-ES-male` or just `female` picks the provider's default voice of that gender
-(Gemini `Kore`/`Puck`, ElevenLabs `Rachel`/`Adam`, OpenAI `nova`/`onyx`); a provider voice name
-or ID (`Puck`, an ElevenLabs or Cartesia voice ID) passes through. The hint's language is also
-the TTS language when `speech.tts.language` is not set.
+(Gemini `Kore`/`Puck`, ElevenLabs `Rachel`/`Adam`, OpenAI `nova`/`onyx`, Deepgram Aura
+`thalia`/`apollo`, Azure `en-US-AvaMultilingualNeural`/`en-US-AndrewMultilingualNeural`, Rime
+`luna`/`orion`, Google Cloud `Aoede`/`Charon`); a provider voice name or ID (`Puck`, an ElevenLabs or Cartesia voice ID, an Aura
+voice such as `aura-2-celeste-es`) passes through. The hint's language is also the TTS language
+when `speech.tts.language` is not set.
 
 The behaviours shape the caller's audio, in livekit audio mode and on sip calls (and
 `interrupt_probability` on realtime, pipecat, twilio and voice too):

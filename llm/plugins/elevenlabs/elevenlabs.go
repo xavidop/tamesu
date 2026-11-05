@@ -1,15 +1,22 @@
-// Package elevenlabs is a Genkit model plugin for ElevenLabs text to speech:
-// models named elevenlabs/<model_id> (eleven_flash_v2_5 and friends) take the
-// request's text and answer with an audio media part, a data URL of 16-bit
-// PCM (audio/L16;rate=24000 by default). It is an ordinary Genkit plugin,
-// usable in any Genkit Go app:
+// Package elevenlabs is a Genkit model plugin for ElevenLabs speech: text to
+// speech with the Eleven models (elevenlabs/eleven_flash_v2_5 and friends
+// take the request's text and answer with an audio media part, a data URL of
+// 16-bit PCM, audio/L16;rate=24000 by default) and speech to text with Scribe
+// (elevenlabs/scribe_v1 takes an audio media part in a user message and
+// answers with the transcript). It is an ordinary Genkit plugin, usable in
+// any Genkit Go app:
 //
 //	g := genkit.Init(ctx, genkit.WithPlugins(&elevenlabs.ElevenLabs{APIKey: key}))
 //	resp, err := genkit.Generate(ctx, g, ai.WithModelName("elevenlabs/eleven_flash_v2_5"),
 //	    ai.WithPrompt("Hello there"), ai.WithConfig(elevenlabs.Config{Voice: "Rachel"}))
+//	resp, err = genkit.Generate(ctx, g, ai.WithModelName("elevenlabs/scribe_v1"),
+//	    ai.WithMessages(ai.NewUserMessage(ai.NewMediaPart("audio/wav", dataURL))))
 //
 // The voice is a voice ID, one of the premade names (Rachel, Adam, ...) or any
 // name in the account's voice library, looked up through GET /v1/voices once.
+// Transcription goes to POST /v1/speech-to-text; the audio duration (from the
+// last word's end) and the mean word confidence are reported in the usage's
+// Custom map (audio_seconds, confidence).
 package elevenlabs
 
 import (
@@ -20,10 +27,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -38,8 +48,11 @@ const Provider = "elevenlabs"
 // DefaultBaseURL is the ElevenLabs API.
 const DefaultBaseURL = "https://api.elevenlabs.io"
 
-// DefaultModels are defined when Models is empty.
+// DefaultModels are the text-to-speech models defined when Models is empty.
 var DefaultModels = []string{"eleven_flash_v2_5", "eleven_turbo_v2_5", "eleven_multilingual_v2", "eleven_v3"}
+
+// DefaultSTTModels are the speech-to-text models defined when Models is empty.
+var DefaultSTTModels = []string{"scribe_v1", "scribe_v2"}
 
 // DefaultVoice is used when a request names none.
 const DefaultVoice = "Rachel"
@@ -60,7 +73,8 @@ type ElevenLabs struct {
 	BaseURL string
 	// HTTPClient overrides the client (default: 60 s timeout).
 	HTTPClient *http.Client
-	// Models to define, without the provider prefix.
+	// Models to define, without the provider prefix. Names starting with
+	// "scribe" are speech to text, the rest text to speech.
 	Models []string
 
 	mu     sync.Mutex
@@ -74,8 +88,14 @@ type Config struct {
 	// OutputFormat is an ElevenLabs output format; pcm_24000 by default. Only
 	// the pcm_* formats are decoded by tamesu.
 	OutputFormat string `json:"output_format,omitempty"`
-	// Language is an ISO 639-1 code, for the models that take one.
+	// Language is an ISO 639-1 code, for the speech models that take one and
+	// for Scribe (a locale is cut to its language; empty lets Scribe detect).
 	Language string `json:"language,omitempty"`
+	// Diarize labels speakers. Speech to text.
+	Diarize bool `json:"diarize,omitempty"`
+	// TagAudioEvents marks laughter, applause and the like in the transcript.
+	// Speech to text.
+	TagAudioEvents bool `json:"tag_audio_events,omitempty"`
 	// Stability and Similarity are voice settings, 0..1.
 	Stability  *float64 `json:"stability,omitempty"`
 	Similarity *float64 `json:"similarity,omitempty"`
@@ -99,7 +119,7 @@ func (e *ElevenLabs) Init(context.Context) []api.Action {
 	}
 	models := e.Models
 	if len(models) == 0 {
-		models = DefaultModels
+		models = append(append([]string(nil), DefaultModels...), DefaultSTTModels...)
 	}
 	var actions []api.Action
 	for _, m := range models {
@@ -108,7 +128,17 @@ func (e *ElevenLabs) Init(context.Context) []api.Action {
 	return actions
 }
 
+// IsSTT reports whether a model name (without the prefix) transcribes.
+func IsSTT(model string) bool { return strings.HasPrefix(model, "scribe") }
+
 func (e *ElevenLabs) model(name string) api.Action {
+	if IsSTT(name) {
+		supports := &ai.ModelSupports{Media: true, Multiturn: false, Output: []string{"text"}}
+		return ai.NewModelAction(Provider+"/"+name, &ai.ModelOptions{Label: "ElevenLabs " + name, Supports: supports},
+			func(ctx context.Context, req *ai.ModelRequest, cfg Config, _ ai.ModelStreamCallback) (*ai.ModelResponse, error) {
+				return e.transcribe(ctx, name, req, cfg)
+			})
+	}
 	supports := &ai.ModelSupports{Media: false, Multiturn: false, Output: []string{"media"}}
 	return ai.NewModelAction(Provider+"/"+name, &ai.ModelOptions{Label: "ElevenLabs " + name, Supports: supports},
 		func(ctx context.Context, req *ai.ModelRequest, cfg Config, _ ai.ModelStreamCallback) (*ai.ModelResponse, error) {
@@ -254,6 +284,156 @@ func (e *ElevenLabs) loadVoices(ctx context.Context) error {
 		e.voices[strings.ToLower(v.Name)] = v.VoiceID
 	}
 	return nil
+}
+
+// transcript is the part of the speech-to-text response tamesu reads.
+type transcript struct {
+	Text  string `json:"text"`
+	Words []struct {
+		Text    string  `json:"text"`
+		Type    string  `json:"type"`
+		End     float64 `json:"end"`
+		Logprob float64 `json:"logprob"`
+	} `json:"words"`
+}
+
+func (e *ElevenLabs) transcribe(ctx context.Context, model string, req *ai.ModelRequest, cfg Config) (*ai.ModelResponse, error) {
+	if e.APIKey == "" {
+		return nil, errors.New("elevenlabs: no API key (set ELEVENLABS_API_KEY or ElevenLabs.APIKey)")
+	}
+	mime, data, err := audioPart(req)
+	if err != nil {
+		return nil, err
+	}
+	var form bytes.Buffer
+	w := multipart.NewWriter(&form)
+	part, err := w.CreateFormFile("file", "audio"+extensionFor(mime))
+	if err != nil {
+		return nil, err
+	}
+	if _, err := part.Write(data); err != nil {
+		return nil, err
+	}
+	_ = w.WriteField("model_id", model)
+	if lang, _, _ := strings.Cut(cfg.Language, "-"); lang != "" {
+		_ = w.WriteField("language_code", strings.ToLower(lang))
+	}
+	_ = w.WriteField("tag_audio_events", strconv.FormatBool(cfg.TagAudioEvents))
+	if cfg.Diarize {
+		_ = w.WriteField("diarize", "true")
+	}
+	if err := w.Close(); err != nil {
+		return nil, err
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(e.BaseURL, "/")+"/v1/speech-to-text", &form)
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("xi-api-key", e.APIKey)
+	httpReq.Header.Set("Content-Type", w.FormDataContentType())
+	res, err := e.HTTPClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("elevenlabs: %w", err)
+	}
+	defer func() { _ = res.Body.Close() }()
+	body, err := io.ReadAll(io.LimitReader(res.Body, 8<<20))
+	if err != nil {
+		return nil, fmt.Errorf("elevenlabs: %w", err)
+	}
+	if res.StatusCode/100 != 2 {
+		return nil, fmt.Errorf("elevenlabs: %s: %s", res.Status, strings.TrimSpace(string(body)))
+	}
+	var out transcript
+	if err := json.Unmarshal(body, &out); err != nil {
+		return nil, fmt.Errorf("elevenlabs: decoding the response: %w", err)
+	}
+	text := strings.TrimSpace(out.Text)
+	// Scribe times every word and gives each a log probability; the end of
+	// the last one is the speech's duration, the mean probability its
+	// confidence.
+	seconds, confidence, words := 0.0, 0.0, 0
+	for _, wd := range out.Words {
+		if wd.End > seconds {
+			seconds = wd.End
+		}
+		if wd.Type == "word" {
+			confidence += math.Exp(wd.Logprob)
+			words++
+		}
+	}
+	if words > 0 {
+		confidence /= float64(words)
+	}
+	return &ai.ModelResponse{
+		Request:      req,
+		FinishReason: ai.FinishReasonStop,
+		Message:      ai.NewModelTextMessage(text),
+		Usage: &ai.GenerationUsage{
+			InputAudioFiles:  1,
+			OutputCharacters: len(text),
+			Custom:           map[string]float64{"audio_seconds": seconds, "confidence": confidence},
+		},
+	}, nil
+}
+
+// extensionFor names the uploaded file for its type.
+func extensionFor(mime string) string {
+	mt, _, _ := strings.Cut(strings.ToLower(mime), ";")
+	switch mt {
+	case "audio/mpeg", "audio/mp3":
+		return ".mp3"
+	case "audio/ogg":
+		return ".ogg"
+	case "audio/flac", "audio/x-flac":
+		return ".flac"
+	case "audio/webm", "video/webm":
+		return ".webm"
+	case "audio/mp4", "audio/m4a", "audio/x-m4a":
+		return ".m4a"
+	}
+	return ".wav"
+}
+
+// audioPart finds the audio in the request: the last media part, as a data
+// URL (data:<mime>;base64,<data>) or raw base64 with the part's content type.
+func audioPart(req *ai.ModelRequest) (mime string, data []byte, err error) {
+	for i := len(req.Messages) - 1; i >= 0; i-- {
+		for _, p := range req.Messages[i].Content {
+			if !p.IsMedia() {
+				continue
+			}
+			return decodePart(p)
+		}
+	}
+	return "", nil, errors.New("elevenlabs: the request has no audio media part")
+}
+
+func decodePart(p *ai.Part) (string, []byte, error) {
+	s := p.Text
+	mime := p.ContentType
+	if strings.HasPrefix(s, "data:") {
+		meta, payload, ok := strings.Cut(s[len("data:"):], ",")
+		if !ok {
+			return "", nil, errors.New("elevenlabs: malformed data URL")
+		}
+		if m, _, _ := strings.Cut(meta, ";"); m != "" {
+			mime = m
+		}
+		if !strings.Contains(meta, "base64") {
+			return "", nil, errors.New("elevenlabs: data URL must be base64")
+		}
+		s = payload
+	} else if strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") {
+		return "", nil, errors.New("elevenlabs: media URLs are not fetched; pass the audio as a data URL")
+	}
+	data, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		return "", nil, fmt.Errorf("elevenlabs: decoding the audio: %w", err)
+	}
+	if mime == "" {
+		mime = "audio/wav"
+	}
+	return mime, data, nil
 }
 
 func promptText(req *ai.ModelRequest) string {

@@ -178,7 +178,7 @@ Rules the validator enforces (each error is `file:line: path: message`):
 ```yaml
 version: 1
 suites: ["tests/**/*.yaml"]          # what run/validate/list use when no paths are given
-genkit: { plugins: [googlegenai, anthropic, openai, ollama, deepgram, elevenlabs, cartesia, soniox], dev_ui: false }
+genkit: { plugins: [googlegenai, anthropic, openai, ollama, deepgram, elevenlabs, cartesia, soniox, assemblyai, azure, rime, googlespeech, speechmatics, gladia], dev_ui: false }
 models:                               # every value is a Genkit model reference
   default: googleai/gemini-2.5-flash
   judge: anthropic/claude-sonnet-4-6
@@ -204,7 +204,9 @@ secrets:
 
 Suites can override `defaults`, `models`, `budgets` and `secrets`. Model credentials are
 picked up by their conventional names (`GEMINI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`,
-`DEEPGRAM_API_KEY`, `ELEVENLABS_API_KEY`, `CARTESIA_API_KEY`, `SONIOX_API_KEY`) or from `models.credentials`.
+`DEEPGRAM_API_KEY`, `ELEVENLABS_API_KEY`, `CARTESIA_API_KEY`, `SONIOX_API_KEY`, `ASSEMBLYAI_API_KEY`,
+`AZURE_SPEECH_KEY` with `AZURE_SPEECH_REGION`, `RIME_API_KEY`, `GOOGLE_CLOUD_API_KEY` with
+`GOOGLE_CLOUD_PROJECT` for speech to text, `SPEECHMATICS_API_KEY`, `GLADIA_API_KEY`) or from `models.credentials`.
 
 ## Commands
 

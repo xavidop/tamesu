@@ -50,7 +50,8 @@ type Budget struct {
 // Config configures the client.
 type Config struct {
 	// Plugins to initialise by name: googlegenai, anthropic, openai, ollama,
-	// evaluators, and fake (only in a build with -tags llmfake).
+	// deepgram, elevenlabs, cartesia, soniox, assemblyai, azure, rime,
+	// googlespeech, speechmatics, gladia, evaluators, and fake (only in a build with -tags llmfake).
 	Plugins []string
 	Models  Models
 	// Credentials returns a resolved secret by conventional name
