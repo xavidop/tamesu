@@ -2,6 +2,13 @@
 
 All notable changes to tamesu are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/). Each new release is added at the top, with notes generated from the commit messages.
 
+# [1.19.0](https://github.com/xavidop/tamesu/compare/v1.18.0...v1.19.0) (2026-11-05)
+
+
+### Features
+
+* **llm:** speech plugins for OpenAI, Azure, AssemblyAI, Rime, Google Cloud, Speechmatics and Gladia ([a66c1bb](https://github.com/xavidop/tamesu/commit/a66c1bb7718baf283636f4a7cfabc56380162cfe))
+
 # [1.18.0](https://github.com/xavidop/tamesu/compare/v1.17.1...v1.18.0) (2026-11-05)
 
 
