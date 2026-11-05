@@ -107,7 +107,7 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 	var remotes *remoteAgents
 	if len(it.suite.RemoteAgents) > 0 {
 		var err error
-		if remotes, err = startRemoteAgents(it.suite.RemoteAgents, render, toolFuzz, logger); err != nil {
+		if remotes, err = startRemoteAgents(it.suite.RemoteAgents, render, toolFuzz, r.o.RemoteBinding, logger); err != nil {
 			return fail(report.KindInfra, err)
 		}
 		defer remotes.close()
@@ -175,7 +175,7 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 	if err != nil {
 		return fail(report.KindInfra, err)
 	}
-	loop := &persona.Loop{Sim: r.simulator(), Seed: it.seed, Mode: it.mode, Logger: logger, Now: r.now, ScriptTimeout: it.timeout / 2, OnAgentTurn: caps.turn, Handoff: handoffDetector(it.target.Handoff)}
+	loop := &persona.Loop{Sim: r.simulator(), Seed: it.seed, Mode: it.mode, Logger: logger, Now: r.now, ScriptTimeout: it.timeout / 2, OnAgentTurn: caps.turn, Handoff: handoffDetector(it.target.Handoff), BaseDir: filepath.Dir(it.suite.Path)}
 	var lo *persona.Outcome
 	var loopErr error
 	var stepFails []assert.Result

@@ -71,7 +71,7 @@ updates:
     schedule: { interval: weekly }
     labels: [dependencies, go, target]
 
-  # A2A target (own go.mod; standard library JSON-RPC client plus the root module)
+  # A2A target (own go.mod; a2a-go's protobuf types, grpc-go and protobuf plus the root module)
   - package-ecosystem: gomod
     directory: "/targets/a2a"
     schedule: { interval: weekly }

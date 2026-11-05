@@ -5,6 +5,8 @@ import (
 	"github.com/xavidop/tamesu/assert"
 	"github.com/xavidop/tamesu/target"
 	"net"
+	"os"
+	"path/filepath"
 	"time"
 
 	"fmt"
@@ -61,8 +63,11 @@ var targetFieldTypes = map[string][]string{
 	"sample_rate": {TargetPipecat}, "idle": {TargetPipecat, TargetTwilio, TargetVoice}, "parameters": {TargetTwilio},
 	"system": {TargetModel, TargetMCP}, "system_file": {TargetModel, TargetMCP}, "tools": {TargetModel}, "temperature": {TargetModel, TargetMCP}, "max_tokens": {TargetModel, TargetMCP}, "max_tool_rounds": {TargetModel, TargetMCP}, "fallback": {TargetModel, TargetMCP},
 	"command": {TargetMCP}, "args": {TargetMCP}, "env": {TargetMCP}, "allow_tools": {TargetMCP}, "call_timeout": {TargetMCP},
-	"stream": {TargetA2A}, "skill": {TargetA2A}, "metadata": {TargetA2A},
+	"stream": {TargetA2A}, "skill": {TargetA2A}, "metadata": {TargetA2A}, "transport": {TargetA2A}, "push": {TargetA2A},
 }
+
+// A2ATransports are the protocol bindings of the a2a target.
+var A2ATransports = []string{"jsonrpc", "http", "grpc"}
 
 // RealtimeProtocols are the event dialects of the realtime target.
 var RealtimeProtocols = []string{"ga", "beta"}
@@ -417,7 +422,23 @@ func (v *validator) target(name string, t Target) {
 		}
 	case TargetA2A:
 		if t.URL == "" {
-			v.errorf(tp, "a2a target needs url (the agent's JSON-RPC endpoint; the agent card is read from its origin)")
+			v.errorf(tp, "a2a target needs url (the agent's endpoint; the agent card is read from its origin)")
+		}
+		if t.Transport != "" && !slices.Contains(A2ATransports, t.Transport) {
+			v.errorf(with(tp, "transport"), "transport must be one of %s", strings.Join(A2ATransports, ", "))
+		}
+		if t.Push != nil && t.Push.Enabled {
+			if t.Push.Addr != "" && !strings.Contains(t.Push.Addr, "{{") {
+				if _, _, err := net.SplitHostPort(t.Push.Addr); err != nil {
+					v.errorf(with(tp, "push", "addr"), "addr must be host:port such as 0.0.0.0:8099")
+				}
+			}
+			if t.Push.URL != "" && !strings.Contains(t.Push.URL, "{{") && !strings.HasPrefix(t.Push.URL, "http://") && !strings.HasPrefix(t.Push.URL, "https://") {
+				v.errorf(with(tp, "push", "url"), "url must start with http:// or https://")
+			}
+			if t.Stream {
+				v.warnf(with(tp, "push"), "push applies to message/send; with stream the events arrive on the stream")
+			}
 		}
 	case TargetMCP:
 		if t.URL == "" && t.Command == "" {
@@ -716,6 +737,22 @@ func (v *validator) scenario(sp []string, sc Scenario, ttype string) {
 		}
 		if kind != "say" && !voice {
 			v.warnf(p, "%s steps apply to sip and livekit tests; this target is %s", kind, ttype)
+		}
+		if (len(st.Data) > 0 || len(st.Files) > 0) && ttype != "" && ttype != TargetA2A {
+			v.warnf(p, "data and files are sent by the a2a target; this target is %s", ttype)
+		}
+		for j, f := range st.Files {
+			fp := with(p, "files", idx(j))
+			switch {
+			case f.Path == "" && f.URI == "":
+				v.errorf(fp, "a file needs a path or a uri")
+			case f.Path != "" && f.URI != "":
+				v.errorf(fp, "path and uri exclude each other")
+			case f.Path != "" && !strings.Contains(f.Path, "{{") && v.s != nil && v.s.Path != "":
+				if _, err := os.Stat(filepath.Join(filepath.Dir(v.s.Path), f.Path)); err != nil {
+					v.warnf(with(fp, "path"), "file not found: %s", f.Path)
+				}
+			}
 		}
 		if st.DTMF != "" && !dtmfRe.MatchString(st.DTMF) {
 			v.errorf(with(p, "dtmf"), "dtmf must be digits, A-D, * or #")
@@ -1244,6 +1281,16 @@ func (v *validator) remoteAgent(rp []string, name string, ra RemoteAgent) {
 		}
 		if r.State != "" && r.State != "completed" && r.State != "input-required" && r.State != "failed" {
 			v.errorf(with(p, "state"), "state must be completed, input-required or failed")
+		}
+	}
+	if ra.Extended != nil {
+		for i, sk := range ra.Extended.Skills {
+			if strings.TrimSpace(sk.ID) == "" {
+				v.errorf(with(rp, "extended", "skills", idx(i)), "a skill needs an id")
+			}
+		}
+		if ra.Extended.Description == "" && len(ra.Extended.Skills) == 0 {
+			v.warnf(with(rp, "extended"), "extended adds nothing: give it a description or skills")
 		}
 	}
 	if ra.Forward != "" && len(ra.Replies) > 0 {

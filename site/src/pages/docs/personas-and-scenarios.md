@@ -79,6 +79,8 @@ reproduced exactly.
 | `say: "text"` | Sends exactly this text on any conversational target. Templates render at send time, so `{{vars.x}}` and values captured earlier in the conversation (`{{captured.order_id}}`) work. |
 | `dtmf: "1234#"` | Presses keypad digits (sip, livekit audio, twilio): `0`-`9`, `*`, `#`. |
 | `wait_for: "text"` | Waits until the agent's transcript contains the text, fuzzily (case, punctuation and spelled digits do not matter), up to half the test timeout; a step that never hears it fails the run with `stop_reason: script`. |
+| `data: { ... }` | A structured part sent with the step, alone or with `say` (a2a: a data part). The transcript shows it as JSON. |
+| `files: [...]` | Files sent with the step (a2a: file parts): a path relative to the suite, whose bytes go inline, or a URI the agent fetches, or `{ path / uri, name, mime }`. A missing file fails the step. |
 
 ```yaml
 tests:

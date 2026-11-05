@@ -26,6 +26,9 @@ type reply struct {
 	artifact bool
 	// working answers a working task first; tasks/get then completes it.
 	working bool
+	// drop ends the stream after the first word, without a final event;
+	// tasks/resubscribe then replays the rest.
+	drop bool
 }
 
 // agent is a scripted A2A server: an agent card, message/send, message/stream,
@@ -42,6 +45,12 @@ type agent struct {
 	cancelled []string
 	polls     int
 	rpcError  *rpcError
+	// extended adds a skill to the authenticated extended card; secured puts a
+	// security requirement on the card.
+	extended      bool
+	secured       bool
+	extendedCalls int
+	resubscribes  int
 }
 
 func newAgent(replies ...reply) *agent {
@@ -53,6 +62,10 @@ func (a *agent) card() Card {
 		DefaultInputModes: []string{"text/plain"}, DefaultOutputModes: []string{"text/plain"},
 		Skills: []Skill{{ID: "order-status", Name: "Order status", Tags: []string{"orders"}}, {ID: "returns", Name: "Returns", Tags: []string{"policy"}}}}
 	c.Capabilities.Streaming = a.streaming
+	c.SupportsAuthenticatedExtendedCard = a.extended
+	if a.secured {
+		c.Security = []map[string][]string{{"bearer": {}}}
+	}
 	return c
 }
 
@@ -104,6 +117,32 @@ func (a *agent) handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch req.Method {
+	case "agent/getAuthenticatedExtendedCard":
+		a.extendedCalls++
+		if r.Header.Get("Authorization") == "" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "error": rpcError{Code: -32007, Message: "authentication required"}})
+			return
+		}
+		c := a.card()
+		c.Skills = append(c.Skills, Skill{ID: "vip-returns", Name: "VIP returns", Tags: []string{"policy"}})
+		write(c)
+	case "tasks/resubscribe":
+		a.resubscribes++
+		t := a.tasks[params.ID]
+		if t == nil {
+			_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "error": rpcError{Code: -32001, Message: "task not found"}})
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		fl := w.(http.Flusher)
+		emit := func(result any) {
+			b, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": result})
+			_, _ = fmt.Fprintf(w, "data: %s\n\n", b)
+			fl.Flush()
+		}
+		emit(map[string]any{"kind": "status-update", "taskId": t.ID, "contextId": t.ContextID, "final": false,
+			"status": taskStatus{State: StateWorking, Message: &message{Kind: "message", MessageID: "r1", Role: "agent", Parts: []part{{Kind: "text", Text: " after the drop"}}}}})
+		emit(map[string]any{"kind": "status-update", "taskId": t.ID, "contextId": t.ContextID, "final": true, "status": taskStatus{State: t.Status.State}})
 	case "tasks/get":
 		a.polls++
 		t := a.tasks[params.ID]
@@ -168,6 +207,9 @@ func (a *agent) handle(w http.ResponseWriter, r *http.Request) {
 		for i, word := range words {
 			if i > 0 {
 				word = " " + word
+			}
+			if rep.drop && i == 1 {
+				return // the connection is lost mid-stream
 			}
 			if rep.artifact {
 				emit(map[string]any{"kind": "artifact-update", "taskId": t.ID, "contextId": t.ContextID, "append": i > 0, "lastChunk": i == len(words)-1,
@@ -260,7 +302,7 @@ func TestBlockingConversation(t *testing.T) {
 	for _, e := range arts.Events {
 		kinds = append(kinds, e.Kind)
 	}
-	assert.Equal(t, []string{"card", "task_input_required", "task_completed"}, kinds)
+	assert.Equal(t, []string{"card", "transport", "task_input_required", "task_completed"}, kinds)
 	assert.Contains(t, arts.Events[0].Detail, "order-status, returns")
 	assert.Empty(t, a.cancelled, "nothing to cancel: the task completed")
 }
@@ -408,5 +450,5 @@ func TestCloseCancelsAWaitingTask(t *testing.T) {
 
 func TestPartsText(t *testing.T) {
 	got := partsText([]part{{Kind: "text", Text: "Total: "}, {Kind: "data", Data: map[string]any{"amount": 42}}, {Kind: "file", File: map[string]any{"uri": "x"}}})
-	assert.Equal(t, `Total: {"amount":42}`, got)
+	assert.Equal(t, `Total: {"amount":42}[file x]`, got)
 }

@@ -1,0 +1,30 @@
+suite: a2a-full-bad
+targets:
+  agent:
+    type: a2a
+    url: http://localhost:8090/a2a
+    transport: soap
+    push: { addr: nowhere, url: ftp://x }
+  api:
+    type: rest
+    url: http://localhost:8080/chat
+    response: { text: $.reply }
+remote_agents:
+  billing:
+    reply: ok
+    extended: { skills: [{ id: "" }] }
+tests:
+  - name: files
+    target: agent
+    scenario:
+      script:
+        - { say: hi, files: [{ name: x }] }
+        - { files: [{ path: a.pdf, uri: "https://x/y" }] }
+        - { data: { a: 1 } }
+    assert: [ { contains: hi } ]
+  - name: rest with files
+    target: api
+    scenario:
+      script:
+        - { say: hi, files: ["missing.pdf"] }
+    assert: [ { contains: hi } ]

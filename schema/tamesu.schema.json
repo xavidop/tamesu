@@ -1045,6 +1045,32 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "Push": {
+      "oneOf": [
+        {
+          "type": "boolean",
+          "description": "true listens on a free local port."
+        },
+        {
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "false turns push off; default true in the mapping form."
+            },
+            "addr": {
+              "type": "string",
+              "description": "Address to listen on such as 0.0.0.0:8099; default a free port on 127.0.0.1."
+            },
+            "url": {
+              "type": "string",
+              "description": "The URL the agent calls (a tunnel or a container address); default http://\u003caddr\u003e."
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
+        }
+      ]
+    },
     "Quarantine": {
       "properties": {
         "reason": {
@@ -1350,6 +1376,31 @@
           },
           "type": "object",
           "description": "Headers added to forwarded requests such as Authorization (templates allowed)."
+        },
+        "extended": {
+          "$ref": "#/$defs/RemoteExtended",
+          "description": "What the authenticated extended card adds (agent/getAuthenticatedExtendedCard): more skills and a fuller description for callers that send credentials."
+        },
+        "token": {
+          "type": "string",
+          "description": "A bearer token every request must carry (templates allowed); the card declares the scheme and a request without it gets 401."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "RemoteExtended": {
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "The description on the extended card; default the card's."
+        },
+        "skills": {
+          "items": {
+            "$ref": "#/$defs/RemoteSkill"
+          },
+          "type": "array",
+          "description": "Skills only the extended card lists."
         }
       },
       "additionalProperties": false,
@@ -1443,6 +1494,36 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "ScriptFile": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "A path relative to the suite, or a URI."
+        },
+        {
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "A file relative to the suite; its bytes are sent."
+            },
+            "uri": {
+              "type": "string",
+              "description": "A URI the agent fetches itself; sent instead of bytes."
+            },
+            "name": {
+              "type": "string",
+              "description": "The file name the agent sees; default the path's base name."
+            },
+            "mime": {
+              "type": "string",
+              "description": "The media type; default from the extension."
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
+        }
+      ]
+    },
     "ScriptStep": {
       "properties": {
         "wait_for": {
@@ -1456,6 +1537,17 @@
         "say": {
           "type": "string",
           "description": "Exact text to say before the persona takes over."
+        },
+        "data": {
+          "type": "object",
+          "description": "A structured part sent with the step (a2a: a data part); alone or with say."
+        },
+        "files": {
+          "items": {
+            "$ref": "#/$defs/ScriptFile"
+          },
+          "type": "array",
+          "description": "Files sent with the step (a2a: file parts): a path relative to the suite or a URI"
         }
       },
       "additionalProperties": false,
@@ -1862,6 +1954,19 @@
         "metadata": {
           "type": "object",
           "description": "a2a: metadata sent with every message (a tenant or a locale)."
+        },
+        "transport": {
+          "type": "string",
+          "enum": [
+            "jsonrpc",
+            "http",
+            "grpc"
+          ],
+          "description": "a2a: the protocol binding; default the card's preferred transport or jsonrpc. http is the HTTP+JSON binding and grpc the gRPC one (url grpc://host:port or the card's interface)."
+        },
+        "push": {
+          "$ref": "#/$defs/Push",
+          "description": "a2a: receive task updates by push notification on a local listener instead of polling; true or { addr / url } when the agent reaches tamesu through another address."
         },
         "system": {
           "type": "string",

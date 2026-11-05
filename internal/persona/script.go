@@ -2,8 +2,13 @@ package persona
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"mime"
+	"os"
+	"path"
+	"path/filepath"
 	"strings"
 	"time"
 	"unicode"
@@ -46,7 +51,14 @@ func (l *Loop) runScript(ctx context.Context, sess target.Session, out *Outcome,
 					say = r
 				}
 			}
-			ut := target.UserTurn{Text: say, DTMF: st.DTMF, At: now()}
+			ut := target.UserTurn{Text: say, DTMF: st.DTMF, Data: st.Data, At: now()}
+			for j, f := range st.Files {
+				att, err := l.attachment(f)
+				if err != nil {
+					return &ScriptError{Step: i, Kind: "say", Text: f.Path + f.URI, Reason: fmt.Sprintf("files[%d]: %v", j, err)}
+				}
+				ut.Files = append(ut.Files, att)
+			}
 			if _, err := l.exchange(ctx, sess, out, ut, "script"); err != nil {
 				return err
 			}
@@ -86,11 +98,66 @@ func (l *Loop) runScript(ctx context.Context, sess target.Session, out *Outcome,
 
 // exchange sends one user turn and records the agent's answer; a listening
 // turn (no text, no digits) adds no user line to the transcript.
+// attachment reads a script file: the bytes of a path (relative to BaseDir)
+// or a URI the agent fetches itself.
+func (l *Loop) attachment(f config.ScriptFile) (target.Attachment, error) {
+	att := target.Attachment{Name: f.Name, MIME: f.MIME, URI: f.URI}
+	if l.Render != nil {
+		if r, err := l.Render(f.Path); err == nil {
+			f.Path = r
+		}
+		if r, err := l.Render(att.URI); err == nil {
+			att.URI = r
+		}
+	}
+	if f.Path != "" {
+		path := f.Path
+		if !filepath.IsAbs(path) && l.BaseDir != "" {
+			path = filepath.Join(l.BaseDir, path)
+		}
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return att, err
+		}
+		att.Bytes = b
+		if att.Name == "" {
+			att.Name = filepath.Base(path)
+		}
+	} else if att.Name == "" && att.URI != "" {
+		att.Name = path.Base(att.URI)
+	}
+	if att.MIME == "" {
+		att.MIME = mime.TypeByExtension(filepath.Ext(att.Name))
+		if att.MIME == "" {
+			att.MIME = "application/octet-stream"
+		}
+	}
+	return att, nil
+}
+
+// attachmentsText is what the transcript says for a turn with no words: the
+// data as JSON and the file names, so judges and golden files see them.
+func attachmentsText(ut target.UserTurn) string {
+	var parts []string
+	if len(ut.Data) > 0 {
+		if b, err := json.Marshal(ut.Data); err == nil {
+			parts = append(parts, string(b))
+		}
+	}
+	for _, f := range ut.Files {
+		parts = append(parts, "[file "+f.Name+"]")
+	}
+	return strings.Join(parts, " ")
+}
+
 func (l *Loop) exchange(ctx context.Context, sess target.Session, out *Outcome, ut target.UserTurn, kind string) (target.AgentTurn, error) {
-	if ut.Text != "" || ut.DTMF != "" {
+	if ut.Text != "" || ut.DTMF != "" || len(ut.Data) > 0 || len(ut.Files) > 0 {
 		text := ut.Text
 		if ut.DTMF != "" {
 			text = strings.TrimSpace(text + " [dtmf " + ut.DTMF + "]")
+		}
+		if text == "" {
+			text = attachmentsText(ut)
 		}
 		userTurn := assert.Turn{Role: "user", Text: text, At: ut.At}
 		out.Transcript = append(out.Transcript, userTurn)
