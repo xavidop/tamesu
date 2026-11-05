@@ -156,7 +156,7 @@ func Merge(dirs []string, outDir string) (*Summary, error) {
 		return nil, err
 	}
 	ctx := context.Background()
-	for _, rep := range []Reporter{NewJSON(out), NewJUnit(out), NewHTML(out), NewMarkdown(out)} {
+	for _, rep := range []Reporter{NewJSON(out), NewJUnit(out), NewHTML(out), NewMarkdown(out), NewSARIF(out)} {
 		if err := rep.Finish(ctx, merged); err != nil {
 			return nil, fmt.Errorf("merge: %w", err)
 		}

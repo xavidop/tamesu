@@ -8,7 +8,7 @@ title: Reports
 ![A report sheet with bar charts and a sparkline, a flag planted on one bar](/img/reports.jpg)
 
 Every `tamesu run` writes a run directory and feeds the reporters named in `reporters:` (or
-`--reporter`): `console`, `json`, `junit` and `html`.
+`--reporter`): `console`, `json`, `junit`, `html`, `markdown`, `github`, `slack` and `sarif`.
 
 ## The run directory
 
@@ -16,6 +16,7 @@ Every `tamesu run` writes a run directory and feeds the reporters named in `repo
 .tamesu/runs/2026-10-31T14-20-00/
   summary.json
   junit.xml
+  tamesu.sarif         (sarif reporter: the red-team findings for a security dashboard)
   report.html          (html reporter, or tamesu report <run-dir>)
   coverage.md          what the run exercised: targets, tags, tools, assertion kinds (also coverage.json; tamesu coverage prints it)
   matrix.md            (tamesu run --matrix: the variants compared; each variant's run directory sits next to it)
@@ -83,7 +84,23 @@ FAIL   support-agent / reschedule booking by voice  14.8s  (3/5 runs passed, thr
 `junit.xml`, one `testsuite` per suite and one `testcase` per test, repeats aggregated: the
 failure message carries the pass rate or the first failing assertion, the body every failing
 run's reasons, and `system-out` the first failing transcript. An infrastructure error is an
-`error`, not a `failure`. GitHub Actions, GitLab and Jenkins test reporters read it as is.
+`error`, not a `failure`. Each `testcase` carries the suite `file` and `line` of its test, so a
+reporter that annotates sources (dorny/test-reporter, GitLab) points at the test. GitHub Actions,
+GitLab and Jenkins test reporters read it as is; see [CI](/docs/ci/) for the workflow step.
+
+## sarif
+
+`tamesu.sarif`, the run's **security findings** as [SARIF 2.1.0](https://sarifweb.azurewebsites.net/),
+the format GitHub code scanning, Azure DevOps and most security dashboards ingest. A finding is
+a red-team attack that got through (level `error`, rule `tamesu/playbook/<name>`, with the
+attack's name, the playbook's OWASP category and the judge's reasons), an attack that could not
+run (`warning`), or a failed check of a built-in red-team pack on any test (`error`, rule
+`tamesu/pack/<name>`). Each result points at the test's line in its suite file and carries a
+stable fingerprint, so an alert stays the same alert run after run and closes when the attack
+holds again. A run without findings writes an empty result set, which closes the open alerts.
+Plain test failures are not findings; they are in `junit.xml`. On GitHub, upload the file with
+`github/codeql-action/upload-sarif` and the findings appear under **Security → Code scanning**
+(see [CI](/docs/ci/#the-security-tab)).
 
 ## json
 
