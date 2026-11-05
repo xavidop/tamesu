@@ -2,6 +2,13 @@
 
 All notable changes to tamesu are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/). Each new release is added at the top, with notes generated from the commit messages.
 
+# [1.13.0](https://github.com/xavidop/tamesu/compare/v1.12.0...v1.13.0) (2026-11-05)
+
+
+### Features
+
+* **rest,livekit:** socket.io, handshake steps, session.open everywhere, a LiveKit token ([d6f6cfd](https://github.com/xavidop/tamesu/commit/d6f6cfd8dc372ac47fc2797076cd9225e0a53af8))
+
 # [1.12.0](https://github.com/xavidop/tamesu/compare/v1.11.0...v1.12.0) (2026-11-04)
 
 
