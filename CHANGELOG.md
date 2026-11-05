@@ -2,6 +2,13 @@
 
 All notable changes to tamesu are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/). Each new release is added at the top, with notes generated from the commit messages.
 
+## [1.17.1](https://github.com/xavidop/tamesu/compare/v1.17.0...v1.17.1) (2026-11-05)
+
+
+### Bug Fixes
+
+* **a2a:** a pushed task is returned as submitted, never as already finished ([e5a4831](https://github.com/xavidop/tamesu/commit/e5a4831d4911b9481f9573db8f825222337a4456))
+
 # [1.17.0](https://github.com/xavidop/tamesu/compare/v1.16.0...v1.17.0) (2026-11-05)
 
 
