@@ -2,6 +2,13 @@
 
 All notable changes to tamesu are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/). Each new release is added at the top, with notes generated from the commit messages.
 
+# [1.16.0](https://github.com/xavidop/tamesu/compare/v1.15.1...v1.16.0) (2026-11-05)
+
+
+### Features
+
+* **a2a:** every binding, push notifications, resubscribe, the extended card and user files ([928afe2](https://github.com/xavidop/tamesu/commit/928afe295f92076638396c9b56ae19951b58f4b3))
+
 ## [1.15.1](https://github.com/xavidop/tamesu/compare/v1.15.0...v1.15.1) (2026-11-05)
 
 
