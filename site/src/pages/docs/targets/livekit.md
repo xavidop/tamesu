@@ -86,7 +86,7 @@ A greeting the agent sends before the first user turn is attached to the first r
 | `api_key`, `api_secret` | As `{{secrets.NAME}}`; used to sign the join token only. |
 | `token` | A ready-made access token instead of `api_key` and `api_secret`: a hosted platform's web call, usually a `{{session.NAME}}` capture of `session.open` (the request that creates the call). The participant identity is read from the token unless `identity` is set. |
 | `identity` | The simulated caller's participant identity; default `tamesu-sim-<uuid>`, or the token's. |
-| `session.open` | A request made once per run before joining (create the call, mint the token), with `capture` values as `{{session.NAME}}`; see [Recipes](/docs/recipes/#a-retell-agent-through-a-web-call) for a hosted platform. |
+| `session.open` | A request made once per run before joining (create the call, mint the token), with `capture` values as `{{session.NAME}}`; see [Recipes](/docs/recipes/voice/#a-retell-agent-through-a-web-call) for a hosted platform. |
 | `room` | Room name template; default `tamesu-{{uuid}}`. |
 | `dispatch.agent_name` | Requests an explicit agent dispatch when the room is created. |
 | `agent_identity_prefix` | Identity prefix of the agent participant; default: a participant of kind agent, else any. |
