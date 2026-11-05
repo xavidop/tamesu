@@ -762,17 +762,19 @@ func (s *session) sendPush(ctx context.Context, msg message) (target.AgentTurn, 
 		case <-ctx.Done():
 			return agent, fmt.Errorf("no push notification settled the task within %s (state %s)", s.t.cfg.Timeout, ev.Status.State)
 		case raw := <-s.push:
-			s.pushes++
 			got, r, err := readResult("push notification", raw)
 			if err != nil {
 				return agent, err
 			}
+			// A notification for another task (one that settled before its
+			// notification arrived) is not this turn's.
 			if got.Kind == "task" && got.ID != ev.ID {
 				continue
 			}
 			if got.Kind == "status-update" && got.TaskID != ev.ID {
 				continue
 			}
+			s.pushes++
 			s.event("push_received", fmt.Sprintf("%s %s", got.ID+got.TaskID, got.Status.State))
 			if agent.FirstTokenAt.IsZero() {
 				agent.FirstTokenAt = time.Now()

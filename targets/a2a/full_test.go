@@ -179,7 +179,7 @@ func TestPushNotifications(t *testing.T) {
 			cfg := tc.cfg
 			cfg.Push = &Push{}
 			cfg.Timeout = 5 * time.Second
-			cfg.PollInterval = 50 * time.Millisecond
+			cfg.PollInterval = 200 * time.Millisecond // the safety poll stays out of the way on a slow runner
 			tgt := New("billing", cfg)
 			t.Cleanup(tgt.(*Target).Shutdown)
 			turns, arts := converse(t, tgt, "hello", "again")
