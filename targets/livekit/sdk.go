@@ -14,9 +14,12 @@ import (
 // simulated caller (creating the room and, when asked, dispatching the agent),
 // connects, and routes the room's events to the session.
 func sdkConnect(ctx context.Context, cfg connectConfig, ev events) (room, error) {
-	token, err := Token(cfg.APIKey, cfg.APISecret, cfg.Identity, cfg.Room, cfg.AgentName)
-	if err != nil {
-		return nil, err
+	token := cfg.Token
+	if token == "" {
+		var err error
+		if token, err = Token(cfg.APIKey, cfg.APISecret, cfg.Identity, cfg.Room, cfg.AgentName); err != nil {
+			return nil, err
+		}
 	}
 	cb := lksdk.NewRoomCallback()
 	cb.OnParticipantConnected = func(rp *lksdk.RemoteParticipant) { ev.onParticipantJoined(toParticipant(rp)) }

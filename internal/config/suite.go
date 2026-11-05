@@ -76,11 +76,13 @@ type Target struct {
 	Request   *RESTRequest      `yaml:"request,omitempty" json:"request,omitempty" jsonschema:"description=rest targets; how a user turn is sent"`
 	Response  *RESTResponse     `yaml:"response,omitempty" json:"response,omitempty" jsonschema:"description=rest targets; how the agent turn is read back (JSONPaths into the response)"`
 	Streaming string            `yaml:"streaming,omitempty" json:"streaming,omitempty" jsonschema:"enum=none,enum=sse,enum=websocket,description=rest targets; none (default) or sse or websocket"`
-	Session   *RESTSession      `yaml:"session,omitempty" json:"session,omitempty" jsonschema:"description=rest and voice targets; the session id template and the request that opens the session"`
+	Session   *RESTSession      `yaml:"session,omitempty" json:"session,omitempty" jsonschema:"description=The session id template (rest / grpc) and session.open: a request made once per run before the target starts (create a conversation / mint a token) whose captures render as {{session.NAME}} in the target's configuration (every target type)."`
 
 	// livekit
 	APIKey              string    `yaml:"api_key,omitempty" json:"api_key,omitempty" jsonschema:"description=Use {{secrets.NAME}}."`
 	APISecret           string    `yaml:"api_secret,omitempty" json:"api_secret,omitempty" jsonschema:"description=Use {{secrets.NAME}}."`
+	Token               string    `yaml:"token,omitempty" json:"token,omitempty" jsonschema:"description=livekit: a ready-made access token instead of api_key and api_secret (a hosted platform's web call; often a {{session.NAME}} capture of session.open); the identity is read from it."`
+	Identity            string    `yaml:"identity,omitempty" json:"identity,omitempty" jsonschema:"description=livekit: the simulated caller's participant identity; default tamesu-sim-<uuid> or the token's."`
 	Room                string    `yaml:"room,omitempty" json:"room,omitempty" jsonschema:"description=Room name template; defaults to tamesu-{{uuid}}."`
 	Dispatch            *Dispatch `yaml:"dispatch,omitempty" json:"dispatch,omitempty" jsonschema:"description=livekit targets; an explicit agent dispatch for the room"`
 	AgentIdentityPrefix string    `yaml:"agent_identity_prefix,omitempty" json:"agent_identity_prefix,omitempty" jsonschema:"description=How to recognise the agent participant; defaults to kind=agent."`
@@ -101,7 +103,7 @@ type Target struct {
 	// realtime (the OpenAI Realtime protocol over a websocket; url, headers and mode apply too)
 	Model         string         `yaml:"model,omitempty" json:"model,omitempty" jsonschema:"description=realtime: added as ?model= to the url (such as gpt-realtime). model: the Genkit model reference the prompt runs on (default models.default)."`
 	SessionUpdate map[string]any `yaml:"session_update,omitempty" json:"session_update,omitempty" jsonschema:"description=realtime: merged into the session.update event (instructions / tools / voice / output modalities)."`
-	Protocol      string         `yaml:"protocol,omitempty" json:"protocol,omitempty" jsonschema:"enum=ga,enum=beta,description=realtime: the event dialect; ga (default) or beta (modalities and the OpenAI-Beta header)."`
+	Protocol      string         `yaml:"protocol,omitempty" json:"protocol,omitempty" jsonschema:"enum=ga,enum=beta,enum=socketio,description=realtime: the event dialect ga (default) or beta (modalities and the OpenAI-Beta header). rest with streaming websocket: socketio for a socket.io server (messages are {event / data} and pings are answered)."`
 	DoneTool      string         `yaml:"done_tool,omitempty" json:"done_tool,omitempty" jsonschema:"description=realtime and model: a function call with this name ends the session; default end_session."`
 	TurnTimeout   Duration       `yaml:"turn_timeout,omitempty" json:"turn_timeout,omitempty" jsonschema:"description=realtime / grpc / pipecat / a2a / voice: how long to wait for the end of a turn; default 60s."`
 	ToolResults   map[string]any `yaml:"tool_results,omitempty" json:"tool_results,omitempty" jsonschema:"description=realtime and pipecat: answers to the agent's function calls by function name. The value (any JSON; string leaves may use {{args.<key>}}) goes back as the function's output and the response continues. Unlisted functions and done_tool are recorded only."`
@@ -204,9 +206,18 @@ type BrowserAuth struct {
 
 // RESTRequest templates how a user turn is sent.
 type RESTRequest struct {
-	Body    any               `yaml:"body,omitempty" json:"body,omitempty" jsonschema:"description=Request body template; {{message}} is the user turn and {{session}} the session id."`
-	Open    any               `yaml:"open,omitempty" json:"open,omitempty" jsonschema:"description=streaming websocket: a message template sent once after connecting."`
-	Capture map[string]string `yaml:"capture,omitempty" json:"capture,omitempty" jsonschema:"description=With response.poll: JSONPaths into the reply to the sent request by name; the values render as {{sent.NAME}} in the poll of the same turn (a message timestamp to poll after)."`
+	Body      any               `yaml:"body,omitempty" json:"body,omitempty" jsonschema:"description=Request body template; {{message}} is the user turn and {{session}} the session id."`
+	Open      any               `yaml:"open,omitempty" json:"open,omitempty" jsonschema:"description=streaming websocket: a message template sent once after connecting."`
+	Capture   map[string]string `yaml:"capture,omitempty" json:"capture,omitempty" jsonschema:"description=With response.poll: JSONPaths into the reply to the sent request by name; the values render as {{sent.NAME}} in the poll of the same turn (a message timestamp to poll after)."`
+	Handshake []HandshakeStep   `yaml:"handshake,omitempty" json:"handshake,omitempty" jsonschema:"description=streaming websocket: messages exchanged once after connecting (after open); each step sends a message and with wait reads messages until one satisfies the JSONPath and captures values from it as {{session.NAME}}."`
+}
+
+// HandshakeStep is one exchange of a websocket handshake.
+type HandshakeStep struct {
+	Send    any               `yaml:"send,omitempty" json:"send,omitempty" jsonschema:"description=The message template to send (socket.io: a mapping with event and data)."`
+	Wait    string            `yaml:"wait,omitempty" json:"wait,omitempty" jsonschema:"description=A JSONPath that must be truthy on a received message before the next step; a filter such as $[?(@.event=='client.started')].event selects the message itself."`
+	Capture map[string]string `yaml:"capture,omitempty" json:"capture,omitempty" jsonschema:"description=JSONPaths into the awaited message by name; {{session.NAME}} renders each value."`
+	Timeout Duration          `yaml:"timeout,omitempty" json:"timeout,omitempty" jsonschema:"description=How long to wait for the message; default the turn timeout."`
 }
 
 // RESTResponse says how the agent turn is read from the response.
@@ -216,6 +227,7 @@ type RESTResponse struct {
 	Done      string      `yaml:"done,omitempty" json:"done,omitempty" jsonschema:"description=JSONPath of a boolean that ends the session."`
 	TurnDone  string      `yaml:"turn_done,omitempty" json:"turn_done,omitempty" jsonschema:"description=streaming websocket: JSONPath of a boolean that ends the turn; otherwise the turn ends after idle."`
 	Idle      Duration    `yaml:"idle,omitempty" json:"idle,omitempty" jsonschema:"description=streaming websocket: silence that ends a turn when no message marks it; default 2s."`
+	Join      string      `yaml:"join,omitempty" json:"join,omitempty" jsonschema:"description=Plain JSON: the separator between several matches of text (a newline between the messages of a reply); default none."`
 	Poll      *RESTPoll   `yaml:"poll,omitempty" json:"poll,omitempty" jsonschema:"description=The agent answers somewhere else than the request's response: poll this endpoint for the reply after each turn (a chat channel's history). text / tool_calls / done then read the poll replies."`
 	Listen    *RESTListen `yaml:"listen,omitempty" json:"listen,omitempty" jsonschema:"description=The agent answers by calling an API: serve that API locally ({{listen.url}}) and read the reply from the requests the agent makes to it (a bot that answers through its platform's send endpoint). text / tool_calls / done then read those requests."`
 }

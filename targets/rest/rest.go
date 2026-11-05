@@ -58,6 +58,19 @@ type Config struct {
 	TurnDonePath string
 	// Streaming is none, sse or websocket.
 	Streaming string
+	// Protocol is the websocket's framing: empty for plain JSON messages,
+	// socketio for a socket.io server (Engine.IO v4 over the websocket:
+	// messages are events, {"event": name, "data": payload} in both
+	// directions, pings answered).
+	Protocol string
+	// Handshake are messages exchanged once after connecting (and after
+	// Open): each step sends a message and, with Wait, reads messages until
+	// one satisfies the JSONPath, capturing values from it as
+	// {{session.NAME}}.
+	Handshake []HandshakeStep
+	// Join separates the matches of TextPath in one JSON response (plain
+	// JSON only); empty concatenates them.
+	Join string
 	// Idle is the websocket end-of-turn silence; zero means DefaultIdle.
 	Idle time.Duration
 	// SessionID is the session id template; empty means {{uuid}}.
@@ -81,6 +94,22 @@ type Config struct {
 	// Connect is how a request that never reached the agent, or that the
 	// agent answered with 502, 503 or 504, is retried.
 	Connect target.ConnectPolicy
+}
+
+// ProtocolSocketIO is the socket.io framing of a websocket.
+const ProtocolSocketIO = "socketio"
+
+// HandshakeStep is one exchange of a websocket handshake.
+type HandshakeStep struct {
+	// Send is the message template (socket.io: {event, data}).
+	Send any
+	// Wait is a JSONPath that must be truthy on a received message before
+	// the next step; empty sends and moves on.
+	Wait string
+	// Capture are JSONPaths into the awaited message, by name.
+	Capture map[string]string
+	// Timeout bounds the wait; zero means the target's Timeout.
+	Timeout time.Duration
 }
 
 // New returns the target.
@@ -389,11 +418,14 @@ func (s *session) readSSE(r io.Reader) (target.AgentTurn, error) {
 // text != nil (SSE) the text is appended as a delta; otherwise it is set.
 func (s *session) extract(data any, agent *target.AgentTurn, text *strings.Builder) {
 	if s.textPath != nil {
-		for _, v := range s.textPath.Get(data) {
+		for i, v := range evalPath(s.textPath, s.t.cfg.TextPath, data) {
 			str := asString(v)
 			if text != nil {
 				text.WriteString(str)
 			} else {
+				if i > 0 && s.t.cfg.Join != "" {
+					agent.Text += s.t.cfg.Join
+				}
 				agent.Text += str
 			}
 		}
@@ -402,7 +434,7 @@ func (s *session) extract(data any, agent *target.AgentTurn, text *strings.Build
 		agent.Text = string(b)
 	}
 	if s.toolsPath != nil {
-		for _, v := range s.toolsPath.Get(data) {
+		for _, v := range evalPath(s.toolsPath, s.t.cfg.ToolCallsPath, data) {
 			switch tc := v.(type) {
 			case string:
 				agent.ToolCalls = append(agent.ToolCalls, target.ToolCall{Name: tc})
@@ -422,11 +454,47 @@ func (s *session) extract(data any, agent *target.AgentTurn, text *strings.Build
 			}
 		}
 	}
-	if s.donePath != nil {
-		if v := s.donePath.First(data); truthy(v) {
-			agent.Done = true
+	if s.donePath != nil && matchesPath(s.donePath, s.t.cfg.DonePath, data) {
+		agent.Done = true
+	}
+}
+
+// matchesPath says whether a flag path fires on a payload: a filter path
+// fires when it selects anything (the filter decided), a plain path when
+// its value is truthy (true, "done", "end", a non-zero number).
+func matchesPath(x jp.Expr, path string, data any) bool {
+	got := evalPath(x, path, data)
+	if len(got) == 0 {
+		return false
+	}
+	if isFilterPath(path) {
+		return got[0] != nil && got[0] != false
+	}
+	return truthy(got[0])
+}
+
+// evalPath runs a JSONPath on a payload. A path that starts with a filter
+// ($[?(...)]) on an object payload runs against the object wrapped in a
+// one-element list, so the filter selects the message itself; on a list
+// payload it runs as is.
+func evalPath(x jp.Expr, path string, data any) []any {
+	if isFilterPath(path) {
+		if _, isList := data.([]any); !isList {
+			return x.Get([]any{data})
 		}
 	}
+	return x.Get(data)
+}
+
+func firstOfPath(x jp.Expr, path string, data any) any {
+	if got := evalPath(x, path, data); len(got) > 0 {
+		return got[0]
+	}
+	return nil
+}
+
+func isFilterPath(path string) bool {
+	return strings.HasPrefix(strings.TrimSpace(path), "$[?(")
 }
 
 // Receive returns the agent's turn for the last Send.

@@ -111,9 +111,17 @@ func newRESTTarget(_ context.Context, spec runner.TargetSpec) (target.Target, er
 		}
 	}
 	if t.Session != nil {
+		// session.open is performed by the runner for every target type;
+		// its captures reach the target as {{session.NAME}} through Render.
 		cfg.SessionID = t.Session.ID
-		if o := t.Session.Open; o != nil {
-			cfg.SessionOpen = &rest.Request{URL: o.URL, Method: strings.ToUpper(o.Method), Headers: o.Headers, Body: o.Body, Capture: o.Capture}
+	}
+	cfg.Protocol, cfg.Join = t.Protocol, ""
+	if t.Response != nil {
+		cfg.Join = t.Response.Join
+	}
+	if t.Request != nil {
+		for _, h := range t.Request.Handshake {
+			cfg.Handshake = append(cfg.Handshake, rest.HandshakeStep{Send: h.Send, Wait: h.Wait, Capture: h.Capture, Timeout: h.Timeout.Std()})
 		}
 	}
 	return rest.New(spec.Name, cfg), nil

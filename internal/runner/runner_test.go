@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -600,4 +602,43 @@ func (f *fakeProvider) Extract(_ context.Context, req model.ExtractRequest) (mod
 		}
 	}
 	return model.ExtractResult{}, nil
+}
+
+func TestRunSessionOpenForAnyTarget(t *testing.T) {
+	// session.open runs once per run before the target starts; its captures
+	// render into the target's configuration whatever the target type.
+	var opened int
+	var gotBody map[string]any
+	var gotAuth string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		opened++
+		gotAuth = r.Header.Get("Authorization")
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		_ = json.NewEncoder(w).Encode(map[string]any{"call": map[string]any{"id": "call-7", "token": "tok-abc"}})
+	}))
+	t.Cleanup(srv.Close)
+	s := suite("http://agent/{{session.call_id}}", convTest("opens", config.Assertion{JSONPath: &config.JSONPathAssertion{Path: "$.url", Equals: "http://agent/call-7"}}, config.Assertion{JSONPath: &config.JSONPathAssertion{Path: "$.auth", Equals: "Bearer tok-abc"}}))
+	s.Targets["api"] = config.Target{Type: config.TargetREST, URL: "http://agent/{{session.call_id}}", Headers: map[string]string{"Authorization": "Bearer {{session.token}}"},
+		Session: &config.RESTSession{Open: &config.RESTOpen{URL: srv.URL + "/calls", Headers: map[string]string{"Authorization": "Bearer {{vars.who}}"}, Body: map[string]any{"user": "{{session}}", "who": "{{vars.who}}"}, Capture: map[string]string{"call_id": "$.call.id", "token": "$.call.token"}}}}
+	opts, buf := newOptions(t, s, &fakeProvider{})
+	sum, err := Run(context.Background(), opts)
+	require.NoError(t, err)
+	require.Len(t, sum.Tests, 1)
+	assert.True(t, sum.Tests[0].Passed, buf.String())
+	assert.Equal(t, 1, opened)
+	assert.Equal(t, "Bearer Marta", gotAuth, "the open request renders templates")
+	assert.Equal(t, "Marta", gotBody["who"])
+	assert.NotEmpty(t, gotBody["user"], "{{session}} is the run's session id")
+
+	// A refused open fails the run before the target starts.
+	bad := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { http.Error(w, "nope", http.StatusUnauthorized) }))
+	t.Cleanup(bad.Close)
+	s2 := suite("http://agent", convTest("refused", config.Assertion{Contains: ptr("echo")}))
+	s2.Targets["api"] = config.Target{Type: config.TargetREST, URL: "http://agent", Session: &config.RESTSession{Open: &config.RESTOpen{URL: bad.URL}}}
+	opts2, _ := newOptions(t, s2, &fakeProvider{})
+	sum2, err := Run(context.Background(), opts2)
+	require.NoError(t, err)
+	assert.False(t, sum2.Tests[0].Passed)
+	assert.Contains(t, sum2.Tests[0].Runs[0].Error, "session.open")
+	assert.Contains(t, sum2.Tests[0].Runs[0].Error, "HTTP 401")
 }

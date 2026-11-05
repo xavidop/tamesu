@@ -2,6 +2,7 @@ package livekit
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"strings"
 	"sync"
@@ -241,7 +242,7 @@ func TestConnectErrorsAndAudioMode(t *testing.T) {
 	_, err := New("voice", Config{URL: "ws://lk", APIKey: "k", APISecret: "s", connect: failing}).Start(context.Background(), runCtx(t))
 	assert.ErrorContains(t, err, "join room")
 	_, err = New("voice", Config{URL: "ws://lk", APIKey: "", APISecret: "s", connect: failing}).Start(context.Background(), runCtx(t))
-	assert.ErrorContains(t, err, "api_key and api_secret are required")
+	assert.ErrorContains(t, err, "either api_key and api_secret or a token are required")
 	_, err = New("voice", Config{URL: "ws://lk", APIKey: "k", APISecret: "s", Mode: ModeAudio, connect: failing}).Start(context.Background(), runCtx(t))
 	assert.ErrorIs(t, err, ErrNoSpeech, "audio mode without a speech layer fails before connecting")
 }
@@ -250,4 +251,15 @@ func TestParseToolCalls(t *testing.T) {
 	assert.Len(t, parseToolCalls([]byte(`[{"name":"a"},{"name":"b","args":{"x":1}}]`)), 2)
 	assert.Nil(t, parseToolCalls([]byte(`not json`)))
 	assert.Nil(t, parseToolCalls([]byte(`{"args":{}}`)))
+}
+
+func TestTokenIdentity(t *testing.T) {
+	claims := base64.RawURLEncoding.EncodeToString([]byte(`{"sub":"web-user-9","video":{"roomJoin":true}}`))
+	id, err := TokenIdentity("eyJhbGciOiJIUzI1NiJ9." + claims + ".sig")
+	require.NoError(t, err)
+	assert.Equal(t, "web-user-9", id)
+	_, err = TokenIdentity("not-a-jwt")
+	require.Error(t, err)
+	_, err = TokenIdentity("a." + base64.RawURLEncoding.EncodeToString([]byte(`{"x":1}`)) + ".b")
+	require.Error(t, err, "no sub")
 }

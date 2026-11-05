@@ -20,6 +20,8 @@ var fieldExamples = map[string]map[string]string{
 		"tests":    `tests: [ { name: refund policy, target: api, scenario: { goal: "Ask about returns" } } ]`,
 	},
 	"Target": {
+		"token":                 `token: "{{session.access_token}}"`,
+		"identity":              `identity: "web-user-9"`,
 		"audio":                 `audio: { encoding: pcm16, sample_rate: 16000, frames: binary }`,
 		"messages":              `messages: { transcript: "$[?(@.type=='transcript' && @.role=='assistant')].transcript", done: "$[?(@.type=='status-update' && @.status=='ended')].status", close: { type: hangup } }`,
 		"stream":                `stream: true`,
@@ -103,9 +105,16 @@ var fieldExamples = map[string]map[string]string{
 		"storage_state": `storage_state: auth/state.json`,
 	},
 	"RESTRequest": {
-		"body":    `body: { session_id: "{{session}}", message: "{{message}}" }`,
-		"open":    `open: { type: open, session_id: "{{session}}" }`,
-		"capture": `capture: { ts: $.ts }`,
+		"body":      `body: { session_id: "{{session}}", message: "{{message}}" }`,
+		"open":      `open: { type: open, session_id: "{{session}}" }`,
+		"capture":   `capture: { ts: $.ts }`,
+		"handshake": `handshake: [{ send: { event: client.start, data: { userID: "{{session}}", projectID: "{{vars.project_id}}", authorization: "{{secrets.VF_KEY}}" } }, wait: "$[?(@.event=='client.started')].event" }]`,
+	},
+	"HandshakeStep": {
+		"send":    `send: { event: session.create, data: {} }`,
+		"wait":    `wait: "$[?(@.event=='session.created')].event"`,
+		"capture": `capture: { session_key: "$[?(@.event=='session.created')].data.sessionKey" }`,
+		"timeout": `timeout: 10s`,
 	},
 	"RESTResponse": {
 		"text":       `text: $.reply`,
@@ -113,6 +122,7 @@ var fieldExamples = map[string]map[string]string{
 		"done":       `done: $.end_session`,
 		"turn_done":  `turn_done: $.done`,
 		"idle":       `idle: 2s`,
+		"join":       `join: "\n"`,
 		"poll":       `poll: { url: "{{vars.api}}/conversations/{{session.id}}/activities?watermark={{cursor}}", cursor: $.watermark }`,
 		"listen":     `listen: { addr: "127.0.0.1:8089", path: "POST /bot*/sendMessage", session: $.chat_id }`,
 	},

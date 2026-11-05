@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"strings"
 
 	"github.com/xavidop/tamesu/internal/cli"
 	"github.com/xavidop/tamesu/internal/config"
@@ -25,10 +24,8 @@ func newVoiceTarget(_ context.Context, spec runner.TargetSpec) (target.Target, e
 	if m := t.Messages; m != nil {
 		cfg.Messages = voice.Messages{Open: m.Open, Transcript: m.Transcript, Done: m.Done, Interrupted: m.Interrupted, ToolCalls: m.ToolCalls, DTMF: m.DTMF, Close: m.Close}
 	}
-	if t.Session != nil && t.Session.Open != nil {
-		o := t.Session.Open
-		cfg.SessionOpen = &voice.Request{URL: o.URL, Method: strings.ToUpper(o.Method), Headers: o.Headers, Body: o.Body, Capture: o.Capture}
-	}
+	// session.open is performed by the runner for every target type; its
+	// captures reach the target as {{session.NAME}} through Render.
 	return voice.New(spec.Name, cfg), nil
 }
 

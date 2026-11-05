@@ -74,8 +74,10 @@ apply; `tamesu validate` warns when a key belongs to another type.
   JSON control messages: `open`, `transcript`, `done`, `interrupted`, `tool_calls`, `dtmf`,
   `close`). Hosted voice platforms such as Vapi or Deepgram Voice Agent are recipes on it.
 
-Any conversational target may also declare `connect` (how reaching the agent is retried) and
-`handoff` (how the agent signals that a person took over). The full key list is in
+Any conversational target may also declare `connect` (how reaching the agent is retried),
+`handoff` (how the agent signals that a person took over) and `session.open` (a request made once
+per run before the target starts, whose captured values render as `{{session.NAME}}` in the
+target's configuration: create a conversation, mint a token). The full key list is in
 [Suites](/docs/suites/).
 
 ## Personas and scenarios

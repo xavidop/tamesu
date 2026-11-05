@@ -106,6 +106,15 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 			}
 		}()
 	}
+	if it.target.Session != nil && it.target.Session.Open != nil {
+		caps, err := openSession(tctx, it.target.Session.Open, render, it.timeout, logger)
+		if err != nil {
+			return fail(r.classify(tctx, err), err)
+		}
+		for name, v := range caps {
+			scope.Values["session."+name] = v
+		}
+	}
 	tgt, err := r.o.Targets(tctx, TargetSpec{Name: it.test.Target, Config: it.target, Suite: it.suite, Project: r.o.Project, Mode: it.mode, Headed: r.o.Headed})
 	if err != nil {
 		return fail(r.classify(tctx, err), fmt.Errorf("target %s: %w", it.test.Target, err))

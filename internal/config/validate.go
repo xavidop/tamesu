@@ -49,13 +49,13 @@ var (
 // belongs to, so a field on the wrong kind of target earns a warning.
 var targetFieldTypes = map[string][]string{
 	"browser": {TargetBrowser}, "auth": {TargetBrowser}, "allowed_domains": {TargetBrowser},
-	"method": {TargetREST}, "headers": {TargetREST, TargetRealtime, TargetGRPC, TargetPipecat, TargetTwilio, TargetMCP, TargetA2A, TargetVoice}, "request": {TargetREST}, "response": {TargetREST}, "streaming": {TargetREST}, "session": {TargetREST, TargetGRPC, TargetVoice},
-	"api_key": {TargetLiveKit}, "api_secret": {TargetLiveKit}, "room": {TargetLiveKit}, "dispatch": {TargetLiveKit},
+	"method": {TargetREST}, "headers": {TargetREST, TargetRealtime, TargetGRPC, TargetPipecat, TargetTwilio, TargetMCP, TargetA2A, TargetVoice}, "request": {TargetREST}, "response": {TargetREST}, "streaming": {TargetREST}, "session": {TargetREST, TargetGRPC, TargetLiveKit, TargetSIP, TargetRealtime, TargetPipecat, TargetModel, TargetTwilio, TargetMCP, TargetA2A, TargetVoice},
+	"api_key": {TargetLiveKit}, "api_secret": {TargetLiveKit}, "token": {TargetLiveKit}, "identity": {TargetLiveKit}, "room": {TargetLiveKit}, "dispatch": {TargetLiveKit},
 	"agent_identity_prefix": {TargetLiveKit}, "mode": {TargetLiveKit, TargetRealtime, TargetPipecat}, "data_topic": {TargetLiveKit}, "join_timeout": {TargetLiveKit},
 	"transcript_source": {TargetLiveKit, TargetVoice}, "audio": {TargetVoice}, "messages": {TargetVoice},
 	"direction": {TargetSIP}, "to": {TargetSIP, TargetTwilio}, "from": {TargetSIP, TargetTwilio}, "trunk_id": {TargetSIP}, "ring_timeout": {TargetSIP},
 	"max_call_duration": {TargetSIP}, "trigger": {TargetSIP},
-	"model": {TargetRealtime, TargetModel, TargetMCP}, "session_update": {TargetRealtime}, "protocol": {TargetRealtime}, "done_tool": {TargetRealtime, TargetModel, TargetMCP}, "turn_timeout": {TargetRealtime, TargetGRPC, TargetPipecat, TargetTwilio, TargetA2A, TargetVoice},
+	"model": {TargetRealtime, TargetModel, TargetMCP}, "session_update": {TargetRealtime}, "protocol": {TargetRealtime, TargetREST}, "done_tool": {TargetRealtime, TargetModel, TargetMCP}, "turn_timeout": {TargetRealtime, TargetGRPC, TargetPipecat, TargetTwilio, TargetA2A, TargetVoice},
 	"tool_results": {TargetRealtime, TargetPipecat}, "audio_format": {TargetRealtime},
 	"sample_rate": {TargetPipecat}, "idle": {TargetPipecat, TargetTwilio, TargetVoice}, "parameters": {TargetTwilio},
 	"system": {TargetModel, TargetMCP}, "system_file": {TargetModel, TargetMCP}, "tools": {TargetModel}, "temperature": {TargetModel, TargetMCP}, "max_tokens": {TargetModel, TargetMCP}, "max_tool_rounds": {TargetModel, TargetMCP}, "fallback": {TargetModel, TargetMCP},
@@ -207,6 +207,14 @@ func (v *validator) suite() {
 
 func (v *validator) target(name string, t Target) {
 	tp := at("targets", name)
+	if t.Session != nil {
+		if t.Session.Open != nil && strings.TrimSpace(t.Session.Open.URL) == "" {
+			v.errorf(with(tp, "session", "open"), "session.open needs url")
+		}
+		if t.Session.ID != "" && t.Type != TargetREST && t.Type != TargetGRPC {
+			v.warnf(with(tp, "session", "id"), "session.id applies to rest and grpc targets; %s targets take their session from the transport", t.Type)
+		}
+	}
 	if c := t.Connect; c != nil {
 		if c.Attempts < 0 {
 			v.errorf(with(tp, "connect", "attempts"), "attempts cannot be negative")
@@ -253,8 +261,25 @@ func (v *validator) target(name string, t Target) {
 		if t.Response == nil || t.Response.Text == "" {
 			v.warnf(tp, "response.text is not set; the whole response body is read as the agent's reply")
 		}
-		if t.Session != nil && t.Session.Open != nil && t.Session.Open.URL == "" {
-			v.errorf(with(tp, "session", "open"), "session.open needs url")
+		if t.Protocol != "" && t.Protocol != "socketio" {
+			v.errorf(with(tp, "protocol"), "protocol must be socketio for a rest target (the websocket's framing)")
+		}
+		if t.Protocol == "socketio" && t.Streaming != "websocket" {
+			v.errorf(with(tp, "protocol"), "protocol socketio applies to streaming websocket")
+		}
+		if t.Request != nil && len(t.Request.Handshake) > 0 {
+			if t.Streaming != "websocket" {
+				v.errorf(with(tp, "request", "handshake"), "handshake applies to streaming websocket")
+			}
+			for i, h := range t.Request.Handshake {
+				hp := with(tp, "request", "handshake", idx(i))
+				if h.Send == nil && h.Wait == "" {
+					v.errorf(hp, "a handshake step needs send or wait")
+				}
+				if len(h.Capture) > 0 && h.Wait == "" {
+					v.errorf(with(hp, "capture"), "capture needs wait: the values come from the awaited message")
+				}
+			}
 		}
 		if t.Response != nil {
 			poll, listen := t.Response.Poll != nil, t.Response.Listen != nil
@@ -296,6 +321,12 @@ func (v *validator) target(name string, t Target) {
 	case TargetLiveKit:
 		if t.URL == "" {
 			v.errorf(tp, "livekit target needs url (the LiveKit server, wss://...)")
+		}
+		if t.Token == "" && (t.APIKey == "" || t.APISecret == "") {
+			v.warnf(tp, "livekit target needs api_key and api_secret, or a token (a {{session.NAME}} capture of session.open for a hosted platform's web call); the session will fail to start without them")
+		}
+		if t.Token != "" && (t.APIKey != "" || t.APISecret != "") {
+			v.warnf(with(tp, "token"), "token replaces api_key and api_secret; the token is used")
 		}
 		if t.Mode != "" && !slices.Contains(VoiceModes, t.Mode) {
 			v.errorf(with(tp, "mode"), "mode must be text or audio")
@@ -379,9 +410,6 @@ func (v *validator) target(name string, t Target) {
 		}
 		if t.TranscriptSource != "" && !slices.Contains(TranscriptSources, t.TranscriptSource) {
 			v.errorf(with(tp, "transcript_source"), "transcript_source must be one of %s", strings.Join(TranscriptSources, ", "))
-		}
-		if t.Session != nil && t.Session.Open != nil && t.Session.Open.URL == "" {
-			v.errorf(with(tp, "session", "open"), "session.open needs url")
 		}
 	case TargetA2A:
 		if t.URL == "" {
