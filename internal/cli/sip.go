@@ -119,11 +119,12 @@ func (a *app) newSIPSetupCmd() *cobra.Command {
 				return infraError(err)
 			}
 			out := cmd.OutOrStdout()
+			st := a.style(out)
 			for _, c := range res.Created {
-				_, _ = fmt.Fprintf(out, "created %s\n", c)
+				_, _ = fmt.Fprintf(out, "%s %s\n", st.Pass("created"), c)
 			}
 			for _, r := range res.Reused {
-				_, _ = fmt.Fprintf(out, "reused  %s\n", r)
+				_, _ = fmt.Fprintf(out, "%s  %s\n", st.Dim("reused"), r)
 			}
 			_, _ = fmt.Fprintf(out, "\n# put this in %s:\n%s", a.configPath, strings.TrimRight(res.YAML, "\n")+"\n")
 			return nil

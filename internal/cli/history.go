@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 
@@ -67,9 +66,9 @@ func (a *app) newHistoryCmd() *cobra.Command {
 			}
 			first := h.Runs[0].StartedAt
 			lastRun := h.Runs[len(h.Runs)-1].StartedAt
-			_, _ = fmt.Fprintf(out, "%d runs, %s to %s\n\n", len(h.Runs), first.Local().Format("2006-01-02 15:04"), lastRun.Local().Format("2006-01-02 15:04"))
-			tw := tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
-			_, _ = fmt.Fprintln(tw, "TEST\tRUNS\tPASS RATE\tRESULTS\tP95\tNOTE")
+			st := a.style(out)
+			_, _ = fmt.Fprintf(out, "%s %s to %s\n\n", st.Bold(plural(len(h.Runs), "run")+","), first.Local().Format("2006-01-02 15:04"), lastRun.Local().Format("2006-01-02 15:04"))
+			tw := table(out, st, "TEST", "RUNS", "PASS RATE", "RESULTS", "P95", "NOTE")
 			for _, t := range tests {
 				p95 := ""
 				if t.P95First > 0 && t.P95Last > 0 {
@@ -82,7 +81,14 @@ func (a *app) newHistoryCmd() *cobra.Command {
 				if t.Streak > 1 && t.LatestStatus() != "pass" {
 					notes = append(notes, fmt.Sprintf("%s %d× in a row", t.LatestStatus(), t.Streak))
 				}
-				_, _ = fmt.Fprintf(tw, "%s / %s\t%d\t%.0f%%\t%s\t%s\t%s\n", t.Suite, t.Name, t.Runs, t.PassRate*100, t.Dots(), p95, strings.Join(notes, ", "))
+				rate := fmt.Sprintf("%.0f%%", t.PassRate*100)
+				switch {
+				case t.PassRate == 0:
+					rate = st.Fail(rate)
+				case t.PassRate < 1:
+					rate = st.Warn(rate)
+				}
+				tw.Row(t.Suite+" / "+t.Name, fmt.Sprint(t.Runs), rate, t.Dots(), p95, st.Warn(strings.Join(notes, ", ")))
 			}
 			return tw.Flush()
 		},

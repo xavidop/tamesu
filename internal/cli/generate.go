@@ -81,7 +81,7 @@ func (a *app) newGenerateCmd() *cobra.Command {
 			if err := os.WriteFile(out, data, 0o644); err != nil {
 				return infraError(err)
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s: %d draft test(s) for target %s (%s); review before running\n", out, len(draft.Tests), targetName, typ)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s: %d draft test(s) for target %s (%s); review before running\n", a.style(cmd.OutOrStdout()).Info(out), len(draft.Tests), targetName, typ)
 			return a.validateDraft(cmd, p, data, out)
 		},
 	}
@@ -150,11 +150,11 @@ func (a *app) validateDraft(cmd *cobra.Command, p config.Project, data []byte, p
 	}
 	_, errs, err := config.LoadSuiteWithProject(path, p, config.LoadOptions{})
 	if err != nil {
-		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "the draft does not parse: %v\n", err)
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "%s %v\n", a.style(cmd.ErrOrStderr()).Fail("the draft does not parse:"), err)
 		return silentExit(ExitFailed)
 	}
 	if errs.HasErrors() {
-		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "the draft does not validate; fix it before running:\n")
+		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), a.style(cmd.ErrOrStderr()).Fail("the draft does not validate; fix it before running:"))
 		_, _ = printErrors(cmd.ErrOrStderr(), errs, a.style(cmd.ErrOrStderr()))
 		return silentExit(ExitFailed)
 	}

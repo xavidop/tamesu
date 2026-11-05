@@ -30,7 +30,7 @@ func thresholdsOf(b config.BaselineConfig) report.Thresholds {
 // compareWithBaseline loads the baseline summary from dir, compares, writes
 // comparison.json into the run directory and prints the result. ok is
 // false when the baseline cannot be read.
-func compareWithBaseline(w io.Writer, baselineDir, runDir string, s *report.Summary, t report.Thresholds) (*report.Comparison, error) {
+func compareWithBaseline(w io.Writer, baselineDir, runDir string, s *report.Summary, t report.Thresholds, st report.Style) (*report.Comparison, error) {
 	base, err := report.LoadSummary(baselineDir)
 	if err != nil {
 		return nil, fmt.Errorf("baseline %s: %w (save one with tamesu baseline save <run-dir>)", baselineDir, err)
@@ -45,7 +45,7 @@ func compareWithBaseline(w io.Writer, baselineDir, runDir string, s *report.Summ
 			return c, fmt.Errorf("write %s: %w", report.ComparisonFile, err)
 		}
 	}
-	report.PrintComparison(w, c)
+	report.PrintComparisonStyled(w, c, st)
 	return c, nil
 }
 
@@ -96,7 +96,8 @@ func (a *app) newBaselineSaveCmd() *cobra.Command {
 				return infraError(err)
 			}
 			passed, failed, errored := s.Counts()
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "baseline saved to %s: %d tests (%d passed, %d failed, %d errors)\n", filepath.Join(dir, "summary.json"), len(s.Tests), passed, failed, errored)
+			st := a.style(cmd.OutOrStdout())
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s %s: %d tests (%s)\n", st.Pass("baseline saved to"), st.Info(filepath.Join(dir, "summary.json")), len(s.Tests), counts(st, passed, failed, errored))
 			return nil
 		},
 	}
@@ -135,7 +136,7 @@ func (a *app) newCompareCmd() *cobra.Command {
 			if err != nil {
 				return configError(err)
 			}
-			c, err := compareWithBaseline(cmd.OutOrStdout(), args[0], args[1], s, t)
+			c, err := compareWithBaseline(cmd.OutOrStdout(), args[0], args[1], s, t, a.style(cmd.OutOrStdout()))
 			if err != nil {
 				return configError(err)
 			}

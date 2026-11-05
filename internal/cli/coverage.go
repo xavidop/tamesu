@@ -53,7 +53,7 @@ func (a *app) newCoverageCmd() *cobra.Command {
 				enc.SetIndent("", "  ")
 				return enc.Encode(c)
 			}
-			_, err = fmt.Fprint(cmd.OutOrStdout(), c.Console())
+			_, err = fmt.Fprint(cmd.OutOrStdout(), c.ConsoleStyled(a.style(cmd.OutOrStdout())))
 			return err
 		},
 	}

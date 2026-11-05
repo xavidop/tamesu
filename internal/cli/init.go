@@ -61,7 +61,7 @@ func (a *app) newInitCmd() *cobra.Command {
 				if err := os.WriteFile(dst(path), data, 0o644); err != nil {
 					return err
 				}
-				_, _ = fmt.Fprintln(out, "created", dst(path))
+				_, _ = fmt.Fprintln(out, a.style(out).Pass("created"), dst(path))
 			}
 			_, _ = fmt.Fprintln(out, "\nNext: edit tamesu.yaml and examples/, then run `tamesu validate` and `tamesu doctor`.")
 			return nil

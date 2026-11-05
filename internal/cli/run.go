@@ -259,7 +259,7 @@ func (a *app) newRunCmd() *cobra.Command {
 					if budget <= 0 {
 						budget = p.Budgets.MaxCostUSD
 					}
-					printEstimate(cmd.OutOrStdout(), estimateCost(p, suites, filter, sel.tags, sel.target, repeat, h), seen, budget)
+					printEstimate(cmd.OutOrStdout(), estimateCost(p, suites, filter, sel.tags, sel.target, repeat, h), seen, budget, a.style(cmd.OutOrStdout()))
 					return nil, ExitOK, nil
 				}
 				if wantSlack {
@@ -383,7 +383,7 @@ func (a *app) newRunCmd() *cobra.Command {
 					if dir == "" {
 						dir = p.Baseline.EffectiveDir()
 					}
-					c, cerr := compareWithBaseline(cmd.OutOrStdout(), dir, out, summary, thresholdsOf(p.Baseline))
+					c, cerr := compareWithBaseline(cmd.OutOrStdout(), dir, out, summary, thresholdsOf(p.Baseline), a.style(cmd.OutOrStdout()))
 					if cerr != nil {
 						return nil, 0, configError(cerr)
 					}

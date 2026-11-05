@@ -3,8 +3,10 @@ package report
 import (
 	"io"
 	"os"
+	"regexp"
 	"runtime"
 	"strings"
+	"unicode/utf8"
 )
 
 // Style colours console output with ANSI codes, or leaves it alone. A zero
@@ -100,10 +102,59 @@ func (s Style) Bold(text string) string { return s.wrap(codeBold, text) }
 // Dim is faint: skipped tests, transcript excerpts, progress.
 func (s Style) Dim(text string) string { return s.wrap(codeDim, text) }
 
-// Strip removes the ANSI codes a Style adds, for logs and tests.
-func Strip(text string) string {
-	for _, code := range []string{codeReset, codeBold, codeDim, codeRed, codeGreen, codeYellow, codeCyan} {
-		text = strings.ReplaceAll(text, code, "")
-	}
-	return text
+// ansiCode matches one ANSI style sequence.
+var ansiCode = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+// Table aligns columns the way text/tabwriter does, but measures cells
+// without their colour codes, so coloured tables line up. Header cells are
+// bold.
+type Table struct {
+	w    io.Writer
+	st   Style
+	rows [][]string
 }
+
+// NewTable starts a table on w with a bold header row.
+func (s Style) NewTable(w io.Writer, header ...string) *Table {
+	t := &Table{w: w, st: s}
+	bold := make([]string, len(header))
+	for i, h := range header {
+		bold[i] = s.Bold(h)
+	}
+	t.rows = append(t.rows, bold)
+	return t
+}
+
+// Row adds a row; cells may carry colour codes.
+func (t *Table) Row(cells ...string) { t.rows = append(t.rows, cells) }
+
+// Flush writes the table: columns two spaces apart, the last one unpadded.
+func (t *Table) Flush() error {
+	var widths []int
+	for _, row := range t.rows {
+		for i, c := range row {
+			if i >= len(widths) {
+				widths = append(widths, 0)
+			}
+			widths[i] = max(widths[i], textWidth(c))
+		}
+	}
+	var b strings.Builder
+	for _, row := range t.rows {
+		for i, c := range row {
+			b.WriteString(c)
+			if i < len(row)-1 {
+				b.WriteString(strings.Repeat(" ", widths[i]-textWidth(c)+2))
+			}
+		}
+		b.WriteString("\n")
+	}
+	_, err := io.WriteString(t.w, b.String())
+	return err
+}
+
+// textWidth is the width of text without its colour codes.
+func textWidth(s string) int { return utf8.RuneCountInString(Strip(s)) }
+
+// Strip removes the ANSI codes a Style adds, for logs and tests.
+func Strip(text string) string { return ansiCode.ReplaceAllString(text, "") }

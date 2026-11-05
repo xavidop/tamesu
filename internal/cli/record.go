@@ -66,7 +66,7 @@ func (a *app) newRecordBrowserCmd() *cobra.Command {
 			if err := os.WriteFile(out, []byte(res.YAML), 0o644); err != nil {
 				return infraError(err)
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s: %d step(s)\n", out, len(res.Steps))
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s: %d step(s)\n", a.style(cmd.OutOrStdout()).Info(out), len(res.Steps))
 			return nil
 		},
 	}
