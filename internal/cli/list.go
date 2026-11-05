@@ -2,9 +2,7 @@ package cli
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 )
@@ -81,10 +79,9 @@ func (a *app) newListCmd() *cobra.Command {
 				enc.SetIndent("", "  ")
 				return enc.Encode(items)
 			}
-			tw := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-			_, _ = fmt.Fprintln(tw, "SUITE\tTEST\tTARGET\tTYPE\tTAGS")
+			tw := table(out, a.style(out), "SUITE", "TEST", "TARGET", "TYPE", "TAGS")
 			for _, it := range items {
-				_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", it.Suite, it.Name, it.Target, it.Type, strings.Join(it.Tags, ","))
+				tw.Row(it.Suite, it.Name, it.Target, it.Type, strings.Join(it.Tags, ","))
 			}
 			return tw.Flush()
 		},

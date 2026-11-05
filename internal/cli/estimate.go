@@ -6,7 +6,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/xavidop/tamesu/internal/config"
 	"github.com/xavidop/tamesu/report"
@@ -81,9 +80,8 @@ func median(vals []float64) float64 {
 
 // printEstimate writes the estimate as a table with a total and the budget
 // verdict. runs is how many past runs were read.
-func printEstimate(w io.Writer, lines []estimateLine, runs int, budget float64) {
-	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
-	_, _ = fmt.Fprintln(tw, "suite / test\truns seen\tper run\trepeat\testimate")
+func printEstimate(w io.Writer, lines []estimateLine, runs int, budget float64, st report.Style) {
+	tw := table(w, st, "suite / test", "runs seen", "per run", "repeat", "estimate")
 	total, unknown := 0.0, 0
 	for _, l := range lines {
 		per, est := "?", "?"
@@ -94,7 +92,7 @@ func printEstimate(w io.Writer, lines []estimateLine, runs int, budget float64) 
 		} else {
 			unknown++
 		}
-		_, _ = fmt.Fprintf(tw, "%s / %s\t%d\t%s\t%d\t%s\n", l.Suite, l.Name, l.Seen, per, l.Repeat, est)
+		tw.Row(l.Suite+" / "+l.Name, fmt.Sprint(l.Seen), per, fmt.Sprint(l.Repeat), est)
 	}
 	_ = tw.Flush()
 	var parts []string
@@ -112,5 +110,5 @@ func printEstimate(w io.Writer, lines []estimateLine, runs int, budget float64) 
 	default:
 		parts = append(parts, fmt.Sprintf("within the budget of $%.2f", budget))
 	}
-	_, _ = fmt.Fprintf(w, "\n%s\n", strings.Join(parts, " · "))
+	_, _ = fmt.Fprintf(w, "\n%s\n", st.Bold(strings.Join(parts, " · ")))
 }

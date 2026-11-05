@@ -233,14 +233,18 @@ func (c *Coverage) Markdown() string {
 }
 
 // Console renders the coverage for a terminal.
-func (c *Coverage) Console() string {
+func (c *Coverage) Console() string { return c.ConsoleStyled(Style{}) }
+
+// ConsoleStyled is Console with bold section titles and the tools never
+// called in yellow.
+func (c *Coverage) ConsoleStyled(st Style) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "coverage: %d tests, %d runs\n", c.Tests, c.Runs)
+	fmt.Fprintf(&b, "%s %d tests, %d runs\n", st.Bold("coverage:"), c.Tests, c.Runs)
 	section := func(title string, items []CoverageItem) {
 		if len(items) == 0 {
 			return
 		}
-		fmt.Fprintf(&b, "\n%s\n", title)
+		fmt.Fprintf(&b, "\n%s\n", st.Bold(title))
 		for _, it := range items {
 			fmt.Fprintf(&b, "  %-40s %3d tests, %3d passed\n", it.Name, it.Count, it.Passed)
 		}
@@ -248,7 +252,7 @@ func (c *Coverage) Console() string {
 	section("targets", c.Targets)
 	section("tags", c.Tags)
 	if len(c.Tools) > 0 || len(c.Uncalled) > 0 {
-		b.WriteString("\ntools\n")
+		b.WriteString("\n" + st.Bold("tools") + "\n")
 		for _, t := range c.Tools {
 			declared := ""
 			if t.Declared {
@@ -257,7 +261,7 @@ func (c *Coverage) Console() string {
 			fmt.Fprintf(&b, "  %-40s %3d calls in %d tests%s\n", t.Name, t.Calls, t.Tests, declared)
 		}
 		for _, name := range c.Uncalled {
-			fmt.Fprintf(&b, "  %-40s never called\n", name)
+			fmt.Fprintf(&b, "  %-40s %s\n", name, st.Warn("never called"))
 		}
 	}
 	section("assertions", c.Assertions)

@@ -89,7 +89,7 @@ func (a *app) newJudgeCalibrateCmd() *cobra.Command {
 				judge = cache
 			}
 			rep := calibrate.Run(ctx, judge, labels, parallel)
-			rep.Print(cmd.OutOrStdout(), minAgreement)
+			rep.PrintStyled(cmd.OutOrStdout(), minAgreement, a.style(cmd.OutOrStdout()))
 			if cache != nil {
 				s := cache.Stats()
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "llm cache: %d hits, %d misses\n", s.Hits, s.Misses)

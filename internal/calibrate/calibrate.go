@@ -7,12 +7,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/xavidop/tamesu/report"
 	"io"
 	"os"
 	"sort"
 	"strings"
 	"sync"
-	"text/tabwriter"
 
 	"gopkg.in/yaml.v3"
 
@@ -246,15 +246,24 @@ func Summarize(results []Result) *Report {
 // Print writes the report for people: a table per rubric, the totals and
 // every disagreement with the judge's reason.
 func (r *Report) Print(w io.Writer, minAgreement float64) {
-	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
-	_, _ = fmt.Fprintln(tw, "rubric\tlabels\tagree\tfalse pass\tfalse fail\terrors\tagreement")
+	r.PrintStyled(w, minAgreement, report.Style{})
+}
+
+// PrintStyled is Print with colours: the verdict green or red, every
+// disagreement marked in red.
+func (r *Report) PrintStyled(w io.Writer, minAgreement float64, style report.Style) {
+	tw := style.NewTable(w, "rubric", "labels", "agree", "false pass", "false fail", "errors", "agreement")
 	for _, st := range r.Rubrics {
-		_, _ = fmt.Fprintf(tw, "%s\t%d\t%d\t%d\t%d\t%d\t%.0f%%\n", short(st.Rubric, 60), st.Labels, st.Agree, st.FalsePass, st.FalseFail, st.Errors, st.Agreement*100)
+		agreement := fmt.Sprintf("%.0f%%", st.Agreement*100)
+		if st.Agreement < minAgreement {
+			agreement = style.Warn(agreement)
+		}
+		tw.Row(short(st.Rubric, 60), fmt.Sprint(st.Labels), fmt.Sprint(st.Agree), fmt.Sprint(st.FalsePass), fmt.Sprint(st.FalseFail), fmt.Sprint(st.Errors), agreement)
 	}
 	_ = tw.Flush()
-	verdict := "OK"
+	verdict := style.Pass("OK")
 	if r.Agreement < minAgreement {
-		verdict = "BELOW THE MINIMUM"
+		verdict = style.Fail("BELOW THE MINIMUM")
 	}
 	_, _ = fmt.Fprintf(w, "\nagreement %.0f%% (%d of %d labels), %d false pass, %d false fail, %d errors · minimum %.0f%%: %s\n",
 		r.Agreement*100, r.Agree, r.Labels, r.FalsePass, r.FalseFail, r.Errors, minAgreement*100, verdict)
@@ -271,7 +280,7 @@ func (r *Report) Print(w io.Writer, minAgreement float64) {
 		if res.Error != "" {
 			why = "judge error: " + res.Error
 		}
-		_, _ = fmt.Fprintf(w, "  x %s: expected %s, judge said %s · %s\n", res.Name, res.Expected, res.Got, short(why, 200))
+		_, _ = fmt.Fprintf(w, "  %s %s: expected %s, judge said %s · %s\n", style.Fail("x"), res.Name, res.Expected, res.Got, short(why, 200))
 	}
 }
 

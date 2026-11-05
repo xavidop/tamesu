@@ -34,7 +34,8 @@ func (a *app) newReportCmd() *cobra.Command {
 				return infraError(fmt.Errorf("write report: %w", err))
 			}
 			passed, failed, errored := s.Counts()
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s: %d passed, %d failed, %d errors\n", filepath.Join(dir, report.HTMLFile), passed, failed, errored)
+			st := a.style(cmd.OutOrStdout())
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s: %s\n", st.Info(filepath.Join(dir, report.HTMLFile)), counts(st, passed, failed, errored))
 			return nil
 		},
 	}

@@ -31,7 +31,8 @@ func (a *app) newMergeCmd() *cobra.Command {
 				return configError(err)
 			}
 			passed, failed, errored := s.Counts()
-			line := fmt.Sprintf("%s: %d tests from %d runs · %d passed, %d failed, %d errors", out, len(s.Tests), len(args), passed, failed, errored)
+			st := a.style(cmd.OutOrStdout())
+			line := fmt.Sprintf("%s: %d tests from %d runs · %s", st.Info(out), len(s.Tests), len(args), counts(st, passed, failed, errored))
 			if q := len(s.Quarantined()); q > 0 {
 				line += fmt.Sprintf(", %d quarantined", q)
 			}

@@ -191,7 +191,11 @@ func WriteComparison(dir string, c *Comparison) error {
 }
 
 // PrintComparison writes the comparison for a terminal.
-func PrintComparison(w io.Writer, c *Comparison) {
+func PrintComparison(w io.Writer, c *Comparison) { PrintComparisonStyled(w, c, Style{}) }
+
+// PrintComparisonStyled is PrintComparison with colours: the verdict, new
+// failures and regressions in red, fixes in green.
+func PrintComparisonStyled(w io.Writer, c *Comparison, st Style) {
 	head := "baseline"
 	if c.BaselineAt != "" {
 		head += " " + c.BaselineAt
@@ -199,21 +203,21 @@ func PrintComparison(w io.Writer, c *Comparison) {
 	if l := FormatLabels(c.BaselineLabels); l != "" {
 		head += " (" + l + ")"
 	}
-	verdict := "no regression"
+	verdict := st.Pass("no regression")
 	if c.Regressed {
-		verdict = "REGRESSED"
+		verdict = st.Fail("REGRESSED")
 	}
 	_, _ = fmt.Fprintf(w, "\nvs %s: %s · %d compared, %d new failures, %d fixed, %d added, %d removed\n", head, verdict, len(c.Tests), len(c.NewFailures), len(c.Fixed), len(c.Added), len(c.Removed))
 	for _, k := range c.NewFailures {
-		_, _ = fmt.Fprintf(w, "  new failure  %s\n", k)
+		_, _ = fmt.Fprintf(w, "  %s  %s\n", st.Fail("new failure"), k)
 	}
 	for _, k := range c.Fixed {
-		_, _ = fmt.Fprintf(w, "  fixed        %s\n", k)
+		_, _ = fmt.Fprintf(w, "  %s        %s\n", st.Pass("fixed"), k)
 	}
 	for _, d := range c.Tests {
 		for _, m := range d.Metrics {
 			if m.Regressed {
-				_, _ = fmt.Fprintf(w, "  regression   %s / %s: %s %s → %s (+%.0f%%, limit %.0f%%)\n", d.Suite, d.Name, m.Name, fmtDelta(m.Name, m.Before), fmtDelta(m.Name, m.After), m.IncreasePct, limitFor(m.Name, c.Thresholds))
+				_, _ = fmt.Fprintf(w, "  %s   %s / %s: %s %s → %s (+%.0f%%, limit %.0f%%)\n", st.Fail("regression"), d.Suite, d.Name, m.Name, fmtDelta(m.Name, m.Before), fmtDelta(m.Name, m.After), m.IncreasePct, limitFor(m.Name, c.Thresholds))
 			}
 		}
 	}

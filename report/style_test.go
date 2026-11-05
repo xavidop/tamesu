@@ -64,3 +64,18 @@ func TestConsoleColours(t *testing.T) {
 	tassert.Contains(t, coloured.String(), "\x1b[1m\x1b[31mFAIL \x1b[0m")
 	tassert.Equal(t, plain.String(), Strip(coloured.String()), "colours change nothing but the codes")
 }
+
+func TestTableKeepsColumnsAligned(t *testing.T) {
+	render := func(st Style) string {
+		var buf bytes.Buffer
+		tb := st.NewTable(&buf, "NAME", "STATE", "NOTE")
+		tb.Row("refund", st.Fail("failed"), "x")
+		tb.Row("a much longer name", st.Pass("passed"), "y")
+		require.NoError(t, tb.Flush())
+		return buf.String()
+	}
+	plain, coloured := render(NewStyle(false)), render(NewStyle(true))
+	tassert.Equal(t, "NAME                STATE   NOTE\nrefund              failed  x\na much longer name  passed  y\n", plain)
+	tassert.Contains(t, coloured, "\x1b[1m\x1b[31mfailed\x1b[0m")
+	tassert.Equal(t, plain, Strip(coloured), "the columns line up the same with colours")
+}

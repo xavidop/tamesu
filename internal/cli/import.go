@@ -64,7 +64,7 @@ func (a *app) newImportCmd() *cobra.Command {
 				return configError(perrs)
 			}
 			for _, id := range res.Skipped {
-				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "skipped %q: no user line followed by an agent answer\n", id)
+				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "%s %q: no user line followed by an agent answer\n", a.style(cmd.ErrOrStderr()).Warn("skipped"), id)
 			}
 			if out == "" {
 				_, _ = cmd.OutOrStdout().Write(res.Suite)
@@ -93,7 +93,7 @@ func (a *app) newImportCmd() *cobra.Command {
 			if len(res.Golden) > 0 {
 				msg += fmt.Sprintf(", %d reference file(s) under %s", len(res.Golden), filepath.Join(filepath.Dir(out), goldenDir))
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s; point the target at your agent before running\n", msg)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s; point the target at your agent before running\n", a.style(cmd.OutOrStdout()).Info(msg))
 			return a.validateDraft(cmd, p, res.Suite, out)
 		},
 	}

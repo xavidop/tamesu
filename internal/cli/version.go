@@ -22,7 +22,8 @@ func newVersionCmd(info BuildInfo) *cobra.Command {
 			if date == "" {
 				date = "unknown"
 			}
-			_, err := fmt.Fprintf(cmd.OutOrStdout(), "tamesu %s (%s, %s)\n", version, commit, date)
+			st := styleOf(cmd, cmd.OutOrStdout())
+			_, err := fmt.Fprintf(cmd.OutOrStdout(), "%s %s %s\n", st.Bold("tamesu"), st.Pass(version), st.Dim("("+commit+", "+date+")"))
 			return err
 		},
 	}

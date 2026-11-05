@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 
@@ -206,7 +205,7 @@ func (a *app) runMatrix(cmd *cobra.Command, out string, variants []matrixVariant
 	worst := ExitOK
 	for i, v := range variants {
 		dir := filepath.Join(out, v.Slug())
-		_, _ = fmt.Fprintf(w, "==> matrix %d/%d: %s\n", i+1, len(variants), v)
+		_, _ = fmt.Fprintf(w, "%s %s\n", a.style(w).Bold(fmt.Sprintf("==> matrix %d/%d:", i+1, len(variants))), v)
 		s, code, err := runOnce(dir, v)
 		if err != nil {
 			return err
@@ -222,8 +221,8 @@ func (a *app) runMatrix(cmd *cobra.Command, out string, variants []matrixVariant
 		worst = max(worst, code)
 		_, _ = fmt.Fprintln(w)
 	}
-	_, _ = fmt.Fprintln(w, "matrix:")
-	printMatrixTable(w, rows)
+	_, _ = fmt.Fprintln(w, a.style(w).Bold("matrix:"))
+	printMatrixTable(w, rows, a.style(w))
 	if err := os.MkdirAll(out, 0o755); err == nil {
 		_ = os.WriteFile(filepath.Join(out, "matrix.md"), []byte(matrixMarkdown(rows)), 0o644)
 		if b, err := json.MarshalIndent(rows, "", "  "); err == nil {
@@ -237,11 +236,16 @@ func (a *app) runMatrix(cmd *cobra.Command, out string, variants []matrixVariant
 	return nil
 }
 
-func printMatrixTable(w io.Writer, rows []matrixRow) {
-	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
-	_, _ = fmt.Fprintln(tw, "variant\tpassed\tfailed\terrors\tmodel calls\tcost\tduration\texit")
+func printMatrixTable(w io.Writer, rows []matrixRow, st report.Style) {
+	tw := table(w, st, "variant", "passed", "failed", "errors", "model calls", "cost", "duration", "exit")
+	red := func(n int) string {
+		if n > 0 {
+			return st.Fail(fmt.Sprint(n))
+		}
+		return fmt.Sprint(n)
+	}
 	for _, r := range rows {
-		_, _ = fmt.Fprintf(tw, "%s\t%d\t%d\t%d\t%d\t$%.4f\t%s\t%d\n", r.label, r.Passed, r.Failed, r.Errored, r.Calls, r.CostUSD, r.Duration, r.ExitCode)
+		tw.Row(r.label, st.Pass(fmt.Sprint(r.Passed)), red(r.Failed), red(r.Errored), fmt.Sprint(r.Calls), fmt.Sprintf("$%.4f", r.CostUSD), r.Duration, red(r.ExitCode))
 	}
 	_ = tw.Flush()
 }
