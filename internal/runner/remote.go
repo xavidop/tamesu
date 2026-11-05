@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"regexp"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/xavidop/tamesu/internal/a2aserver"
@@ -24,7 +25,7 @@ type remoteAgents struct {
 // startRemoteAgents starts one server per remote agent, with the test's
 // fuzz for it when fuzz_tools names it; templates in forward and headers
 // render with the run's scope.
-func startRemoteAgents(specs map[string]config.RemoteAgent, render func(string) (string, error), fuzz map[string]target.ToolFuzz, logger *slog.Logger) (*remoteAgents, error) {
+func startRemoteAgents(specs map[string]config.RemoteAgent, render func(string) (string, error), fuzz map[string]target.ToolFuzz, bind func() a2aserver.Binding, logger *slog.Logger) (*remoteAgents, error) {
 	ra := &remoteAgents{servers: map[string]*a2aserver.Server{}}
 	names := make([]string, 0, len(specs))
 	for name := range specs {
@@ -41,6 +42,9 @@ func startRemoteAgents(specs map[string]config.RemoteAgent, render func(string) 
 		if f, ok := fuzz[name]; ok {
 			ff := f
 			cfg.Fuzz = &ff
+		}
+		if bind != nil {
+			cfg.Bindings = []a2aserver.Binding{bind()}
 		}
 		srv, err := a2aserver.Start(cfg)
 		if err != nil {
@@ -63,6 +67,18 @@ func remoteConfig(name string, spec config.RemoteAgent, render func(string) (str
 		cfg.Skills = append(cfg.Skills, a2aserver.Skill{ID: sk.ID, Name: sk.Name, Description: sk.Description, Tags: sk.Tags})
 	}
 	var err error
+	if spec.Extended != nil {
+		ext := &a2aserver.Extended{Description: spec.Extended.Description}
+		for _, sk := range spec.Extended.Skills {
+			ext.Skills = append(ext.Skills, a2aserver.Skill{ID: sk.ID, Name: sk.Name, Description: sk.Description, Tags: sk.Tags})
+		}
+		cfg.Extended = ext
+	}
+	if spec.Token != "" {
+		if cfg.Token, err = render(spec.Token); err != nil {
+			return cfg, fmt.Errorf("remote agent %s: token: %w", name, err)
+		}
+	}
 	if cfg.Default.Text, err = render(spec.Reply); err != nil {
 		return cfg, fmt.Errorf("remote agent %s: reply: %w", name, err)
 	}
@@ -126,6 +142,12 @@ func (ra *remoteAgents) delegations() ([]target.ToolCall, []target.Event) {
 			}
 			if d.Fuzzed != "" {
 				detail += " (fuzz " + d.Fuzzed + ")"
+			}
+			if d.Transport != "" && d.Transport != a2aserver.TransportJSONRPC {
+				detail += " (" + strings.ToLower(d.Transport) + ")"
+			}
+			if d.Pushed {
+				detail += " (pushed)"
 			}
 			call := target.ToolCall{Name: name, Kind: target.ToolCallDelegation, Args: map[string]any{"message": d.Message, "state": d.State}, Result: d.Reply}
 			all = append(all, timed{at: d.At, call: call, ev: target.Event{At: d.At, Kind: "delegated", Detail: detail}})

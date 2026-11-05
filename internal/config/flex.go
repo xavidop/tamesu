@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/invopop/jsonschema"
 	"gopkg.in/yaml.v3"
@@ -57,6 +58,94 @@ func oneOfStringOr(obj any, stringDesc string) *jsonschema.Schema {
 		{Type: "string", Description: stringDesc},
 		o,
 	}}
+}
+
+// oneOfBoolOr builds a schema that accepts a boolean or the object described
+// by the fields of obj.
+func oneOfBoolOr(obj any, boolDesc string) *jsonschema.Schema {
+	r := &jsonschema.Reflector{ExpandedStruct: true, DoNotReference: true, RequiredFromJSONSchemaTags: true}
+	o := r.Reflect(obj)
+	o.Version = ""
+	o.ID = ""
+	return &jsonschema.Schema{OneOf: []*jsonschema.Schema{
+		{Type: "boolean", Description: boolDesc},
+		o,
+	}}
+}
+
+// Push is the a2a target's push notification setting: `push: true` listens
+// on a free local port, the mapping form says where to listen and which URL
+// the agent must call.
+type Push struct {
+	Enabled bool   `yaml:"enabled,omitempty" json:"enabled,omitempty" jsonschema:"description=false turns push off; default true in the mapping form."`
+	Addr    string `yaml:"addr,omitempty" json:"addr,omitempty" jsonschema:"description=Address to listen on such as 0.0.0.0:8099; default a free port on 127.0.0.1."`
+	URL     string `yaml:"url,omitempty" json:"url,omitempty" jsonschema:"description=The URL the agent calls (a tunnel or a container address); default http://<addr>."`
+}
+
+// UnmarshalYAML accepts a boolean or a mapping.
+func (ps *Push) UnmarshalYAML(n *yaml.Node) error {
+	if n.Kind == yaml.ScalarNode {
+		b, err := strconv.ParseBool(n.Value)
+		if err != nil {
+			return fmt.Errorf("line %d: push must be true, false or a mapping", n.Line)
+		}
+		*ps = Push{Enabled: b}
+		return nil
+	}
+	if err := checkKeys(n, "Push", "enabled", "addr", "url"); err != nil {
+		return err
+	}
+	type plain Push
+	p := plain{Enabled: true}
+	if err := n.Decode(&p); err != nil {
+		return err
+	}
+	*ps = Push(p)
+	return nil
+}
+
+// JSONSchema describes the boolean and object forms.
+func (Push) JSONSchema() *jsonschema.Schema {
+	type plain Push
+	return oneOfBoolOr(&plain{}, "true listens on a free local port.")
+}
+
+// ScriptFile is a file a script step sends: a path relative to the suite or a
+// URI, or a mapping with a name and a MIME type.
+type ScriptFile struct {
+	Path string `yaml:"path,omitempty" json:"path,omitempty" jsonschema:"description=A file relative to the suite; its bytes are sent."`
+	URI  string `yaml:"uri,omitempty" json:"uri,omitempty" jsonschema:"description=A URI the agent fetches itself; sent instead of bytes."`
+	Name string `yaml:"name,omitempty" json:"name,omitempty" jsonschema:"description=The file name the agent sees; default the path's base name."`
+	MIME string `yaml:"mime,omitempty" json:"mime,omitempty" jsonschema:"description=The media type; default from the extension."`
+}
+
+// UnmarshalYAML accepts a string (a URI when it has a scheme, else a path) or
+// a mapping.
+func (f *ScriptFile) UnmarshalYAML(n *yaml.Node) error {
+	if n.Kind == yaml.ScalarNode {
+		if strings.Contains(n.Value, "://") {
+			*f = ScriptFile{URI: n.Value}
+		} else {
+			*f = ScriptFile{Path: n.Value}
+		}
+		return nil
+	}
+	if err := checkKeys(n, "ScriptFile", "path", "uri", "name", "mime"); err != nil {
+		return err
+	}
+	type plain ScriptFile
+	var p plain
+	if err := n.Decode(&p); err != nil {
+		return err
+	}
+	*f = ScriptFile(p)
+	return nil
+}
+
+// JSONSchema describes the string and object forms.
+func (ScriptFile) JSONSchema() *jsonschema.Schema {
+	type plain ScriptFile
+	return oneOfStringOr(&plain{}, "A path relative to the suite, or a URI.")
 }
 
 // Judge is an LLM-judged assertion: a rubric and how to score it.

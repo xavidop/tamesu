@@ -28,6 +28,8 @@ var fieldExamples = map[string]map[string]string{
 		"stream":                `stream: true`,
 		"skill":                 `skill: order-status`,
 		"metadata":              `metadata: { tenant: acme }`,
+		"transport":             `transport: grpc`,
+		"push":                  `push: true`,
 		"type":                  `type: rest`,
 		"url":                   `url: "${AGENT_URL:-http://localhost:8080/chat}"`,
 		"connect":               `connect: { attempts: 5, backoff: 1s, max_backoff: 10s }`,
@@ -250,6 +252,8 @@ var fieldExamples = map[string]map[string]string{
 		"wait_for": `wait_for: "press 2 for billing"`,
 		"dtmf":     `dtmf: "2"`,
 		"say":      `say: "What is the status of {{captured.order_id}}?"`,
+		"data":     `data: { order: ORD-1001, reason: damaged }`,
+		"files":    `files: [ "fixtures/invoice.pdf", { uri: "https://cdn.example.com/photo.jpg", mime: image/jpeg } ]`,
 	},
 	"Assertion": {
 		"delegated_to":    `delegated_to: { agent: billing, contains: refund }`,
@@ -309,6 +313,23 @@ var fieldExamples = map[string]map[string]string{
 		"replies":     `replies: [{ when: "(?i)refund", say: "Refund of 42 euros issued, reference RF-889" }]`,
 		"forward":     `forward: https://billing.example.com/a2a`,
 		"headers":     `headers: { Authorization: "Bearer {{secrets.BILLING_TOKEN}}" }`,
+		"extended":    `extended: { skills: [invoice-export], description: "Refunds, invoices and exports for partners" }`,
+		"token":       `token: "{{secrets.BILLING_AGENT_TOKEN}}"`,
+	},
+	"RemoteExtended": {
+		"description": `description: "Refunds, invoices and exports for partners"`,
+		"skills":      `skills: [invoice-export, { id: bulk-refund, name: Bulk refund }]`,
+	},
+	"Push": {
+		"enabled": `enabled: true`,
+		"addr":    `addr: 0.0.0.0:8099`,
+		"url":     `url: https://tamesu.tunnel.example.com`,
+	},
+	"ScriptFile": {
+		"path": `path: fixtures/invoice.pdf`,
+		"uri":  `uri: https://cdn.example.com/photo.jpg`,
+		"name": `name: invoice.pdf`,
+		"mime": `mime: application/pdf`,
 	},
 	"RemoteSkill": {
 		"id":          `id: refund`,

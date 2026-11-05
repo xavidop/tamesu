@@ -116,6 +116,8 @@ tests:
 | `stream` | boolean |  | a2a: read the agent's turn from message/stream (server-sent events) instead of message/send; falls back to message/send when the card says the agent does not stream. | `stream: true` |
 | `skill` | string |  | a2a: a skill id or name the agent card must offer; the session fails to start otherwise. | `skill: order-status` |
 | `metadata` | object (any keys) |  | a2a: metadata sent with every message (a tenant or a locale). | `metadata: { tenant: acme }` |
+| `transport` | one of `jsonrpc`, `http`, `grpc` |  | a2a: the protocol binding; default the card's preferred transport or jsonrpc. http is the HTTP+JSON binding and grpc the gRPC one (url grpc://host:port or the card's interface). | `transport: grpc` |
+| `push` | [Push](#push) |  | a2a: receive task updates by push notification on a local listener instead of polling; true or { addr / url } when the agent reaches tamesu through another address. | `push: true` |
 | `system` | string |  | model: the system prompt under test; {{vars.x}} and {{secrets.X}} render. | `system: "You are the Mochi Shoes support agent."` |
 | `system_file` | string |  | model: a file next to the suite holding the system prompt (instead of system). | `system_file: prompts/support.md` |
 | `tools` | list of [ToolDef](#tooldef) |  | model: the tools offered to the model and the result tamesu answers each call with. | `tools: [ { name: lookup_policy, description: The policy for a topic, result: { window_days: 30 } } ]` |
@@ -495,6 +497,8 @@ scenario:
 | `wait_for` | string |  | Wait until the transcript fuzzily contains this text. | `wait_for: "press 2 for billing"` |
 | `dtmf` | string |  | Digits to send. | `dtmf: "2"` |
 | `say` | string |  | Exact text to say before the persona takes over. | `say: "What is the status of {{captured.order_id}}?"` |
+| `data` | object (any keys) |  | A structured part sent with the step (a2a: a data part); alone or with say. | `data: { order: ORD-1001, reason: damaged }` |
+| `files` | list of [ScriptFile](#scriptfile) |  | Files sent with the step (a2a: file parts): a path relative to the suite or a URI | `files: [ "fixtures/invoice.pdf", { uri: "https://cdn.example.com/photo.jpg", mime: image/jpeg } ]` |
 
 Example:
 
@@ -1009,6 +1013,16 @@ Example:
 retry: { attempts: 3, backoff: 500ms, max_backoff: 10s }
 ```
 
+## Push
+
+Either a string (true listens on a free local port), or an object with:
+
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `enabled` | boolean |  | false turns push off; default true in the mapping form. | `enabled: true` |
+| `addr` | string |  | Address to listen on such as 0.0.0.0:8099; default a free port on 127.0.0.1. | `addr: 0.0.0.0:8099` |
+| `url` | string |  | The URL the agent calls (a tunnel or a container address); default http://<addr>. | `url: https://tamesu.tunnel.example.com` |
+
 ## Quarantine
 
 | Key | Type | Required | Description | Example |
@@ -1095,6 +1109,15 @@ red_team:
 | `replies` | list of [RemoteReply](#remotereply) |  | Scripted answers: the first entry whose when matches the message wins. | `replies: [{ when: "(?i)refund", say: "Refund of 42 euros issued, reference RF-889" }]` |
 | `forward` | string |  | A real agent's JSON-RPC URL: the remote agent becomes a recording proxy in front of it and every message and reply is recorded (templates allowed). | `forward: https://billing.example.com/a2a` |
 | `headers` | map of string to string |  | Headers added to forwarded requests such as Authorization (templates allowed). | `headers: { Authorization: "Bearer {{secrets.BILLING_TOKEN}}" }` |
+| `extended` | [RemoteExtended](#remoteextended) |  | What the authenticated extended card adds (agent/getAuthenticatedExtendedCard): more skills and a fuller description for callers that send credentials. | `extended: { skills: [invoice-export], description: "Refunds, invoices and exports for partners" }` |
+| `token` | string |  | A bearer token every request must carry (templates allowed); the card declares the scheme and a request without it gets 401. | `token: "{{secrets.BILLING_AGENT_TOKEN}}"` |
+
+## RemoteExtended
+
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `description` | string |  | The description on the extended card; default the card's. | `description: "Refunds, invoices and exports for partners"` |
+| `skills` | list of [RemoteSkill](#remoteskill) |  | Skills only the extended card lists. | `skills: [invoice-export, { id: bulk-refund, name: Bulk refund }]` |
 
 ## RemoteReply
 
@@ -1115,6 +1138,17 @@ Either a string (The skill id), or an object with:
 | `name` | string |  | The skill's name; default the id. | `name: Refunds` |
 | `description` | string |  | What the skill does. | `description: Issues refunds for delivered orders` |
 | `tags` | list of string |  | Tags on the skill. | `tags: [billing]` |
+
+## ScriptFile
+
+Either a string (A path relative to the suite, or a URI), or an object with:
+
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `path` | string |  | A file relative to the suite; its bytes are sent. | `path: fixtures/invoice.pdf` |
+| `uri` | string |  | A URI the agent fetches itself; sent instead of bytes. | `uri: https://cdn.example.com/photo.jpg` |
+| `name` | string |  | The file name the agent sees; default the path's base name. | `name: invoice.pdf` |
+| `mime` | string |  | The media type; default from the extension. | `mime: application/pdf` |
 
 ## Similar
 

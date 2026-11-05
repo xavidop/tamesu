@@ -2,6 +2,8 @@ package persona
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -134,4 +136,54 @@ func TestFuzzyContains(t *testing.T) {
 			assert.Equal(t, tt.ok, fuzzyContains(tt.heard, tt.want))
 		})
 	}
+}
+
+// recorder keeps every user turn and answers each with a fixed line.
+type recorder struct {
+	sent    []target.UserTurn
+	pending *target.AgentTurn
+}
+
+func (r *recorder) Send(_ context.Context, ut target.UserTurn) error {
+	r.sent = append(r.sent, ut)
+	r.pending = &target.AgentTurn{Text: "got it"}
+	return nil
+}
+
+func (r *recorder) Receive(context.Context) (target.AgentTurn, error) {
+	t := *r.pending
+	r.pending = nil
+	return t, nil
+}
+
+func (r *recorder) Close(context.Context) (target.Artifacts, error) { return target.Artifacts{}, nil }
+
+func TestScriptSendsDataAndFiles(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "invoice.pdf"), []byte("%PDF-1.4 fake"), 0o644))
+	sess := &recorder{}
+	loop := &Loop{BaseDir: dir, Scenario: config.Scenario{Script: []config.ScriptStep{
+		{Say: "Here is the invoice", Files: []config.ScriptFile{{Path: "invoice.pdf"}}},
+		{Data: map[string]any{"order": "ORD-1001"}, Files: []config.ScriptFile{{URI: "https://cdn.example.com/photo.jpg", Name: "photo.jpg"}}},
+	}}}
+	out, err := loop.Run(context.Background(), sess)
+	require.NoError(t, err)
+	assert.Nil(t, out.ScriptError)
+	require.Len(t, sess.sent, 2)
+	require.Len(t, sess.sent[0].Files, 1)
+	assert.Equal(t, "invoice.pdf", sess.sent[0].Files[0].Name)
+	assert.Equal(t, "application/pdf", sess.sent[0].Files[0].MIME)
+	assert.Equal(t, []byte("%PDF-1.4 fake"), sess.sent[0].Files[0].Bytes)
+	assert.Equal(t, map[string]any{"order": "ORD-1001"}, sess.sent[1].Data)
+	assert.Equal(t, "https://cdn.example.com/photo.jpg", sess.sent[1].Files[0].URI)
+	assert.Equal(t, "image/jpeg", sess.sent[1].Files[0].MIME)
+	assert.Empty(t, sess.sent[1].Files[0].Bytes, "a URI is sent as is")
+	assert.Equal(t, "Here is the invoice", out.Transcript[0].Text)
+	assert.Equal(t, `{"order":"ORD-1001"} [file photo.jpg]`, out.Transcript[2].Text, "a turn without words reads as its attachments")
+
+	loop = &Loop{BaseDir: dir, Scenario: config.Scenario{Script: []config.ScriptStep{{Say: "x", Files: []config.ScriptFile{{Path: "missing.pdf"}}}}}}
+	out, err = loop.Run(context.Background(), &recorder{})
+	require.NoError(t, err)
+	require.NotNil(t, out.ScriptError, "a missing file fails the script step")
+	assert.Contains(t, out.ScriptError.Reason, "missing.pdf")
 }

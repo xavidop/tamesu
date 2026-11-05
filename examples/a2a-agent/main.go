@@ -1,10 +1,12 @@
 // A tiny A2A agent for the shoe shop: order status and the returns policy
 // over the Agent2Agent protocol (JSON-RPC, an agent card, message/send and
-// message/stream with server-sent events, tasks that ask for the order id).
+// message/stream with server-sent events, tasks that ask for the order id,
+// push notifications, tasks/resubscribe and an authenticated extended card).
 // examples/a2a-agent/suite.yaml tests it with the a2a target.
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -60,23 +62,60 @@ type task struct {
 	History   []message  `json:"history,omitempty"`
 }
 
-type agent struct {
-	mu    sync.Mutex
-	tasks map[string]*task
-	n     int
+// pushConfig is where a caller asked for a task's updates to be posted.
+type pushConfig struct {
+	URL   string `json:"url"`
+	Token string `json:"token,omitempty"`
 }
 
-func (a *agent) card(base string) map[string]any {
+type agent struct {
+	mu     sync.Mutex
+	tasks  map[string]*task
+	pushes map[string]pushConfig
+	n      int
+}
+
+// card is the public card; extended adds the skill only authenticated
+// callers see.
+func (a *agent) card(base string, extended bool) map[string]any {
+	skills := []map[string]any{
+		{"id": "order-status", "name": "Order status", "description": "Where an order is and when it arrives", "tags": []string{"orders"}, "examples": []string{"Where is order ORD-1001?"}},
+		{"id": "returns", "name": "Returns", "description": "The returns policy", "tags": []string{"policy"}, "examples": []string{"Can I return shoes bought 40 days ago?"}},
+	}
+	if extended {
+		skills = append(skills, map[string]any{"id": "vip-returns", "name": "VIP returns", "description": "Returns without a time limit for VIP customers", "tags": []string{"policy", "vip"}})
+	}
 	return map[string]any{
 		"name": "Mochi Shoes", "description": "Order status and the returns policy of the Mochi Shoes shop.",
-		"url": base + "/a2a", "version": "1.0.0", "protocolVersion": "0.3.0",
-		"capabilities":       map[string]any{"streaming": true},
-		"defaultInputModes":  []string{"text/plain"},
-		"defaultOutputModes": []string{"text/plain"},
-		"skills": []map[string]any{
-			{"id": "order-status", "name": "Order status", "description": "Where an order is and when it arrives", "tags": []string{"orders"}, "examples": []string{"Where is order ORD-1001?"}},
-			{"id": "returns", "name": "Returns", "description": "The returns policy", "tags": []string{"policy"}, "examples": []string{"Can I return shoes bought 40 days ago?"}},
-		},
+		"url": base + "/a2a", "version": "1.0.0", "protocolVersion": "0.3.0", "preferredTransport": "JSONRPC",
+		"capabilities":                      map[string]any{"streaming": true, "pushNotifications": true},
+		"defaultInputModes":                 []string{"text/plain", "application/json"},
+		"defaultOutputModes":                []string{"text/plain"},
+		"supportsAuthenticatedExtendedCard": true,
+		"skills":                            skills,
+	}
+}
+
+// notify posts a task to the URL subscribed to it, with the caller's token.
+func (a *agent) notify(t *task) {
+	a.mu.Lock()
+	cfg, ok := a.pushes[t.ID]
+	body, _ := json.Marshal(t)
+	a.mu.Unlock()
+	if !ok {
+		return
+	}
+	req, err := http.NewRequest(http.MethodPost, cfg.URL, bytes.NewReader(body))
+	if err != nil {
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if cfg.Token != "" {
+		req.Header.Set("X-A2A-Notification-Token", cfg.Token)
+	}
+	client := &http.Client{Timeout: 10 * time.Second}
+	if resp, err := client.Do(req); err == nil {
+		_ = resp.Body.Close()
 	}
 }
 
@@ -117,8 +156,11 @@ func (a *agent) serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var params struct {
-		Message message `json:"message"`
-		ID      string  `json:"id"`
+		Message       message `json:"message"`
+		ID            string  `json:"id"`
+		Configuration struct {
+			Push *pushConfig `json:"pushNotificationConfig"`
+		} `json:"configuration"`
 	}
 	_ = json.Unmarshal(req.Params, &params)
 	a.mu.Lock()
@@ -127,7 +169,34 @@ func (a *agent) serve(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": v})
 	}
+	sse := func() func(v any) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		fl, _ := w.(http.Flusher)
+		return func(v any) {
+			b, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": v})
+			_, _ = fmt.Fprintf(w, "data: %s\n\n", b)
+			if fl != nil {
+				fl.Flush()
+			}
+		}
+	}
 	switch req.Method {
+	case "agent/getAuthenticatedExtendedCard":
+		if r.Header.Get("Authorization") == "" {
+			a.rpcError(w, req.ID, -32007, "authentication required")
+			return
+		}
+		result(a.card("http://"+r.Host, true))
+	case "tasks/resubscribe":
+		t := a.tasks[params.ID]
+		if t == nil {
+			a.rpcError(w, req.ID, -32001, "task not found")
+			return
+		}
+		emit := sse()
+		emit(t)
+		emit(map[string]any{"kind": "status-update", "taskId": t.ID, "contextId": t.ContextID, "final": true, "status": t.Status})
 	case "tasks/get":
 		if t := a.tasks[params.ID]; t != nil {
 			result(t)
@@ -160,30 +229,46 @@ func (a *agent) serve(w http.ResponseWriter, r *http.Request) {
 				text += p.Text
 			}
 		}
+		for _, p := range msg.Parts {
+			if p.Kind == "data" {
+				if id, ok := p.Data["order"].(string); ok {
+					text += " " + id
+				}
+			}
+		}
 		reply, needsInput := answer(text)
 		agentMsg := &message{Kind: "message", MessageID: fmt.Sprintf("%s-m%d", t.ID, len(t.History)+1), Role: "agent", Parts: []part{{Kind: "text", Text: reply}}, TaskID: t.ID, ContextID: t.ContextID}
-		switch {
-		case needsInput:
-			t.Status = status{State: "input-required", Message: agentMsg}
-		default:
-			t.Status = status{State: "completed"}
-			t.Artifacts = append(t.Artifacts, artifact{ID: fmt.Sprintf("%s-a%d", t.ID, len(t.Artifacts)+1), Name: "answer", Parts: []part{{Kind: "text", Text: reply}}})
-			t.History = append(t.History, *agentMsg)
+		finish := func() {
+			switch {
+			case needsInput:
+				t.Status = status{State: "input-required", Message: agentMsg}
+			default:
+				t.Status = status{State: "completed"}
+				t.Artifacts = append(t.Artifacts, artifact{ID: fmt.Sprintf("%s-a%d", t.ID, len(t.Artifacts)+1), Name: "answer", Parts: []part{{Kind: "text", Text: reply}}})
+				t.History = append(t.History, *agentMsg)
+			}
 		}
+		if p := params.Configuration.Push; p != nil && p.URL != "" && req.Method == "message/send" {
+			// The caller wants the answer pushed: the task is submitted now
+			// and finished a moment later, like real work would be.
+			a.pushes[t.ID] = *p
+			t.Status = status{State: "submitted"}
+			result(t)
+			go func() {
+				time.Sleep(20 * time.Millisecond)
+				a.mu.Lock()
+				finish()
+				a.mu.Unlock()
+				a.notify(t)
+			}()
+			return
+		}
+		finish()
 		if req.Method == "message/send" {
 			result(t)
 			return
 		}
-		w.Header().Set("Content-Type", "text/event-stream")
-		w.Header().Set("Cache-Control", "no-cache")
-		fl, _ := w.(http.Flusher)
-		emit := func(v any) {
-			b, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": v})
-			_, _ = fmt.Fprintf(w, "data: %s\n\n", b)
-			if fl != nil {
-				fl.Flush()
-			}
-		}
+		emit := sse()
 		emit(task{Kind: "task", ID: t.ID, ContextID: t.ContextID, Status: status{State: "submitted"}})
 		emit(map[string]any{"kind": "status-update", "taskId": t.ID, "contextId": t.ContextID, "final": false, "status": status{State: "working"}})
 		if needsInput {
@@ -208,11 +293,11 @@ func (a *agent) serve(w http.ResponseWriter, r *http.Request) {
 func main() {
 	addr := flag.String("addr", "127.0.0.1:8091", "address to listen on")
 	flag.Parse()
-	a := &agent{tasks: map[string]*task{}}
+	a := &agent{tasks: map[string]*task{}, pushes: map[string]pushConfig{}}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /.well-known/agent-card.json", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(a.card("http://" + r.Host))
+		_ = json.NewEncoder(w).Encode(a.card("http://"+r.Host, false))
 	})
 	mux.HandleFunc("POST /a2a", a.serve)
 	log.Printf("a2a-agent listening on http://%s/a2a (card at /.well-known/agent-card.json)", *addr)

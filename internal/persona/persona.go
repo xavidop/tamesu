@@ -68,6 +68,9 @@ type Loop struct {
 	Counterpart func(ctx context.Context, agentText string, turn int) (say string, stop bool, err error)
 	// Opening is the counterpart's first message, sent as is.
 	Opening string
+	// BaseDir resolves the relative paths of script files; empty means the
+	// working directory.
+	BaseDir string
 }
 
 // Outcome is what a finished conversation produced.

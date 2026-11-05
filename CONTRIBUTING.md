@@ -73,9 +73,14 @@ This is a multi-module repository tied together by a `go.work` file:
   tool calls answered from the suite.
 - `targets/mcp`: the MCP server target, its own module on the `mcp-go` client and the model
   target: the server's tools are offered to a model and every call runs on the server.
-- `targets/a2a`: the Agent2Agent target, its own module on the standard library: the agent card,
-  JSON-RPC `message/send` and `message/stream` over server-sent events, tasks followed through
-  input-required to their final state, artifacts read as the agent's words.
+- `targets/a2a`: the Agent2Agent target, its own module: the agent card (and the authenticated
+  extended card), `message/send`, `message/stream` over server-sent events and push
+  notifications, tasks followed through input-required to their final state and resubscribed when
+  a stream drops, artifacts read as the agent's words. JSON-RPC is hand-written on the standard
+  library; the HTTP+JSON and gRPC bindings go through a2a-go's protobuf types and converters
+  (`internal/pbjson` turns them into the protocol's JSON at the edge). `a2abind` gives the
+  suites' remote agents (`internal/a2aserver`, root module, JSON-RPC only) the same two bindings;
+  `cmd/tamesu` injects it, so the root module stays free of gRPC.
 - `targets/voice`: the generic voice target, its own module on `coder/websocket`, ojg and the
   audio module: a websocket that carries audio (PCM or G.711, binary frames or base64 in JSON),
   the protocol's control messages read by JSONPath, and a `session.open` request that creates

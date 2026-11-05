@@ -360,7 +360,7 @@ func (a *app) newRunCmd() *cobra.Command {
 					Project: p, Suites: suites, Select: selection, OutDir: out, Parallel: parallel, Repeat: repeat, Mode: mode,
 					Load: load, LoadDuration: loadFor, FailFast: failFast,
 					MaxCostUSD: budget, Headed: headed, Replay: replayOnly, UpdateCache: updateCache, CacheDir: p.Cache.Dir, UpdateGolden: updateGolden, UpdateVisual: updateVisual, LLMCache: llmCache, Labels: labels,
-					Targets: a.targetFactory(), Provider: provider, Secrets: store, Vars: flagVars, Env: a.env(),
+					Targets: a.targetFactory(), RemoteBinding: a.deps.RemoteBinding, Provider: provider, Secrets: store, Vars: flagVars, Env: a.env(),
 					Limits:   map[string]int{config.TargetLiveKit: p.LiveKit.MaxConcurrentRooms, config.TargetSIP: p.SIP.MaxConcurrentCalls},
 					Reporter: reps, Logger: logger, Now: a.deps.Now, Version: a.info.Version,
 				})

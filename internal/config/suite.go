@@ -131,9 +131,11 @@ type Target struct {
 	Messages *VoiceMessages `yaml:"messages,omitempty" json:"messages,omitempty" jsonschema:"description=voice: the JSON control messages of the protocol (open / transcript / done / interrupted / tool_calls / dtmf / close); all optional."`
 
 	// a2a (an Agent2Agent agent; url, headers, turn_timeout and connect apply too)
-	Stream   bool           `yaml:"stream,omitempty" json:"stream,omitempty" jsonschema:"description=a2a: read the agent's turn from message/stream (server-sent events) instead of message/send; falls back to message/send when the card says the agent does not stream."`
-	Skill    string         `yaml:"skill,omitempty" json:"skill,omitempty" jsonschema:"description=a2a: a skill id or name the agent card must offer; the session fails to start otherwise."`
-	Metadata map[string]any `yaml:"metadata,omitempty" json:"metadata,omitempty" jsonschema:"description=a2a: metadata sent with every message (a tenant or a locale)."`
+	Stream    bool           `yaml:"stream,omitempty" json:"stream,omitempty" jsonschema:"description=a2a: read the agent's turn from message/stream (server-sent events) instead of message/send; falls back to message/send when the card says the agent does not stream."`
+	Skill     string         `yaml:"skill,omitempty" json:"skill,omitempty" jsonschema:"description=a2a: a skill id or name the agent card must offer; the session fails to start otherwise."`
+	Metadata  map[string]any `yaml:"metadata,omitempty" json:"metadata,omitempty" jsonschema:"description=a2a: metadata sent with every message (a tenant or a locale)."`
+	Transport string         `yaml:"transport,omitempty" json:"transport,omitempty" jsonschema:"enum=jsonrpc,enum=http,enum=grpc,description=a2a: the protocol binding; default the card's preferred transport or jsonrpc. http is the HTTP+JSON binding and grpc the gRPC one (url grpc://host:port or the card's interface)."`
+	Push      *Push          `yaml:"push,omitempty" json:"push,omitempty" jsonschema:"description=a2a: receive task updates by push notification on a local listener instead of polling; true or { addr / url } when the agent reaches tamesu through another address."`
 
 	// model (a system prompt and tools tested directly against a model; model and done_tool apply too)
 	System        string    `yaml:"system,omitempty" json:"system,omitempty" jsonschema:"description=model: the system prompt under test; {{vars.x}} and {{secrets.X}} render."`
@@ -494,12 +496,15 @@ type Scenario struct {
 
 // ScriptStep is a deterministic step of a voice scenario.
 type ScriptStep struct {
-	WaitFor string `yaml:"wait_for,omitempty" json:"wait_for,omitempty" jsonschema:"description=Wait until the transcript fuzzily contains this text."`
-	DTMF    string `yaml:"dtmf,omitempty" json:"dtmf,omitempty" jsonschema:"description=Digits to send."`
-	Say     string `yaml:"say,omitempty" json:"say,omitempty" jsonschema:"description=Exact text to say before the persona takes over."`
+	WaitFor string         `yaml:"wait_for,omitempty" json:"wait_for,omitempty" jsonschema:"description=Wait until the transcript fuzzily contains this text."`
+	DTMF    string         `yaml:"dtmf,omitempty" json:"dtmf,omitempty" jsonschema:"description=Digits to send."`
+	Say     string         `yaml:"say,omitempty" json:"say,omitempty" jsonschema:"description=Exact text to say before the persona takes over."`
+	Data    map[string]any `yaml:"data,omitempty" json:"data,omitempty" jsonschema:"description=A structured part sent with the step (a2a: a data part); alone or with say."`
+	Files   []ScriptFile   `yaml:"files,omitempty" json:"files,omitempty" jsonschema:"description=Files sent with the step (a2a: file parts): a path relative to the suite or a URI, or { path / uri / name / mime }."`
 }
 
-// Kind returns "wait_for", "dtmf", "say" when exactly one is set, else "".
+// Kind returns "wait_for", "dtmf" or "say" (text, data or files) when exactly
+// one is set, else "".
 func (s ScriptStep) Kind() string {
 	var k []string
 	if s.WaitFor != "" {
@@ -508,7 +513,7 @@ func (s ScriptStep) Kind() string {
 	if s.DTMF != "" {
 		k = append(k, "dtmf")
 	}
-	if s.Say != "" {
+	if s.Say != "" || len(s.Data) > 0 || len(s.Files) > 0 {
 		k = append(k, "say")
 	}
 	if len(k) == 1 {
@@ -527,6 +532,8 @@ type RemoteAgent struct {
 	Replies     []RemoteReply     `yaml:"replies,omitempty" json:"replies,omitempty" jsonschema:"description=Scripted answers: the first entry whose when matches the message wins."`
 	Forward     string            `yaml:"forward,omitempty" json:"forward,omitempty" jsonschema:"description=A real agent's JSON-RPC URL: the remote agent becomes a recording proxy in front of it and every message and reply is recorded (templates allowed)."`
 	Headers     map[string]string `yaml:"headers,omitempty" json:"headers,omitempty" jsonschema:"description=Headers added to forwarded requests such as Authorization (templates allowed)."`
+	Extended    *RemoteExtended   `yaml:"extended,omitempty" json:"extended,omitempty" jsonschema:"description=What the authenticated extended card adds (agent/getAuthenticatedExtendedCard): more skills and a fuller description for callers that send credentials."`
+	Token       string            `yaml:"token,omitempty" json:"token,omitempty" jsonschema:"description=A bearer token every request must carry (templates allowed); the card declares the scheme and a request without it gets 401."`
 }
 
 // RemoteSkill is one skill of a remote agent's card: a string id or an object.
@@ -538,6 +545,12 @@ type RemoteSkill struct {
 }
 
 // RemoteReply is one scripted answer of a remote agent.
+// RemoteExtended is what a remote agent's authenticated extended card adds.
+type RemoteExtended struct {
+	Description string        `yaml:"description,omitempty" json:"description,omitempty" jsonschema:"description=The description on the extended card; default the card's."`
+	Skills      []RemoteSkill `yaml:"skills,omitempty" json:"skills,omitempty" jsonschema:"description=Skills only the extended card lists."`
+}
+
 type RemoteReply struct {
 	When  string         `yaml:"when,omitempty" json:"when,omitempty" jsonschema:"description=A regular expression on the message; omitted matches every message."`
 	Say   string         `yaml:"say,omitempty" json:"say,omitempty" jsonschema:"description=The agent's words."`

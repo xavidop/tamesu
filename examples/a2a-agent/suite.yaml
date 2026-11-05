@@ -16,6 +16,15 @@ targets:
     type: a2a
     url: "{{vars.url}}"
     stream: true                                   # message/stream, server-sent events
+  shop-push:
+    type: a2a
+    url: "{{vars.url}}"
+    push: true                                     # the agent posts task updates to tamesu
+  shop-vip:
+    type: a2a
+    url: "{{vars.url}}"
+    headers: { Authorization: "Bearer demo" }      # the authenticated extended card lists more skills
+    skill: vip-returns
 
 tests:
   - name: the card offers its skills
@@ -40,6 +49,25 @@ tests:
       - json_path: { path: "$.status.state", equals: completed }
         on_turn: 2
       - metric: { name: a2a_tasks, eq: 1 }        # one task carried both turns
+
+  - name: order status by push notification
+    target: shop-push
+    scenario:
+      script:
+        - say: "Where is my order?"
+        - data: { order: ORD-1001 }                 # a data part instead of words
+    assert:
+      - contains: "Which order"
+      - contains: "DHL"
+      - metric: { name: a2a_pushes, gte: 1 }       # the answer arrived by push, not by polling
+
+  - name: the extended card has the VIP skill
+    target: shop-vip
+    scenario:
+      script:
+        - say: "Hi there"
+    assert:
+      - metric: { name: a2a_skills, eq: 3 }        # order-status, returns and vip-returns
 
   - name: two shop agents talk
     target: shop

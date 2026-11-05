@@ -149,6 +149,8 @@ for _ in $(seq 1 50); do (echo >"/dev/tcp/127.0.0.1/$a2a_port") 2>/dev/null && b
 A2A_URL="http://127.0.0.1:$a2a_port/a2a" ./bin/tamesu-llmfake run --config examples/a2a-agent/tamesu.llmfake.yaml --out "$out/a2a-agent"
 kill "$a2a_pid" 2>/dev/null || true
 grep -q '"a2a_skills": 2' "$out"/a2a-agent/tests/the-card-offers-its-skills/run-1/result.json || { echo "the a2a target read no card" >&2; exit 1; }
+grep -qE '"a2a_pushes": [1-9]' "$out"/a2a-agent/tests/order-status-by-push-notification/run-1/result.json || { echo "the a2a target got no push notification" >&2; exit 1; }
+grep -q '"a2a_skills": 3' "$out"/a2a-agent/tests/the-extended-card-has-the-vip-skill/run-1/result.json || { echo "the a2a target did not read the extended card" >&2; exit 1; }
 
 echo "==> judge calibrate: the fake judge must agree with every label"
 ./bin/tamesu-llmfake judge calibrate examples/rest-agent/labels.yaml --config examples/rest-agent/tamesu.llmfake.yaml --out "$out/calibration.json"

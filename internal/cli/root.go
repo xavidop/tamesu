@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/xavidop/tamesu/internal/a2aserver"
 	"io"
 	"log/slog"
 	"sync"
@@ -49,6 +50,9 @@ type Deps struct {
 	// Targets are the target factories by type (rest, livekit, sip, browser)
 	// this build links.
 	Targets map[string]TargetFactory
+	// RemoteBinding adds the HTTP+JSON and gRPC bindings to the suites'
+	// remote agents; nil serves them over JSON-RPC only.
+	RemoteBinding func() a2aserver.Binding
 	// SIPSetup runs `tamesu sip setup` (the sip module); nil means the
 	// command reports that this build has no sip support.
 	SIPSetup func(ctx context.Context, req SIPSetupRequest) (SIPSetupResult, error)

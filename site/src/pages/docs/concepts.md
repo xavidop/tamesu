@@ -63,11 +63,14 @@ apply; `tamesu validate` warns when a key belongs to another type.
 - **`mcp`**: an MCP server, `command` (with `args` and `env`) over stdio or `url` (with
   `headers`) over streamable HTTP; its tools are offered to a driving `model` with a short
   `system`, narrowed by `allow_tools`, each call bounded by `call_timeout`.
-- **`a2a`**: an agent speaking the Agent2Agent protocol at `url` (its JSON-RPC endpoint; the
-  agent card is read from the URL's origin), with `headers`, `stream: true` to read the turn from
-  `message/stream`, a `skill` the card must offer and `metadata` sent on every message. Each user
-  turn is one message; a task that asks for input is continued, a completed one is followed by
-  a new task in the same context, and a failed, canceled or rejected one ends the session.
+- **`a2a`**: an agent speaking the Agent2Agent protocol at `url` over any of its bindings
+  (`transport`: `jsonrpc`, `http` or `grpc`; the agent card is read from the URL's origin or with
+  `GetAgentCard`), with `headers`, `stream: true` to read the turn from `message/stream`,
+  `push: true` to receive task updates as push notifications, a `skill` the card (or the
+  authenticated extended card) must offer and `metadata` sent on every message. Each user turn
+  is one message, with a script step's `data` and `files` as parts; a task that asks for input is
+  continued, a completed one is followed by a new task in the same context, and a failed,
+  canceled or rejected one ends the session.
 - **`voice`**: any websocket that carries audio: `url` (with the `{{session.NAME}}` captures of a
   `session.open` request that creates the call), `audio` (`encoding: pcm16|mulaw|alaw`,
   `sample_rate`, `frames: binary|json` with `send` and `receive`) and `messages` (the protocol's

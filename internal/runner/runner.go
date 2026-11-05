@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/xavidop/tamesu/internal/a2aserver"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -98,6 +99,9 @@ type Options struct {
 	// Labels are written into the summary (the project's plus --label).
 	Labels  map[string]string
 	Targets TargetFactory
+	// RemoteBinding adds the HTTP+JSON and gRPC bindings to every remote
+	// agent; nil serves JSON-RPC only.
+	RemoteBinding func() a2aserver.Binding
 	// Provider is the AI layer; nil fails conversational tests with an
 	// infrastructure error.
 	Provider model.Provider

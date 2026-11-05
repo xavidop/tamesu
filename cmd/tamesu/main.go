@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"github.com/xavidop/tamesu/targets/a2a/a2abind"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -54,6 +55,7 @@ func main() {
 			Now:           time.Now,
 			NewProvider:   newProvider,
 			Targets:       targetFactories,
+			RemoteBinding: a2abind.New,
 			Checks:        []cli.DoctorCheck{checkModels, checkSpeech, checkChromium, checkLiveKit, checkSIP},
 			SIPSetup:      sipSetup,
 			RecordBrowser: recordBrowser,

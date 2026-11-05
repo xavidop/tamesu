@@ -69,8 +69,21 @@ type UserTurn struct {
 	Audio []byte
 	// DTMF digits to send (sip and livekit audio).
 	DTMF string
+	// Data is a structured part sent with the text (a2a: a data part).
+	Data map[string]any
+	// Files are attachments sent with the text (a2a: file parts).
+	Files []Attachment
 	// At is when the runner handed the turn to the target.
 	At time.Time
+}
+
+// Attachment is a file the user sends with a turn: its bytes, or a URI the
+// agent fetches itself.
+type Attachment struct {
+	Name  string
+	MIME  string
+	URI   string
+	Bytes []byte
 }
 
 // AgentTurn is what the agent answered, with the transport timestamps the
