@@ -155,7 +155,7 @@ func (a *app) validateDraft(cmd *cobra.Command, p config.Project, data []byte, p
 	}
 	if errs.HasErrors() {
 		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "the draft does not validate; fix it before running:\n")
-		_, _ = printErrors(cmd.ErrOrStderr(), errs)
+		_, _ = printErrors(cmd.ErrOrStderr(), errs, a.style(cmd.ErrOrStderr()))
 		return silentExit(ExitFailed)
 	}
 	return nil

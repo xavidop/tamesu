@@ -37,11 +37,11 @@ func (a *app) newLintCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			nErr, _ := printErrors(cmd.ErrOrStderr(), perrs.Only())
+			nErr, _ := printErrors(cmd.ErrOrStderr(), perrs.Only(), a.style(cmd.ErrOrStderr()))
 			var findings []lint.Finding
 			suites := 0
 			for _, f := range files {
-				if e, _ := printErrors(cmd.ErrOrStderr(), f.Errs.Only()); e > 0 || f.Suite == nil {
+				if e, _ := printErrors(cmd.ErrOrStderr(), f.Errs.Only(), a.style(cmd.ErrOrStderr())); e > 0 || f.Suite == nil {
 					nErr += e
 					continue
 				}
@@ -62,8 +62,9 @@ func (a *app) newLintCmd() *cobra.Command {
 					return err
 				}
 			} else {
+				st := a.style(out)
 				for _, f := range findings {
-					_, _ = fmt.Fprintln(out, f.String())
+					_, _ = fmt.Fprintln(out, f.Format(st.Warn))
 				}
 				byRule := map[string]int{}
 				for _, f := range findings {

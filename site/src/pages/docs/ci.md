@@ -49,6 +49,10 @@ jobs:
 secret, and a workflow without it falls through to AWS Secrets Manager for the `ci` environment
 (`--var ENV=ci`), using the runner's AWS credentials.
 
+Output in a job is not a terminal, so it is plain by default; GitHub Actions renders ANSI colours, so
+`tamesu run --color always` (or `FORCE_COLOR=1` in the job's environment) brings the green and red
+verdicts back in the log.
+
 ## GitLab CI
 
 ```yaml

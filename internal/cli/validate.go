@@ -30,17 +30,25 @@ func (a *app) newValidateCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			nErr, nWarn := printErrors(out, perrs)
+			st := a.style(out)
+			nErr, nWarn := printErrors(out, perrs, st)
 			nTests := 0
 			for _, f := range files {
-				e, w := printErrors(out, f.Errs)
+				e, w := printErrors(out, f.Errs, st)
 				nErr += e
 				nWarn += w
 				if f.Suite != nil {
 					nTests += len(f.Suite.Tests)
 				}
 			}
-			_, _ = fmt.Fprintf(out, "%s, %s, %s, %s\n", plural(len(files), "suite"), plural(nTests, "test"), plural(nErr, "error"), plural(nWarn, "warning"))
+			errWord, warnWord := plural(nErr, "error"), plural(nWarn, "warning")
+			if nErr > 0 {
+				errWord = st.Fail(errWord)
+			}
+			if nWarn > 0 {
+				warnWord = st.Warn(warnWord)
+			}
+			_, _ = fmt.Fprintf(out, "%s, %s, %s, %s\n", plural(len(files), "suite"), plural(nTests, "test"), errWord, warnWord)
 			if nErr > 0 || (strict && nWarn > 0) {
 				return silentExit(ExitConfig)
 			}

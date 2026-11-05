@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/xavidop/tamesu/internal/a2aserver"
+	"github.com/xavidop/tamesu/report"
 	"io"
 	"log/slog"
 	"sync"
@@ -74,6 +75,13 @@ type app struct {
 	verbose    bool
 	varFlags   []string
 	envFile    string
+	colorMode  string
+}
+
+// style colours output to w according to --color, NO_COLOR, FORCE_COLOR and
+// whether w is a terminal.
+func (a *app) style(w io.Writer) report.Style {
+	return report.NewStyle(report.ColorEnabled(a.colorMode, w, a.deps.LookupEnv))
 }
 
 // apps maps each root command to its app, so Execute can redact the final
@@ -123,6 +131,7 @@ func NewRoot(info BuildInfo, streams Streams, deps Deps) *cobra.Command {
 	pf.BoolVarP(&a.verbose, "verbose", "v", false, "debug logging to stderr")
 	pf.StringArrayVar(&a.varFlags, "var", nil, "KEY=VAL for ${VAR} in secret refs and {{vars.KEY}} (repeatable)")
 	pf.StringVar(&a.envFile, "env-file", "", "dotenv file read through mamori when an env: secret or ${VAR} is not set")
+	pf.StringVar(&a.colorMode, "color", "auto", "colour the output: auto (a terminal, unless NO_COLOR), always or never")
 	root.AddCommand(
 		newVersionCmd(info),
 		a.newInitCmd(),
@@ -179,6 +188,10 @@ func Execute(ctx context.Context, root *cobra.Command, args []string) int {
 	if v, ok := apps.Load(root); ok {
 		msg = v.(*app).redactor.Redact(msg)
 	}
-	_, _ = fmt.Fprintf(root.ErrOrStderr(), "error: %s\n", msg)
+	label := "error:"
+	if v, ok := apps.Load(root); ok {
+		label = v.(*app).style(root.ErrOrStderr()).Fail(label)
+	}
+	_, _ = fmt.Fprintf(root.ErrOrStderr(), "%s %s\n", label, msg)
 	return ExitCode(err)
 }

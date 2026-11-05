@@ -246,7 +246,9 @@ credential declared under `secrets:` (`GEMINI_API_KEY`, `OPENAI_API_KEY`, `ANTHR
 
 Global flags: `--config tamesu.yaml`, `-v/--verbose`, `--var KEY=VAL` (repeatable; ref vars for
 `${VAR}` in secret refs and `{{vars.KEY}}`), `--env-file .env` (read through mamori's dotenv
-provider when an `env:` secret or `${VAR}` is not set; the process environment is never mutated).
+provider when an `env:` secret or `${VAR}` is not set; the process environment is never mutated),
+`--color auto|always|never` (colours on a terminal by default, `NO_COLOR` turns them off,
+`FORCE_COLOR` or `always` turns them on in a pipe such as a CI log).
 
 Exit codes: `0` passed, `1` a test failed, `2` config/schema/usage error (also an unresolvable
 secret ref), `3` infrastructure error (a secret provider down, LiveKit or a model unreachable),

@@ -17,10 +17,18 @@ type Console struct {
 	mu      sync.Mutex
 	w       io.Writer
 	verbose bool
+	st      Style
 }
 
-// NewConsole returns a console reporter writing to w. verbose adds a line per run.
+// NewConsole returns a console reporter writing to w, without colours.
+// verbose adds a line per run.
 func NewConsole(w io.Writer, verbose bool) *Console { return &Console{w: w, verbose: verbose} }
+
+// WithColor colours the verdicts, counts and reasons when enabled.
+func (c *Console) WithColor(enabled bool) *Console {
+	c.st = NewStyle(enabled)
+	return c
+}
 
 func (c *Console) printf(format string, args ...any) {
 	_, _ = fmt.Fprintf(c.w, format, args...)
@@ -30,9 +38,9 @@ func (c *Console) printf(format string, args ...any) {
 func (c *Console) RunStarted(info RunInfo) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	line := fmt.Sprintf("tamesu run: %s, output in %s", plural(info.Tests, "test"), info.OutDir)
+	line := fmt.Sprintf("%s %s, output in %s", c.st.Bold("tamesu run:"), plural(info.Tests, "test"), c.st.Info(info.OutDir))
 	if l := FormatLabels(info.Labels); l != "" {
-		line += " · " + l
+		line += " · " + c.st.Dim(l)
 	}
 	c.printf("%s\n", line)
 }
@@ -44,7 +52,7 @@ func (c *Console) TestStarted(t *TestOutcome) {
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.printf("START  %s / %s (%s, %s)\n", t.Suite, t.Name, t.Target, plural(t.Repeat, "run"))
+	c.printf("%s  %s / %s (%s, %s)\n", c.st.Dim("START"), t.Suite, t.Name, t.Target, plural(t.Repeat, "run"))
 }
 
 // RunFinished prints one line per repeat in verbose mode.
@@ -54,12 +62,12 @@ func (c *Console) RunFinished(t *TestOutcome, r *RunOutcome) {
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	state := "pass"
+	state := c.st.Pass("pass")
 	switch {
 	case r.ErrorKind != "":
-		state = r.ErrorKind + ": " + r.Error
+		state = c.st.Fail(r.ErrorKind + ": " + r.Error)
 	case !r.Passed:
-		state = "fail"
+		state = c.st.Fail("fail")
 	}
 	c.printf("  run %d/%d  %s  %s\n", r.Index, t.Repeat, fmtDuration(r.Duration), state)
 }
@@ -68,16 +76,16 @@ func (c *Console) RunFinished(t *TestOutcome, r *RunOutcome) {
 func (c *Console) TestFinished(t *TestOutcome) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	label := "PASS "
+	label := c.st.Pass("PASS ")
 	switch {
 	case t.Skipped():
-		label = "SKIP "
+		label = c.st.Dim("SKIP ")
 	case t.Quarantined():
-		label = "QUAR "
+		label = c.st.Warn("QUAR ")
 	case t.Errored():
-		label = "ERROR"
+		label = c.st.Fail("ERROR")
 	case !t.Passed:
-		label = "FAIL "
+		label = c.st.Fail("FAIL ")
 	}
 	var dur time.Duration
 	passed := 0
@@ -92,10 +100,10 @@ func (c *Console) TestFinished(t *TestOutcome) {
 		runs = fmt.Sprintf("  (%d/%d runs passed, threshold %.0f%%)", passed, len(t.Runs), t.PassThreshold*100)
 	}
 	if t.Skipped() {
-		c.printf("%s  %s / %s  %s\n", label, t.Suite, t.Name, t.SkipReason())
+		c.printf("%s  %s / %s  %s\n", label, t.Suite, t.Name, c.st.Dim(t.SkipReason()))
 		return
 	}
-	c.printf("%s  %s / %s  %s%s\n", label, t.Suite, t.Name, fmtDuration(dur), runs)
+	c.printf("%s  %s / %s  %s%s\n", label, t.Suite, t.Name, c.st.Dim(fmtDuration(dur)), c.st.Dim(runs))
 	if l := t.Load; l != nil {
 		c.printf("       load: %d users · %d runs in %s · %.1f runs/s · %.0f%% errors · turn latency p50 %.0fms p95 %.0fms max %.0fms (%d turns)\n",
 			l.Users, l.Runs, fmtDuration(time.Duration(l.DurationMs*float64(time.Millisecond))), l.RunsPerSecond, l.ErrorRate*100,
@@ -105,7 +113,7 @@ func (c *Console) TestFinished(t *TestOutcome) {
 		return
 	}
 	if q := t.Quarantine; q != nil {
-		c.printf("       quarantined%s: %s\n", optional(" until ", q.Until), q.Reason)
+		c.printf("       %s\n", c.st.Warn(fmt.Sprintf("quarantined%s: %s", optional(" until ", q.Until), q.Reason)))
 	}
 	for _, r := range t.Runs {
 		if r.Passed {
@@ -117,16 +125,16 @@ func (c *Console) TestFinished(t *TestOutcome) {
 			prefix = "     "
 		}
 		if r.Error != "" {
-			c.printf("%s %s: %s\n", prefix, r.ErrorKind, r.Error)
+			c.printf("%s %s: %s\n", prefix, c.st.Fail(r.ErrorKind), r.Error)
 		}
 		for _, a := range r.FailedAssertions() {
-			c.printf("%s x %s: %s\n", prefix, a.Name, a.Reason)
+			c.printf("%s %s %s: %s\n", prefix, c.st.Fail("x"), c.st.Bold(a.Name), a.Reason)
 		}
 		if n := len(r.Transcript); n > 0 {
-			c.printf("%s last turns:\n", prefix)
+			c.printf("%s %s\n", prefix, c.st.Dim("last turns:"))
 			start := max(n-3, 0)
 			for _, turn := range r.Transcript[start:] {
-				c.printf("%s   %-6s %s\n", prefix, turn.Role+":", oneLine(turn.Text, 160))
+				c.printf("%s   %s %s\n", prefix, c.st.Dim(fmt.Sprintf("%-6s", turn.Role+":")), c.st.Dim(oneLine(turn.Text, 160)))
 			}
 		}
 		if t.Repeat == 1 {
@@ -140,9 +148,16 @@ func (c *Console) Finish(_ context.Context, s *Summary) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	passed, failed, errored := s.Counts()
-	line := fmt.Sprintf("\n%d passed, %d failed, %d errors", passed, failed, errored)
+	count := func(n int, word string, paint func(string) string) string {
+		text := fmt.Sprintf("%d %s", n, word)
+		if n > 0 {
+			return paint(text)
+		}
+		return text
+	}
+	line := "\n" + count(passed, "passed", c.st.Pass) + ", " + count(failed, "failed", c.st.Fail) + ", " + count(errored, "errors", c.st.Fail)
 	if q := len(s.Quarantined()); q > 0 {
-		line += fmt.Sprintf(", %d quarantined", q)
+		line += ", " + c.st.Warn(fmt.Sprintf("%d quarantined", q))
 	}
 	if n := len(s.Skipped()); n > 0 {
 		line += fmt.Sprintf(", %d skipped", n)
@@ -158,7 +173,7 @@ func (c *Console) Finish(_ context.Context, s *Summary) error {
 		line += fmt.Sprintf(" · llm cache: %d hits, %d misses", c.Hits, c.Misses)
 	}
 	if s.BudgetExceeded {
-		line += " · BUDGET EXCEEDED: the run was stopped"
+		line += " · " + c.st.Fail("BUDGET EXCEEDED: the run was stopped")
 	}
 	if rt := RedTeamLine(BuildRedTeam(s)); rt != "" {
 		line += "\n" + rt
