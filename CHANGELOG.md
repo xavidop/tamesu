@@ -2,6 +2,13 @@
 
 All notable changes to tamesu are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/). Each new release is added at the top, with notes generated from the commit messages.
 
+# [1.15.0](https://github.com/xavidop/tamesu/compare/v1.14.0...v1.15.0) (2026-11-05)
+
+
+### Features
+
+* **a2a:** remote agents, a counterpart agent and a recording proxy ([f8efc7e](https://github.com/xavidop/tamesu/commit/f8efc7e7288976eb75c9f7999118c2ceda942daf))
+
 # [1.14.0](https://github.com/xavidop/tamesu/compare/v1.13.0...v1.14.0) (2026-11-05)
 
 
