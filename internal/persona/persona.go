@@ -30,6 +30,8 @@ const (
 	StopScript    = "script"     // a scripted step failed (Outcome.ScriptError)
 	StopScriptEnd = "script_end" // the script played out and the scenario has no goal
 	StopHandoff   = "handoff"    // the agent handed the conversation to a person
+	// StopCounterpart: the counterpart agent had nothing more to say.
+	StopCounterpart = "counterpart_done"
 )
 
 // ErrNoSimulator is returned when the loop has no model to play the user.
@@ -59,6 +61,13 @@ type Loop struct {
 	// to a person; a non-empty detail ends the conversation with a handoff
 	// event carrying it.
 	Handoff func(agent target.AgentTurn, turn int) string
+	// Counterpart, when set, plays the user instead of Sim: it is given the
+	// agent's last words (the scenario goal on the first turn, when there is
+	// no Opening) and answers with the next user turn; an empty say or stop
+	// ends the conversation.
+	Counterpart func(ctx context.Context, agentText string, turn int) (say string, stop bool, err error)
+	// Opening is the counterpart's first message, sent as is.
+	Opening string
 }
 
 // Outcome is what a finished conversation produced.
@@ -85,7 +94,7 @@ type Outcome struct {
 // outcome.
 func (l *Loop) Run(ctx context.Context, sess target.Session) (*Outcome, error) {
 	scriptOnly := strings.TrimSpace(l.Scenario.Goal) == "" && scriptSteps(l.Scenario) > 0
-	if l.Sim == nil && !scriptOnly {
+	if l.Sim == nil && !scriptOnly && l.Counterpart == nil {
 		return &Outcome{}, ErrNoSimulator
 	}
 	now := l.Now
@@ -125,12 +134,25 @@ func (l *Loop) Run(ctx context.Context, sess target.Session) (*Outcome, error) {
 			out.StopReason = StopMaxTurns
 			return out, nil
 		}
-		sim, err := l.Sim.Simulate(ctx, model.SimInput{
-			Persona: l.Persona, Scenario: l.Scenario, History: out.Transcript,
-			Turn: turn, MaxTurns: maxTurns, Mode: l.Mode, Seed: l.Seed,
-		})
-		if err != nil {
-			return out, fmt.Errorf("simulator: %w", err)
+		var sim model.SimOutput
+		var err error
+		if l.Counterpart != nil {
+			sim, err = l.counterpartTurn(ctx, out, turn)
+			if err != nil {
+				return out, fmt.Errorf("counterpart: %w", err)
+			}
+			if sim.Say == "" {
+				out.StopReason = StopCounterpart
+				return out, nil
+			}
+		} else {
+			sim, err = l.Sim.Simulate(ctx, model.SimInput{
+				Persona: l.Persona, Scenario: l.Scenario, History: out.Transcript,
+				Turn: turn, MaxTurns: maxTurns, Mode: l.Mode, Seed: l.Seed,
+			})
+			if err != nil {
+				return out, fmt.Errorf("simulator: %w", err)
+			}
 		}
 		if sim.TraceID != "" {
 			out.TraceIDs = append(out.TraceIDs, sim.TraceID)
@@ -186,10 +208,35 @@ func (l *Loop) Run(ctx context.Context, sess target.Session) (*Outcome, error) {
 			out.StopReason = StopAgentDone
 			return out, nil
 		case sim.Stop:
+			if l.Counterpart != nil {
+				out.StopReason = StopCounterpart
+				return out, nil
+			}
 			out.StopReason = stopReason(sim, StopSimulator)
 			return out, nil
 		}
 	}
+}
+
+// counterpartTurn asks the counterpart for the next user turn: the Opening
+// on the first turn when there is one, else its answer to the agent's last
+// words (the scenario goal before the agent has spoken).
+func (l *Loop) counterpartTurn(ctx context.Context, out *Outcome, turn int) (model.SimOutput, error) {
+	if turn == 1 && strings.TrimSpace(l.Opening) != "" {
+		return model.SimOutput{Say: l.Opening}, nil
+	}
+	prompt := l.Scenario.Goal
+	for i := len(out.Transcript) - 1; i >= 0; i-- {
+		if out.Transcript[i].Role == "agent" {
+			prompt = out.Transcript[i].Text
+			break
+		}
+	}
+	say, stop, err := l.Counterpart(ctx, prompt, turn)
+	if err != nil {
+		return model.SimOutput{}, err
+	}
+	return model.SimOutput{Say: strings.TrimSpace(say), Stop: stop, Reason: "the counterpart ended the conversation"}, nil
 }
 
 func (l *Loop) notify(t assert.Turn) {

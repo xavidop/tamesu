@@ -1,0 +1,35 @@
+suite: remote-agents-bad
+targets:
+  api:
+    type: rest
+    url: http://localhost:8080/chat
+    response: { text: $.reply }
+  shop:
+    type: browser
+    url: http://localhost:8080
+remote_agents:
+  billing:
+    addr: nowhere
+    skills: [refund, { id: "" }]
+    replies:
+      - { when: "(", say: "x" }
+      - { when: "refund", state: maybe }
+  silent: {}
+tests:
+  - name: t
+    target: api
+    scenario: { goal: say hi }
+    assert:
+      - delegated_to: { agent: payments, regex: "[" }   # a different regex error than replies[0].when
+      - delegated_to: ""
+  - name: two agents
+    target: api
+    counterpart: { target: shop }
+    persona: { name: A }
+    assert:
+      - contains: hi
+  - name: no counterpart target
+    target: api
+    counterpart: { target: nope, opening: hi }
+    assert:
+      - contains: hi

@@ -6,18 +6,19 @@ package config
 // TestSuitesMarkdownFieldExamples fails when a property has none.
 var fieldExamples = map[string]map[string]string{
 	"Suite": {
-		"suite":    `suite: support-agent`,
-		"tags":     `tags: [regression, returns]`,
-		"vars":     `vars: { shop: Mochi Shoes, days: "30" }`,
-		"secrets":  `secrets: { AGENT_TOKEN: env:AGENT_TOKEN }`,
-		"defaults": `defaults: { timeout: 2m, repeat: 3, pass_threshold: 0.67 }`,
-		"models":   `models: { judge: anthropic/claude-sonnet-4-6 }`,
-		"budgets":  `budgets: { max_cost_usd: 2 }`,
-		"targets":  `targets: { api: { type: rest, url: "{{vars.agent_url}}" } }`,
-		"hooks":    `hooks: { before_each: [ { command: ./scripts/reset.sh } ] }`,
-		"packs":    `packs: { tone: [ { judge: "The agent stays polite" } ] }`,
-		"red_team": `red_team: { target: api, agent: "Shop support; never more than 30-day returns" }`,
-		"tests":    `tests: [ { name: refund policy, target: api, scenario: { goal: "Ask about returns" } } ]`,
+		"remote_agents": `remote_agents: { billing: { skills: [refund], reply: "Refund issued, reference RF-889" } }`,
+		"suite":         `suite: support-agent`,
+		"tags":          `tags: [regression, returns]`,
+		"vars":          `vars: { shop: Mochi Shoes, days: "30" }`,
+		"secrets":       `secrets: { AGENT_TOKEN: env:AGENT_TOKEN }`,
+		"defaults":      `defaults: { timeout: 2m, repeat: 3, pass_threshold: 0.67 }`,
+		"models":        `models: { judge: anthropic/claude-sonnet-4-6 }`,
+		"budgets":       `budgets: { max_cost_usd: 2 }`,
+		"targets":       `targets: { api: { type: rest, url: "{{vars.agent_url}}" } }`,
+		"hooks":         `hooks: { before_each: [ { command: ./scripts/reset.sh } ] }`,
+		"packs":         `packs: { tone: [ { judge: "The agent stays polite" } ] }`,
+		"red_team":      `red_team: { target: api, agent: "Shop support; never more than 30-day returns" }`,
+		"tests":         `tests: [ { name: refund policy, target: api, scenario: { goal: "Ask about returns" } } ]`,
 	},
 	"Target": {
 		"token":                 `token: "{{session.access_token}}"`,
@@ -186,6 +187,7 @@ var fieldExamples = map[string]map[string]string{
 		"headers": `headers: { Authorization: "Bearer {{secrets.ADMIN_TOKEN}}" }`,
 	},
 	"Test": {
+		"counterpart":    `counterpart: { target: supplier, opening: "We can offer 500 units at 12 euros each" }`,
 		"name":           `name: refund after 40 days`,
 		"target":         `target: api`,
 		"tags":           `tags: [returns, smoke]`,
@@ -250,6 +252,7 @@ var fieldExamples = map[string]map[string]string{
 		"say":      `say: "What is the status of {{captured.order_id}}?"`,
 	},
 	"Assertion": {
+		"delegated_to":    `delegated_to: { agent: billing, contains: refund }`,
 		"judge":           `judge: "The agent states the 30-day window and promises no exception"`,
 		"contains":        `contains: "30 days"`,
 		"not_contains":    `not_contains: "90 days"`,
@@ -291,6 +294,37 @@ var fieldExamples = map[string]map[string]string{
 	"ToolSequence": {
 		"calls": `calls: [lookup_order, issue_refund]`,
 		"exact": `exact: true`,
+	},
+	"Delegation": {
+		"agent":    `agent: billing`,
+		"contains": `contains: "refund"`,
+		"regex":    `regex: "ORD-\d+"`,
+	},
+	"RemoteAgent": {
+		"addr":        `addr: 127.0.0.1:8095`,
+		"name":        `name: Billing`,
+		"description": `description: Refunds and invoices`,
+		"skills":      `skills: [refund, { id: invoice-lookup, name: Invoice lookup }]`,
+		"reply":       `reply: "I can help with refunds and invoices."`,
+		"replies":     `replies: [{ when: "(?i)refund", say: "Refund of 42 euros issued, reference RF-889" }]`,
+		"forward":     `forward: https://billing.example.com/a2a`,
+		"headers":     `headers: { Authorization: "Bearer {{secrets.BILLING_TOKEN}}" }`,
+	},
+	"RemoteSkill": {
+		"id":          `id: refund`,
+		"name":        `name: Refunds`,
+		"description": `description: Issues refunds for delivered orders`,
+		"tags":        `tags: [billing]`,
+	},
+	"RemoteReply": {
+		"when":  `when: "(?i)cancel"`,
+		"say":   `say: "Which order should I cancel?"`,
+		"data":  `data: { reference: RF-889 }`,
+		"state": `state: input-required`,
+	},
+	"Counterpart": {
+		"target":  `target: supplier`,
+		"opening": `opening: "We can offer 500 units at 12 euros each, delivery in 3 weeks"`,
 	},
 	"Evaluator": {
 		"name": `name: genkitEval/faithfulness`,

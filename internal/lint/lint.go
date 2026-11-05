@@ -185,6 +185,9 @@ func (l *linter) declarations() {
 	used := map[string]bool{}
 	for _, t := range l.s.Tests {
 		used[t.Target] = true
+		if t.Counterpart != nil {
+			used[t.Counterpart.Target] = true
+		}
 	}
 	if l.s.RedTeam != nil {
 		used[l.s.RedTeam.Target] = true

@@ -82,7 +82,11 @@ target's configuration: create a conversation, mint a token). The full key list 
 
 ## Personas and scenarios
 
-A conversational test (rest, grpc, livekit, sip, realtime, pipecat) is driven by a **persona** and a **scenario**:
+A conversational test (rest, grpc, livekit, sip, realtime, pipecat, voice, model, mcp, a2a) is
+driven by a **persona** and a **scenario**, or by a **counterpart**: another target
+of the suite that plays the user, so two agents talk (see [A2A](/docs/targets/a2a/#two-agents-talking)).
+A suite's **remote agents** (`remote_agents`) are A2A agents tamesu runs for the agent under test
+to delegate to; what it sends them is recorded for `delegated_to`.
 
 ```yaml
 persona:
@@ -217,6 +221,7 @@ Every assertion is one key under `assert:`; a test may have any number, and `on_
 | `status` | rest | HTTP status of every turn |
 | `tool_called` / `tool_not_called` | rest, grpc, livekit, realtime, pipecat | `tool_called: { name: reschedule_booking, args: { day: saturday } }` |
 | `tool_sequence` | rest, grpc, livekit, realtime, pipecat | `tool_sequence: { calls: [lookup_order, refund] }` |
+| `delegated_to` | any, with `remote_agents` | `delegated_to: { agent: billing, contains: "ORD-1001" }` |
 | `dtmf_received` | sip, livekit audio | `{ equals: "1234#" }` |
 | `call_ended_by` | sip | `[agent, caller]`, also `timeout`, `error`, `no_answer`, `busy` |
 | `transferred_to` | sip | `{ matches: "^sip:billing@" }` |

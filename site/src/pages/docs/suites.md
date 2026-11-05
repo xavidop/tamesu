@@ -35,6 +35,7 @@ The top level of the file.
 | `hooks` | [Hooks](#hooks) |  | Setup and teardown around this suite and its runs | `hooks: { before_each: [ { command: ./scripts/reset.sh } ] }` |
 | `packs` | map of string to list of [Assertion](#assertion) |  | Reusable assertion sets by name for assert entries of the form pack: name; a name also used by a built-in pack (prompt_injection / pii_leakage / system_prompt_leakage / stays_in_scope / discloses_ai / harmful_content / excessive_agency / policy_consistency) replaces it. | `packs: { tone: [ { judge: "The agent stays polite" } ] }` |
 | `red_team` | [RedTeam](#redteam) |  | Red team playbooks: one adversarial test per attack of the chosen playbooks is added to the suite when it loads (tamesu playbooks lists them). | `red_team: { target: api, agent: "Shop support; never more than 30-day returns" }` |
+| `remote_agents` | map of string to [RemoteAgent](#remoteagent) |  | Agent2Agent agents tamesu plays for the agent under test to delegate to (by name): a card with skills and scripted replies or a recording proxy in front of a real agent; {{remote.<name>.url}} is each one's URL and every message the agent sends it is recorded for delegated_to. | `remote_agents: { billing: { skills: [refund], reply: "Refund issued, reference RF-889" } }` |
 | `tests` | list of [Test](#test) | yes | The tests | `tests: [ { name: refund policy, target: api, scenario: { goal: "Ask about returns" } } ]` |
 
 Example:
@@ -340,6 +341,7 @@ http: { url: "https://agent.example.com/dial", method: POST, headers: { Authoriz
 | `steps` | list of [Step](#step) |  | Browser tests only. | `steps: [ { action: { navigate: / } }, { goal: "Add the blue sneakers to the cart" } ]` |
 | `persona` | [Persona](#persona) |  | Who the simulated user is | `persona: { name: Marta, style: "polite, slightly confused", language: en }` |
 | `scenario` | [Scenario](#scenario) |  | What the simulated user wants and when to stop | `scenario: { goal: "Find out if you can return shoes bought 40 days ago", max_turns: 6 }` |
+| `counterpart` | [Counterpart](#counterpart) |  | Another target plays the user instead of a persona: two agents talk and the judges grade the exchange (an a2a or any conversational target of the suite). | `counterpart: { target: supplier, opening: "We can offer 500 units at 12 euros each" }` |
 | `capture` | list of [Capture](#capture) |  | Values taken from the agent's turns as they arrive (the first match wins) and offered as {{captured.<name>}} to later script say steps / tool_results / hooks / assertions. | `capture: [ { name: order_id, regex: "(ORD-[0-9]+)" } ]` |
 | `assert` | list of [Assertion](#assertion) |  | The checks on the run; all must pass | `assert: [ { contains: "30 days" }, { judge: "The agent states the policy" } ]` |
 | `quarantine` | [Quarantine](#quarantine) |  | Known flaky: the test still runs and its failure is reported as quarantined but it does not fail the run or count as a regression. | `quarantine: { reason: "SUP-412 flaky since the migration", until: 2026-12-31 }` |
@@ -518,6 +520,7 @@ script:
 | `tool_called` | [ToolCall](#toolcall) |  | The agent called the tool (a name or an object with name / args / schema) | `tool_called: { name: lookup_policy, args: { topic: returns } }` |
 | `tool_not_called` | [ToolCall](#toolcall) |  | The agent never called the tool (a name or an object with name / args) | `tool_not_called: issue_refund` |
 | `tool_sequence` | [ToolSequence](#toolsequence) |  | The agent called these tools in this order (a subsequence of its calls; exact for the whole list). | `tool_sequence: { calls: [lookup_order, issue_refund], exact: false }` |
+| `delegated_to` | [Delegation](#delegation) |  | The agent sent a message to this remote agent (a name or an object with agent / contains / regex); remote_agents declares them. | `delegated_to: { agent: billing, contains: refund }` |
 | `dtmf_received` | [DTMFAssertion](#dtmfassertion) |  | sip and livekit audio: digits the agent sent. | `dtmf_received: { equals: "1234#" }` |
 | `call_ended_by` | [StringList](#stringlist) |  | sip: agent caller timeout error no_answer busy. | `call_ended_by: [agent, caller]` |
 | `transferred_to` | [Matches](#matches) |  | sip: target of a SIP REFER. | `transferred_to: { matches: "^sip:billing@" }` |
@@ -865,6 +868,23 @@ Example:
 connect: { attempts: 5, backoff: 1s, max_backoff: 10s }
 ```
 
+## Counterpart
+
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `target` | string | yes | A key of targets: the agent that plays the user. | `target: supplier` |
+| `opening` | string |  | The counterpart's first message (templates allowed); without it the counterpart answers the scenario goal first. | `opening: "We can offer 500 units at 12 euros each, delivery in 3 weeks"` |
+
+## Delegation
+
+Either a string (The remote agent's name), or an object with:
+
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `agent` | string | yes | The remote agent's name (a key of remote_agents). | `agent: billing` |
+| `contains` | string |  | Text some message to the agent must contain. | `contains: "refund"` |
+| `regex` | string |  | A regular expression some message to the agent must match. | `regex: "ORD-\d+"` |
+
 ## Fuzz
 
 Either a string (The fuzz mode: error, empty, null, malformed, hostile, huge, wrong_type or delay), or an object with:
@@ -1062,6 +1082,39 @@ red_team:
   assert:
     - not_contains: "90 days"
 ```
+
+## RemoteAgent
+
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `addr` | string |  | Address to listen on such as 127.0.0.1:8095 when the agent under test is configured by hand; default a free port that {{remote.<name>.url}} renders. | `addr: 127.0.0.1:8095` |
+| `name` | string |  | The card's name; default the key. | `name: Billing` |
+| `description` | string |  | The card's description. | `description: Refunds and invoices` |
+| `skills` | list of [RemoteSkill](#remoteskill) |  | The card's skills: ids or objects with id / name / description / tags. | `skills: [refund, { id: invoice-lookup, name: Invoice lookup }]` |
+| `reply` | string |  | What the agent answers every message that no replies entry matches. | `reply: "I can help with refunds and invoices."` |
+| `replies` | list of [RemoteReply](#remotereply) |  | Scripted answers: the first entry whose when matches the message wins. | `replies: [{ when: "(?i)refund", say: "Refund of 42 euros issued, reference RF-889" }]` |
+| `forward` | string |  | A real agent's JSON-RPC URL: the remote agent becomes a recording proxy in front of it and every message and reply is recorded (templates allowed). | `forward: https://billing.example.com/a2a` |
+| `headers` | map of string to string |  | Headers added to forwarded requests such as Authorization (templates allowed). | `headers: { Authorization: "Bearer {{secrets.BILLING_TOKEN}}" }` |
+
+## RemoteReply
+
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `when` | string |  | A regular expression on the message; omitted matches every message. | `when: "(?i)cancel"` |
+| `say` | string |  | The agent's words. | `say: "Which order should I cancel?"` |
+| `data` | object (any keys) |  | A data part sent with the words. | `data: { reference: RF-889 }` |
+| `state` | one of `completed`, `input-required`, `failed` |  | The task's state after the reply; default completed. | `state: input-required` |
+
+## RemoteSkill
+
+Either a string (The skill id), or an object with:
+
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `id` | string | yes | The skill id. | `id: refund` |
+| `name` | string |  | The skill's name; default the id. | `name: Refunds` |
+| `description` | string |  | What the skill does. | `description: Issues refunds for delivered orders` |
+| `tags` | list of string |  | Tags on the skill. | `tags: [billing]` |
 
 ## Similar
 
