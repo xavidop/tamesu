@@ -2,6 +2,13 @@
 
 All notable changes to tamesu are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/). Each new release is added at the top, with notes generated from the commit messages.
 
+## [1.15.1](https://github.com/xavidop/tamesu/compare/v1.15.0...v1.15.1) (2026-11-05)
+
+
+### Bug Fixes
+
+* **a2aserver:** record a forwarded delegation before the client can see the end of the reply ([980b113](https://github.com/xavidop/tamesu/commit/980b11368a9b576539fac8e976fe448a4331ff16))
+
 # [1.15.0](https://github.com/xavidop/tamesu/compare/v1.14.0...v1.15.0) (2026-11-05)
 
 
