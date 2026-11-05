@@ -5,7 +5,7 @@ title: "Recipes: Voice agents"
 
 # Voice agents
 
-The OpenAI Realtime protocol, a phone IVR over SIP, and Vapi, Deepgram and Retell agents on the generic targets.
+The OpenAI Realtime protocol, a phone IVR over SIP, a Voiceflow voice agent through its SIP connection, and Vapi, Deepgram and Retell agents on the generic targets.
 
 Each recipe is a whole project you can copy, change the URLs and run; see [Recipes](/docs/recipes/) for the other pages.
 
@@ -200,6 +200,95 @@ The prompt in `Settings` is the agent under test; keep it in a file and `{{vars}
 the suite grows. A protocol that wraps audio in JSON instead of binary frames sets
 `audio: { frames: json, send: { ... "{{audio}}" }, receive: "$[*].path.to.base64" }` and is
 otherwise the same.
+
+## A Voiceflow voice agent, over SIP
+
+Voiceflow's runtime takes text over its WebSocket and Conversations API; its voice agents hear
+through telephony only: a Twilio, Vonage, Telnyx or Voiceflow number, or a **Voiceflow SIP**
+connection, an address of the form `<uuid>.sip.voiceflow.com` that answers `sip:<number>@<address>`
+on UDP or TCP 5060 (TLS on 5061), without `REGISTER`, authenticated by your IP, by credentials or
+both. So the voice agent is tested with the [SIP target](/docs/targets/sip/): the trunk points at
+the Voiceflow SIP address, the caller ID goes in `From` as Voiceflow requires, and tamesu dials.
+Any number works as `to`: the connection is bound to one agent. Call forwarding in the agent is
+a SIP `REFER`, which `transferred_to` asserts on; a Capture step collecting digits is answered
+with `dtmf` script steps.
+
+```yaml
+# tamesu.yaml
+version: 1
+suites: ["voiceflow-voice.yaml"]
+genkit: { plugins: [googlegenai] }
+models: { default: googleai/gemini-2.5-flash }
+speech:
+  tts: { model: googleai/gemini-2.5-flash-preview-tts }
+  stt: { model: googleai/gemini-2.5-flash, language: en }
+  vad: { provider: silero }
+sip:
+  livekit_url: "${LIVEKIT_URL:-ws://localhost:7880}"
+  outbound_trunk_id: "${TAMESU_SIP_TRUNK:-ST_xxxx}"      # created by tamesu sip setup from the trunk below
+  allowed_numbers: ["+1555*"]
+  max_concurrent_calls: 2                                 # SIP calls count against the agent's phone concurrency
+  trunk:
+    address: 3f2c9a1e-5b7d-4e8a-9c61-2d4b8f0e7a13.sip.voiceflow.com   # the connection's SIP address, never an IP
+    numbers: ["+15550100"]                                # the caller ID Voiceflow reads from From
+    auth_username: "{{secrets.VF_SIP_USER}}"              # the connection's Credentials; omit with IP authentication
+    auth_password: "{{secrets.VF_SIP_PASSWORD}}"
+    transport: tcp
+secrets:
+  GEMINI_API_KEY: env:GEMINI_API_KEY
+  LIVEKIT_API_KEY: env:LIVEKIT_API_KEY
+  LIVEKIT_API_SECRET: env:LIVEKIT_API_SECRET
+  VF_SIP_USER: env:VF_SIP_USER
+  VF_SIP_PASSWORD: env:VF_SIP_PASSWORD
+```
+
+```yaml
+suite: voiceflow-voice
+tags: [voice, voiceflow]
+targets:
+  agent:
+    type: sip
+    direction: outbound
+    to: "+15550199"                             # any E.164 number: the SIP connection is assigned to one agent
+    from: "+15550100"
+    ring_timeout: 20s
+    max_call_duration: 3m
+tests:
+  - name: returns policy, spoken
+    target: agent
+    persona: { name: Marta, style: "polite, a little hard of hearing", language: en, voice: en-US-female }
+    scenario: { goal: "Ask whether shoes bought 40 days ago can still be returned", max_turns: 5 }
+    assert:
+      - judge: "The agent states the 30-day return window and offers the voucher instead of an exception"
+      - call_ended_by: [agent, caller]
+      - metric: { name: call_setup_ms, lt: 15000 }
+      - metric: { name: time_to_first_audio_ms_p95, lt: 3000 }
+  - name: the order number is collected by keypad
+    target: agent
+    persona: { name: Marta, style: direct, language: en }
+    scenario:
+      goal: "Find out where order 1001 is"
+      max_turns: 4
+      script:
+        - wait_for: "enter your order number"
+        - dtmf: "1001#"
+    assert:
+      - contains: "1001"
+      - judge: "The agent gives a delivery status for the order"
+  - name: a billing question is forwarded
+    target: agent
+    persona: { name: Marta, style: insistent, language: en }
+    scenario: { goal: "Dispute a double charge and insist on speaking to billing", max_turns: 4 }
+    assert:
+      - transferred_to: { matches: "15550155" }       # the billing line the agent forwards to
+      - pack: discloses_ai
+```
+
+The same suite tests the agent behind a Twilio, Vonage or Telnyx number instead: keep your own
+trunk in `sip.trunk` and put the agent's phone number in `to`. The runtime's `audioEvents`
+setting makes the WebSocket return the agent's TTS as `audio` traces, which is useful for
+listening to a reply but is not a way to speak to the agent; the text recipe is under
+[Messaging channels](/docs/recipes/channels/#a-voiceflow-agent-over-its-conversations-api).
 
 ## A Retell agent through a web call
 

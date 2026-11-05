@@ -20,12 +20,13 @@ A REST agent gated for release, a web shop in the browser, the backend behind th
 
 ## [Voice agents](/docs/recipes/voice/)
 
-The OpenAI Realtime protocol, a phone IVR over SIP, and Vapi, Deepgram and Retell agents on the generic targets.
+The OpenAI Realtime protocol, a phone IVR over SIP, a Voiceflow voice agent through its SIP connection, and Vapi, Deepgram and Retell agents on the generic targets.
 
 - [A voice agent on the OpenAI Realtime protocol](/docs/recipes/voice/#a-voice-agent-on-the-openai-realtime-protocol)
 - [A phone IVR through the SIP target](/docs/recipes/voice/#a-phone-ivr-through-the-sip-target)
 - [A Vapi assistant over its websocket transport](/docs/recipes/voice/#a-vapi-assistant-over-its-websocket-transport)
 - [A Deepgram Voice Agent](/docs/recipes/voice/#a-deepgram-voice-agent)
+- [A Voiceflow voice agent, over SIP](/docs/recipes/voice/#a-voiceflow-voice-agent-over-sip)
 - [A Retell agent through a web call](/docs/recipes/voice/#a-retell-agent-through-a-web-call)
 
 ## [Models, tools and agents](/docs/recipes/models-and-agents/)

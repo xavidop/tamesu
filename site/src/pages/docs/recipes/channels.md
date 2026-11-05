@@ -295,4 +295,5 @@ tests:
 agent through Voiceflow's live **WebSocket runtime**, a socket.io server, is the handshake
 recipe of the [REST target](/docs/targets/rest/#a-socketio-server-and-a-handshake) with the
 project's API key as `authorization`, `action.trace` events as the text and `session.ended` as
-`done`.
+`done`. A Voiceflow **voice** agent hears only through telephony, so it is tested by phone or
+through its SIP connection with the SIP target: see [Voice agents](/docs/recipes/voice/#a-voiceflow-voice-agent-over-sip).
