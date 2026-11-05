@@ -160,6 +160,7 @@ func TestForwardRecordsBothDirections(t *testing.T) {
 	raw, _ := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
 	assert.Equal(t, 2, strings.Count(string(raw), "data: "))
+	assert.Empty(t, resp.Header.Get("Content-Length"), "a relayed stream ends with the handler, not at a copied length")
 
 	calls := proxy.Delegations()
 	require.Len(t, calls, 2)

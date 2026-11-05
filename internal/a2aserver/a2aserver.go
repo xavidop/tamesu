@@ -426,13 +426,20 @@ func (s *Server) forward(w http.ResponseWriter, r *http.Request, req rpcRequest,
 		return
 	}
 	defer func() { _ = resp.Body.Close() }()
+	streaming := strings.HasPrefix(resp.Header.Get("Content-Type"), "text/event-stream")
 	for k, v := range resp.Header {
+		// An event stream is relayed line by line and ends when this handler
+		// returns; a copied Content-Length would let the client finish before
+		// the delegation is recorded.
+		if streaming && k == "Content-Length" {
+			continue
+		}
 		w.Header()[k] = v
 	}
 	w.WriteHeader(resp.StatusCode)
 	record := req.Method == "message/send" || req.Method == "message/stream"
 	d := Delegation{At: time.Now(), Message: textOf(msg), Forwarded: true, Streamed: req.Method == "message/stream"}
-	if strings.HasPrefix(resp.Header.Get("Content-Type"), "text/event-stream") {
+	if streaming {
 		fl, _ := w.(http.Flusher)
 		sc := bufio.NewScanner(resp.Body)
 		sc.Buffer(make([]byte, 0, 64*1024), 32<<20)
@@ -455,16 +462,24 @@ func (s *Server) forward(w http.ResponseWriter, r *http.Request, req rpcRequest,
 			}
 		}
 		d.Reply = text.String()
-	} else {
-		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
-		_, _ = w.Write(raw)
-		d.Reply, d.State, d.TaskID, d.ContextID = replyOf(raw)
+		s.record(record, d)
+		return
 	}
-	if record {
-		s.mu.Lock()
-		s.calls = append(s.calls, d)
-		s.mu.Unlock()
+	// Record before the body goes out, so a caller that has read the reply
+	// also sees the delegation.
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
+	d.Reply, d.State, d.TaskID, d.ContextID = replyOf(raw)
+	s.record(record, d)
+	_, _ = w.Write(raw)
+}
+
+func (s *Server) record(record bool, d Delegation) {
+	if !record {
+		return
 	}
+	s.mu.Lock()
+	s.calls = append(s.calls, d)
+	s.mu.Unlock()
 }
 
 // replyOf reads the agent's words and the task state out of a JSON-RPC
