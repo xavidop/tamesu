@@ -2,6 +2,14 @@
 
 All notable changes to tamesu are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/). Each new release is added at the top, with notes generated from the commit messages.
 
+# [1.18.0](https://github.com/xavidop/tamesu/compare/v1.17.1...v1.18.0) (2026-11-05)
+
+
+### Features
+
+* **cli:** colour every command's output ([85c93bf](https://github.com/xavidop/tamesu/commit/85c93bf053926e4ebc6162ca5654eacd530543bf))
+* **cli:** colour the help screen and the version line ([b0148b4](https://github.com/xavidop/tamesu/commit/b0148b42e92bb1303617267bff2730a50600f1b9))
+
 ## [1.17.1](https://github.com/xavidop/tamesu/compare/v1.17.0...v1.17.1) (2026-11-05)
 
 
