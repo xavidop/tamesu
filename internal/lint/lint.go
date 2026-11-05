@@ -25,6 +25,17 @@ type Finding struct {
 }
 
 // String formats as "<file>:<line>: <rule>: <msg>", omitting what is unknown.
+// Format renders the finding with the rule name passed through paint, so a
+// console can colour it.
+func (f Finding) Format(paint func(string) string) string {
+	plain := f.String()
+	i := strings.Index(plain, " "+f.Rule+" ")
+	if i < 0 {
+		return plain
+	}
+	return plain[:i+1] + paint(f.Rule) + plain[i+1+len(f.Rule):]
+}
+
 func (f Finding) String() string {
 	var b strings.Builder
 	b.WriteString(f.File)

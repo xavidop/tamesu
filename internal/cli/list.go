@@ -46,7 +46,7 @@ func (a *app) newListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			nErr, _ := printErrors(cmd.ErrOrStderr(), perrs.Only())
+			nErr, _ := printErrors(cmd.ErrOrStderr(), perrs.Only(), a.style(cmd.ErrOrStderr()))
 			shard, err := sel.shardOf()
 			if err != nil {
 				return usageError(err)
@@ -54,7 +54,7 @@ func (a *app) newListCmd() *cobra.Command {
 			var items []listItem
 			k := 0
 			for _, f := range files {
-				e, _ := printErrors(cmd.ErrOrStderr(), f.Errs.Only())
+				e, _ := printErrors(cmd.ErrOrStderr(), f.Errs.Only(), a.style(cmd.ErrOrStderr()))
 				nErr += e
 				if f.Suite == nil || e > 0 {
 					continue

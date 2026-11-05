@@ -169,10 +169,10 @@ func (a *app) newRunCmd() *cobra.Command {
 				if err != nil {
 					return nil, 0, err
 				}
-				nErr, _ := printErrors(cmd.ErrOrStderr(), perrs.Only())
+				nErr, _ := printErrors(cmd.ErrOrStderr(), perrs.Only(), a.style(cmd.ErrOrStderr()))
 				var suites []*config.Suite
 				for _, f := range files {
-					e, _ := printErrors(cmd.ErrOrStderr(), f.Errs.Only())
+					e, _ := printErrors(cmd.ErrOrStderr(), f.Errs.Only(), a.style(cmd.ErrOrStderr()))
 					nErr += e
 					if e == 0 && f.Suite != nil {
 						suites = append(suites, f.Suite)
@@ -200,7 +200,7 @@ func (a *app) newRunCmd() *cobra.Command {
 				for _, r := range reporters {
 					switch r {
 					case "console":
-						reps = append(reps, report.NewConsole(cmd.OutOrStdout(), a.verbose))
+						reps = append(reps, report.NewConsole(cmd.OutOrStdout(), a.verbose).WithColor(a.style(cmd.OutOrStdout()).Enabled()))
 					case "json":
 						reps = append(reps, report.NewJSON(out))
 					case "junit":

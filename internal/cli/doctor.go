@@ -64,9 +64,19 @@ func (a *app) newDoctorCmd() *cobra.Command {
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			results := a.doctor(cmd.Context(), cmd, args)
+			st := a.style(cmd.OutOrStdout())
 			code := ExitOK
 			for _, r := range results {
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%-4s %s: %s\n", r.Status, r.Name, r.Detail)
+				status := fmt.Sprintf("%-4s", r.Status)
+				switch r.Status {
+				case StatusOK:
+					status = st.Pass(status)
+				case StatusWarn:
+					status = st.Warn(status)
+				case StatusFail:
+					status = st.Fail(status)
+				}
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s %s: %s\n", status, r.Name, r.Detail)
 				if r.Status == StatusFail {
 					switch {
 					case r.Infra:

@@ -45,6 +45,7 @@ command.
 | `-v, --verbose` | Debug logging to stderr. Logs are redacted like everything else. |
 | `--var KEY=VAL` | A ref var for `${VAR}` in secret refs and `{{vars.KEY}}` in suites. Repeatable. Wins over the suite's `vars:`. |
 | `--env-file <path>` | A dotenv file read through mamori's dotenv provider when an `env:` secret or a `${VAR}` is not set in the process environment. The environment is never mutated. |
+| `--color auto\|always\|never` | Colours in the output: verdicts, counts, errors and warnings, doctor statuses, lint rules. `auto` (the default) colours a terminal and never a pipe or a file, honours `NO_COLOR` (off) and `FORCE_COLOR` (on, for CI logs that render ANSI). Colours never reach `--out`, the reports or the logs. |
 
 ## Suite paths
 
@@ -484,6 +485,6 @@ Prints the version, commit and build date on one line, such as
 
 ## Errors and redaction
 
-Errors go to stderr as one `error: <message>` line. Every value resolved through mamori is
+Errors go to stderr as one `error: <message>` line (the word in red on a terminal). Every value resolved through mamori is
 replaced by `‹secret:NAME›` in errors, logs and output, in its plain, base64, URL-encoded and
 JSON-escaped forms. See [Security](/docs/security/).

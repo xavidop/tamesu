@@ -3,6 +3,7 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"github.com/xavidop/tamesu/report"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -130,14 +131,17 @@ func (f *selectFlags) compile() (*regexp.Regexp, error) {
 
 // printErrors writes every entry, sorted by line, and returns how many are
 // errors and how many warnings.
-func printErrors(w interface{ Write([]byte) (int, error) }, errs config.Errors) (nErr, nWarn int) {
+func printErrors(w interface{ Write([]byte) (int, error) }, errs config.Errors, st report.Style) (nErr, nWarn int) {
 	for _, e := range errs.Sorted() {
-		_, _ = fmt.Fprintln(w, e.Error())
+		line := e.Error()
 		if e.Warning {
 			nWarn++
+			line = st.Warn(line)
 		} else {
 			nErr++
+			line = st.Fail(line)
 		}
+		_, _ = fmt.Fprintln(w, line)
 	}
 	return nErr, nWarn
 }
