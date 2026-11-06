@@ -1,201 +1,59 @@
 version: 2
 updates:
-  # Root module (public API, target/assert/metrics contracts, internal/*)
+  # Every Go module, in one entry so that Dependabot groups an update across
+  # modules into a single PR: the monorepo has a module per target, per speech
+  # plugin and per example, and one Genkit release used to open a PR in each.
+  # .github/scripts/check_dependabot_coverage.py keeps this list equal to the
+  # modules CI discovers (CI fails when a module is missing or stale here).
   - package-ecosystem: gomod
-    directory: "/"
-    schedule:
-      interval: weekly
+    directories:
+      - "/"
+      - "/audio"
+      - "/cmd/tamesu"
+      - "/examples/a2a-agent"
+      - "/examples/livekit-agent"
+      - "/examples/mcp-server"
+      - "/examples/rest-agent"
+      - "/examples/webapp"
+      - "/llm"
+      - "/llm/plugins/assemblyai"
+      - "/llm/plugins/azure"
+      - "/llm/plugins/cartesia"
+      - "/llm/plugins/deepgram"
+      - "/llm/plugins/elevenlabs"
+      - "/llm/plugins/gladia"
+      - "/llm/plugins/googlespeech"
+      - "/llm/plugins/openaispeech"
+      - "/llm/plugins/rime"
+      - "/llm/plugins/soniox"
+      - "/llm/plugins/speechmatics"
+      - "/targets/a2a"
+      - "/targets/browser"
+      - "/targets/grpc"
+      - "/targets/livekit"
+      - "/targets/mcp"
+      - "/targets/model"
+      - "/targets/pipecat"
+      - "/targets/realtime"
+      - "/targets/rest"
+      - "/targets/sip"
+      - "/targets/twilio"
+      - "/targets/voice"
+    schedule: { interval: weekly }
     groups:
+      # Genkit and its plugins move together; the speech plugins build on
+      # them alone.
+      genkit:
+        patterns: ["github.com/firebase/genkit", "github.com/firebase/genkit/*"]
+      # LiveKit and pion are one stack (targets/livekit, sip, voice).
+      livekit:
+        patterns: ["github.com/livekit/*", "github.com/pion/*"]
+      # Everything else in one weekly PR.
       go-dependencies:
         patterns: ["*"]
     labels: [dependencies, go]
 
-  # CLI module (own go.mod; the only module that pulls everything, including
-  # the mamori cloud secret providers)
-  - package-ecosystem: gomod
-    directory: "/cmd/tamesu"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, cli]
-
-  # AI layer (own go.mod; Genkit and the model provider plugins)
-  - package-ecosystem: gomod
-    directory: "/llm"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, llm]
-
-  # REST target (own go.mod; net/http and ojg for JSONPath)
-  - package-ecosystem: gomod
-    directory: "/targets/rest"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, target]
-
-  # LiveKit target (own go.mod; LiveKit Go SDK, pion)
-  - package-ecosystem: gomod
-    directory: "/targets/livekit"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, target]
-
-  # Browser target (own go.mod; chromedp and cdproto)
-  - package-ecosystem: gomod
-    directory: "/targets/browser"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, target]
-
-  # Realtime target (own go.mod; coder/websocket for the OpenAI Realtime protocol)
-  - package-ecosystem: gomod
-    directory: "/targets/realtime"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, target]
-
-  # Pipecat target (own go.mod; coder/websocket and protobuf)
-  - package-ecosystem: gomod
-    directory: "/targets/pipecat"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, target]
-
-  # Twilio target (own go.mod; coder/websocket and the audio module)
-  - package-ecosystem: gomod
-    directory: "/targets/twilio"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, target]
-
-  # Model target (own go.mod; only the root module)
-  - package-ecosystem: gomod
-    directory: "/targets/model"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, target]
-
-  # MCP target (own go.mod; mcp-go client plus the model target)
-  - package-ecosystem: gomod
-    directory: "/targets/mcp"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, target]
-
-  # A2A target (own go.mod; a2a-go's protobuf types, grpc-go and protobuf plus the root module)
-  - package-ecosystem: gomod
-    directory: "/targets/a2a"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, target]
-
-  # Voice websocket target (own go.mod; coder/websocket, ojg and the audio module)
-  - package-ecosystem: gomod
-    directory: "/targets/voice"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, target]
-
-  # gRPC target (own go.mod; grpc-go and protobuf)
-  - package-ecosystem: gomod
-    directory: "/targets/grpc"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, target]
-
-  # SIP target (own go.mod; LiveKit Go SDK, on top of targets/livekit)
-  - package-ecosystem: gomod
-    directory: "/targets/sip"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, target]
-
-  # Deepgram STT Genkit plugin (own go.mod; Genkit only)
-  - package-ecosystem: gomod
-    directory: "/llm/plugins/deepgram"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, ai]
-
-  # ElevenLabs TTS Genkit plugin (own go.mod; Genkit only)
-  - package-ecosystem: gomod
-    directory: "/llm/plugins/elevenlabs"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, ai]
-
-  # Cartesia TTS and STT Genkit plugin (own go.mod; Genkit only)
-  - package-ecosystem: gomod
-    directory: "/llm/plugins/cartesia"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, ai]
-
-  # Soniox STT Genkit plugin (own go.mod; Genkit only)
-  - package-ecosystem: gomod
-    directory: "/llm/plugins/soniox"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, ai]
-
-  # OpenAI speech (TTS and STT) Genkit plugin (own go.mod; Genkit only)
-  - package-ecosystem: gomod
-    directory: "/llm/plugins/openaispeech"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, ai]
-
-  # Azure AI Speech (TTS and STT) Genkit plugin (own go.mod; Genkit only)
-  - package-ecosystem: gomod
-    directory: "/llm/plugins/azure"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, ai]
-
-  # AssemblyAI STT Genkit plugin (own go.mod; Genkit only)
-  - package-ecosystem: gomod
-    directory: "/llm/plugins/assemblyai"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, ai]
-
-  # Rime TTS Genkit plugin (own go.mod; Genkit only)
-  - package-ecosystem: gomod
-    directory: "/llm/plugins/rime"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, ai]
-
-  # Google Cloud speech Genkit plugin (own go.mod; Genkit only)
-  - package-ecosystem: gomod
-    directory: "/llm/plugins/googlespeech"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, ai]
-
-  # Speechmatics STT Genkit plugin (own go.mod; Genkit only)
-  - package-ecosystem: gomod
-    directory: "/llm/plugins/speechmatics"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, ai]
-
-  # Gladia STT Genkit plugin (own go.mod; Genkit only)
-  - package-ecosystem: gomod
-    directory: "/llm/plugins/gladia"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, ai]
-
-  # Audio pipeline (own go.mod; onnxruntime_go behind -tags onnx, libopus via cgo)
-  - package-ecosystem: gomod
-    directory: "/audio"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, audio]
-
-  # Example web shop for the browser suite (own go.mod; standard library only)
-  - package-ecosystem: gomod
-    directory: "/examples/webapp"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, examples]
-
-  # Example LiveKit agent (own go.mod; LiveKit Go SDK and Genkit)
-  - package-ecosystem: gomod
-    directory: "/examples/livekit-agent"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, examples]
-
-  # Example REST agent (own go.mod; a Genkit app)
-  - package-ecosystem: gomod
-    directory: "/examples/rest-agent"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, examples]
-
-  - package-ecosystem: gomod
-    directory: "/examples/mcp-server"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, examples]
-
-  - package-ecosystem: gomod
-    directory: "/examples/a2a-agent"
-    schedule: { interval: weekly }
-    labels: [dependencies, go, examples]
-
-  # GitHub Actions
+  # GitHub Actions used by the workflows
   - package-ecosystem: github-actions
     directory: "/"
     schedule: { interval: weekly }
