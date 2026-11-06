@@ -4,8 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	mcpclient "github.com/mark3labs/mcp-go/client"
@@ -127,4 +130,25 @@ func TestStartErrors(t *testing.T) {
 	failing := New("shop", Config{Connect: func(context.Context) (*mcpclient.Client, error) { return nil, errors.New("refused") }})
 	_, err = failing.Start(context.Background(), &target.RunContext{Chat: &scriptedChat{}})
 	assert.ErrorContains(t, err, "connect: refused")
+}
+
+// TestRedirectsAreNotFollowed: a server that answers with a redirect gets an
+// error, and the host it pointed at never sees the request (nor its headers).
+func TestRedirectsAreNotFollowed(t *testing.T) {
+	var elsewhereHits atomic.Int32
+	elsewhere := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		elsewhereHits.Add(1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer elsewhere.Close()
+	redirecting := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, elsewhere.URL+"/mcp", http.StatusTemporaryRedirect)
+	}))
+	defer redirecting.Close()
+
+	tgt := New("shop", Config{URL: redirecting.URL + "/mcp", Headers: map[string]string{"Authorization": "Bearer secret"}})
+	_, err := tgt.Start(context.Background(), &target.RunContext{Chat: &scriptedChat{}})
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "redirects are not followed")
+	assert.Equal(t, int32(0), elsewhereHits.Load(), "the redirect target was never contacted")
 }

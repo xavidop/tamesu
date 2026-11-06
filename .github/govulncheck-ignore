@@ -1,0 +1,5 @@
+# Vulnerabilities govulncheck reports as reachable whose risk tamesu handles in
+# its own code. One ID at the start of a line, then the reason and where the
+# mitigation lives. Remove a line once go.mod has a fixed version of the module;
+# .github/scripts/govulncheck.sh reads this file.
+GO-2026-6911  mcp-go's default HTTP client follows a redirect to any host and carries the configured headers along. targets/mcp passes its own http.Client whose CheckRedirect refuses redirects (connect in mcp.go). No fixed mcp-go release yet.
