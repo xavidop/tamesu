@@ -2,6 +2,13 @@
 
 All notable changes to tamesu are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/). Each new release is added at the top, with notes generated from the commit messages.
 
+# [1.20.0](https://github.com/xavidop/tamesu/compare/v1.19.1...v1.20.0) (2026-11-06)
+
+
+### Features
+
+* **speech:** transcribe the agent's audio as it arrives ([a1b064c](https://github.com/xavidop/tamesu/commit/a1b064c86c1d55987d51d47015396e9b797dd02a))
+
 ## [1.19.1](https://github.com/xavidop/tamesu/compare/v1.19.0...v1.19.1) (2026-11-06)
 
 
