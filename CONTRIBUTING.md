@@ -122,7 +122,8 @@ This is a multi-module repository tied together by a `go.work` file:
 - `skills/tamesu`: the agent skill.
 - `site/`: the Astro documentation site.
 
-Every module has its own `go.mod`, a `go.work` entry and a dependabot entry.
+Every module has its own `go.mod`, a `go.work` entry and a line in the `directories` list of
+`.github/dependabot.yml` (one gomod entry covers them all, so an update is one PR across modules).
 
 ## Adding a target
 
@@ -141,7 +142,7 @@ an issue first. The checklist:
   `//go:build integration` against a container.
 - **Docs.** The docs page under `site/src/pages/docs/targets/`, the row in the README's targets
   table, the sidebar and the skill.
-- **CI.** Its integration job, plus its dependabot and `go.work` entries.
+- **CI.** Its integration job, plus its `go.work` entry and its line in dependabot's `directories`.
 
 ## Commits and pull requests
 
