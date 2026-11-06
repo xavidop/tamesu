@@ -303,6 +303,8 @@ type turn struct {
 	userEndAt            time.Time
 	interrupt            bool
 	interruptAfter       time.Duration
+	// stt transcribes the agent's reply as it arrives (transcript_source stt).
+	stt target.TranscriptionStream
 }
 
 type session struct {
@@ -530,6 +532,7 @@ func (s *session) Send(ctx context.Context, ut target.UserTurn) error {
 	s.cur = cur
 	s.mu.Unlock()
 	if s.audio != nil {
+		s.openSTT(ctx, cur)
 		return s.sendAudio(ctx, ut, cur)
 	}
 	if ut.Text == "" {
@@ -608,6 +611,7 @@ func (s *session) Receive(ctx context.Context) (target.AgentTurn, error) {
 func (s *session) finish(cur *turn, agentLeft bool) target.AgentTurn {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	releaseSTT(cur)
 	ended := cur.lastAt
 	if ended.IsZero() {
 		ended = time.Now()

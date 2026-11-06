@@ -25,6 +25,7 @@ import (
 	"github.com/firebase/genkit/go/ai"
 	"github.com/firebase/genkit/go/core/api"
 	"github.com/firebase/genkit/go/core/status"
+	"github.com/xavidop/tamesu/llm/plugins/speechstream"
 )
 
 // TTSRate is the sample rate fake/tts speaks at.
@@ -444,16 +445,57 @@ func (p *Plugin) stt(_ context.Context, req *ai.ModelRequest, _ SpeechConfig, _ 
 	if !found {
 		return nil, fmt.Errorf("llmfake: fake/stt needs an audio media part")
 	}
-	p.mu.Lock()
-	t := p.script.STT[p.sttIdx%len(p.script.STT)]
-	p.sttIdx++
-	p.mu.Unlock()
+	t := p.nextSTT()
 	return &ai.ModelResponse{
 		Request:      req,
 		FinishReason: ai.FinishReasonStop,
 		Message:      ai.NewModelTextMessage(t),
 		Usage:        &ai.GenerationUsage{InputAudioFiles: 1, OutputCharacters: len(t), Custom: map[string]float64{"audio_seconds": seconds, "confidence": 0.99}},
 	}, nil
+}
+
+// nextSTT is the next scripted transcript, cycling.
+func (p *Plugin) nextSTT() string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	t := p.script.STT[p.sttIdx%len(p.script.STT)]
+	p.sttIdx++
+	return t
+}
+
+var _ speechstream.Transcriber = (*Plugin)(nil)
+
+// OpenTranscription streams fake/stt: the samples written are only counted
+// (for audio_seconds) and Close answers with the next scripted transcript.
+// Script.Fail["stt"] failures happen here, at the open, so the speech layer's
+// fallback to a batch call is what a suite exercises.
+func (p *Plugin) OpenTranscription(_ context.Context, opts speechstream.Options) (speechstream.Transcription, error) {
+	if opts.Model != "stt" {
+		return nil, speechstream.ErrUnsupported
+	}
+	if p.failing("stt") {
+		return nil, status.Errorf(status.ErrUnavailable, "llmfake: fake/stt is overloaded (scripted failure)")
+	}
+	return &fakeTranscription{p: p, rate: opts.Rate}, nil
+}
+
+type fakeTranscription struct {
+	p       *Plugin
+	rate    int
+	samples int
+}
+
+func (f *fakeTranscription) Write(_ context.Context, samples []int16) error {
+	f.samples += len(samples)
+	return nil
+}
+
+func (f *fakeTranscription) Close(context.Context) (speechstream.Result, error) {
+	seconds := 0.0
+	if f.rate > 0 {
+		seconds = float64(f.samples) / float64(f.rate)
+	}
+	return speechstream.Result{Text: f.p.nextSTT(), Confidence: 0.99, AudioSeconds: seconds}, nil
 }
 
 // simulator replays the script by the conversation's turn number when the

@@ -29,10 +29,13 @@ const (
 type SpeechModel struct {
 	// Model is a Genkit model reference: googleai/gemini-2.5-flash-preview-tts,
 	// elevenlabs/eleven_flash_v2_5, cartesia/sonic-3.6, openai/gpt-4o-mini-tts,
-	// deepgram/aura-2, azure/tts, rime/arcana for speech; deepgram/nova-3,
-	// cartesia/ink-whisper, soniox/stt-async-v6, openai/gpt-4o-transcribe,
-	// elevenlabs/scribe_v1, assemblyai/universal, azure/stt,
-	// googleai/gemini-2.5-flash for transcription.
+	// deepgram/aura-2, azure/tts, rime/arcana, google/chirp3-hd for speech;
+	// deepgram/nova-3, cartesia/ink-whisper, soniox/stt-async-v6,
+	// soniox/stt-rt-v3, openai/gpt-4o-transcribe, elevenlabs/scribe_v1,
+	// assemblyai/universal, azure/stt, google/chirp_3, speechmatics/enhanced,
+	// gladia/solaria-1, googleai/gemini-2.5-flash for transcription. Deepgram,
+	// assemblyai/universal and soniox/stt-rt-v3 also transcribe a stream
+	// (OpenTranscription).
 	Model    string
 	Language string
 	Voice    string

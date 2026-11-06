@@ -22,6 +22,7 @@ import (
 
 	"github.com/xavidop/tamesu/assert"
 	"github.com/xavidop/tamesu/internal/model"
+	"github.com/xavidop/tamesu/llm/plugins/speechstream"
 )
 
 // ErrBudgetExceeded is returned by every call once the configured budget is spent.
@@ -104,6 +105,9 @@ type Client struct {
 	expectFlow   flowFunc[expectInput, expectOutput]
 	generateFlow flowFunc[generateInput, model.Draft]
 	tools        []ai.ToolRef
+
+	// streamers are the plugins that transcribe a stream, by provider.
+	streamers map[string]speechstream.Transcriber
 }
 
 type flowFunc[In, Out any] interface {
@@ -141,6 +145,7 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Client, error) {
 		if err != nil {
 			return nil, err
 		}
+		c.streamers = streamersOf(plugins)
 		g, err := initGenkit(ctx, plugins, prompts)
 		if err != nil {
 			return nil, err

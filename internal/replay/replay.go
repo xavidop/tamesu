@@ -264,6 +264,31 @@ func (p *Provider) Transcribe(ctx context.Context, req target.TranscribeRequest)
 	return target.Transcript{}, errors.New("replay: the provider has no speech models")
 }
 
+// OpenTranscription forwards to the inner provider's streaming speech. A
+// provider without one gets the buffering fallback, through Transcribe above,
+// so the result is never cached either.
+func (p *Provider) OpenTranscription(ctx context.Context, req target.TranscriptionStreamRequest) (target.TranscriptionStream, error) {
+	if ss, ok := p.inner.(target.StreamingSpeech); ok {
+		return ss.OpenTranscription(ctx, req)
+	}
+	if _, ok := p.inner.(target.Speech); !ok {
+		return nil, errors.New("replay: the provider has no speech models")
+	}
+	return target.StartTranscription(ctx, speechOnly{p}, req)
+}
+
+// speechOnly hides Provider's OpenTranscription so StartTranscription takes
+// the buffering path.
+type speechOnly struct{ p *Provider }
+
+func (s speechOnly) Synthesize(ctx context.Context, req target.SynthesizeRequest) (target.Audio, error) {
+	return s.p.Synthesize(ctx, req)
+}
+
+func (s speechOnly) Transcribe(ctx context.Context, req target.TranscribeRequest) (target.Transcript, error) {
+	return s.p.Transcribe(ctx, req)
+}
+
 // Chat forwards to the inner provider's chat model (the model target). Its
 // answers are the agent's, so they are never cached: a cached answer would
 // hide the very change the suite tests.

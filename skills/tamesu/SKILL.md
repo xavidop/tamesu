@@ -106,7 +106,7 @@ https://xavidop.github.io/tamesu/docs/
   `grpc`, a request that never arrived or came back 502/503/504); `connect: { attempts, backoff,
   max_backoff }` on the target tunes it (default 3 attempts, 500ms doubling to 5s).
 - **Metrics** are built in: `turn_latency_ms` (with `_p50`, `_p95`, `_max`),
-  `time_to_first_token_ms`, `time_to_first_audio_ms`, `interruption_stop_ms`,
+  `time_to_first_token_ms`, `time_to_first_audio_ms`, `stt_ms`, `interruption_stop_ms`,
   `talk_over_ratio`, `silence_gap_max_ms`, `call_setup_ms`, `ring_ms`, `greeting_ms`,
   `call_duration_ms`, `stt_word_error_rate`, `turns`, `goal_steps`, `llm_cost_usd`,
   `llm_tokens`.

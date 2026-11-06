@@ -222,6 +222,44 @@ func (f fakeSpeech) Transcribe(_ context.Context, req target.TranscribeRequest) 
 	return target.Transcript{Text: f.replies[i]}, nil
 }
 
+// streamingSpeech is fakeSpeech that also transcribes a stream, counting how
+// it was fed.
+type streamingSpeech struct {
+	fakeSpeech
+	mu     sync.Mutex
+	opened int
+	writes int
+	closed int
+}
+
+func (s *streamingSpeech) OpenTranscription(_ context.Context, req target.TranscriptionStreamRequest) (target.TranscriptionStream, error) {
+	s.mu.Lock()
+	s.opened++
+	s.mu.Unlock()
+	return &fakeStream{s: s, rate: req.Rate}, nil
+}
+
+type fakeStream struct {
+	s       *streamingSpeech
+	rate    int
+	samples []int16
+}
+
+func (f *fakeStream) Write(_ context.Context, samples []int16) error {
+	f.s.mu.Lock()
+	f.s.writes++
+	f.s.mu.Unlock()
+	f.samples = append(f.samples, samples...)
+	return nil
+}
+
+func (f *fakeStream) Close(ctx context.Context) (target.Transcript, error) {
+	f.s.mu.Lock()
+	f.s.closed++
+	f.s.mu.Unlock()
+	return f.s.Transcribe(ctx, target.TranscribeRequest{Audio: target.Audio{Rate: f.rate, Samples: f.samples}})
+}
+
 // vapiLike is the configuration of a platform with Vapi's shapes.
 func vapiLike(base string) Config {
 	return Config{
@@ -442,4 +480,28 @@ func TestDefaultsAndHelpers(t *testing.T) {
 	assert.Equal(t, map[string]any{"a": float64(1)}, call.Args)
 	_, ok = toolCallOf(42)
 	assert.False(t, ok)
+}
+
+func TestStreamingTranscription(t *testing.T) {
+	replies := []string{"Our window is 30 days"}
+	p := &platform{replies: replies}
+	ctx := context.Background()
+	sp := &streamingSpeech{fakeSpeech: fakeSpeech{replies: replies, rate: p.rate()}}
+	rc := runCtx(t, p)
+	rc.Speech = sp
+	rc.Voice.TranscriptSource = "stt"
+	sess, err := newTarget(t, p, nil).Start(ctx, rc)
+	require.NoError(t, err)
+	require.NoError(t, sess.Send(ctx, target.UserTurn{Text: "return?"}))
+	turn, err := sess.Receive(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, "Our window is 30 days", turn.Text, "the stream heard the whole reply")
+	assert.Equal(t, "stt", turn.TranscriptSource)
+	arts, err := sess.Close(ctx)
+	require.NoError(t, err)
+	assert.Contains(t, arts.Metrics, "stt_ms")
+	sp.mu.Lock()
+	defer sp.mu.Unlock()
+	assert.GreaterOrEqual(t, sp.writes, 2, "the agent's audio was fed chunk by chunk as it arrived")
+	assert.Equal(t, sp.opened, sp.closed, "every stream opened is closed")
 }

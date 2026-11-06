@@ -20,6 +20,7 @@ use (
 	./llm/plugins/openaispeech
 	./llm/plugins/rime
 	./llm/plugins/soniox
+	./llm/plugins/speechstream
 	./llm/plugins/speechmatics
 	./targets/a2a
 	./targets/browser

@@ -616,7 +616,9 @@ func (s *session) Send(ctx context.Context, turn target.UserTurn) error {
 		return fmt.Errorf("voice: %w", err)
 	}
 	agent.StartedAt = started
-	agent.EndedAt = time.Now()
+	if agent.EndedAt.IsZero() {
+		agent.EndedAt = time.Now()
+	}
 	if agent.FirstTokenAt.IsZero() {
 		agent.FirstTokenAt = agent.EndedAt
 	}
@@ -640,11 +642,26 @@ func (s *session) readTurn(ctx context.Context, spoken *spokenTurn, greeting boo
 	if spoken != nil && !greeting && !spoken.interrupting {
 		plan = a.planInterrupt()
 	}
+	// With transcript_source stt the agent's audio is transcribed as it
+	// arrives (a model that does not stream is buffered behind the same
+	// handle); under auto the agent's own transcript is expected, and the
+	// audio is transcribed once at the end only when none came.
+	var stt target.TranscriptionStream
+	if a.voice.TranscriptSource == "stt" {
+		var err error
+		if stt, err = target.StartTranscription(ctx, a.speech, target.TranscriptionStreamRequest{Rate: s.rate, Language: a.voice.Language}); err != nil {
+			s.event("stt_error", err.Error())
+			stt = nil
+		}
+	}
 	var interruptedAt time.Time
 	var transcript strings.Builder
 	var raws []any
 	finish := func() (target.AgentTurn, error) {
-		s.finishAudio(ctx, spoken, &agent, transcript.String())
+		// The turn ended when the agent stopped; the transcription that
+		// follows is tamesu's own time (stt_ms), not the agent's.
+		agent.EndedAt = time.Now()
+		s.finishAudio(ctx, spoken, &agent, transcript.String(), stt)
 		if spoken != nil && spoken.interrupting {
 			s.recordInterruption(spoken, interruptedAt)
 		}
@@ -684,6 +701,9 @@ func (s *session) readTurn(ctx context.Context, spoken *spokenTurn, greeting boo
 					agent.FirstTokenAt = time.Now()
 				}
 				s.agentAudio(ev.audio, spoken)
+				if stt != nil {
+					_ = stt.Write(ctx, ev.audio)
+				}
 				alive = true
 				if plan != nil && plan.due(spoken) {
 					agent.Interrupted = true
@@ -889,6 +909,7 @@ type audioState struct {
 	agent  []int16
 	turn   []int16
 	ttfa   []float64
+	sttMs  []float64
 	userMs float64
 	agMs   float64
 	// interrupts are the barge-in stop times: from the caller speaking over
@@ -1014,8 +1035,9 @@ func (s *session) agentAudio(pcm []int16, sp *spokenTurn) {
 
 // finishAudio sets the turn's timing and its text: the agent's own
 // final transcripts when it sent any (transcript_source auto or agent),
-// else tamesu's transcription of its audio.
-func (s *session) finishAudio(ctx context.Context, sp *spokenTurn, agent *target.AgentTurn, transcript string) {
+// else tamesu's transcription of its audio, through the stream that heard
+// it as it arrived when there is one.
+func (s *session) finishAudio(ctx context.Context, sp *spokenTurn, agent *target.AgentTurn, transcript string, stt target.TranscriptionStream) {
 	a := s.audio
 	if sp != nil && !sp.firstAudio.IsZero() {
 		agent.FirstTokenAt = sp.firstAudio
@@ -1034,14 +1056,28 @@ func (s *session) finishAudio(ctx context.Context, sp *spokenTurn, agent *target
 		return
 	}
 	if len(turn) == 0 || source == "agent" {
+		if stt != nil {
+			_, _ = stt.Close(ctx)
+		}
 		return
 	}
-	if tr, err := a.speech.Transcribe(ctx, target.TranscribeRequest{Audio: target.Audio{Rate: s.rate, Samples: turn}, Language: a.voice.Language}); err == nil {
-		agent.Text = strings.TrimSpace(tr.Text)
-		agent.TranscriptSource = "stt"
+	started := time.Now()
+	var tr target.Transcript
+	var err error
+	if stt != nil {
+		tr, err = stt.Close(ctx)
 	} else {
-		s.event("stt_error", err.Error())
+		tr, err = a.speech.Transcribe(ctx, target.TranscribeRequest{Audio: target.Audio{Rate: s.rate, Samples: turn}, Language: a.voice.Language})
 	}
+	s.mu.Lock()
+	a.sttMs = append(a.sttMs, float64(time.Since(started).Microseconds())/1000)
+	s.mu.Unlock()
+	if err != nil {
+		s.event("stt_error", err.Error())
+		return
+	}
+	agent.Text = strings.TrimSpace(tr.Text)
+	agent.TranscriptSource = "stt"
 }
 
 func (s *session) closeAudioLocked(files map[string]string) {
@@ -1057,6 +1093,7 @@ func (s *session) closeAudioLocked(files map[string]string) {
 		}
 	}
 	metrics.Summarize(s.metrics, metrics.TimeToFirstAudioMs, a.ttfa)
+	metrics.Summarize(s.metrics, metrics.STTMs, a.sttMs)
 	s.metrics["agent_speech_ms"] = a.agMs
 	s.metrics["user_speech_ms"] = a.userMs
 	s.metrics["interruptions"] = float64(len(a.interrupts))

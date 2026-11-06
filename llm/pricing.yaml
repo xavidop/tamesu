@@ -64,6 +64,8 @@ models:
   # transcribed); these are the Scale plan's dollars per credit.
   cartesia/ink: { per_minute: 0.0011 }
   cartesia/: { per_character: 0.00004 }
+  # Soniox real-time (stt-rt-*) and async (stt-async-*) models.
+  soniox/stt-rt: { per_minute: 0.002 }
   soniox/: { per_minute: 0.0017 }
   ollama/: { input: 0, output: 0 }
   fake/tts: { per_character: 0.0001 }

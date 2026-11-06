@@ -60,7 +60,8 @@ activity detector sees the end of the turn.
 
 ## What a run records
 
-Each turn is the agent's audio transcribed by the STT model, with the usual turn metrics;
+Each turn is the agent's audio transcribed by the STT model (as it arrives, when the model
+streams: Deepgram, `assemblyai/universal`, `soniox/stt-rt-v3`; the `stt_ms` metric is that wait), with the usual turn metrics;
 `time_to_first_audio_ms` is measured from the end of the caller's utterance to the agent's first
 media event, `greeting_ms` from `start` to the agent's first media when it speaks first,
 `call_duration_ms` from `start` to `stop`, plus `agent_speech_ms`, `user_speech_ms`, `marks`

@@ -3,15 +3,16 @@ module github.com/xavidop/tamesu/llm/plugins/deepgram
 go 1.27
 
 require (
+	github.com/coder/websocket v1.8.15
 	github.com/firebase/genkit/go v1.14.0
 	github.com/stretchr/testify v1.12.1
+	github.com/xavidop/tamesu/llm/plugins/speechstream v0.0.0
 )
 
 require (
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/coder/websocket v1.8.15 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/goccy/go-yaml v1.19.2 // indirect
@@ -36,3 +37,5 @@ require (
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 )
+
+replace github.com/xavidop/tamesu/llm/plugins/speechstream => ../speechstream
