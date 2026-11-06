@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"sort"
 	"strings"
@@ -126,7 +127,11 @@ func (t *Target) connect(ctx context.Context, run *target.RunContext) (*mcpclien
 			}
 			headers[k] = v
 		}
-		opts := []transport.StreamableHTTPCOption{transport.WithHTTPTimeout(t.cfg.CallTimeout)}
+		// Our own HTTP client, because mcp-go's default follows a redirect to
+		// any host and carries the configured headers (credentials among
+		// them) along (GO-2026-6911). An MCP server has no reason to redirect.
+		httpClient := &http.Client{Timeout: t.cfg.CallTimeout, CheckRedirect: refuseRedirect}
+		opts := []transport.StreamableHTTPCOption{transport.WithHTTPBasicClient(httpClient)}
 		if len(headers) > 0 {
 			opts = append(opts, transport.WithHTTPHeaders(headers))
 		}
@@ -165,6 +170,12 @@ func (t *Target) connect(ctx context.Context, run *target.RunContext) (*mcpclien
 		return nil, fmt.Errorf("initialize: %w", err)
 	}
 	return c, nil
+}
+
+// refuseRedirect is the http.Client CheckRedirect that fails the request
+// instead of following the server's Location header.
+func refuseRedirect(req *http.Request, _ []*http.Request) error {
+	return fmt.Errorf("the server redirected to %s; redirects are not followed", req.URL.Redacted())
 }
 
 // listTools fetches the server's tools as model tools, filtered by Tools.

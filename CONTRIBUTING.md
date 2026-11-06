@@ -25,6 +25,7 @@ Other targets:
 ```bash
 make test           # test every module
 make lint           # golangci-lint across modules
+make vuln           # govulncheck every module, minus the IDs in .github/govulncheck-ignore (reasons inside)
 make schema         # regenerate schema/*.schema.json from the Go structs
 make check-claims   # the README, docs and skill against the code: commands, flags, targets
 make site-build     # build the docs site (Node 22 via nvm)

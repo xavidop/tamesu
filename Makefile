@@ -13,7 +13,7 @@ MODULES := $(shell find . -name go.mod \
 GO ?= go
 export GOWORK = off
 
-.PHONY: all build test race vet lint lint-integration fmt tidy work-sync check-deps check-claims schema schema-check proto notices test-llmfake vet-llmfake lint-llmfake integration integration-sip genkit-ui site-dev site-build site-linkcheck demo clean help
+.PHONY: all build test race vet lint lint-integration fmt tidy work-sync check-deps vuln check-claims schema schema-check proto notices test-llmfake vet-llmfake lint-llmfake integration integration-sip genkit-ui site-dev site-build site-linkcheck demo clean help
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -57,6 +57,9 @@ work-sync: ## Regenerate the go.work workspace (then re-tidy modules)
 check-deps: ## Fail if the root module pulls a heavy SDK, or a module other than llm imports a model provider SDK
 	@bash .github/scripts/check_root_deps.sh .
 	@bash .github/scripts/check_ai_deps.sh
+
+vuln: ## govulncheck every module, skipping the IDs in .github/govulncheck-ignore (what CI runs)
+	@bash .github/scripts/govulncheck.sh
 
 check-claims: ## Fail if the README, docs or skill claim a command, flag or target the CLI does not have
 	@bash .github/scripts/check_readme_claims.sh
