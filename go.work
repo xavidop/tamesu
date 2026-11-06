@@ -20,8 +20,8 @@ use (
 	./llm/plugins/openaispeech
 	./llm/plugins/rime
 	./llm/plugins/soniox
-	./llm/plugins/speechstream
 	./llm/plugins/speechmatics
+	./llm/plugins/speechstream
 	./targets/a2a
 	./targets/browser
 	./targets/grpc
