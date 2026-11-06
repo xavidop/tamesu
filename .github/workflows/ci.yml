@@ -46,7 +46,17 @@ jobs:
       # audio/opus is a cgo binding to libopus; the lite build (-tags lite) does
       # without it, every other module build needs the development package.
       - name: Install libopus
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq libopus-dev pkg-config
+        # apt on a fresh runner can block on the dpkg lock or a stalled mirror
+        # for the whole six-hour job limit; fail fast and retry instead.
+        timeout-minutes: 10
+        run: |
+          for attempt in 1 2 3; do
+            sudo apt-get -o DPkg::Lock::Timeout=120 update -qq \
+              && sudo apt-get -o DPkg::Lock::Timeout=120 install -y -qq libopus-dev pkg-config && exit 0
+            echo "apt attempt $attempt failed; retrying" >&2
+            sleep 20
+          done
+          exit 1
       - name: go build
         working-directory: ${{ matrix.dir }}
         run: go build ./...
@@ -97,7 +107,17 @@ jobs:
           go-version-file: ${{ matrix.dir }}/go.mod
           cache-dependency-path: ${{ matrix.dir }}/go.sum
       - name: Install libopus
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq libopus-dev pkg-config
+        # apt on a fresh runner can block on the dpkg lock or a stalled mirror
+        # for the whole six-hour job limit; fail fast and retry instead.
+        timeout-minutes: 10
+        run: |
+          for attempt in 1 2 3; do
+            sudo apt-get -o DPkg::Lock::Timeout=120 update -qq \
+              && sudo apt-get -o DPkg::Lock::Timeout=120 install -y -qq libopus-dev pkg-config && exit 0
+            echo "apt attempt $attempt failed; retrying" >&2
+            sleep 20
+          done
+          exit 1
       - name: golangci-lint
         # The version is pinned for reproducibility; the timeout lives in
         # .golangci.yml (run.timeout).
@@ -174,7 +194,17 @@ jobs:
           go-version-file: cmd/tamesu/go.mod
           cache-dependency-path: cmd/tamesu/go.sum
       - name: Install libopus
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq libopus-dev pkg-config
+        # apt on a fresh runner can block on the dpkg lock or a stalled mirror
+        # for the whole six-hour job limit; fail fast and retry instead.
+        timeout-minutes: 10
+        run: |
+          for attempt in 1 2 3; do
+            sudo apt-get -o DPkg::Lock::Timeout=120 update -qq \
+              && sudo apt-get -o DPkg::Lock::Timeout=120 install -y -qq libopus-dev pkg-config && exit 0
+            echo "apt attempt $attempt failed; retrying" >&2
+            sleep 20
+          done
+          exit 1
       - name: Build
         working-directory: cmd/tamesu
         run: go build -o "$RUNNER_TEMP/tamesu" .
@@ -212,7 +242,17 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Install libopus
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq libopus-dev pkg-config
+        # apt on a fresh runner can block on the dpkg lock or a stalled mirror
+        # for the whole six-hour job limit; fail fast and retry instead.
+        timeout-minutes: 10
+        run: |
+          for attempt in 1 2 3; do
+            sudo apt-get -o DPkg::Lock::Timeout=120 update -qq \
+              && sudo apt-get -o DPkg::Lock::Timeout=120 install -y -qq libopus-dev pkg-config && exit 0
+            echo "apt attempt $attempt failed; retrying" >&2
+            sleep 20
+          done
+          exit 1
       - run: make integration
 
   # The phone example: examples/compose.yaml (livekit-server, Redis, livekit/sip,
@@ -227,7 +267,17 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Install libopus
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq libopus-dev pkg-config
+        # apt on a fresh runner can block on the dpkg lock or a stalled mirror
+        # for the whole six-hour job limit; fail fast and retry instead.
+        timeout-minutes: 10
+        run: |
+          for attempt in 1 2 3; do
+            sudo apt-get -o DPkg::Lock::Timeout=120 update -qq \
+              && sudo apt-get -o DPkg::Lock::Timeout=120 install -y -qq libopus-dev pkg-config && exit 0
+            echo "apt attempt $attempt failed; retrying" >&2
+            sleep 20
+          done
+          exit 1
       - run: make integration-sip
       - name: Upload the compose logs and reports
         if: always()
@@ -252,7 +302,17 @@ jobs:
       # audio/opus is a cgo binding; govulncheck builds every module to walk
       # the call graph, so the modules that reach it need libopus.
       - name: Install libopus
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq libopus-dev pkg-config
+        # apt on a fresh runner can block on the dpkg lock or a stalled mirror
+        # for the whole six-hour job limit; fail fast and retry instead.
+        timeout-minutes: 10
+        run: |
+          for attempt in 1 2 3; do
+            sudo apt-get -o DPkg::Lock::Timeout=120 update -qq \
+              && sudo apt-get -o DPkg::Lock::Timeout=120 install -y -qq libopus-dev pkg-config && exit 0
+            echo "apt attempt $attempt failed; retrying" >&2
+            sleep 20
+          done
+          exit 1
       - name: Install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@latest
       # The script skips the IDs in .github/govulncheck-ignore (risks handled
