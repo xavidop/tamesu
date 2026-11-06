@@ -57,8 +57,9 @@ This is a multi-module repository tied together by a `go.work` file:
   `llm/plugins/googlespeech`, `llm/plugins/speechmatics` and `llm/plugins/gladia`:
   Genkit model plugins for the speech providers (Deepgram, ElevenLabs, Cartesia, OpenAI, Azure and
   Google Cloud both ways; Soniox, AssemblyAI, Speechmatics and Gladia speech to text; Rime text to
-  speech), each its own module on
-  Genkit alone, so any Genkit Go app can use them.
+  speech), each its own module on Genkit alone, so any Genkit Go app can use them. Deepgram,
+  AssemblyAI and Soniox also transcribe a stream over a WebSocket, through the dependency-free
+  contract in `llm/plugins/speechstream`.
 - `targets/rest`: the REST target (HTTP, SSE), its own module; it passes the `targettest`
   conformance suite of the root module.
 - `targets/livekit`: the LiveKit target (text and audio mode), its own module on the LiveKit Go

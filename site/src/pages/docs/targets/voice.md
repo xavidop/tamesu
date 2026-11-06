@@ -97,7 +97,7 @@ turn is in `result.json` for `json_path`.
 | `messages.close` | A message sent before closing (a hangup). |
 | `idle` | Silence after the agent's last audio that ends its turn, default `2s`. |
 | `turn_timeout` | How long one turn may take, default `60s`. |
-| `transcript_source` | `auto` (default: the protocol's transcripts when it sends them, else STT), `agent` or `stt`. |
+| `transcript_source` | `auto` (default: the protocol's transcripts when it sends them, else STT), `agent` or `stt`. With `stt` the audio is transcribed as it arrives when the STT model streams (Deepgram, `assemblyai/universal`, `soniox/stt-rt-v3`); see `stt_ms`. |
 | `connect` | How `session.open` and the connection are retried, as for every target. |
 
 ## Metrics and events

@@ -93,7 +93,7 @@ A greeting the agent sends before the first user turn is attached to the first r
 | `mode` | `text` or `audio`. A test's `mode` and `--mode` override it. |
 | `data_topic` | The text-input topic; default `lk.chat`. |
 | `join_timeout` | How long to wait for the agent; default 30s. |
-| `transcript_source` | Audio: `auto` (default), `agent` or `stt`. |
+| `transcript_source` | Audio: `auto` (default), `agent` or `stt`. With `stt` the agent's audio is transcribed as it arrives when the STT model streams (Deepgram, `assemblyai/universal`, `soniox/stt-rt-v3`), so the turn waits for its last words only; see `stt_ms`. |
 
 ## Metrics
 

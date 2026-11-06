@@ -18,6 +18,7 @@ const (
 	GreetingMs         = "greeting_ms"            // sip: active → agent's first speech
 	CallDurationMs     = "call_duration_ms"       // sip: active → hangup
 	STTWordErrorRate   = "stt_word_error_rate"    // livekit audio, sip: agent's transcript of the caller vs. what tamesu said
+	STTMs              = "stt_ms"                 // audio turns: agent audio over → tamesu's transcript ready (streaming keeps it small)
 	Turns              = "turns"                  // conversational: number of agent turns
 	// HandoffTurn is the agent turn on which the agent handed the conversation to a person.
 	HandoffTurn = "handoff_turn"

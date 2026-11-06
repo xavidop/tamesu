@@ -25,7 +25,37 @@ type fakeSpeech struct {
 	mu          sync.Mutex
 	synthesized []string
 	transcribed []time.Duration
-	stt         string
+	// streamed are the durations heard through OpenTranscription.
+	streamed []time.Duration
+	stt      string
+}
+
+// OpenTranscription makes the fake a StreamingSpeech: the samples written
+// are kept and answered with stt at Close, like Transcribe.
+func (f *fakeSpeech) OpenTranscription(_ context.Context, req target.TranscriptionStreamRequest) (target.TranscriptionStream, error) {
+	return &fakeStream{f: f, rate: req.Rate}, nil
+}
+
+type fakeStream struct {
+	f       *fakeSpeech
+	rate    int
+	samples []int16
+}
+
+func (s *fakeStream) Write(_ context.Context, samples []int16) error {
+	s.samples = append(s.samples, samples...)
+	return nil
+}
+
+func (s *fakeStream) Close(context.Context) (target.Transcript, error) {
+	s.f.mu.Lock()
+	defer s.f.mu.Unlock()
+	s.f.streamed = append(s.f.streamed, audio.Duration(len(s.samples), s.rate))
+	text := s.f.stt
+	if text == "" {
+		text = fmt.Sprintf("(stream heard %d ms)", audio.Duration(len(s.samples), s.rate).Milliseconds())
+	}
+	return target.Transcript{Text: text, Confidence: 0.9}, nil
 }
 
 func (f *fakeSpeech) Synthesize(_ context.Context, req target.SynthesizeRequest) (target.Audio, error) {
@@ -318,7 +348,8 @@ func TestAudioSTTFallbackAndForced(t *testing.T) {
 	assert.InDelta(t, 700, sp.transcribed[0].Milliseconds(), 120, "the clip is the agent's utterance")
 	_, _ = sess.Close(context.Background())
 
-	// transcript_source: stt ignores the agent's text even when present.
+	// transcript_source: stt ignores the agent's text even when present, and
+	// transcribes the audio as it arrives: through the stream, not a call.
 	r = newAudioRoom("agent text", "more")
 	sp = &fakeSpeech{stt: "stt text"}
 	sess, err = newAudioTarget(r).Start(context.Background(), audioRunCtx(t, sp, &target.Voice{Seed: 3, TranscriptSource: "stt"}))
@@ -328,7 +359,13 @@ func TestAudioSTTFallbackAndForced(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "stt text", turn.Text)
 	assert.Equal(t, "stt", turn.TranscriptSource)
-	_, _ = sess.Close(context.Background())
+	arts, _ := sess.Close(context.Background())
+	sp.mu.Lock()
+	assert.Empty(t, sp.transcribed, "no whole-clip call")
+	require.Len(t, sp.streamed, 1)
+	assert.Greater(t, sp.streamed[0].Milliseconds(), int64(700), "the stream heard the reply and the silence around it")
+	sp.mu.Unlock()
+	assert.Contains(t, arts.Metrics, "stt_ms")
 }
 
 func TestAudioInterruption(t *testing.T) {

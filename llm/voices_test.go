@@ -97,5 +97,7 @@ func TestSpeechPricing(t *testing.T) {
 	assert.InDelta(t, 0.0083, p.costOf("speechmatics/enhanced", 0, 0, 0, 60), 1e-9)
 	assert.InDelta(t, 0.005, p.costOf("speechmatics/standard", 0, 0, 0, 60), 1e-9)
 	assert.InDelta(t, 0.0102, p.costOf("gladia/solaria-1", 0, 0, 0, 60), 1e-9)
+	assert.InDelta(t, 0.002, p.costOf("soniox/stt-rt-v3", 0, 0, 0, 60), 1e-9, "the real-time prefix wins over soniox/")
+	assert.InDelta(t, 0.0017, p.costOf("soniox/stt-async-v6", 0, 0, 0, 60), 1e-9)
 	assert.Equal(t, 0.0, p.costOf("acme/unknown", 1000, 1000, 100, 60))
 }

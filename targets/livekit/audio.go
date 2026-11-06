@@ -105,6 +105,7 @@ type audioState struct {
 	agentSegs  []segment
 	agentOpen  *segment
 	ttfa       []float64
+	sttMs      []float64
 	interrupts []float64
 	gaps       []float64
 	pendingInt *int // user speech start that interrupted the agent, until its audio stops
@@ -274,6 +275,10 @@ func (s *session) padAgent(now time.Time) {
 func (s *session) feedVAD(from int, now time.Time) {
 	a := s.audio
 	chunk := audio.Resample(audio.PCM{Rate: AudioRate, Samples: a.agent.samples[from:]}, vadRate)
+	if c := s.cur; c != nil && c.stt != nil {
+		// Write queues the samples; the stream's own goroutine sends them.
+		_ = c.stt.Write(context.Background(), chunk.Samples)
+	}
 	for _, ev := range a.seg.Push(chunk.Samples) {
 		at := audio.SampleCount(ev.At, AudioRate)
 		switch ev.Kind {
@@ -462,11 +467,33 @@ func (s *session) finishAudio(ctx context.Context, cur *turn, interrupted, left 
 		from = cur.agentStart
 	}
 	clip := a.agent.slice(from, end)
-	useSTT := cur.agentStart >= 0 && (a.voice.TranscriptSource == "stt" || (text == "" && a.voice.TranscriptSource != "agent"))
+	spoke := cur.agentStart >= 0
+	useSTT := spoke && (a.voice.TranscriptSource == "stt" || (text == "" && a.voice.TranscriptSource != "agent"))
+	stt := cur.stt
+	cur.stt = nil
 	s.mu.Unlock()
-	if useSTT && len(clip) > 0 {
+	switch {
+	case stt != nil:
+		// The stream heard the reply as it arrived; Close waits for its
+		// last words. Whether the agent spoke is known from the VAD.
+		started := time.Now()
+		tr, err := stt.Close(ctx)
+		if spoke {
+			s.mu.Lock()
+			a.sttMs = append(a.sttMs, float64(time.Since(started).Microseconds())/1000)
+			s.mu.Unlock()
+			if err != nil {
+				return target.AgentTurn{}, fmt.Errorf("transcribe: %w", err)
+			}
+			text, source = tr.Text, "stt"
+		}
+	case useSTT && len(clip) > 0:
+		started := time.Now()
 		pcm := audio.Resample(audio.PCM{Rate: AudioRate, Samples: clip}, vadRate)
 		tr, err := a.speech.Transcribe(ctx, target.TranscribeRequest{Audio: target.Audio{Rate: pcm.Rate, Samples: pcm.Samples}, Language: a.voice.Language})
+		s.mu.Lock()
+		a.sttMs = append(a.sttMs, float64(time.Since(started).Microseconds())/1000)
+		s.mu.Unlock()
 		if err != nil {
 			return target.AgentTurn{}, fmt.Errorf("transcribe: %w", err)
 		}
@@ -494,6 +521,41 @@ func (s *session) finishAudio(ctx context.Context, cur *turn, interrupted, left 
 	}
 	s.cur = nil
 	return at, nil
+}
+
+// openSTT starts transcribing the agent's reply as it arrives when the
+// target is told to use tamesu's STT (transcript_source: stt); a model that
+// does not stream is buffered behind the same handle. Under auto the agent's
+// own transcript is expected, so the audio is transcribed once, at the end,
+// only when none came.
+func (s *session) openSTT(ctx context.Context, cur *turn) {
+	a := s.audio
+	if a.voice.TranscriptSource != "stt" {
+		return
+	}
+	stt, err := target.StartTranscription(ctx, a.speech, target.TranscriptionStreamRequest{Rate: vadRate, Language: a.voice.Language})
+	if err != nil {
+		s.event("stt_error", err.Error())
+		return
+	}
+	s.mu.Lock()
+	cur.stt = stt
+	s.mu.Unlock()
+}
+
+// releaseSTT closes a turn's stream that will not be read (the agent left,
+// the session closes), off the caller's lock. Called with s.mu held.
+func releaseSTT(cur *turn) {
+	if cur == nil || cur.stt == nil {
+		return
+	}
+	stt := cur.stt
+	cur.stt = nil
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), closeGrace)
+		defer cancel()
+		_, _ = stt.Close(ctx)
+	}()
 }
 
 // closeAudio stops publishing, writes the stereo WAV and computes the audio
@@ -530,7 +592,9 @@ func (s *session) closeAudio(dir string) map[string]string {
 		a.agentOpen = nil
 	}
 	m := s.metrics
+	releaseSTT(s.cur)
 	metrics.Summarize(m, metrics.TimeToFirstAudioMs, a.ttfa)
+	metrics.Summarize(m, metrics.STTMs, a.sttMs)
 	metrics.Summarize(m, metrics.InterruptionStopMs, a.interrupts)
 	if len(a.gaps) > 0 {
 		mx := 0.0

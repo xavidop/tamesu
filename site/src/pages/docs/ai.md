@@ -37,7 +37,7 @@ secrets:
 | `deepgram` | `deepgram/nova-3`, `deepgram/nova-2` (speech to text), `deepgram/aura-2`, `deepgram/aura-2-thalia-en` (text to speech) | `DEEPGRAM_API_KEY` |
 | `elevenlabs` | `elevenlabs/eleven_flash_v2_5`, `elevenlabs/eleven_multilingual_v2`, `elevenlabs/eleven_v3` (text to speech), `elevenlabs/scribe_v1` (speech to text) | `ELEVENLABS_API_KEY` |
 | `cartesia` | `cartesia/sonic-3.6`, `cartesia/sonic-3` (text to speech), `cartesia/ink-whisper` (speech to text) | `CARTESIA_API_KEY` |
-| `soniox` | `soniox/stt-async-v6` (speech to text) | `SONIOX_API_KEY` |
+| `soniox` | `soniox/stt-async-v6`, `soniox/stt-rt-v3` (speech to text; stt-rt-v3 is the real-time model) | `SONIOX_API_KEY` |
 | `assemblyai` | `assemblyai/universal`, `assemblyai/slam-1`, `assemblyai/nano` (speech to text) | `ASSEMBLYAI_API_KEY` |
 | `azure` | `azure/tts` (text to speech, the voice picks the neural model), `azure/stt` (speech to text, fast transcription) | `AZURE_SPEECH_KEY` and `AZURE_SPEECH_REGION` |
 | `rime` | `rime/arcana`, `rime/mistv2` (text to speech) | `RIME_API_KEY` |
@@ -138,6 +138,18 @@ Speech-to-Text (`google/chirp_3`), Speechmatics (`speechmatics/enhanced`) or Gla
 (`gladia/solaria-1`).
 Switching provider is a config change, and `fallback: [...]` on either names the models that
 take over when the first fails (see [retries and fallbacks](#retries-and-fallbacks)).
+
+Deepgram, AssemblyAI (`assemblyai/universal`) and Soniox (`soniox/stt-rt-v3`) transcribe as they
+listen: the voice targets feed them the agent's audio as it arrives and read the transcript when
+the turn ends, so a turn waits for its last words only (the `stt_ms` metric), where another model
+is sent the whole turn once it is over and answers after a round trip. The twilio target always
+transcribes that way; livekit, sip and voice do with `transcript_source: stt` (under `auto` the
+agent's own transcript is expected, and the audio is transcribed once at the end only when none
+came). A model that does not stream is buffered behind the same handle, and a stream that drops
+mid-turn falls back to one call over the audio it had received, so the setting is safe with any
+provider. The plugins expose this as `OpenTranscription`, through the dependency-free
+`llm/plugins/speechstream` contract, for any Go program that wants a provider's streaming
+transcription without its SDK.
 
 A persona's `voice` is a hint, `<language>-<gender>` such as `en-GB-female`, `es-ES-male` or
 just `female`, mapped to each provider's voices (Gemini `Kore`/`Puck`, ElevenLabs

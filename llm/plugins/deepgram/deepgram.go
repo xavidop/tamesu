@@ -16,12 +16,20 @@
 // the usage's Custom map (confidence, audio_seconds). Speech goes to POST
 // /v1/speak; an Aura voice is a model of its own (aura-2-<voice>-<lang>), so
 // the Voice config, when set, picks the model that speaks.
+//
+// Every speech-to-text model (nova-3, nova-2, enhanced, base) also transcribes
+// a live stream: OpenTranscription connects to the live endpoint (WebSocket
+// /v1/listen) and the returned speechstream.Transcription takes 16-bit mono
+// PCM as it is heard and hands back the transcript at Close, so the audio does
+// not have to be held until the speaker stops. The Aura models return
+// speechstream.ErrUnsupported.
 package deepgram
 
 import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -31,10 +39,14 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
+	"github.com/coder/websocket"
 	"github.com/firebase/genkit/go/ai"
 	"github.com/firebase/genkit/go/core/api"
+	"github.com/xavidop/tamesu/llm/plugins/speechstream"
 )
 
 // Provider is the plugin name and the prefix of its models.
@@ -42,6 +54,10 @@ const Provider = "deepgram"
 
 // DefaultBaseURL is Deepgram's API.
 const DefaultBaseURL = "https://api.deepgram.com"
+
+// DefaultWSBaseURL is Deepgram's live (WebSocket) API, where
+// OpenTranscription connects.
+const DefaultWSBaseURL = "wss://api.deepgram.com"
 
 // DefaultModels are the speech-to-text models defined when Models is empty.
 var DefaultModels = []string{"nova-3", "nova-2", "enhanced", "base"}
@@ -63,6 +79,9 @@ type Deepgram struct {
 	APIKey string
 	// BaseURL overrides the API endpoint (tests, proxies).
 	BaseURL string
+	// WSBaseURL overrides the live transcription endpoint (DefaultWSBaseURL);
+	// tests point it at a ws:// server.
+	WSBaseURL string
 	// HTTPClient overrides the client (default: 60 s timeout).
 	HTTPClient *http.Client
 	// Models to define, without the provider prefix. Names starting with
@@ -102,6 +121,9 @@ func (d *Deepgram) Init(context.Context) []api.Action {
 	}
 	if d.BaseURL == "" {
 		d.BaseURL = DefaultBaseURL
+	}
+	if d.WSBaseURL == "" {
+		d.WSBaseURL = DefaultWSBaseURL
 	}
 	if d.HTTPClient == nil {
 		d.HTTPClient = &http.Client{Timeout: 60 * time.Second}
@@ -340,4 +362,238 @@ func decodePart(p *ai.Part) (string, []byte, error) {
 		mime = "audio/wav"
 	}
 	return mime, data, nil
+}
+
+// IsStreaming reports whether a model name (without the prefix) transcribes a
+// live stream through OpenTranscription: every speech-to-text model does, the
+// Aura voices do not.
+func IsStreaming(model string) bool { return !IsTTS(model) }
+
+var _ speechstream.Transcriber = (*Deepgram)(nil)
+
+// OpenTranscription implements speechstream.Transcriber: it connects to the
+// live endpoint for one utterance of 16-bit mono PCM at opts.Rate. It returns
+// speechstream.ErrUnsupported for an Aura model before touching the network.
+func (d *Deepgram) OpenTranscription(ctx context.Context, opts speechstream.Options) (speechstream.Transcription, error) {
+	if !IsStreaming(opts.Model) {
+		return nil, speechstream.ErrUnsupported
+	}
+	apiKey := d.APIKey
+	if apiKey == "" {
+		apiKey = os.Getenv("DEEPGRAM_API_KEY")
+	}
+	if apiKey == "" {
+		return nil, errors.New("deepgram: no API key (set DEEPGRAM_API_KEY or Deepgram.APIKey)")
+	}
+	if opts.Rate <= 0 {
+		return nil, fmt.Errorf("deepgram: sample rate %d is not positive", opts.Rate)
+	}
+	base := d.WSBaseURL
+	if base == "" {
+		base = DefaultWSBaseURL
+	}
+	q := url.Values{
+		"model":           {opts.Model},
+		"encoding":        {"linear16"},
+		"sample_rate":     {strconv.Itoa(opts.Rate)},
+		"channels":        {"1"},
+		"punctuate":       {"true"},
+		"smart_format":    {"true"},
+		"interim_results": {"false"},
+	}
+	if opts.Language != "" {
+		q.Set("language", opts.Language)
+	}
+	// The plugin's client has a 60 s timeout meant for one HTTP request; it
+	// would kill the long-lived socket, so dial with a copy without it.
+	client := &http.Client{}
+	if d.HTTPClient != nil {
+		c := *d.HTTPClient
+		c.Timeout = 0
+		client = &c
+	}
+	headers := http.Header{"Authorization": {"Token " + apiKey}}
+	conn, res, err := websocket.Dial(ctx, strings.TrimRight(base, "/")+"/v1/listen?"+q.Encode(),
+		&websocket.DialOptions{HTTPClient: client, HTTPHeader: headers})
+	if err != nil {
+		if res != nil && res.StatusCode/100 != 2 {
+			// Dial has already read the body (up to 1 KiB) and left it readable.
+			body := ""
+			if res.Body != nil {
+				b, _ := io.ReadAll(io.LimitReader(res.Body, 8<<20))
+				_ = res.Body.Close()
+				body = strings.TrimSpace(string(b))
+			}
+			return nil, fmt.Errorf("deepgram: %s: %s", res.Status, body)
+		}
+		return nil, fmt.Errorf("deepgram: %w", err)
+	}
+	conn.SetReadLimit(8 << 20)
+	t := &transcription{conn: conn, rate: opts.Rate, done: make(chan struct{})}
+	go t.read()
+	return t, nil
+}
+
+// transcription is one live stream. Write and Close run on the caller's
+// goroutine; read runs on its own and owns the socket reads.
+type transcription struct {
+	conn    *websocket.Conn
+	rate    int
+	samples int64
+	// closing is set once Close has asked the server to finish, after which
+	// a Metadata message or a normal closure ends the stream without error.
+	closing atomic.Bool
+	// done is closed when read exits; mu guards what read fills in.
+	done  chan struct{}
+	mu    sync.Mutex
+	texts []string
+	// confSum and finals give the mean confidence of the final results.
+	confSum float64
+	finals  int
+	err     error
+}
+
+// liveMessage is the part of a Deepgram live message tamesu reads.
+type liveMessage struct {
+	Type    string `json:"type"`
+	IsFinal bool   `json:"is_final"`
+	Channel struct {
+		Alternatives []struct {
+			Transcript string  `json:"transcript"`
+			Confidence float64 `json:"confidence"`
+		} `json:"alternatives"`
+	} `json:"channel"`
+	Description string `json:"description"`
+	Message     string `json:"message"`
+}
+
+// read receives the server's messages until Metadata (the last one after
+// CloseStream), an Error message, or the socket closes.
+func (t *transcription) read() {
+	defer close(t.done)
+	for {
+		typ, data, err := t.conn.Read(context.Background())
+		if err != nil {
+			if t.closing.Load() && websocket.CloseStatus(err) == websocket.StatusNormalClosure {
+				return
+			}
+			t.fail(fmt.Errorf("deepgram: %w", err))
+			return
+		}
+		if typ != websocket.MessageText {
+			continue
+		}
+		var msg liveMessage
+		if json.Unmarshal(data, &msg) != nil {
+			continue
+		}
+		switch msg.Type {
+		case "Results":
+			if !msg.IsFinal || len(msg.Channel.Alternatives) == 0 {
+				continue
+			}
+			alt := msg.Channel.Alternatives[0]
+			if text := strings.TrimSpace(alt.Transcript); text != "" {
+				t.mu.Lock()
+				t.texts = append(t.texts, text)
+				t.confSum += alt.Confidence
+				t.finals++
+				t.mu.Unlock()
+			}
+		case "Metadata":
+			if t.closing.Load() {
+				return
+			}
+		case "Error":
+			desc := msg.Description
+			if desc == "" {
+				desc = msg.Message
+			}
+			if desc == "" {
+				desc = strings.TrimSpace(string(data))
+			}
+			t.fail(fmt.Errorf("deepgram: %s", desc))
+			return
+		}
+	}
+}
+
+// fail records the first error of the stream.
+func (t *transcription) fail(err error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.err == nil {
+		t.err = err
+	}
+}
+
+// failure is the recorded error, or an explanation when the reader has exited
+// without one.
+func (t *transcription) failure() error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.err != nil {
+		return t.err
+	}
+	return errors.New("deepgram: the stream is closed")
+}
+
+// Write implements speechstream.Transcription: one binary frame per call.
+func (t *transcription) Write(ctx context.Context, samples []int16) error {
+	select {
+	case <-t.done:
+		return t.failure()
+	default:
+	}
+	pcm := make([]byte, 2*len(samples))
+	for i, s := range samples {
+		binary.LittleEndian.PutUint16(pcm[2*i:], uint16(s))
+	}
+	if err := t.conn.Write(ctx, websocket.MessageBinary, pcm); err != nil {
+		t.fail(fmt.Errorf("deepgram: %w", err))
+		_ = t.conn.CloseNow()
+		<-t.done
+		return t.failure()
+	}
+	t.samples += int64(len(samples))
+	return nil
+}
+
+// Close implements speechstream.Transcription: it sends CloseStream, waits
+// (bounded by ctx) for the final results and the Metadata message that ends
+// the stream, and releases the socket whatever happened.
+func (t *transcription) Close(ctx context.Context) (speechstream.Result, error) {
+	defer func() { _ = t.conn.CloseNow() }()
+	t.closing.Store(true)
+	select {
+	case <-t.done:
+	default:
+		if err := t.conn.Write(ctx, websocket.MessageText, []byte(`{"type":"CloseStream"}`)); err != nil {
+			t.fail(fmt.Errorf("deepgram: %w", err))
+			_ = t.conn.CloseNow()
+		}
+	}
+	var err error
+	select {
+	case <-t.done:
+	case <-ctx.Done():
+		_ = t.conn.CloseNow()
+		<-t.done
+		err = fmt.Errorf("deepgram: %w", ctx.Err())
+	}
+	result := speechstream.Result{AudioSeconds: float64(t.samples) / float64(t.rate)}
+	t.mu.Lock()
+	result.Text = strings.TrimSpace(strings.Join(t.texts, " "))
+	if t.finals > 0 {
+		result.Confidence = t.confSum / float64(t.finals)
+	}
+	if err == nil {
+		err = t.err
+	}
+	t.mu.Unlock()
+	if err != nil {
+		return result, err
+	}
+	_ = t.conn.Close(websocket.StatusNormalClosure, "")
+	return result, nil
 }

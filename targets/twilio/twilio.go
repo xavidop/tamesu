@@ -354,7 +354,9 @@ func (s *session) Send(ctx context.Context, turn target.UserTurn) error {
 		return fmt.Errorf("twilio: %w", err)
 	}
 	agent.StartedAt = started
-	agent.EndedAt = time.Now()
+	if agent.EndedAt.IsZero() {
+		agent.EndedAt = time.Now()
+	}
 	if agent.FirstTokenAt.IsZero() {
 		agent.FirstTokenAt = agent.EndedAt
 	}
@@ -379,9 +381,19 @@ func (s *session) readTurn(ctx context.Context, spoken *spokenTurn, greeting boo
 	if spoken != nil && !greeting && !spoken.interrupting {
 		plan = a.planInterrupt()
 	}
+	// The agent's audio is transcribed as it arrives; a model that does not
+	// stream is buffered behind the same handle.
+	stt, err := target.StartTranscription(ctx, a.speech, target.TranscriptionStreamRequest{Rate: Rate, Language: a.voice.Language})
+	if err != nil {
+		s.event("stt_error", err.Error())
+		stt = nil
+	}
 	var clearedAt time.Time
 	finish := func() (target.AgentTurn, error) {
-		s.finishAudio(ctx, spoken, &agent)
+		// The turn ended when the agent stopped; the transcription that
+		// follows is tamesu's own time (stt_ms), not the agent's.
+		agent.EndedAt = time.Now()
+		s.finishAudio(ctx, spoken, &agent, stt)
 		if spoken != nil && spoken.interrupting {
 			s.recordInterruption(spoken, clearedAt)
 		}
@@ -418,6 +430,9 @@ func (s *session) readTurn(ctx context.Context, spoken *spokenTurn, greeting boo
 					agent.FirstTokenAt = time.Now()
 				}
 				s.agentAudio(ev.audio, spoken)
+				if stt != nil {
+					_ = stt.Write(ctx, ev.audio)
+				}
 				alive = true
 				if plan != nil && plan.due(spoken) {
 					// The caller will talk over the agent: the turn ends here and
@@ -567,6 +582,7 @@ type audioState struct {
 	agent  []int16
 	turn   []int16
 	ttfa   []float64
+	sttMs  []float64
 	userMs float64
 	agMs   float64
 	// interrupts are the barge-in stop times: from the caller speaking over
@@ -707,8 +723,10 @@ func (s *session) agentAudio(pcm []int16, sp *spokenTurn) {
 	a.agMs += float64(len(pcm)) * 1000 / Rate
 }
 
-// finishAudio sets the turn's timing and transcribes the agent's audio.
-func (s *session) finishAudio(ctx context.Context, sp *spokenTurn, agent *target.AgentTurn) {
+// finishAudio sets the turn's timing and transcribes the agent's audio:
+// through the stream that heard it as it arrived, or in one call when the
+// stream could not be opened.
+func (s *session) finishAudio(ctx context.Context, sp *spokenTurn, agent *target.AgentTurn, stt target.TranscriptionStream) {
 	a := s.audio
 	if sp != nil && !sp.firstAudio.IsZero() {
 		agent.FirstTokenAt = sp.firstAudio
@@ -717,15 +735,30 @@ func (s *session) finishAudio(ctx context.Context, sp *spokenTurn, agent *target
 	turn := append([]int16(nil), a.turn...)
 	a.turn = a.turn[:0]
 	s.mu.Unlock()
-	if len(turn) > 0 {
-		agent.Audio = bytesOf(turn)
-		if tr, err := a.speech.Transcribe(ctx, target.TranscribeRequest{Audio: target.Audio{Rate: Rate, Samples: turn}, Language: a.voice.Language}); err == nil {
-			agent.Text = strings.TrimSpace(tr.Text)
-			agent.TranscriptSource = "stt"
-		} else {
-			s.event("stt_error", err.Error())
+	if len(turn) == 0 {
+		if stt != nil {
+			_, _ = stt.Close(ctx)
 		}
+		return
 	}
+	agent.Audio = bytesOf(turn)
+	started := time.Now()
+	var tr target.Transcript
+	var err error
+	if stt != nil {
+		tr, err = stt.Close(ctx)
+	} else {
+		tr, err = a.speech.Transcribe(ctx, target.TranscribeRequest{Audio: target.Audio{Rate: Rate, Samples: turn}, Language: a.voice.Language})
+	}
+	s.mu.Lock()
+	a.sttMs = append(a.sttMs, float64(time.Since(started).Microseconds())/1000)
+	s.mu.Unlock()
+	if err != nil {
+		s.event("stt_error", err.Error())
+		return
+	}
+	agent.Text = strings.TrimSpace(tr.Text)
+	agent.TranscriptSource = "stt"
 }
 
 // closeAudioLocked writes the WAV and the audio metrics.
@@ -742,6 +775,7 @@ func (s *session) closeAudioLocked(files map[string]string) {
 		}
 	}
 	metrics.Summarize(s.metrics, metrics.TimeToFirstAudioMs, a.ttfa)
+	metrics.Summarize(s.metrics, metrics.STTMs, a.sttMs)
 	s.metrics["agent_speech_ms"] = a.agMs
 	s.metrics["user_speech_ms"] = a.userMs
 	s.metrics["interruptions"] = float64(len(a.interrupts))

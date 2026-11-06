@@ -19,6 +19,7 @@ require (
 	github.com/xavidop/tamesu/llm/plugins/rime v0.0.0
 	github.com/xavidop/tamesu/llm/plugins/soniox v0.0.0
 	github.com/xavidop/tamesu/llm/plugins/speechmatics v0.0.0
+	github.com/xavidop/tamesu/llm/plugins/speechstream v0.0.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -114,3 +115,5 @@ replace github.com/xavidop/tamesu/llm/plugins/googlespeech => ./plugins/googlesp
 replace github.com/xavidop/tamesu/llm/plugins/speechmatics => ./plugins/speechmatics
 
 replace github.com/xavidop/tamesu/llm/plugins/gladia => ./plugins/gladia
+
+replace github.com/xavidop/tamesu/llm/plugins/speechstream => ./plugins/speechstream

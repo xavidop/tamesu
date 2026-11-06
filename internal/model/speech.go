@@ -9,6 +9,11 @@ type (
 	SynthesizeRequest = target.SynthesizeRequest
 	TranscribeRequest = target.TranscribeRequest
 	Transcript        = target.Transcript
+	// TranscriptionStreamRequest and TranscriptionStream are the streaming
+	// side of speech to text; StreamingSpeech is a Speech that has it.
+	TranscriptionStreamRequest = target.TranscriptionStreamRequest
+	TranscriptionStream        = target.TranscriptionStream
+	StreamingSpeech            = target.StreamingSpeech
 	// Speech is the speech layer of audio mode. The llm module implements it.
 	Speech = target.Speech
 )
