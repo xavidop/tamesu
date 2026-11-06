@@ -2,6 +2,13 @@
 
 All notable changes to tamesu are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/). Each new release is added at the top, with notes generated from the commit messages.
 
+## [1.19.1](https://github.com/xavidop/tamesu/compare/v1.19.0...v1.19.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* **mcp:** refuse server redirects so configured headers never leave the host ([c266025](https://github.com/xavidop/tamesu/commit/c266025987632854af22dfbf621c64af1a167efe))
+
 # [1.19.0](https://github.com/xavidop/tamesu/compare/v1.18.0...v1.19.0) (2026-11-05)
 
 
