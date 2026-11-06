@@ -47,12 +47,14 @@ jobs:
       # without it, every other module build needs the development package.
       - name: Install libopus
         # apt on a fresh runner can block on the dpkg lock or a stalled mirror
-        # for the whole six-hour job limit; fail fast and retry instead.
+        # for the whole six-hour job limit; each command is cut off after
+        # two minutes and tried three times, so a bad mirror or runner fails
+        # within minutes.
         timeout-minutes: 10
         run: |
+          apt() { sudo timeout 120 apt-get -o DPkg::Lock::Timeout=60 "$@"; }
           for attempt in 1 2 3; do
-            sudo apt-get -o DPkg::Lock::Timeout=120 update -qq \
-              && sudo apt-get -o DPkg::Lock::Timeout=120 install -y -qq libopus-dev pkg-config && exit 0
+            apt update -qq && apt install -y -qq libopus-dev pkg-config && exit 0
             echo "apt attempt $attempt failed; retrying" >&2
             sleep 20
           done
@@ -108,12 +110,14 @@ jobs:
           cache-dependency-path: ${{ matrix.dir }}/go.sum
       - name: Install libopus
         # apt on a fresh runner can block on the dpkg lock or a stalled mirror
-        # for the whole six-hour job limit; fail fast and retry instead.
+        # for the whole six-hour job limit; each command is cut off after
+        # two minutes and tried three times, so a bad mirror or runner fails
+        # within minutes.
         timeout-minutes: 10
         run: |
+          apt() { sudo timeout 120 apt-get -o DPkg::Lock::Timeout=60 "$@"; }
           for attempt in 1 2 3; do
-            sudo apt-get -o DPkg::Lock::Timeout=120 update -qq \
-              && sudo apt-get -o DPkg::Lock::Timeout=120 install -y -qq libopus-dev pkg-config && exit 0
+            apt update -qq && apt install -y -qq libopus-dev pkg-config && exit 0
             echo "apt attempt $attempt failed; retrying" >&2
             sleep 20
           done
@@ -195,12 +199,14 @@ jobs:
           cache-dependency-path: cmd/tamesu/go.sum
       - name: Install libopus
         # apt on a fresh runner can block on the dpkg lock or a stalled mirror
-        # for the whole six-hour job limit; fail fast and retry instead.
+        # for the whole six-hour job limit; each command is cut off after
+        # two minutes and tried three times, so a bad mirror or runner fails
+        # within minutes.
         timeout-minutes: 10
         run: |
+          apt() { sudo timeout 120 apt-get -o DPkg::Lock::Timeout=60 "$@"; }
           for attempt in 1 2 3; do
-            sudo apt-get -o DPkg::Lock::Timeout=120 update -qq \
-              && sudo apt-get -o DPkg::Lock::Timeout=120 install -y -qq libopus-dev pkg-config && exit 0
+            apt update -qq && apt install -y -qq libopus-dev pkg-config && exit 0
             echo "apt attempt $attempt failed; retrying" >&2
             sleep 20
           done
@@ -243,12 +249,14 @@ jobs:
           go-version-file: go.mod
       - name: Install libopus
         # apt on a fresh runner can block on the dpkg lock or a stalled mirror
-        # for the whole six-hour job limit; fail fast and retry instead.
+        # for the whole six-hour job limit; each command is cut off after
+        # two minutes and tried three times, so a bad mirror or runner fails
+        # within minutes.
         timeout-minutes: 10
         run: |
+          apt() { sudo timeout 120 apt-get -o DPkg::Lock::Timeout=60 "$@"; }
           for attempt in 1 2 3; do
-            sudo apt-get -o DPkg::Lock::Timeout=120 update -qq \
-              && sudo apt-get -o DPkg::Lock::Timeout=120 install -y -qq libopus-dev pkg-config && exit 0
+            apt update -qq && apt install -y -qq libopus-dev pkg-config && exit 0
             echo "apt attempt $attempt failed; retrying" >&2
             sleep 20
           done
@@ -268,12 +276,14 @@ jobs:
           go-version-file: go.mod
       - name: Install libopus
         # apt on a fresh runner can block on the dpkg lock or a stalled mirror
-        # for the whole six-hour job limit; fail fast and retry instead.
+        # for the whole six-hour job limit; each command is cut off after
+        # two minutes and tried three times, so a bad mirror or runner fails
+        # within minutes.
         timeout-minutes: 10
         run: |
+          apt() { sudo timeout 120 apt-get -o DPkg::Lock::Timeout=60 "$@"; }
           for attempt in 1 2 3; do
-            sudo apt-get -o DPkg::Lock::Timeout=120 update -qq \
-              && sudo apt-get -o DPkg::Lock::Timeout=120 install -y -qq libopus-dev pkg-config && exit 0
+            apt update -qq && apt install -y -qq libopus-dev pkg-config && exit 0
             echo "apt attempt $attempt failed; retrying" >&2
             sleep 20
           done
@@ -303,12 +313,14 @@ jobs:
       # the call graph, so the modules that reach it need libopus.
       - name: Install libopus
         # apt on a fresh runner can block on the dpkg lock or a stalled mirror
-        # for the whole six-hour job limit; fail fast and retry instead.
+        # for the whole six-hour job limit; each command is cut off after
+        # two minutes and tried three times, so a bad mirror or runner fails
+        # within minutes.
         timeout-minutes: 10
         run: |
+          apt() { sudo timeout 120 apt-get -o DPkg::Lock::Timeout=60 "$@"; }
           for attempt in 1 2 3; do
-            sudo apt-get -o DPkg::Lock::Timeout=120 update -qq \
-              && sudo apt-get -o DPkg::Lock::Timeout=120 install -y -qq libopus-dev pkg-config && exit 0
+            apt update -qq && apt install -y -qq libopus-dev pkg-config && exit 0
             echo "apt attempt $attempt failed; retrying" >&2
             sleep 20
           done
