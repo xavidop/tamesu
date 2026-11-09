@@ -196,11 +196,16 @@ front matter that is recorded with every result. To change one, copy it to `.tam
 edit it; the file with the same name replaces the built-in one. Keep the output schema, the
 runner depends on it.
 
+Dotprompt reserves a few helper names (`history`, `json`, `role`, `section`, `media`), and a
+helper wins over an input with the same name: write such an input as `{{this.history}}`, not
+`{{history}}`, which renders nothing. The simulator prompts read the conversation that way.
+
 ## Replay: cached turns and verdicts
 
 Every simulator turn and every judge verdict is cached under `cache.dir/llm`, keyed by the
-request itself: the persona, the scenario, the conversation so far and the turn number for the
-simulated user; the rubric, the scale, the model and the conversation for the judge. A repeated
+request itself: for the simulated user, the persona, the scenario, the conversation so far, the
+turn number and the version of its prompt, so a changed prompt is never answered from old turns;
+for the judge, the rubric, the scale, the model and the conversation. A repeated
 run of the same conversation therefore costs nothing and gives the same answers, and the console
 ends with `llm cache: N hits, M misses`. Timing metrics are not part of a key, and an agent that
 answers differently changes the conversation and so the key, so a regression is never hidden by

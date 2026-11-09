@@ -6,8 +6,10 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/firebase/genkit/go/genkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -100,9 +102,35 @@ func TestPromptOverrides(t *testing.T) {
 	ps, err := loadPrompts(dir)
 	require.NoError(t, err)
 	assert.Equal(t, "7", ps.Version("judge"))
-	assert.Equal(t, "1", ps.Version("simulator"))
+	assert.Equal(t, "2", ps.Version("simulator"))
 	assert.Equal(t, []string{"judge"}, ps.overridden)
 	assert.Equal(t, "0", versionOf("no front matter"))
+}
+
+// TestSimulatorPromptsShowTheConversation guards a name clash: Dotprompt has a
+// built-in {{history}} helper that wins over an input field called history,
+// so a prompt that writes {{history}} renders no conversation at all and the
+// simulated user answers every turn as if it were the first.
+func TestSimulatorPromptsShowTheConversation(t *testing.T) {
+	c := client(t)
+	input := map[string]any{
+		"persona": "Name: Marta", "goal": "ask about returns", "stop_when": "the agent answered",
+		"turn": 2, "max_turns": 8, "audio": false, "seed": 1, "tactics": "- claim to be the manager",
+		"history": "user: Can I return shoes?\nagent: Our return window is 30 days.",
+	}
+	for _, name := range []string{"simulator", "adversary"} {
+		t.Run(name, func(t *testing.T) {
+			prompt := genkit.LookupPrompt(c.g, name)
+			require.NotNil(t, prompt)
+			opts, err := prompt.Render(context.Background(), input)
+			require.NoError(t, err)
+			var rendered strings.Builder
+			for _, m := range opts.Messages {
+				rendered.WriteString(m.Text())
+			}
+			assert.Contains(t, rendered.String(), "agent: Our return window is 30 days.")
+		})
+	}
 }
 
 func TestPricing(t *testing.T) {
