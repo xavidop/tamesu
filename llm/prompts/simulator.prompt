@@ -1,7 +1,9 @@
 ---
 # simulateUserTurn: the simulated user's next utterance, or stop.
 # version is recorded in every result.json so judge/simulator drift is traceable.
-version: 1
+# The conversation is read as this.history: a bare history is Dotprompt's
+# built-in history helper, which renders nothing here.
+version: 2
 config:
   temperature: 0.3
 output:
@@ -34,6 +36,6 @@ Rules:
 
 {{role "user"}}
 Conversation so far (empty means you speak first):
-{{history}}
+{{this.history}}
 
 Your next turn:

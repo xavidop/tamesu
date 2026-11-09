@@ -101,6 +101,39 @@ func TestReplayCachesSimulatorAndJudge(t *testing.T) {
 	assert.Error(t, err, "no speech on the fake")
 }
 
+// versionedProvider is a fakeProvider whose prompts carry versions, like the
+// Genkit client.
+type versionedProvider struct {
+	fakeProvider
+	versions map[string]string
+}
+
+func (v *versionedProvider) PromptVersions() map[string]string { return v.versions }
+
+func TestReplayKeysSimulatorTurnsByPromptVersion(t *testing.T) {
+	dir := t.TempDir()
+	ctx := context.Background()
+	in := model.SimInput{Persona: config.Persona{Name: "Marta"}, Scenario: config.Scenario{Goal: "g"}, Turn: 2, MaxTurns: 4,
+		History: []tassert.Turn{{Role: "agent", Text: "hi"}}}
+	simulate := func(versions map[string]string, in model.SimInput) int {
+		inner := &versionedProvider{versions: versions}
+		_, err := New(inner, dir, ModeAuto).Simulate(ctx, in)
+		require.NoError(t, err)
+		return inner.sims
+	}
+
+	assert.Equal(t, 1, simulate(map[string]string{"simulator": "1", "adversary": "1"}, in), "first time: a miss")
+	assert.Equal(t, 0, simulate(map[string]string{"simulator": "1", "adversary": "1"}, in), "same prompt: from the cache")
+	assert.Equal(t, 1, simulate(map[string]string{"simulator": "2", "adversary": "1"}, in),
+		"a new simulator prompt never replays turns recorded under the old one")
+
+	// An adversarial persona runs the adversary prompt, so only its version counts.
+	in.Persona.Adversarial = true
+	assert.Equal(t, 1, simulate(map[string]string{"simulator": "2", "adversary": "1"}, in))
+	assert.Equal(t, 0, simulate(map[string]string{"simulator": "3", "adversary": "1"}, in))
+	assert.Equal(t, 1, simulate(map[string]string{"simulator": "3", "adversary": "2"}, in))
+}
+
 func TestReplayForwardsRolesItLacks(t *testing.T) {
 	p := New(&fakeProvider{}, t.TempDir(), ModeAuto)
 	assert.False(t, p.HasSpeech())

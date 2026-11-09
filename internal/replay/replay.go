@@ -45,11 +45,13 @@ var ErrMiss = errors.New("replay: no cached answer for this request (run without
 // Provider wraps a model.Provider with the cache. It forwards the speech,
 // browser agent and generator roles when the inner provider has them.
 type Provider struct {
-	inner  model.Provider
-	dir    string
-	mode   Mode
-	hits   atomic.Int64
-	misses atomic.Int64
+	inner model.Provider
+	dir   string
+	mode  Mode
+	// prompts are the inner provider's prompt versions, when it versions them.
+	prompts map[string]string
+	hits    atomic.Int64
+	misses  atomic.Int64
 }
 
 // Stats are the cache's counters.
@@ -63,7 +65,19 @@ func New(inner model.Provider, dir string, mode Mode) *Provider {
 	if mode == "" {
 		mode = ModeAuto
 	}
-	return &Provider{inner: inner, dir: filepath.Join(dir, "llm"), mode: mode}
+	p := &Provider{inner: inner, dir: filepath.Join(dir, "llm"), mode: mode}
+	if pv, ok := inner.(promptVersioner); ok {
+		p.prompts = pv.PromptVersions()
+	}
+	return p
+}
+
+// promptVersioner is a provider whose prompts carry a version (the Genkit
+// client). The version of the prompt that plays the user is part of a
+// simulator turn's key, so a changed prompt never replays the turns recorded
+// under the old one.
+type promptVersioner interface {
+	PromptVersions() map[string]string
 }
 
 // Stats returns the hits and misses so far.
@@ -85,7 +99,8 @@ type simEntry struct {
 }
 
 // simKey is what identifies a simulator turn: who is talking, about what,
-// the conversation so far and the turn number.
+// the conversation so far, the turn number and the version of the prompt
+// that plays the user.
 type simKey struct {
 	Persona  any        `json:"persona"`
 	Scenario any        `json:"scenario"`
@@ -94,6 +109,16 @@ type simKey struct {
 	MaxTurns int        `json:"max_turns"`
 	Mode     string     `json:"mode"`
 	Seed     int64      `json:"seed"`
+	Prompt   string     `json:"prompt,omitempty"`
+}
+
+// simPrompt is the version of the prompt that plays in's user: the adversary
+// prompt for an adversarial persona, the simulator prompt otherwise.
+func (p *Provider) simPrompt(in model.SimInput) string {
+	if in.Persona.Adversarial {
+		return p.prompts["adversary"]
+	}
+	return p.prompts["simulator"]
 }
 
 type turnText struct {
@@ -160,7 +185,7 @@ func (p *Provider) store(key string, e simEntry) {
 
 // Simulate answers from the cache or the inner simulator.
 func (p *Provider) Simulate(ctx context.Context, in model.SimInput) (model.SimOutput, error) {
-	key, raw, err := keyOf("sim", simKey{Persona: in.Persona, Scenario: in.Scenario, History: turns(in.History), Turn: in.Turn, MaxTurns: in.MaxTurns, Mode: in.Mode, Seed: in.Seed})
+	key, raw, err := keyOf("sim", simKey{Persona: in.Persona, Scenario: in.Scenario, History: turns(in.History), Turn: in.Turn, MaxTurns: in.MaxTurns, Mode: in.Mode, Seed: in.Seed, Prompt: p.simPrompt(in)})
 	if err != nil {
 		return p.inner.Simulate(ctx, in)
 	}
