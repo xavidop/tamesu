@@ -2,6 +2,13 @@
 
 All notable changes to tamesu are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/). Each new release is added at the top, with notes generated from the commit messages.
 
+## [1.20.1](https://github.com/xavidop/tamesu/compare/v1.20.0...v1.20.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* **simulator:** show the simulated user the conversation ([1c001f4](https://github.com/xavidop/tamesu/commit/1c001f4557030d7964106970f761fa3a1ee02db9))
+
 # [1.20.0](https://github.com/xavidop/tamesu/compare/v1.19.1...v1.20.0) (2026-11-06)
 
 
