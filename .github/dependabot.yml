@@ -59,9 +59,15 @@ updates:
     directory: "/"
     schedule: { interval: weekly }
     labels: [dependencies, ci]
+    groups:
+      github-actions:
+        patterns: ["*"]
 
   # Docs site (npm)
   - package-ecosystem: npm
     directory: "/site"
     schedule: { interval: weekly }
     labels: [dependencies, docs]
+    groups:
+      npm-dependencies:
+        patterns: ["*"]
