@@ -68,7 +68,7 @@ func main() {
 		if a.scripted {
 			return rules(text), nil
 		}
-		resp, err := genkit.Generate(ctx, g, ai.WithSystem(policy), ai.WithPrompt(text), ai.WithConfig(&ai.GenerationCommonConfig{Temperature: 0.2}))
+		resp, err := genkit.Generate(ctx, g, ai.WithSystem(policy), ai.WithPrompt(text), ai.WithConfig(map[string]any{"temperature": 0.2}))
 		if err != nil {
 			return "", err
 		}
