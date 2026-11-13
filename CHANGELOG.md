@@ -2,6 +2,15 @@
 
 All notable changes to tamesu are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/). Each new release is added at the top, with notes generated from the commit messages.
 
+## [1.20.2](https://github.com/xavidop/tamesu/compare/v1.20.1...v1.20.2) (2026-11-13)
+
+
+### Bug Fixes
+
+* apply project vars to suites, hooks and secret refs ([5d8816c](https://github.com/xavidop/tamesu/commit/5d8816c29a5dcd10101b6c20b721102f5899932f))
+* **examples:** pass the generation config to Genkit as a map ([65ce2ae](https://github.com/xavidop/tamesu/commit/65ce2ae52ec99bb76925f511295c86169b0ccd92))
+* use the real metric name turn_latency_ms_p95 in the scaffold and docs ([9abf025](https://github.com/xavidop/tamesu/commit/9abf0255d7ed8b98cfd1606c00758b357a7d267e))
+
 ## [1.20.1](https://github.com/xavidop/tamesu/compare/v1.20.0...v1.20.1) (2026-11-09)
 
 
