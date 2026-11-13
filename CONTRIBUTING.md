@@ -98,7 +98,8 @@ This is a multi-module repository tied together by a `go.work` file:
   a stereo WAV), function calls recorded and a done tool that ends the session.
 - `targets/browser`: the browser target, its own module on chromedp (the typed `Action[T]` API of
   v0.17 and later): Chromium discovery and download, the accessibility-tree
-  observation with stable refs, the page actions the browser agent's tools call, the
+  observation with stable refs (`observe.go` adds the iframes, cross-site ones through a context
+  of their own, and the elements that are clickable without a role), the page actions the browser agent's tools call, the
   deterministic step actions, screenshots, the session recording, the HAR and the console log.
 - `audio`: the audio pipeline, its own module: PCM buffers and resampling, WAV, the energy VAD
   (and Silero behind `-tags onnx`, which the full build sets; onnxruntime is loaded at run

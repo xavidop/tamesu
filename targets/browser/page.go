@@ -15,6 +15,7 @@ import (
 	"github.com/chromedp/cdproto/dom"
 	"github.com/chromedp/cdproto/input"
 	"github.com/chromedp/cdproto/runtime"
+	cdptarget "github.com/chromedp/cdproto/target"
 	"github.com/chromedp/chromedp"
 	"github.com/chromedp/chromedp/kb"
 
@@ -27,8 +28,10 @@ const maxTreeLines = 400
 // refNode is a node the agent may act on.
 type refNode struct {
 	backend cdp.BackendNodeID
-	role    string
-	name    string
+	// frame is the cross-site iframe the node is in; empty for the page.
+	frame cdptarget.ID
+	role  string
+	name  string
 }
 
 // Roles the observation keeps. Everything else is structure.
@@ -59,25 +62,23 @@ func (s *session) URL(ctx context.Context) (string, error) {
 	return loc, nil
 }
 
-// Observe builds the observation from the full accessibility tree.
+// Observe builds the observation from the accessibility trees of the page
+// and its frames.
 func (s *session) Observe(ctx context.Context, withScreenshot bool) (target.Observation, error) {
 	var obs target.Observation
-	var nodes []*accessibility.Node
-	var title string
-	err := s.do(ctx,
-		into(chromedp.Location(), &obs.URL),
-		into(chromedp.Title(), &title),
+	var view pageView
+	err := s.do(ctx, into(chromedp.Location(), &obs.URL), into(chromedp.Title(), &obs.Title),
 		func(ctx context.Context, t *chromedp.Target) (chromedp.Void, error) {
-			res, err := cdp.Call(ctx, t, accessibility.GetFullAXTree, accessibility.GetFullAXTreeParams{})
-			nodes = res.Nodes
+			var err error
+			view, err = readPage(ctx, t)
 			return chromedp.Void{}, err
 		},
 	)
 	if err != nil {
 		return obs, fmt.Errorf("observe: %w", err)
 	}
-	obs.Title = title
-	obs.Tree = s.tree(nodes)
+	s.readRemoteFrames(ctx, &view)
+	obs.Tree = s.tree(&view)
 	s.mu.Lock()
 	if n := len(s.console); n > 0 {
 		obs.Console = append([]string(nil), s.console[max(0, n-10):]...)
@@ -92,57 +93,118 @@ func (s *session) Observe(ctx context.Context, withScreenshot bool) (target.Obse
 }
 
 // tree prunes the accessibility nodes to the lines the agent needs and keeps
-// refs stable per backend node.
-func (s *session) tree(nodes []*accessibility.Node) string {
-	byID := map[accessibility.NodeID]*accessibility.Node{}
-	for _, n := range nodes {
-		byID[n.NodeID] = n
+// refs stable per node. A frame's tree comes under its iframe.
+func (s *session) tree(page *pageView) string {
+	if page.main == nil {
+		return ""
 	}
+	type at struct {
+		t  *axTree
+		id accessibility.NodeID
+	}
+	// Which nodes get a ref: an interactive role always, a clickable element
+	// unless something inside it has one. A wrapper with a listener (a card
+	// around its buttons, the root a framework listens on) would otherwise
+	// stand in front of the controls it holds.
+	refs := map[at]bool{}
+	taken := map[nodeKey]bool{}
+	var mark func(v *pageView, t *axTree, id accessibility.NodeID) bool
+	mark = func(v *pageView, t *axTree, id accessibility.NodeID) bool {
+		n, k := t.byID[id], at{t, id}
+		if n == nil {
+			return false
+		}
+		if _, done := refs[k]; done {
+			return false
+		}
+		refs[k] = false
+		inside := false
+		for _, c := range n.ChildIDs {
+			inside = mark(v, t, c) || inside
+		}
+		backend := n.BackendDOMNodeID
+		if backend == 0 {
+			return inside
+		}
+		if sub := v.frames[backend]; sub != nil {
+			inside = mark(v, sub, sub.root) || inside
+		}
+		if sub := v.remote[backend]; sub != nil {
+			inside = mark(sub, sub.main, sub.main.root) || inside
+		}
+		node := nodeKey{v.frame, backend}
+		interactive := !n.Ignored && interactiveRoles[valueString(n.Role)]
+		if interactive || (v.clickable[backend] && !inside && !taken[node]) {
+			refs[k], taken[node] = true, true
+			return true
+		}
+		return inside
+	}
+	mark(page, page.main, page.main.root)
+
 	var lines []string
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	seen := map[accessibility.NodeID]bool{}
-	var walk func(id accessibility.NodeID, depth int)
-	walk = func(id accessibility.NodeID, depth int) {
-		n := byID[id]
-		if n == nil || seen[id] || len(lines) >= maxTreeLines {
+	seen := map[at]bool{}
+	var walk func(v *pageView, t *axTree, id accessibility.NodeID, depth int)
+	walk = func(v *pageView, t *axTree, id accessibility.NodeID, depth int) {
+		n, k := t.byID[id], at{t, id}
+		if n == nil || seen[k] || len(lines) >= maxTreeLines {
 			return
 		}
-		seen[id] = true
+		seen[k] = true
 		role := valueString(n.Role)
 		name := strings.TrimSpace(valueString(n.Name))
-		if !n.Ignored && (interactiveRoles[role] || (keepRoles[role] && name != "")) {
-			line := s.line(n, role, name, depth)
-			if line != "" {
-				lines = append(lines, line)
+		switch {
+		case refs[k]:
+			if !interactiveRoles[role] {
+				// A clickable element the accessibility tree has no role
+				// or name for is a generic one, known by its text.
+				if n.Ignored || role == "" || role == "none" {
+					role = "generic"
+				}
+				if name == "" {
+					name = axText(t, n)
+				}
 			}
+			lines = append(lines, s.line(v.frame, n, role, name, depth, true))
+		case !n.Ignored && (interactiveRoles[role] || (keepRoles[role] && name != "")):
+			lines = append(lines, s.line(v.frame, n, role, name, depth, false))
 		}
 		for _, c := range n.ChildIDs {
-			walk(c, depth+1)
+			walk(v, t, c, depth+1)
+		}
+		if n.BackendDOMNodeID == 0 {
+			return
+		}
+		if sub := v.frames[n.BackendDOMNodeID]; sub != nil {
+			walk(v, sub, sub.root, depth+1)
+		}
+		if sub := v.remote[n.BackendDOMNodeID]; sub != nil {
+			walk(sub, sub.main, sub.main.root, depth+1)
 		}
 	}
-	if len(nodes) > 0 {
-		walk(nodes[0].NodeID, 0)
-	}
+	walk(page, page.main, page.main.root, 0)
 	return strings.Join(lines, "\n")
 }
 
-func (s *session) line(n *accessibility.Node, role, name string, depth int) string {
+func (s *session) line(frame cdptarget.ID, n *accessibility.Node, role, name string, depth int, withRef bool) string {
 	var b strings.Builder
-	if interactiveRoles[role] && n.BackendDOMNodeID != 0 {
-		ref, ok := s.byNode[int64(n.BackendDOMNodeID)]
+	if withRef {
+		node := nodeKey{frame, n.BackendDOMNodeID}
+		ref, ok := s.byNode[node]
 		if !ok {
 			s.nextRef++
 			ref = s.nextRef
-			s.byNode[int64(n.BackendDOMNodeID)] = ref
+			s.byNode[node] = ref
 		}
-		s.refs[ref] = refNode{backend: n.BackendDOMNodeID, role: role, name: name}
+		s.refs[ref] = refNode{backend: n.BackendDOMNodeID, frame: frame, role: role, name: name}
 		fmt.Fprintf(&b, "[%d] ", ref)
 	} else {
 		b.WriteString("    ")
 	}
 	b.WriteString(strings.Repeat(" ", min(depth, 12)))
-	if role == "StaticText" || role == "paragraph" || role == "LabelText" {
+	if !withRef && (role == "StaticText" || role == "paragraph" || role == "LabelText") {
 		if len(name) > 200 {
 			name = name[:197] + "..."
 		}
@@ -219,7 +281,17 @@ func (s *session) Click(ctx context.Context, ref int) error {
 	if err != nil {
 		return err
 	}
-	err = s.do(ctx, func(ctx context.Context, t *chromedp.Target) (chromedp.Void, error) {
+	if err := s.clickNode(ctx, n); err != nil {
+		return fmt.Errorf("click [%d] %s %q: %w", ref, n.role, n.name, err)
+	}
+	s.settle(ctx)
+	s.event("click", fmt.Sprintf("[%d] %s %q", ref, n.role, n.name))
+	return nil
+}
+
+// clickNode clicks the centre of the node's box through the DevTools protocol.
+func (s *session) clickNode(ctx context.Context, n refNode) error {
+	return s.doIn(n.frame, ctx, func(ctx context.Context, t *chromedp.Target) (chromedp.Void, error) {
 		_, _ = cdp.Call(ctx, t, dom.ScrollIntoViewIfNeeded, dom.ScrollIntoViewIfNeededParams{BackendNodeID: n.backend})
 		res, err := cdp.Call(ctx, t, dom.GetContentQuads, dom.GetContentQuadsParams{BackendNodeID: n.backend})
 		if err != nil || len(res.Quads) == 0 || len(res.Quads[0]) < 8 {
@@ -240,12 +312,6 @@ func (s *session) Click(ctx context.Context, ref int) error {
 		}
 		return chromedp.Void{}, nil
 	})
-	if err != nil {
-		return fmt.Errorf("click [%d] %s %q: %w", ref, n.role, n.name, err)
-	}
-	s.settle(ctx)
-	s.event("click", fmt.Sprintf("[%d] %s %q", ref, n.role, n.name))
-	return nil
 }
 
 // Type focuses the node, clears it and types text. Secrets are rendered
@@ -260,7 +326,17 @@ func (s *session) Type(ctx context.Context, ref int, text string) error {
 			return fmt.Errorf("type [%d]: %w", ref, err)
 		}
 	}
-	err = s.do(ctx, func(ctx context.Context, t *chromedp.Target) (chromedp.Void, error) {
+	if err := s.typeNode(ctx, n, text); err != nil {
+		return fmt.Errorf("type into [%d] %s %q: %w", ref, n.role, n.name, err)
+	}
+	s.event("type", fmt.Sprintf("[%d] %s %q", ref, n.role, n.name))
+	return nil
+}
+
+// typeNode focuses the node, clears it and inserts text through the
+// DevTools protocol.
+func (s *session) typeNode(ctx context.Context, n refNode, text string) error {
+	return s.doIn(n.frame, ctx, func(ctx context.Context, t *chromedp.Target) (chromedp.Void, error) {
 		if _, err := cdp.Call(ctx, t, dom.Focus, dom.FocusParams{BackendNodeID: n.backend}); err != nil {
 			return chromedp.Void{}, err
 		}
@@ -270,11 +346,6 @@ func (s *session) Type(ctx context.Context, ref int, text string) error {
 		_, err := cdp.Call(ctx, t, input.InsertText, input.InsertTextParams{Text: text})
 		return chromedp.Void{}, err
 	})
-	if err != nil {
-		return fmt.Errorf("type into [%d] %s %q: %w", ref, n.role, n.name, err)
-	}
-	s.event("type", fmt.Sprintf("[%d] %s %q", ref, n.role, n.name))
-	return nil
 }
 
 // Select picks an option of a select by value or label.
@@ -284,7 +355,7 @@ func (s *session) Select(ctx context.Context, ref int, value string) error {
 		return err
 	}
 	var picked bool
-	err = s.do(ctx, func(ctx context.Context, t *chromedp.Target) (chromedp.Void, error) {
+	err = s.doIn(n.frame, ctx, func(ctx context.Context, t *chromedp.Target) (chromedp.Void, error) {
 		return chromedp.Void{}, s.callOn(ctx, t, n.backend, `function(v) {
 			const el = this.tagName === 'SELECT' ? this : this.closest('select');
 			if (!el) return false;

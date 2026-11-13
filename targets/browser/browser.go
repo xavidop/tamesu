@@ -22,6 +22,7 @@ import (
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/cdproto/runtime"
+	cdptarget "github.com/chromedp/cdproto/target"
 	"github.com/chromedp/chromedp"
 
 	"github.com/xavidop/tamesu/target"
@@ -138,7 +139,7 @@ func (t *Target) Start(ctx context.Context, run *target.RunContext) (target.Sess
 	bctx, cancelBrowser := chromedp.NewContext(allocCtx, chromedp.WithLogf(logf), chromedp.WithErrorf(logf))
 	s := &session{
 		t: t, run: run, ctx: bctx, cancel: func() { cancelBrowser(); cancelAlloc() },
-		allowed: allowed, refs: map[int]refNode{}, byNode: map[int64]int{}, startedAt: time.Now(),
+		allowed: allowed, refs: map[int]refNode{}, byNode: map[nodeKey]int{}, frames: map[cdptarget.ID]frameContext{}, startedAt: time.Now(),
 		har: newHAR(), files: map[string]string{}, mocks: append([]Mock(nil), t.cfg.Mocks...),
 	}
 	sctx, cancel := context.WithTimeout(ctx, t.cfg.StepTimeout)
@@ -174,7 +175,7 @@ func (t *Target) Start(ctx context.Context, run *target.RunContext) (target.Sess
 		}
 	}
 	if err := s.Navigate(sctx, rawURL); err != nil {
-		s.cancel()
+		s.close()
 		return nil, fmt.Errorf("browser %s: open %s: %w", t.name, rawURL, err)
 	}
 	s.event("opened", rawURL)
@@ -190,9 +191,11 @@ type session struct {
 
 	allowed []string
 
-	mu        sync.Mutex
-	refs      map[int]refNode // ref → node
-	byNode    map[int64]int   // backend node id → ref
+	mu     sync.Mutex
+	refs   map[int]refNode // ref → node
+	byNode map[nodeKey]int // node → ref
+	// frames are the contexts attached to the page's cross-site iframes.
+	frames    map[cdptarget.ID]frameContext
 	nextRef   int
 	console   []string
 	events    []target.Event
@@ -234,7 +237,7 @@ func (s *session) Close(context.Context) (target.Artifacts, error) {
 	s.closed = true
 	s.mu.Unlock()
 	if !already {
-		s.cancel()
+		s.close()
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -267,6 +270,13 @@ func (s *session) Close(context.Context) (target.Artifacts, error) {
 	return target.Artifacts{Files: files, Metrics: m, Events: append([]target.Event(nil), s.events...)}, nil
 }
 
+// close quits the browser.
+func (s *session) close() {
+	// The iframes are let go of while the browser can still answer.
+	s.detachFramesExcept(nil)
+	s.cancel()
+}
+
 func (s *session) event(kind, detail string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -281,9 +291,31 @@ func (s *session) runCtx(ctx context.Context, err error) error {
 	return ctx.Err()
 }
 
-// do runs chromedp actions bounded by ctx (or the step timeout).
+// frameContext is the browser context attached to a cross-site iframe.
+type frameContext struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+}
+
+// do runs chromedp actions on the page, bounded by ctx (or the step timeout).
 func (s *session) do(ctx context.Context, actions ...chromedp.Action[chromedp.Void]) error {
-	tctx, cancel := context.WithTimeout(s.ctx, s.t.cfg.StepTimeout)
+	return s.doIn("", ctx, actions...)
+}
+
+// doIn runs the actions in a cross-site iframe, or on the page when frame is
+// empty.
+func (s *session) doIn(frame cdptarget.ID, ctx context.Context, actions ...chromedp.Action[chromedp.Void]) error {
+	base := s.ctx
+	if frame != "" {
+		s.mu.Lock()
+		f, ok := s.frames[frame]
+		s.mu.Unlock()
+		if !ok {
+			return errors.New("the iframe is gone; observe the page again")
+		}
+		base = f.ctx
+	}
+	tctx, cancel := context.WithTimeout(base, s.t.cfg.StepTimeout)
 	defer cancel()
 	stop := context.AfterFunc(ctx, cancel)
 	defer stop()

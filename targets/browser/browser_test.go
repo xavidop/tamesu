@@ -200,7 +200,8 @@ func TestObserveAndAct(t *testing.T) {
 
 func TestDeterministicActions(t *testing.T) {
 	srv := server(t)
-	page, _, dir := start(t, srv, Config{})
+	// A short step timeout: the click on a missing element waits it out.
+	page, _, dir := start(t, srv, Config{StepTimeout: 10 * time.Second})
 	ctx := context.Background()
 	steps := []struct {
 		action map[string]any
