@@ -2,6 +2,18 @@
 
 All notable changes to tamesu are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/). Each new release is added at the top, with notes generated from the commit messages.
 
+# [1.21.0](https://github.com/xavidop/tamesu/compare/v1.20.2...v1.21.0) (2026-11-13)
+
+
+### Bug Fixes
+
+* **config:** validate browser.engine ([871ed69](https://github.com/xavidop/tamesu/commit/871ed69ef8255774f920cb4c73323c8c582020b0))
+
+
+### Features
+
+* **browser:** give refs to clickable elements and to the elements of iframes ([ba63063](https://github.com/xavidop/tamesu/commit/ba6306308d209442b388d75945e818c812a47381))
+
 ## [1.20.2](https://github.com/xavidop/tamesu/compare/v1.20.1...v1.20.2) (2026-11-13)
 
 
