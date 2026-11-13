@@ -1,0 +1,11 @@
+suite: bad
+targets:
+  web:
+    type: browser
+    url: http://localhost
+    browser: { engine: firefox }
+tests:
+  - name: t
+    target: web
+    steps:
+      - goal: Log in

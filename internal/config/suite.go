@@ -182,6 +182,9 @@ var RealtimeAudioFormats = []string{"pcm16", "g711_ulaw", "g711_alaw"}
 // BrowserRecordingFormats are the values of browser.recording.
 var BrowserRecordingFormats = []string{"auto", "gif", "webm", "off"}
 
+// BrowserEngines are the values of browser.engine.
+var BrowserEngines = []string{"chromium"}
+
 // BrowserOptions configures the browser.
 type BrowserOptions struct {
 	Engine   string `yaml:"engine,omitempty" json:"engine,omitempty" jsonschema:"enum=chromium,description=chromium (the default and only engine)"`
