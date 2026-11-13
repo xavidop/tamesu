@@ -49,6 +49,12 @@ image `ghcr.io/xavidop/tamesu` ships Chromium. `tamesu run --headed` shows the w
    or act on: `[12] button "Add to cart"`, `[13] textbox "Search products" value="laptop"`,
    `    heading "Your cart" (h1)`. Refs are stable for an element across observations. The URL,
    the title and the last console errors come with it.
+   - An element that answers a click without a role that says so, such as a `div` with a click
+     handler or a card with a pointer cursor, gets a ref too, named by its text:
+     `[14] generic "Open menu"`. A wrapper around real controls does not: its buttons and links
+     keep the refs.
+   - The elements inside an iframe are in the tree under their iframe and take the same
+     actions, cross-site iframes included. An iframe inside a cross-site iframe is not reached.
 2. **Plan.** The browser agent (model `models.browser_agent`, else `models.default`) gets the
    goal and the observation and calls one tool at a time: `click(ref)`, `type(ref, text)`,
    `select(ref, value)`, `scroll(direction)`, `navigate(url)`, `wait(ms)`, `done(success, reason)`.

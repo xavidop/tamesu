@@ -36,6 +36,7 @@ func TestValidateInvalidSuites(t *testing.T) {
 		{file: "realtime-bad.yaml", line: 6, msg: "protocol must be one of ga, beta", path: "targets.rt.protocol"},
 		{file: "realtime-bad.yaml", line: 7, msg: "streaming applies to rest targets only; this target is realtime", warning: true},
 		{file: "realtime-bad.yaml", line: 3, msg: "the OpenAI Realtime API needs headers.Authorization", warning: true},
+		{file: "browser-engine-bad.yaml", line: 6, msg: "engine must be one of chromium"},
 		{file: "browser-without-steps.yaml", line: 5, msg: "browser tests need steps"},
 		{file: "browser-without-steps.yaml", line: 7, msg: "persona applies to conversational targets"},
 		{file: "sip-inbound-no-trigger.yaml", line: 3, msg: "inbound sip target needs trigger.http or trigger.command"},
