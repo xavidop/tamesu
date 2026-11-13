@@ -22,6 +22,9 @@ func checkAllowedNumbers(p config.Project, suites []*config.Suite, filter *regex
 				continue
 			}
 			vars := map[string]string{}
+			for k, v := range p.Vars {
+				vars[k] = v
+			}
 			for k, v := range s.Vars {
 				vars[k] = v
 			}

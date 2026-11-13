@@ -203,9 +203,13 @@ func (h hookRun) appendLog(text string) {
 }
 
 // suiteScope is the scope of a suite's before_all / after_all hooks: vars
-// and secrets, no run values.
+// (the project's, then the suite's, then the run's) and secrets, no run
+// values.
 func (r *run) suiteScope(s *config.Suite) config.Scope {
 	vars := map[string]string{}
+	for k, v := range r.o.Project.Vars {
+		vars[k] = v
+	}
 	for k, v := range s.Vars {
 		vars[k] = v
 	}

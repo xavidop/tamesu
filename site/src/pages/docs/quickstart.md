@@ -71,7 +71,7 @@ tests:
     assert:
       - judge: "The agent states the return policy and does not promise an exception"
       - not_contains: "I'm just an AI"
-      - metric: { name: turn_latency_p95_ms, lt: 4000 }
+      - metric: { name: turn_latency_ms_p95, lt: 4000 }
 ```
 
 Three things to notice:

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -66,4 +67,45 @@ func TestRunEnvironments(t *testing.T) {
 	code, _, stderr = run(t, env, deps, "run", "--config", cfg, "--filter", "good", "--matrix", "env=qa", "--out", filepath.Join(dir, "m2"))
 	assert.NotEqual(t, cli.ExitOK, code)
 	assert.Contains(t, stderr, `unknown environment "qa"`)
+}
+
+const varsProject = `version: 1
+suites: ["s/**/*.yaml"]
+budgets: { max_cost_usd: 2 }
+vars: { who: marta, where: lobby }
+hooks:
+  before_all:
+    - command: 'printf "%s/%s" "{{vars.who}}" "{{vars.where}}" > "$TAMESU_OUT_DIR/vars.txt"'
+environments:
+  staging:
+    vars: { who: ken }
+`
+
+// The project's vars reach the hooks and the suites; the suite's win over
+// them, the environment's over both, and --var over everything.
+func TestRunProjectVars(t *testing.T) {
+	deps, _, _ := runDeps(t)
+	suite := strings.Replace(runSuite, "suite: run-suite\n", "suite: run-suite\nvars: { where: desk }\n", 1)
+	dir := writeProject(t, map[string]string{"tamesu.yaml": varsProject, "s/suite.yaml": suite})
+	cfg := filepath.Join(dir, "tamesu.yaml")
+	env := map[string]string{"TOKEN": "t"}
+
+	for name, tc := range map[string]struct {
+		args []string
+		want string
+	}{
+		"project":     {nil, "marta/desk"},
+		"environment": {[]string{"--env", "staging"}, "ken/desk"},
+		"flag":        {[]string{"--env", "staging", "--var", "who=ana", "--var", "where=roof"}, "ana/roof"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			out := filepath.Join(dir, name)
+			args := append([]string{"run", "--config", cfg, "--filter", "good", "--out", out}, tc.args...)
+			code, stdout, stderr := run(t, env, deps, args...)
+			require.Equal(t, cli.ExitOK, code, stdout+stderr)
+			got, err := os.ReadFile(filepath.Join(out, "vars.txt"))
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, string(got))
+		})
+	}
 }

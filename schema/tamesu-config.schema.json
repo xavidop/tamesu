@@ -636,7 +636,7 @@
       "properties": {
         "name": {
           "type": "string",
-          "description": "Metric name such as turn_latency_p95_ms."
+          "description": "Metric name such as turn_latency_ms_p95."
         },
         "lt": {
           "type": "number",

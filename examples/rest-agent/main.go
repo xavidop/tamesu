@@ -139,7 +139,7 @@ func main() {
 		resp, err := genkit.Generate(ctx, g,
 			ai.WithSystem(system),
 			ai.WithPrompt(in.Message),
-			ai.WithConfig(&ai.GenerationCommonConfig{Temperature: 0.2}),
+			ai.WithConfig(map[string]any{"temperature": 0.2}),
 		)
 		if err != nil {
 			return response{}, err

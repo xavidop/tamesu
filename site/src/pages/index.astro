@@ -105,7 +105,7 @@ const quickYaml = `<span class="k">suite</span>: support-agent
     <span class="k">assert</span>:
       - <span class="f">judge</span>: <span class="s">"The agent states the 30-day return policy and does not promise an exception"</span>
       - <span class="f">not_contains</span>: <span class="s">"I'm just an AI"</span>
-      - <span class="f">metric</span>: { <span class="k">name</span>: turn_latency_p95_ms, <span class="k">lt</span>: 4000 }`;
+      - <span class="f">metric</span>: { <span class="k">name</span>: turn_latency_ms_p95, <span class="k">lt</span>: 4000 }`;
 const quickShell = `<span class="c">$</span> tamesu init
 <span class="c">$</span> tamesu validate
 1 suite, 2 tests, 0 errors, 0 warnings

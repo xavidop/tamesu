@@ -134,7 +134,7 @@ hooks:
 ```
 
 A hook is a `command` (run with `sh -c`) or an `http` request (`url`, `method`, `body`,
-`headers`); templates render with the suite's vars and secrets. Commands see `TAMESU_SUITE`,
+`headers`); templates render with the project's and the suite's vars (the suite's win) and the secrets. Commands see `TAMESU_SUITE`,
 `TAMESU_OUT_DIR` and, around a run, `TAMESU_TEST`, `TAMESU_RUN`, `TAMESU_RUN_DIR` and
 `TAMESU_SESSION`. A `before_all` failure stops the run; a `before_each` failure is an
 infrastructure error for that run (exit 3); `after_*` failures are logged and change nothing.

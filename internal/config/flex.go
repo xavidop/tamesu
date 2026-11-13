@@ -532,7 +532,7 @@ type Matches struct {
 
 // MetricAssertion compares a built-in metric with exactly one comparator.
 type MetricAssertion struct {
-	Name string   `yaml:"name" json:"name" jsonschema:"required,description=Metric name such as turn_latency_p95_ms."`
+	Name string   `yaml:"name" json:"name" jsonschema:"required,description=Metric name such as turn_latency_ms_p95."`
 	Lt   *float64 `yaml:"lt,omitempty" json:"lt,omitempty" jsonschema:"description=Passes when the metric is below this value"`
 	Lte  *float64 `yaml:"lte,omitempty" json:"lte,omitempty" jsonschema:"description=Passes when the metric is at most this value"`
 	Gt   *float64 `yaml:"gt,omitempty" json:"gt,omitempty" jsonschema:"description=Passes when the metric is above this value"`
