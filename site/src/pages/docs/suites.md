@@ -665,7 +665,7 @@ transferred_to: { matches: "^sip:billing@" }
 
 | Key | Type | Required | Description | Example |
 |---|---|---|---|---|
-| `name` | string | yes | Metric name such as turn_latency_p95_ms. | `name: turn_latency_ms_p95` |
+| `name` | string | yes | Metric name such as turn_latency_ms_p95. | `name: turn_latency_ms_p95` |
 | `lt` | number |  | Passes when the metric is below this value | `lt: 3000` |
 | `lte` | number |  | Passes when the metric is at most this value | `lte: 3000` |
 | `gt` | number |  | Passes when the metric is above this value | `gt: 0` |
