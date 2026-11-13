@@ -106,7 +106,8 @@ type Options struct {
 	// infrastructure error.
 	Provider model.Provider
 	Secrets  *secrets.Store
-	// Vars are --var overrides on top of each suite's vars.
+	// Vars are the environment's vars and the --var overrides, on top of
+	// the project's and each suite's vars.
 	Vars     map[string]string
 	Env      config.EnvLookup
 	Reporter report.Reporter

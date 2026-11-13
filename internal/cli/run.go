@@ -244,6 +244,9 @@ func (a *app) newRunCmd() *cobra.Command {
 				selection := runner.Selection{Filter: filter, Tags: sel.tags, Target: sel.target, Shard: shard}
 				refs := map[string]string{}
 				refVars := map[string]string{}
+				for k, v := range p.Vars {
+					refVars[k] = v
+				}
 				selected := 0
 				models := p.Models
 				for _, s := range suites {

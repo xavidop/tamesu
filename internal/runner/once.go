@@ -68,6 +68,9 @@ func (r *run) runOnce(ctx context.Context, it *item, idx, attempt int) *report.R
 
 	sessionID := uuid.NewString()
 	vars := map[string]string{}
+	for k, v := range r.o.Project.Vars {
+		vars[k] = v
+	}
 	for k, v := range it.suite.Vars {
 		vars[k] = v
 	}

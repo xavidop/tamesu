@@ -154,6 +154,9 @@ func (a *app) doctor(ctx context.Context, cmd *cobra.Command, args []string) []D
 		refs[k] = v
 	}
 	vars := map[string]string{}
+	for k, v := range p.Vars {
+		vars[k] = v
+	}
 	for _, s := range suites {
 		for k, v := range s.Secrets {
 			refs[k] = v
