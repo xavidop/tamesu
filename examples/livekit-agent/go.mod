@@ -4,7 +4,7 @@ go 1.27
 
 require (
 	github.com/firebase/genkit/go v1.14.0
-	github.com/livekit/protocol v1.53.2
+	github.com/livekit/protocol v1.54.0
 	github.com/livekit/server-sdk-go/v2 v2.19.0
 	github.com/pion/webrtc/v4 v4.2.26
 	github.com/xavidop/tamesu/audio v0.0.0
