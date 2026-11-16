@@ -95,7 +95,7 @@ require (
 	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/chromedp/cdproto v0.159.2 // indirect
+	github.com/chromedp/cdproto v0.160.1 // indirect
 	github.com/chromedp/chromedp v0.23.0 // indirect
 	github.com/cloudflare/circl v1.6.4 // indirect
 	github.com/cncf/xds/go v0.0.0-20260202195803-dba9d589def2 // indirect
@@ -235,7 +235,7 @@ require (
 	github.com/urfave/cli v1.22.17 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	github.com/xavidop/mamori v1.13.0 // indirect
+	github.com/xavidop/mamori v1.13.1 // indirect
 	github.com/xavidop/mamori/providers/httpcore v0.0.0-00010101000000-000000000000 // indirect
 	github.com/xavidop/tamesu/llm/plugins/assemblyai v0.0.0 // indirect
 	github.com/xavidop/tamesu/llm/plugins/azure v0.0.0 // indirect
@@ -277,10 +277,10 @@ require (
 	golang.org/x/exp v0.0.0-20261014143641-f0251eb4aa3e // indirect
 	golang.org/x/net v0.61.0 // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect
-	golang.org/x/sync v0.24.0 // indirect
+	golang.org/x/sync v0.25.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/term v0.47.0 // indirect
-	golang.org/x/text v0.43.0 // indirect
+	golang.org/x/text v0.44.0 // indirect
 	golang.org/x/time v0.16.0 // indirect
 	google.golang.org/api v0.307.0 // indirect
 	google.golang.org/genai v1.57.0 // indirect
