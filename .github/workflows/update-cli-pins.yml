@@ -1,0 +1,90 @@
+name: Update CLI pins
+
+# tamesu drives two external CLIs, agent-browser (browser.engine) and
+# agent-desktop (the desktop target), at a pinned version it downloads and
+# checks against a SHA-256 (internal/pinned/pins.json). Once a week this
+# looks for a newer release of each that has been public for a few days,
+# rewrites the pin and opens a pull request, one per CLI. CI then runs both
+# engines against the new version before anyone merges it: the agent-browser
+# engine test in the test matrix, the desktop example in the desktop
+# integration job. Merging the pull request releases a patch version.
+
+on:
+  schedule:
+    - cron: "17 6 * * 1" # Mondays, 06:17 UTC
+  workflow_dispatch:
+    inputs:
+      min_age_days:
+        description: How many days a release must have been public before it is pinned
+        default: "5"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: ${{ matrix.tool }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tool: [agent-browser, agent-desktop]
+    env:
+      TOOL: ${{ matrix.tool }}
+      # A pull request opened with the workflow's own token starts no
+      # workflow, so CI would never run on it; a personal token does. The
+      # fallback keeps the job working where the secret is missing (a fork):
+      # the pull request is still opened and says CI has to be started by hand.
+      PR_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN || github.token }}
+      HAS_PR_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          token: ${{ env.PR_TOKEN }}
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Look for a newer release
+        id: pins
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          MIN_AGE_DAYS: ${{ inputs.min_age_days || '5' }}
+        run: python3 .github/scripts/update_cli_pins.py --tool "$TOOL" --min-age-days "$MIN_AGE_DAYS"
+      - name: Check the pin file
+        if: steps.pins.outputs.changed == 'true'
+        env:
+          GOWORK: off
+        run: go test -count=1 ./internal/pinned/
+      - name: Open or update the pull request
+        if: steps.pins.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ env.PR_TOKEN }}
+          OLD: ${{ steps.pins.outputs.old }}
+          NEW: ${{ steps.pins.outputs.new }}
+        run: |
+          branch="deps/pin-$TOOL"
+          title="fix(deps): bump $TOOL from $OLD to $NEW"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$branch"
+          git add internal/pinned/pins.json
+          git commit -m "$title"
+          git push --force origin "$branch"
+          body="Moves the pinned \`$TOOL\` from $OLD to $NEW ([release notes](https://github.com/vercel-labs/$TOOL/releases/tag/v$NEW), [changes](https://github.com/vercel-labs/$TOOL/compare/v$OLD...v$NEW)).
+
+          \`internal/pinned/pins.json\` has the new version and the SHA-256 of each platform's file, as GitHub reports them for the release. CI runs the engine against this version."
+          if [ "$HAS_PR_TOKEN" != "true" ]; then
+            body="$body
+
+          This pull request was opened with the workflow's own token, which starts no CI: close and reopen it to run the checks."
+          fi
+          if [ "$(gh pr view "$branch" --json state --jq .state 2>/dev/null)" = "OPEN" ]; then
+            gh pr edit "$branch" --title "$title" --body "$body"
+          else
+            gh pr create --base main --head "$branch" --title "$title" --body "$body"
+          fi
