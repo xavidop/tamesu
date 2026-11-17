@@ -2,6 +2,13 @@
 
 All notable changes to tamesu are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/). Each new release is added at the top, with notes generated from the commit messages.
 
+# [1.22.0](https://github.com/xavidop/tamesu/compare/v1.21.0...v1.22.0) (2026-11-17)
+
+
+### Features
+
+* drive web pages with agent-browser and desktop apps with agent-desktop ([#59](https://github.com/xavidop/tamesu/issues/59)) ([1177d57](https://github.com/xavidop/tamesu/commit/1177d572d6735251ee705f0f3af13faf59bee689)), closes [vercel-labs/agent-desktop#529](https://github.com/vercel-labs/agent-desktop/issues/529)
+
 # [1.21.0](https://github.com/xavidop/tamesu/compare/v1.20.2...v1.21.0) (2026-11-13)
 
 
