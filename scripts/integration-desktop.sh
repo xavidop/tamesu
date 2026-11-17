@@ -9,7 +9,8 @@
 #      the action cache with --replay.
 #
 # On Linux with the packages installed it runs in place; anywhere else, or
-# with DESKTOP_DOCKER=1, it runs in a container.
+# with DESKTOP_DOCKER=1 (what CI does), it runs in a container of a pinned
+# system.
 #
 #   scripts/integration-desktop.sh
 #
@@ -64,11 +65,20 @@ if [ "$(uname -s)" = "Linux" ] && [ "${DESKTOP_DOCKER:-}" != "1" ]; then
 fi
 
 go_version="$(sed -n 's/^go \([0-9]*\.[0-9]*\).*/\1/p' "$root/go.mod")"
-image="tamesu-desktop-integration:go$go_version"
+# The system the container runs. It is pinned, here and in CI, so the editor
+# and its toolkit are the ones this was measured against: on Ubuntu 26.04 a
+# key press by agent-desktop (1.2.0 to 1.3.1) crashes the GTK 3 editors tried,
+# which is neither tamesu's nor the editor's to fix. DESKTOP_BASE names
+# another system to try.
+base="${DESKTOP_BASE:-debian:bookworm}"
+image="tamesu-desktop-integration:go$go_version-$(echo "$base" | tr -c 'a-zA-Z0-9.\n' '-')"
 docker build -q -t "$image" - >/dev/null <<DOCKERFILE
-FROM golang:$go_version-bookworm
+FROM golang:$go_version AS go
+FROM $base
+COPY --from=go /usr/local/go /usr/local/go
+ENV PATH=/usr/local/go/bin:\$PATH GOPATH=/go
 RUN apt-get update \\
- && apt-get install -y --no-install-recommends xvfb openbox dbus x11-utils at-spi2-core libatk-bridge2.0-0 mousepad \\
+ && apt-get install -y --no-install-recommends ca-certificates xvfb openbox dbus x11-utils at-spi2-core libatk-bridge2.0-0 mousepad \\
  && rm -rf /var/lib/apt/lists/*
 DOCKERFILE
 exec docker run --rm \

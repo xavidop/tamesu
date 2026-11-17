@@ -37,7 +37,7 @@ type editor struct {
 var editors = map[string]editor{
 	"linux":   {app: "mousepad", menu: "Edit", item: "Select All", menuRole: "menu", measured: true},
 	"darwin":  {app: "TextEdit", menu: "Edit", item: "Select All", menuRole: "menuitem", measured: true},
-	"windows": {app: "notepad", menu: "Edit", item: "Select all", menuRole: "menuitem"},
+	"windows": {app: "notepad", menu: "Edit", item: "Select All", menuRole: "menuitem", measured: true},
 }
 
 // The line of a document's text area, whatever the toolkit calls it, and
@@ -126,7 +126,7 @@ func TestIntegrationDesktop(t *testing.T) {
 	assert.NotEmpty(t, obs.URL)
 	require.NotEmpty(t, obs.Tree)
 	if ed.measured {
-		assert.Equal(t, "desktop://"+ed.app, obs.URL)
+		assert.True(t, strings.HasPrefix(obs.URL, "desktop://"+ed.app), "the app is named: %s", obs.URL)
 		assert.NotEmpty(t, obs.Title)
 		assert.Less(t, strings.Count(obs.Tree, "\n"), 120, "closed menus are not listed")
 		assert.Contains(t, obs.Tree, ed.menuRole+` "Help"`, "the menu bar's titles are listed")
@@ -161,21 +161,7 @@ func TestIntegrationDesktop(t *testing.T) {
 	require.True(t, ok, "the editor shows no text area")
 
 	// Typed through the accessibility API; a secret is rendered on the way.
-	err = page.Type(ctx, field, "tamesu drove this with {{secrets.TEST_PASSWORD}}")
-	if err != nil && !ed.measured {
-		// Where the tree is not measured yet, a refusal is worth a second
-		// look: does the same text go in when agent-desktop may take the
-		// focus and use the real keyboard?
-		t.Logf("type into [%d] was refused: %v", field, err)
-		s := sess.(*session)
-		e, eerr := s.element(field)
-		require.NoError(t, eerr)
-		herr := s.cli.call(ctx, []byte("tamesu drove this with hunter2"), nil, "type", e.ref, "--stdin", "--headed")
-		t.Logf("the same with --headed: %v", herr)
-		require.NoError(t, herr, "the text area takes text neither way")
-		err = nil
-	}
-	require.NoError(t, err)
+	require.NoError(t, page.Type(ctx, field, "tamesu drove this with {{secrets.TEST_PASSWORD}}"))
 	did, err := page.Do(ctx, map[string]any{"wait": map[string]any{"text": "tamesu drove this with hunter2"}})
 	require.NoError(t, err, did)
 	did, err = page.Do(ctx, map[string]any{"assert_text": map[string]any{"matches": `drove this with hunter\d`}})
@@ -191,15 +177,11 @@ func TestIntegrationDesktop(t *testing.T) {
 	sameField, ok := textArea(again.Tree)
 	require.True(t, ok)
 	assert.Equal(t, field, sameField, "the field keeps its number across observations")
-	if err := page.Type(ctx, field, "second draft"); err != nil && !ed.measured {
-		t.Logf("typing again into [%d] was refused: %v", field, err)
-	} else {
-		require.NoError(t, err)
-		text, err := page.Text(ctx)
-		require.NoError(t, err)
-		assert.Contains(t, text, "second draft")
-		assert.NotContains(t, text, "hunter2")
-	}
+	require.NoError(t, page.Type(ctx, field, "second draft"))
+	text, err := page.Text(ctx)
+	require.NoError(t, err)
+	assert.Contains(t, text, "second draft")
+	assert.NotContains(t, text, "hunter2")
 
 	// A menu lists its items once it is open; a step names one, and a key
 	// goes to the app.

@@ -88,7 +88,10 @@ agent-desktop documents each system in detail:
 3. **Act.** Each tool runs on the app and answers with the new window. The loop ends when the
    agent calls `done`, or after `max_goal_steps` actions (default 15), which fails the step.
 
-A click presses the element through the accessibility API: the pointer does not move.
+A click presses the element through the accessibility API: the pointer does not move. Text is
+set the same way, without a key being pressed. A field that takes text from the keyboard only,
+such as the edit box of a classic Windows app, is the exception: it is focused and typed into
+with the real keyboard, and the run records a `keyboard` event.
 Secrets never reach the model: the goal keeps `{{secrets.NAME}}` and the agent types the
 placeholder literally; the value is substituted at the moment of typing and reaches
 agent-desktop on standard input, never as an argument.

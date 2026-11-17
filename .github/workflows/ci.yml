@@ -277,26 +277,18 @@ jobs:
   # The desktop target against a real app: the pinned agent-desktop CLI drives
   # a GTK editor in a headless desktop session (Xvfb, a window manager and a
   # session bus with the accessibility bus on it), first through the target's
-  # integration test, then through the tamesu binary with the fake agent.
+  # integration test, then through the tamesu binary with the fake agent. It
+  # runs in a container of a pinned system (scripts/integration-desktop.sh
+  # says why), so the editor is the same one on every run and on a laptop.
   integration-desktop:
     name: Integration (desktop through agent-desktop)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-      - name: Install a headless desktop and an editor
-        timeout-minutes: 10
-        run: |
-          apt() { sudo timeout 240 apt-get -o DPkg::Lock::Timeout=60 "$@"; }
-          for attempt in 1 2 3; do
-            apt update -qq && apt install -y -qq --no-install-recommends xvfb openbox dbus x11-utils at-spi2-core libatk-bridge2.0-0 mousepad && exit 0
-            echo "apt attempt $attempt failed; retrying" >&2
-            sleep 20
-          done
-          exit 1
       - run: make integration-desktop
+        env:
+          DESKTOP_DOCKER: "1"
 
   # The same integration test on Windows, against Notepad, on the hosted
   # runner's interactive desktop. It reports without failing the workflow

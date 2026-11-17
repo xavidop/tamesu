@@ -37,6 +37,8 @@ type fake struct {
 	refuseGraceful bool
 	// platform is what status reports (linux when empty).
 	platform string
+	// on answers a command before anything else does ("" to pass).
+	on func(args []string) string
 }
 
 func ok(command, data string) string {
@@ -55,6 +57,11 @@ func (f *fake) run(_ context.Context, stdin []byte, args ...string) ([]byte, err
 		f.stdin = string(stdin)
 	}
 	cmd := args[0]
+	if f.on != nil {
+		if a := f.on(args); a != "" {
+			return []byte(a), nil
+		}
+	}
 	if cmd == "close-app" && f.refuseGraceful && !strings.Contains(strings.Join(args, " "), "--force") {
 		return []byte(failed(cmd, "ACTION_FAILED", "Process 42 has 1 open dialog(s)")), nil
 	}
@@ -468,6 +475,82 @@ func TestAStaleRefAsksForANewObservation(t *testing.T) {
 	require.NoError(t, page.Type(ctx, 3, "x"))
 	f.answer = map[string]string{"clear": failed("clear", "STALE_REF", "gone")}
 	assert.ErrorContains(t, page.Type(ctx, 3, "x"), "observe the window again")
+}
+
+// TestAFieldThatTakesTextFromTheKeyboardOnly: the edit control of a classic
+// Windows app has no accessibility action for text, so agent-desktop refuses
+// to type into it unless it may use the keyboard. It is allowed to, for that
+// command: the field is focused, what it holds is selected and the text is
+// typed, still from standard input.
+func TestAFieldThatTakesTextFromTheKeyboardOnly(t *testing.T) {
+	headed := func(args []string) bool { return strings.Contains(strings.Join(args, " "), "--headed") }
+	f := &fake{platform: "windows", on: func(args []string) string {
+		switch {
+		case args[0] == "clear":
+			return failed("clear", "ACTION_NOT_SUPPORTED", "No clear action")
+		case args[0] == "type" && !headed(args):
+			return failed("type", "POLICY_DENIED", "Target is not actionable: supported_action")
+		}
+		return ""
+	}}
+	page, sess, _ := start(t, f, Config{})
+	ctx := context.Background()
+	_, err := page.Observe(ctx, false)
+	require.NoError(t, err)
+	before := len(f.calls)
+
+	require.NoError(t, page.Type(ctx, 3, "{{secrets.TEST_PASSWORD}}"))
+	var did []string
+	for _, c := range f.calls[before:] {
+		did = append(did, strings.Split(c, " --trace ")[0])
+	}
+	require.Len(t, did, 5)
+	assert.Regexp(t, `^clear @s\w:e3$`, did[0])
+	assert.Regexp(t, `^type @s\w:e3 --stdin$`, did[1])
+	assert.Regexp(t, `^focus @s\w:e3 --headed$`, did[2])
+	assert.Equal(t, "press ctrl+a --window-id w-1 --headed", did[3])
+	assert.Regexp(t, `^type @s\w:e3 --stdin --headed$`, did[4])
+	assert.Equal(t, "hunter2", f.stdin)
+	for _, c := range f.calls {
+		assert.NotContains(t, c, "hunter2", "what is typed is never an argument")
+	}
+	art, err := sess.Close(ctx)
+	require.NoError(t, err)
+	kinds := make([]string, 0, len(art.Events))
+	for _, e := range art.Events {
+		kinds = append(kinds, e.Kind)
+	}
+	assert.Contains(t, kinds, "keyboard", "the run says the keyboard was used")
+
+	// A field that was emptied the usual way is not selected again, and on
+	// macOS the combination is the Command key's.
+	g := &fake{platform: "macos", on: func(args []string) string {
+		if args[0] == "type" && !headed(args) {
+			return failed("type", "POLICY_DENIED", "Target is not actionable: supported_action")
+		}
+		return ""
+	}}
+	page, _, _ = start(t, g, Config{})
+	_, err = page.Observe(ctx, false)
+	require.NoError(t, err)
+	require.NoError(t, page.Type(ctx, 3, "x"))
+	assert.False(t, g.called("focus "))
+	assert.False(t, g.called("press "))
+	s := &session{platform: "macos"}
+	assert.Equal(t, "cmd+a", s.selectAll())
+
+	// Any other refusal is the answer.
+	h := &fake{on: func(args []string) string {
+		if args[0] == "type" {
+			return failed("type", "ACTION_FAILED", "The field is read-only")
+		}
+		return ""
+	}}
+	page, _, _ = start(t, h, Config{})
+	_, err = page.Observe(ctx, false)
+	require.NoError(t, err)
+	assert.ErrorContains(t, page.Type(ctx, 3, "x"), "The field is read-only")
+	assert.False(t, h.called("type @sc:e3 --stdin --headed"))
 }
 
 func TestScreenshotsStopAfterARefusal(t *testing.T) {

@@ -136,7 +136,7 @@ func (c *cli) call(ctx context.Context, stdin []byte, out any, args ...string) e
 // traced are the commands whose trace is worth keeping: what was seen and
 // what was done.
 var traced = map[string]bool{
-	"snapshot": true, "find": true, "click": true, "type": true, "clear": true, "select": true, "press": true,
+	"snapshot": true, "find": true, "click": true, "type": true, "clear": true, "select": true, "press": true, "focus": true,
 	"launch": true, "close-app": true,
 }
 

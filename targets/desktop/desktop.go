@@ -170,7 +170,7 @@ func (t *Target) Start(ctx context.Context, run *target.RunContext) (target.Sess
 	if err := c.call(ctx, nil, &launched, args...); err != nil {
 		return nil, fmt.Errorf("desktop %s: launch %s: %w", t.name, app, err)
 	}
-	s := &session{t: t, run: run, cli: c, app: app, launched: !wasRunning, menubar: st.Platform == "macos", byKey: map[string]int{}, refs: map[int]element{}}
+	s := &session{t: t, run: run, cli: c, app: app, launched: !wasRunning, platform: st.Platform, menubar: st.Platform == "macos", byKey: map[string]int{}, refs: map[int]element{}}
 	if launched.App != "" {
 		s.app = launched.App
 	}
@@ -190,6 +190,8 @@ type session struct {
 	app string
 	// launched is false when the app was running before the session.
 	launched bool
+	// platform is macos, windows or linux, as agent-desktop reports it.
+	platform string
 	// menubar is true where the app's menu bar is outside its window (macOS)
 	// and is read as a surface of its own.
 	menubar bool
@@ -346,17 +348,55 @@ func (s *session) Type(ctx context.Context, ref int, text string) error {
 	return nil
 }
 
-// typeInto empties the field and inserts text. A field that cannot be
-// cleared (it is empty, or the toolkit has no such action) is typed into as
-// it is.
+// typeInto empties the field and inserts text, through the accessibility
+// API: nothing takes the focus and no key is pressed.
+//
+// Some fields have no accessibility action that takes text (the edit control
+// of a classic Windows app): they take it from the keyboard only, and
+// agent-desktop refuses that unless it is allowed to. For such a field it is
+// allowed, for this one command: it focuses the field, selects what it holds
+// so the typing replaces it, and types with the real keyboard.
 func (s *session) typeInto(ctx context.Context, ref, text string) error {
-	if err := s.cli.call(ctx, nil, nil, "clear", ref); err != nil && hasCode(err, "STALE_REF", "AMBIGUOUS_TARGET", "SNAPSHOT_NOT_FOUND", "PERM_DENIED") {
-		return err
+	clearErr := s.cli.call(ctx, nil, nil, "clear", ref)
+	if hasCode(clearErr, "STALE_REF", "AMBIGUOUS_TARGET", "SNAPSHOT_NOT_FOUND", "PERM_DENIED") {
+		return clearErr
 	}
 	if text == "" {
 		return nil
 	}
-	return s.cli.call(ctx, []byte(text), nil, "type", ref, "--stdin")
+	err := s.cli.call(ctx, []byte(text), nil, "type", ref, "--stdin")
+	if !hasCode(err, "POLICY_DENIED") {
+		return err
+	}
+	if clearErr != nil {
+		if s.cli.call(ctx, nil, nil, "focus", ref, "--headed") == nil {
+			_ = s.cli.call(ctx, nil, nil, s.pressArgs(s.selectAll(), "--headed")...)
+		}
+	}
+	if err := s.cli.call(ctx, []byte(text), nil, "type", ref, "--stdin", "--headed"); err != nil {
+		return err
+	}
+	s.event("keyboard", "the field takes text from the keyboard only: it was focused and typed into")
+	return nil
+}
+
+// selectAll is the combination that selects a field's content.
+func (s *session) selectAll() string {
+	if s.platform == "macos" {
+		return "cmd+a"
+	}
+	return "ctrl+a"
+}
+
+// pressArgs builds a press command for the app's window.
+func (s *session) pressArgs(combo string, extra ...string) []string {
+	args := []string{"press", combo}
+	s.mu.Lock()
+	if s.windowID != "" {
+		args = append(args, "--window-id", s.windowID)
+	}
+	s.mu.Unlock()
+	return append(args, extra...)
 }
 
 // Select picks an option of a list or a dropdown.
@@ -395,13 +435,7 @@ func (s *session) Press(ctx context.Context, key string) error {
 	if strings.TrimSpace(key) == "" {
 		return errors.New("press: no key")
 	}
-	args := []string{"press", combo(key)}
-	s.mu.Lock()
-	if s.windowID != "" {
-		args = append(args, "--window-id", s.windowID)
-	}
-	s.mu.Unlock()
-	if err := s.cli.call(ctx, nil, nil, args...); err != nil {
+	if err := s.cli.call(ctx, nil, nil, s.pressArgs(combo(key))...); err != nil {
 		return fmt.Errorf("press %s: %w", key, err)
 	}
 	s.acted("press", key)
