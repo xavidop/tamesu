@@ -291,12 +291,11 @@ jobs:
           DESKTOP_DOCKER: "1"
 
   # The same integration test on Windows, against Notepad, on the hosted
-  # runner's interactive desktop. It reports without failing the workflow
-  # until Notepad's tree has been measured the way the Linux editor's has.
+  # runner's interactive desktop.
   integration-desktop-windows:
     name: Integration (desktop on Windows)
     runs-on: windows-latest
-    continue-on-error: true
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
