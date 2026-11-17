@@ -1,0 +1,66 @@
+{
+  "agent-browser": {
+    "assets": {
+      "darwin/amd64": {
+        "name": "agent-browser-darwin-x64",
+        "sha256": "802883bc38519e550525f74bb3e7ca692029082bdd2b7c235c26167b130c8d66"
+      },
+      "darwin/arm64": {
+        "name": "agent-browser-darwin-arm64",
+        "sha256": "b1b2946c95d218b035262483f2c6193e0f216c155c903bcc532ce47e29d8e72d"
+      },
+      "linux-musl/amd64": {
+        "name": "agent-browser-linux-musl-x64",
+        "sha256": "aa48d29a5dab41c67938bcd2dcbe2a04f90a0f38195bc6e0711c542394ec416d"
+      },
+      "linux-musl/arm64": {
+        "name": "agent-browser-linux-musl-arm64",
+        "sha256": "17e5c6322bbb2166f8e37b5711fa01f3dbd932abc88b1e3df053e54405654411"
+      },
+      "linux/amd64": {
+        "name": "agent-browser-linux-x64",
+        "sha256": "b69e0f5ea76dcb51f8f75da6bcb87c7f4d81f79b5738f1f08bd121b51cb3dc57"
+      },
+      "linux/arm64": {
+        "name": "agent-browser-linux-arm64",
+        "sha256": "a219b10251ecd85e5787d1126dc969d926ac8d2dea325f9d94413907a8856f40"
+      },
+      "windows/amd64": {
+        "name": "agent-browser-win32-x64.exe",
+        "sha256": "8209f42e604d012f789caa14ae73a57200925608409fa09427b0fd6e4f3adf15"
+      }
+    },
+    "repo": "vercel-labs/agent-browser",
+    "version": "0.42.0"
+  },
+  "agent-desktop": {
+    "assets": {
+      "darwin/amd64": {
+        "name": "agent-desktop-v1.2.0-x86_64-apple-darwin.tar.gz",
+        "sha256": "d9dc50226f28d7fc86a2f5b0945f0c206dff6c31e418907749f493b6f9e773e6"
+      },
+      "darwin/arm64": {
+        "name": "agent-desktop-v1.2.0-aarch64-apple-darwin.tar.gz",
+        "sha256": "219813428bb1ad8decae172faed05c5964a2415170df402e2786ccfa6452ba82"
+      },
+      "linux/amd64": {
+        "name": "agent-desktop-v1.2.0-x86_64-unknown-linux-gnu.tar.gz",
+        "sha256": "591ae7f4a38479dc045df97e27447c0c8b530441730ab6b990e27c813162af44"
+      },
+      "linux/arm64": {
+        "name": "agent-desktop-v1.2.0-aarch64-unknown-linux-gnu.tar.gz",
+        "sha256": "68e8ebbb4f80e44485d2f1cf972943a38ee43108e2e0ce56bdfa641fd1599f68"
+      },
+      "windows/amd64": {
+        "name": "agent-desktop-v1.2.0-x86_64-pc-windows-msvc.tar.gz",
+        "sha256": "a4199f741a441cedd349bf56c5eba01783b1261258b498efeb7ec9945220c3e8"
+      },
+      "windows/arm64": {
+        "name": "agent-desktop-v1.2.0-aarch64-pc-windows-msvc.tar.gz",
+        "sha256": "d6d8643310c2c13eace2261444d9e4c0d16ca09581f38500983104903604caa6"
+      }
+    },
+    "repo": "vercel-labs/agent-desktop",
+    "version": "1.2.0"
+  }
+}

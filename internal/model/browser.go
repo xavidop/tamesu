@@ -6,7 +6,8 @@ import (
 	"github.com/xavidop/tamesu/target"
 )
 
-// GoalRequest asks the browser agent to achieve a goal on a page.
+// GoalRequest asks the browser agent to achieve a goal on a page (a web
+// page, or the window of a desktop app).
 type GoalRequest struct {
 	Goal string
 	Page target.Page
@@ -18,6 +19,9 @@ type GoalRequest struct {
 	AllowedDomains []string
 	// Model overrides models.browser_agent.
 	Model string
+	// Desktop says the page is a desktop application's window: the agent is
+	// told so, and gets press instead of scroll and navigate.
+	Desktop bool
 }
 
 // GoalResult is what the agent reported.

@@ -11,7 +11,7 @@ import (
 // definitionOrder is the reading order of the suite reference page; anything
 // not listed follows alphabetically.
 var definitionOrder = []string{
-	"Target", "ToolDef", "BrowserOptions", "BrowserMock", "BrowserAuth", "RESTRequest", "RESTResponse", "RESTSession", "Dispatch", "Trigger", "HTTPTrigger",
+	"Target", "ToolDef", "BrowserOptions", "BrowserMock", "BrowserAuth", "DesktopOptions", "RESTRequest", "RESTResponse", "RESTSession", "Dispatch", "Trigger", "HTTPTrigger",
 	"Test", "Case", "Capture", "Step", "Persona", "Behaviors", "Scenario", "ScriptStep",
 	"Assertion", "Judge", "ToolCall", "ToolSequence", "Evaluator", "JSONPathAssertion", "DTMFAssertion", "Matches", "MetricAssertion", "IntCompare", "CapturedAssertion", "GoldenAssertion", "OnTurn", "StringList",
 	"Hooks", "Hook", "Defaults", "Models", "Budgets", "Duration",
@@ -69,6 +69,9 @@ tests:
   - { url: "**/api/payment", method: POST, status: 502, delay_ms: 2000 }
   - { url: "**/analytics.js", abort: true }`,
 	"BrowserAuth": `auth: { storage_state: auth/customer.json }`,
+	"DesktopOptions": `desktop:
+  engine: agent-desktop
+  args: ["--new-window"]`,
 	"RESTRequest": `request:
   body: { session_id: "{{session}}", message: "{{message}}" }
   open: { type: hello, session: "{{session}}" }        # websocket only`,

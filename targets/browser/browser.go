@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -24,6 +25,7 @@ import (
 	"github.com/chromedp/cdproto/runtime"
 	cdptarget "github.com/chromedp/cdproto/target"
 	"github.com/chromedp/chromedp"
+	"github.com/chromedp/chromedp/remote"
 
 	"github.com/xavidop/tamesu/target"
 )
@@ -68,6 +70,14 @@ type Config struct {
 	StepTimeout time.Duration
 	// Download allows fetching Chromium when none is found (default true).
 	NoDownload bool
+	// Engine is what reads the page's elements and acts on a ref:
+	// EngineChromium (default), tamesu's own driver, or EngineAgentBrowser,
+	// the agent-browser CLI attached to the same Chromium.
+	Engine string
+	// AgentBrowserPath is the agent-browser binary; empty means
+	// TAMESU_AGENT_BROWSER, then the pinned version (downloaded when missing
+	// unless NoDownload).
+	AgentBrowserPath string
 }
 
 // Target is the browser target.
@@ -134,13 +144,26 @@ func (t *Target) Start(ctx context.Context, run *target.RunContext) (target.Sess
 	if os.Geteuid() == 0 {
 		opts = append(opts, chromedp.NoSandbox)
 	}
+	var ab *agentBrowser
+	switch t.cfg.Engine {
+	case "", EngineChromium:
+	case EngineAgentBrowser:
+		if ab, err = newAgentBrowser(ctx, t.cfg); err != nil {
+			return nil, fmt.Errorf("browser %s: %w", t.name, err)
+		}
+		// agent-browser attaches to this Chromium, which then has to listen
+		// on a DevTools port (loopback only) instead of a pipe.
+		opts = append(opts, remote.WebSocket, chromedp.Flag("remote-debugging-port", strconv.Itoa(ab.port)))
+	default:
+		return nil, fmt.Errorf("browser %s: engine %q is not one of %s", t.name, t.cfg.Engine, strings.Join(Engines, ", "))
+	}
 	allocCtx, cancelAlloc := chromedp.NewExecAllocator(context.WithoutCancel(ctx), opts...)
 	logf := func(string, ...any) {}
 	bctx, cancelBrowser := chromedp.NewContext(allocCtx, chromedp.WithLogf(logf), chromedp.WithErrorf(logf))
 	s := &session{
 		t: t, run: run, ctx: bctx, cancel: func() { cancelBrowser(); cancelAlloc() },
 		allowed: allowed, refs: map[int]refNode{}, byNode: map[nodeKey]int{}, frames: map[cdptarget.ID]frameContext{}, startedAt: time.Now(),
-		har: newHAR(), files: map[string]string{}, mocks: append([]Mock(nil), t.cfg.Mocks...),
+		har: newHAR(), files: map[string]string{}, mocks: append([]Mock(nil), t.cfg.Mocks...), ab: ab,
 	}
 	sctx, cancel := context.WithTimeout(ctx, t.cfg.StepTimeout)
 	defer cancel()
@@ -206,9 +229,11 @@ type session struct {
 	// files are extra artifacts (a11y results, visual diffs).
 	files map[string]string
 	// mocks, newest first; fetchOn once interception is enabled.
-	mocks       []Mock
-	fetchOn     bool
-	mocked      int
+	mocks   []Mock
+	fetchOn bool
+	mocked  int
+	// ab is set when the engine is agent-browser.
+	ab          *agentBrowser
 	a11yRuns    int
 	a11yTotal   int
 	visualDiffs int
@@ -272,7 +297,11 @@ func (s *session) Close(context.Context) (target.Artifacts, error) {
 
 // close quits the browser.
 func (s *session) close() {
-	// The iframes are let go of while the browser can still answer.
+	// agent-browser and the iframes are let go of while the browser can
+	// still answer.
+	if s.ab != nil {
+		s.ab.close()
+	}
 	s.detachFramesExcept(nil)
 	s.cancel()
 }

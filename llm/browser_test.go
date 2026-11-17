@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/firebase/genkit/go/ai"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -63,7 +64,10 @@ func (p *fakePage) Navigate(_ context.Context, u string) error {
 	p.url = u
 	return nil
 }
-func (p *fakePage) Press(context.Context, string) error                { return nil }
+func (p *fakePage) Press(_ context.Context, key string) error {
+	p.actions = append(p.actions, "press "+key)
+	return nil
+}
 func (p *fakePage) Wait(context.Context, time.Duration) error          { return nil }
 func (p *fakePage) Screenshot(context.Context) ([]byte, error)         { return []byte("\x89PNG"), nil }
 func (p *fakePage) Eval(context.Context, string) (any, error)          { return nil, nil }
@@ -104,6 +108,58 @@ func TestRunGoalWithScriptedTools(t *testing.T) {
 	assert.False(t, res.Success)
 	assert.Contains(t, res.Reason, "without calling done")
 	assert.Equal(t, 1, res.Steps)
+}
+
+// TestRunGoalOnADesktop: on a desktop target the agent reads the desktop
+// prompt and has the keyboard, and neither a page to scroll nor an address to
+// load; on a web page it is the other way round.
+func TestRunGoalOnADesktop(t *testing.T) {
+	c := client(t)
+	saved := c.cfg.Models.BrowserAgent
+	c.cfg.Models.BrowserAgent = "fake/browser"
+	defer func() { c.cfg.Models.BrowserAgent = saved }()
+	defer fakePlugin().(*llmfake.Plugin).SetScript(llmfake.DefaultScript)
+	script := func(actions ...llmfake.BrowserAction) {
+		fakePlugin().(*llmfake.Plugin).SetScript(llmfake.Script{Browser: actions})
+	}
+	names := func(tools []ai.ToolRef) []string {
+		out := make([]string, 0, len(tools))
+		for _, tl := range tools {
+			out = append(out, tl.Name())
+		}
+		return out
+	}
+	assert.Equal(t, BrowserTools, names(c.tools))
+	assert.Equal(t, DesktopTools, names(c.desktopTools))
+	assert.NotContains(t, DesktopTools, "navigate")
+	assert.NotContains(t, DesktopTools, "scroll")
+	assert.NotContains(t, BrowserTools, "press")
+
+	script(
+		llmfake.BrowserAction{Tool: "type", Input: map[string]any{"find": `"Username"`, "text": "marta"}},
+		llmfake.BrowserAction{Tool: "press", Input: map[string]any{"key": "cmd+s"}},
+		llmfake.BrowserAction{Tool: "done", Input: map[string]any{"success": true, "reason": "the window shows the note"}},
+	)
+	page := &fakePage{url: "desktop://Notes"}
+	res, err := c.RunGoal(context.Background(), model.GoalRequest{Goal: "Write a note and save it", Page: page, MaxSteps: 6, Desktop: true})
+	require.NoError(t, err)
+	assert.True(t, res.Success)
+	assert.Equal(t, []string{"type", "press cmd+s"}, page.actions)
+	require.Len(t, res.Actions, 2)
+	assert.Equal(t, target.Action{Name: "press", Args: map[string]any{"key": "cmd+s"}}, res.Actions[1])
+
+	// A tool the surface does not have never reaches the page.
+	script(llmfake.BrowserAction{Tool: "navigate", Input: map[string]any{"url": "https://example.org"}})
+	page = &fakePage{url: "desktop://Notes"}
+	res, _ = c.RunGoal(context.Background(), model.GoalRequest{Goal: "Leave the app", Page: page, MaxSteps: 3, Desktop: true})
+	assert.False(t, res.Success)
+	assert.Empty(t, page.actions)
+
+	script(llmfake.BrowserAction{Tool: "press", Input: map[string]any{"key": "Enter"}})
+	page = &fakePage{url: "http://shop/"}
+	res, _ = c.RunGoal(context.Background(), model.GoalRequest{Goal: "Press a key", Page: page, MaxSteps: 3})
+	assert.False(t, res.Success)
+	assert.Empty(t, page.actions)
 }
 
 func TestCheckExpect(t *testing.T) {

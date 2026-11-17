@@ -9,7 +9,12 @@ const targets = [
   {
     tag: "browser",
     title: "Web apps",
-    body: "Agentic <code>goal</code> and <code>expect</code> steps drive Chromium over CDP; deterministic actions, screenshots and a HAR for every run.",
+    body: "Agentic <code>goal</code> and <code>expect</code> steps drive Chromium over CDP, with tamesu's own driver or <code>agent-browser</code> as the engine; deterministic actions, screenshots and a HAR for every run.",
+  },
+  {
+    tag: "desktop",
+    title: "Desktop apps",
+    body: "The same <code>goal</code> and <code>expect</code> steps on a macOS, Windows or Linux app, read through the accessibility tree by <code>agent-desktop</code>: windows, menus and dialogs, no pixels.",
   },
   {
     tag: "rest",
@@ -124,7 +129,7 @@ ok   secret API_TOKEN: env (link 1 of 1)`;
         <h1>Your agents, tested like users would.</h1>
         <p class="hero__lede">
           Describe a test the way you would brief a colleague: a persona, a goal and what a good
-          outcome looks like. A simulated user then talks to your agent or drives your web app, and
+          outcome looks like. A simulated user then talks to your agent or drives your web or desktop app, and
           deterministic checks and LLM judges grade the result.
         </p>
         <div class="hero__actions">
@@ -135,7 +140,7 @@ ok   secret API_TOKEN: env (link 1 of 1)`;
         <p class="hero__install"><code>brew install xavidop/tap/tamesu</code></p>
         <p class="hero__note">Homebrew is macOS only; on Linux and Windows, use a package or a release binary.</p>
         <p class="hero__status">
-          One YAML schema for <code>browser</code>, <code>rest</code>, <code>grpc</code>,
+          One YAML schema for <code>browser</code>, <code>desktop</code>, <code>rest</code>, <code>grpc</code>,
           <code>livekit</code>, <code>sip</code>, <code>twilio</code>, <code>realtime</code>,
           <code>pipecat</code>, <code>voice</code>, <code>model</code>, <code>mcp</code> and <code>a2a</code> targets, validated with file and line numbers.
           <code>tamesu doctor</code> resolves every secret through mamori and checks the setup.
@@ -162,8 +167,8 @@ ok   secret API_TOKEN: env (link 1 of 1)`;
   <section class="section">
     <div class="wrap">
       <div class="section__head">
-        <p class="eyebrow">Ten targets, one model</p>
-        <h2>The same test for a prompt, a chatbot, a voice agent, a phone line, a realtime API and a web flow</h2>
+        <p class="eyebrow">Thirteen targets, one model</p>
+        <h2>The same test for a prompt, a chatbot, a voice agent, a phone line, a realtime API, a web flow and a desktop app</h2>
       </div>
       <div class="targets">
         {targets.map((p) => (

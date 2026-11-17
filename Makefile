@@ -13,7 +13,7 @@ MODULES := $(shell find . -name go.mod \
 GO ?= go
 export GOWORK = off
 
-.PHONY: all build test race vet lint lint-integration fmt tidy work-sync check-deps vuln check-claims schema schema-check proto notices test-llmfake vet-llmfake lint-llmfake integration integration-sip genkit-ui site-dev site-build site-linkcheck demo clean help
+.PHONY: all build test race vet lint lint-integration fmt tidy work-sync check-deps vuln check-claims schema schema-check proto notices test-llmfake vet-llmfake lint-llmfake integration integration-desktop integration-sip genkit-ui site-dev site-build site-linkcheck demo clean help
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -113,6 +113,9 @@ proto: ## Regenerate the Go code of proto/ and the vendored Pipecat frames (prot
 	@mv targets/grpc/turnv1/tamesu/turn/v1/*.go targets/grpc/turnv1/ && rm -r targets/grpc/turnv1/tamesu
 	@PATH="$$PATH:$$($(GO) env GOPATH)/bin" protoc -I targets/pipecat/frames \
 		--go_out=targets/pipecat/frames --go_opt=paths=source_relative targets/pipecat/frames/frames.proto
+
+integration-desktop: ## Run the desktop target and the desktop example against a real editor with the pinned agent-desktop (a headless session on Linux, a container elsewhere)
+	@bash scripts/integration-desktop.sh
 
 integration-sip: ## Run the phone example through Docker (livekit-server, livekit/sip, Asterisk): tamesu sip setup, outbound and inbound calls
 	@bash scripts/integration-sip.sh

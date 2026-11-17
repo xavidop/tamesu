@@ -150,6 +150,11 @@ func targetStub(typ string) *yaml.Node {
 			key("ring_timeout"), scalar("30s"),
 			key("max_call_duration"), scalar("5m"),
 		)
+	case config.TargetDesktop:
+		return mapping(
+			key("type"), scalar("desktop"),
+			key("app"), scalar("${APP_NAME}"),
+		)
 	default:
 		return mapping(
 			key("type"), scalar("browser"),
@@ -172,7 +177,7 @@ func testNode(t model.DraftTest, target, typ string, i int, seen map[string]int)
 	if tags := cleanTags(t.Tags); len(tags) > 0 {
 		n.Content = append(n.Content, key("tags"), flowSeq(tags))
 	}
-	if typ == config.TargetBrowser {
+	if config.UsesSteps(typ) {
 		steps := &yaml.Node{Kind: yaml.SequenceNode}
 		for _, g := range t.Steps {
 			if strings.TrimSpace(g) != "" {

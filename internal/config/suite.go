@@ -16,19 +16,38 @@ const (
 	TargetMCP      = "mcp"
 	TargetA2A      = "a2a"
 	TargetVoice    = "voice"
+	TargetDesktop  = "desktop"
 )
 
 // TargetTypes lists the target types a suite may declare, in documentation order.
 func TargetTypes() []string {
-	return []string{TargetBrowser, TargetREST, TargetLiveKit, TargetSIP, TargetRealtime, TargetGRPC, TargetPipecat, TargetModel, TargetTwilio, TargetMCP, TargetA2A, TargetVoice}
+	return []string{TargetBrowser, TargetDesktop, TargetREST, TargetLiveKit, TargetSIP, TargetRealtime, TargetGRPC, TargetPipecat, TargetModel, TargetTwilio, TargetMCP, TargetA2A, TargetVoice}
+}
+
+// UsesSteps reports whether a target type is driven by steps on what a user
+// sees (a web page, a desktop app) instead of by turns of a conversation.
+func UsesSteps(targetType string) bool {
+	return targetType == TargetBrowser || targetType == TargetDesktop
 }
 
 // IsConversational reports whether a target type talks in turns (everything
-// but the browser).
-func IsConversational(targetType string) bool { return targetType != TargetBrowser && targetType != "" }
+// but the browser and the desktop).
+func IsConversational(targetType string) bool { return !UsesSteps(targetType) && targetType != "" }
 
 // ActionNames are the deterministic browser actions a step may take.
 var ActionNames = []string{"navigate", "click", "fill", "press", "wait", "screenshot", "eval_js", "assert_url", "assert_text", "mock", "a11y", "visual"}
+
+// DesktopActionNames are the deterministic actions of a step on a desktop
+// target: a desktop app has no URL, no script and no network to mock.
+var DesktopActionNames = []string{"click", "fill", "press", "wait", "screenshot", "assert_text"}
+
+// ActionNamesFor lists the deterministic actions of a target type's steps.
+func ActionNamesFor(targetType string) []string {
+	if targetType == TargetDesktop {
+		return DesktopActionNames
+	}
+	return ActionNames
+}
 
 // AssertionKinds lists every assertion key, in documentation order.
 var AssertionKinds = []string{
@@ -61,12 +80,16 @@ type Suite struct {
 
 // Target is a system under test. Type selects which of the other fields apply.
 type Target struct {
-	Type string `yaml:"type" json:"type" jsonschema:"required,enum=browser,enum=rest,enum=livekit,enum=sip,enum=realtime,enum=grpc,enum=pipecat,enum=model,enum=twilio,enum=mcp,enum=a2a,enum=voice,description=What the target is; it decides which other keys apply"`
+	Type string `yaml:"type" json:"type" jsonschema:"required,enum=browser,enum=desktop,enum=rest,enum=livekit,enum=sip,enum=realtime,enum=grpc,enum=pipecat,enum=model,enum=twilio,enum=mcp,enum=a2a,enum=voice,description=What the target is; it decides which other keys apply"`
 	URL  string `yaml:"url,omitempty" json:"url,omitempty" jsonschema:"description=The page (browser) or endpoint (rest / realtime / pipecat / twilio / a2a / voice) or grpc://host:port (grpc) or LiveKit server (livekit)."`
 	// Connect is how the target retries reaching the agent (every type but browser).
 	Connect *ConnectConfig `yaml:"connect,omitempty" json:"connect,omitempty" jsonschema:"description=How reaching the agent is retried (attempts / backoff / max_backoff)"`
 	// Handoff is how this agent signals that it handed the conversation to a person.
 	Handoff *HandoffSignal `yaml:"handoff,omitempty" json:"handoff,omitempty" jsonschema:"description=How the agent signals that a person took over (tool / json_path / regex plus where the destination and summary are)"`
+
+	// desktop
+	App     string          `yaml:"app,omitempty" json:"app,omitempty" jsonschema:"description=desktop targets; the application to launch: its name or bundle id (templates allowed). An app that is already running is joined and left open afterwards."`
+	Desktop *DesktopOptions `yaml:"desktop,omitempty" json:"desktop,omitempty" jsonschema:"description=desktop targets; engine / args"`
 
 	// browser
 	Browser        *BrowserOptions `yaml:"browser,omitempty" json:"browser,omitempty" jsonschema:"description=browser targets; engine / viewport / locale / mocks / recording"`
@@ -183,11 +206,20 @@ var RealtimeAudioFormats = []string{"pcm16", "g711_ulaw", "g711_alaw"}
 var BrowserRecordingFormats = []string{"auto", "gif", "webm", "off"}
 
 // BrowserEngines are the values of browser.engine.
-var BrowserEngines = []string{"chromium"}
+var BrowserEngines = []string{"chromium", "agent-browser"}
+
+// DesktopEngines are the values of desktop.engine.
+var DesktopEngines = []string{"agent-desktop"}
+
+// DesktopOptions configures a desktop target.
+type DesktopOptions struct {
+	Engine string   `yaml:"engine,omitempty" json:"engine,omitempty" jsonschema:"enum=agent-desktop,description=What drives the app: agent-desktop (the default and only engine), which reads the operating system's accessibility tree on macOS / Windows / Linux."`
+	Args   []string `yaml:"args,omitempty" json:"args,omitempty" jsonschema:"description=Command-line arguments passed to the app when it is launched (templates allowed)."`
+}
 
 // BrowserOptions configures the browser.
 type BrowserOptions struct {
-	Engine   string `yaml:"engine,omitempty" json:"engine,omitempty" jsonschema:"enum=chromium,description=chromium (the default and only engine)"`
+	Engine   string `yaml:"engine,omitempty" json:"engine,omitempty" jsonschema:"enum=chromium,enum=agent-browser,description=What reads the page's elements and acts on them for goal and expect steps: chromium (the default; tamesu's own driver) or agent-browser (the agent-browser CLI attached to the same browser). The browser and everything else about the session are the same under both."`
 	Viewport string `yaml:"viewport,omitempty" json:"viewport,omitempty" jsonschema:"description=WIDTHxHEIGHT such as 1280x800."`
 	Locale   string `yaml:"locale,omitempty" json:"locale,omitempty" jsonschema:"description=The browser locale such as en-GB; sets Accept-Language"`
 	// Mocks answer matching requests instead of the network.
@@ -419,12 +451,12 @@ type CapturedAssertion struct {
 	Matches *string `yaml:"matches,omitempty" json:"matches,omitempty" jsonschema:"description=A regular expression the value must match."`
 }
 
-// Step is one browser step: a natural-language goal, an agentic expectation
-// or a deterministic action.
+// Step is one step of a browser or desktop test: a natural-language goal, an
+// agentic expectation or a deterministic action.
 type Step struct {
-	Goal   string         `yaml:"goal,omitempty" json:"goal,omitempty" jsonschema:"description=Agentic: the browser agent acts until the goal is met."`
-	Expect string         `yaml:"expect,omitempty" json:"expect,omitempty" jsonschema:"description=Agentic assertion against the current page."`
-	Action map[string]any `yaml:"action,omitempty" json:"action,omitempty" jsonschema:"description=Deterministic: one of navigate click fill press wait screenshot eval_js assert_url assert_text mock a11y visual."`
+	Goal   string         `yaml:"goal,omitempty" json:"goal,omitempty" jsonschema:"description=Agentic: the agent acts on the page or the app until the goal is met."`
+	Expect string         `yaml:"expect,omitempty" json:"expect,omitempty" jsonschema:"description=Agentic assertion against the current page or window."`
+	Action map[string]any `yaml:"action,omitempty" json:"action,omitempty" jsonschema:"description=Deterministic: one of navigate click fill press wait screenshot eval_js assert_url assert_text mock a11y visual (browser); click fill press wait screenshot assert_text (desktop)."`
 }
 
 // Kind returns "goal", "expect", "action" when exactly one is set, else "".

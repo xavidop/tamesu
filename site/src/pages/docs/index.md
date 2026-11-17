@@ -10,7 +10,7 @@ title: Introduction
 `tamesu` (試す, "to try, to test") is an open-source, agentic testing framework and
 CLI written in Go. You describe a test the way you would brief a colleague: a **persona**, a
 **goal**, and what a good outcome looks like. A simulated user then talks to your agent or drives
-your web app, and deterministic checks and LLM **judges** grade the result. **Your agents,
+your web or desktop app, and deterministic checks and LLM **judges** grade the result. **Your agents,
 tested like users would.**
 
 ![tamesu init, validate, list and doctor in a terminal](/demo.gif)
@@ -39,6 +39,7 @@ The [Quick start](/docs/quickstart/) walks through a first project.
 | Validate suites with file and line numbers, in your editor and in CI | [`tamesu validate`](/docs/cli/#tamesu-validate) |
 | Check the whole setup, secrets included, without printing a value | [`tamesu doctor`](/docs/cli/#tamesu-doctor) |
 | Run the suites and read the reports | [`tamesu run`](/docs/cli/#tamesu-run), [Reports](/docs/reports/) |
+| Test a desktop app on macOS, Windows or Linux | [Desktop target](/docs/targets/desktop/) |
 | Test a REST agent | [REST target](/docs/targets/rest/) |
 | Test an agent over gRPC | [gRPC target](/docs/targets/grpc/) |
 | Test a Pipecat bot | [Pipecat target](/docs/targets/pipecat/) |
@@ -52,6 +53,7 @@ The [Quick start](/docs/quickstart/) walks through a first project.
 | Target | What it is | Transport |
 |---|---|---|
 | `browser` | A web app, driven by an agent from natural-language goals | Chromium over CDP (chromedp) |
+| `desktop` | A desktop app on macOS, Windows or Linux, driven by an agent from natural-language goals | The accessibility tree (agent-desktop) |
 | `rest` | An HTTP agent that answers one user turn per request | HTTP, SSE or WebSocket |
 | `livekit` | A realtime voice agent in a LiveKit room, in text or audio | WebRTC |
 | `sip` | A phone agent reached through a LiveKit SIP service and your trunk | SIP / PSTN |

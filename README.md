@@ -7,7 +7,7 @@
 ### Your agents, tested like users would.
 
 *An open-source agentic testing framework and CLI in Go: describe a test in YAML, a simulated
-user talks to your agent or drives your web app, and deterministic checks and LLM judges grade
+user talks to your agent or drives your web or desktop app, and deterministic checks and LLM judges grade
 the result.*
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/xavidop/tamesu.svg)](https://pkg.go.dev/github.com/xavidop/tamesu)
@@ -132,7 +132,8 @@ runs the same tests from `go test`.
 
 | Target | What it talks to | Modes | Example |
 |---|---|---|---|
-| `browser` | Chromium over CDP: agentic `goal` and `expect` steps, deterministic actions, request mocks, an axe-core audit, visual baselines, a recording and a HAR per run | — | [`examples/browser-shop`](examples/browser-shop/) against [`examples/webapp`](examples/webapp/) |
+| `browser` | Chromium over CDP: agentic `goal` and `expect` steps (tamesu's own driver, or the agent-browser CLI as `engine`), deterministic actions, request mocks, an axe-core audit, visual baselines, a recording and a HAR per run | — | [`examples/browser-shop`](examples/browser-shop/) against [`examples/webapp`](examples/webapp/) |
+| `desktop` | a desktop app on macOS, Windows or Linux, through the accessibility tree (the agent-desktop CLI): agentic `goal` and `expect` steps and deterministic actions on the app's window, menus and dialogs | — | [`examples/desktop-editor`](examples/desktop-editor/) |
 | `rest` | HTTP, SSE or WebSocket | text | [`examples/rest-agent`](examples/rest-agent/) |
 | `livekit` | a LiveKit room over WebRTC, whatever the agent is built with | text, audio | [`examples/livekit-agent`](examples/livekit-agent/) |
 | `sip` | a phone call through a LiveKit SIP service and your trunk: outbound or inbound, DTMF, line simulation | audio | [`examples/sip-ivr`](examples/sip-ivr/) with Asterisk |

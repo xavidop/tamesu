@@ -96,11 +96,22 @@ This is a multi-module repository tied together by a `go.work` file:
   or a server fronting your agent with its events), its own module on `coder/websocket`: text mode
   (conversation items and text deltas) and audio mode (PCM16 in, audio and transcript deltas out,
   a stereo WAV), function calls recorded and a done tool that ends the session.
+- `targets/desktop`: the desktop target, a module with no dependency of its own: it runs the
+  agent-desktop CLI (`cli.go`: one JSON envelope per command, what is typed on standard input),
+  turns its snapshots of the window and of what is open on top of it into the observation
+  (`observe.go`: numbered refs that survive a new snapshot, closed menus left out) and maps the
+  page actions and the deterministic steps onto its commands. `scripts/integration-desktop.sh`
+  runs it against a real editor in a headless Linux session (a container anywhere else).
+- `internal/pinned`: the external CLIs tamesu drives (agent-browser, agent-desktop): the pinned
+  version and SHA-256 of each platform's file (`pins.json`, rewritten by
+  `.github/scripts/update_cli_pins.py`), and the download into the cache that checks them.
 - `targets/browser`: the browser target, its own module on chromedp (the typed `Action[T]` API of
   v0.17 and later): Chromium discovery and download, the accessibility-tree
   observation with stable refs (`observe.go` adds the iframes, cross-site ones through a context
   of their own, and the elements that are clickable without a role), the page actions the browser agent's tools call, the
   deterministic step actions, screenshots, the session recording, the HAR and the console log.
+  `agentbrowser.go` is the second engine: the agent-browser CLI attached to the session's
+  Chromium over a loopback DevTools port, for the observation and the actions on a ref.
 - `audio`: the audio pipeline, its own module: PCM buffers and resampling, WAV, the energy VAD
   (and Silero behind `-tags onnx`, which the full build sets; onnxruntime is loaded at run
   time), noise presets, G.711 and line simulation in

@@ -38,6 +38,13 @@ func TestValidateInvalidSuites(t *testing.T) {
 		{file: "realtime-bad.yaml", line: 3, msg: "the OpenAI Realtime API needs headers.Authorization", warning: true},
 		{file: "browser-engine-bad.yaml", line: 6, msg: "engine must be one of chromium"},
 		{file: "browser-without-steps.yaml", line: 5, msg: "browser tests need steps"},
+		{file: "desktop-bad.yaml", line: 3, msg: "desktop target needs app (the application to launch)", path: "targets.app"},
+		{file: "desktop-bad.yaml", line: 5, msg: "engine must be one of agent-desktop", path: "targets.app.desktop.engine"},
+		{file: "desktop-bad.yaml", line: 9, msg: "url applies to targets that have an address; a desktop target launches app", warning: true},
+		{file: "desktop-bad.yaml", line: 11, msg: "desktop tests need steps"},
+		{file: "desktop-bad.yaml", line: 13, msg: `scenario applies to conversational targets (rest, grpc, livekit, sip, realtime, pipecat); "notes" is a desktop target`},
+		{file: "desktop-bad.yaml", line: 17, msg: "navigate is a browser action; a desktop target has click, fill, press, wait, screenshot, assert_text", path: `tests[1] "browser action".steps[0].action.navigate`},
+		{file: "desktop-bad.yaml", line: 18, msg: `unknown action "hover" (one of click, fill, press, wait, screenshot, assert_text)`},
 		{file: "browser-without-steps.yaml", line: 7, msg: "persona applies to conversational targets"},
 		{file: "sip-inbound-no-trigger.yaml", line: 3, msg: "inbound sip target needs trigger.http or trigger.command"},
 		{file: "duplicate-test.yaml", line: 8, msg: `duplicate test name "same" (also tests[0])`},
@@ -179,3 +186,24 @@ func TestSelectTests(t *testing.T) {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+// TestValidateDesktopAndEngines: a desktop target and both browser engines
+// are valid suites, and a desktop target is not a conversational one.
+func TestValidateDesktopAndEngines(t *testing.T) {
+	s, errs, err := LoadSuite(filepath.Join("testdata", "valid", "desktop-and-engines.yaml"), LoadOptions{Env: noEnv})
+	require.NoError(t, err)
+	assert.Empty(t, errs)
+	assert.Equal(t, TargetDesktop, s.Targets["notes"].Type)
+	assert.Equal(t, "TextEdit", s.Targets["notes"].App)
+	assert.Equal(t, []string{"--new-window"}, s.Targets["notes"].Desktop.Args)
+	assert.Equal(t, "agent-browser", s.Targets["web"].Browser.Engine)
+
+	assert.True(t, UsesSteps(TargetDesktop))
+	assert.True(t, UsesSteps(TargetBrowser))
+	assert.False(t, UsesSteps(TargetREST))
+	assert.False(t, IsConversational(TargetDesktop))
+	assert.True(t, IsConversational(TargetREST))
+	assert.Equal(t, DesktopActionNames, ActionNamesFor(TargetDesktop))
+	assert.Equal(t, ActionNames, ActionNamesFor(TargetBrowser))
+	assert.Contains(t, TargetTypes(), TargetDesktop)
+}

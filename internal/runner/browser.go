@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/xavidop/tamesu/assert"
+	"github.com/xavidop/tamesu/internal/config"
 	"github.com/xavidop/tamesu/internal/model"
 	"github.com/xavidop/tamesu/internal/persona"
 	"github.com/xavidop/tamesu/metrics"
@@ -166,7 +167,7 @@ func (r *run) runGoal(ctx context.Context, it *item, page target.Page, agent mod
 	if agent == nil {
 		return res, false, ErrNoBrowserAgent
 	}
-	res, err = agent.RunGoal(ctx, model.GoalRequest{Goal: goal, Page: page, MaxSteps: maxSteps(it), AllowedDomains: it.target.AllowedDomains})
+	res, err = agent.RunGoal(ctx, model.GoalRequest{Goal: goal, Page: page, MaxSteps: maxSteps(it), AllowedDomains: it.target.AllowedDomains, Desktop: it.target.Type == config.TargetDesktop})
 	if err == nil && res.Success && len(res.Actions) > 0 {
 		if serr := cache.Save(&Plan{Goal: goal, URLPath: obs.URL, Key: key, Actions: res.Actions, Reason: res.Reason}); serr != nil {
 			r.logger.Warn("action cache", "error", serr)

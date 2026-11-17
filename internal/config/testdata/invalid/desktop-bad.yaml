@@ -1,0 +1,18 @@
+suite: bad
+targets:
+  app:
+    type: desktop
+    desktop: { engine: xdotool }
+  notes:
+    type: desktop
+    app: Notes
+    url: http://localhost
+tests:
+  - name: no steps
+    target: notes
+    scenario: { goal: chat }
+  - name: browser action
+    target: notes
+    steps:
+      - action: { navigate: "https://example.com" }
+      - action: { hover: 1 }

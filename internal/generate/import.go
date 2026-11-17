@@ -328,8 +328,8 @@ func Import(convs []Conversation, o ImportOptions) (*ImportResult, error) {
 	if !contains(config.TargetTypes(), typ) {
 		return nil, fmt.Errorf("import: unknown target type %q (one of %s)", typ, strings.Join(config.TargetTypes(), ", "))
 	}
-	if typ == config.TargetBrowser {
-		return nil, fmt.Errorf("import: conversations replay on conversational targets, not browser")
+	if config.UsesSteps(typ) {
+		return nil, fmt.Errorf("import: conversations replay on conversational targets, not %s", typ)
 	}
 	mode := o.GoldenMode
 	if mode == "" {

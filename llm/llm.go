@@ -105,6 +105,7 @@ type Client struct {
 	expectFlow   flowFunc[expectInput, expectOutput]
 	generateFlow flowFunc[generateInput, model.Draft]
 	tools        []ai.ToolRef
+	desktopTools []ai.ToolRef
 
 	// streamers are the plugins that transcribe a stream, by provider.
 	streamers map[string]speechstream.Transcriber

@@ -53,7 +53,7 @@ func (c *Client) generateScenarios(ctx context.Context, in generateInput) (model
 	}
 	input := map[string]any{
 		"source": source, "source_name": in.SourceName, "target": in.Target, "type": typ, "count": count,
-		"conversational": typ != "browser", "open": "{{", "close": "}}",
+		"conversational": typ != "browser" && typ != "desktop", "open": "{{", "close": "}}",
 	}
 	models := chain(c.modelFor("scenario_generator", in.Model), c.fallbacksFor("scenario_generator"))
 	return attempt(ctx, c, "scenario_generator", models, func(ctx context.Context, modelName string) (model.Draft, error) {

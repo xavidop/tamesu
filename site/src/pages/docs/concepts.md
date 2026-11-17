@@ -15,7 +15,7 @@ then shows how a conversational test flows and how a result is graded.
 | Concept | Description |
 |---|---|
 | **Suite** | A YAML file (or Go package) containing targets, defaults and tests. |
-| **Target** | The system under test: `browser`, `rest`, `grpc`, `livekit`, `sip`, `twilio`, `realtime`, `pipecat`, `voice`, `model`, `mcp` or `a2a`. |
+| **Target** | The system under test: `browser`, `desktop`, `rest`, `grpc`, `livekit`, `sip`, `twilio`, `realtime`, `pipecat`, `voice`, `model`, `mcp` or `a2a`. |
 | **Test** | One scenario run against one target. |
 | **Step** | For browser tests: a natural-language `goal`, a deterministic `action`, or an `expect`. |
 | **Persona** | The simulated user for agent tests: identity, goal, style, voice, behaviours (interrupts, silence, noise). |
@@ -33,7 +33,12 @@ apply; `tamesu validate` warns when a key belongs to another type.
   storage state and `allowed_domains`. Tests are a list of steps: `goal` (the browser agent
   plans and acts until the goal is met), `expect` (an agentic assertion against the page) and
   `action` (deterministic: `navigate`, `click`, `fill`, `press`, `wait`, `screenshot`,
-  `eval_js`, `assert_url`, `assert_text`, `mock`, `a11y`, `visual`).
+  `eval_js`, `assert_url`, `assert_text`, `mock`, `a11y`, `visual`). `browser.engine` picks what
+  reads the page for the agent: tamesu's own driver, or the agent-browser CLI.
+- **`desktop`**: the `app` to launch (its name or bundle id) on macOS, Windows or Linux, driven
+  through the operating system's accessibility tree by the agent-desktop CLI. Tests are steps as
+  on a browser target, with the actions `click`, `fill`, `press`, `wait`, `screenshot` and
+  `assert_text`. Desktop runs take turns, one at a time.
 - **`rest`**: a URL and method, headers, how a user turn is sent (`request.body`, with
   `{{session}}` and `{{message}}`), how the agent turn is read back (JSONPaths in
   `response.text`, `response.tool_calls`, `response.done`), `streaming: none|sse|websocket` and a

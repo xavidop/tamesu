@@ -35,6 +35,8 @@ var fieldExamples = map[string]map[string]string{
 		"connect":               `connect: { attempts: 5, backoff: 1s, max_backoff: 10s }`,
 		"handoff":               `handoff: { tool: transfer_to_human, to: department, summary: summary }`,
 		"browser":               `browser: { viewport: 1280x800, locale: en-GB, recording: gif }`,
+		"app":                   `app: TextEdit`,
+		"desktop":               `desktop: { args: ["--new-window"] }`,
 		"auth":                  `auth: { storage_state: auth/state.json }`,
 		"allowed_domains":       `allowed_domains: [shop.example, cdn.example]`,
 		"method":                `method: POST`,
@@ -88,8 +90,12 @@ var fieldExamples = map[string]map[string]string{
 		"parameters":  `parameters: { type: object, properties: { topic: { type: string } }, required: [topic] }`,
 		"result":      `result: { topic: "{{args.topic}}", window_days: 30 }`,
 	},
+	"DesktopOptions": {
+		"engine": `engine: agent-desktop`,
+		"args":   `args: ["--new-window", "{{vars.document}}"]`,
+	},
 	"BrowserOptions": {
-		"engine":    `engine: chromium`,
+		"engine":    `engine: agent-browser`,
 		"viewport":  `viewport: 1280x800`,
 		"locale":    `locale: en-GB`,
 		"mocks":     `mocks: [ { url: "**/api/stock*", status: 200, body: { stock: 0 } } ]`,

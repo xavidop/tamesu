@@ -113,7 +113,7 @@ func (l *linter) tests() {
 	for i := range l.s.Tests {
 		t := &l.s.Tests[i]
 		ttype := l.s.Targets[t.Target].Type
-		browser := ttype == config.TargetBrowser
+		browser := config.UsesSteps(ttype)
 		all := append(append([]config.Assertion(nil), everyAssert...), t.Assert...)
 
 		if len(all) == 0 && !browser {
