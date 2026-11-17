@@ -230,6 +230,11 @@ goal_calls = [s for s in json.load(open(glob.glob(out + "/browser-replay/tests/*
 assert all("replayed" in s.get("reason", "") for s in goal_calls), goal_calls
 print("replay: %d goals replayed, %.2fs vs %.2fs" % (len(goal_calls), second["duration"] / 1e9, first["duration"] / 1e9))
 PY
+
+echo "==> browser with the agent-browser engine: the same suite, the tree and the actions from the pinned agent-browser CLI"
+BROWSER_ENGINE=agent-browser TAMESU_CACHE_DIR="$PWD/$out/cache-agent-browser" WEBAPP_URL="http://127.0.0.1:$web_port" TEST_PASSWORD=correct-horse TAMESU_LLMFAKE_SCRIPT="$PWD/examples/browser-shop/llmfake-script.json" \
+	./bin/tamesu-llmfake run --config examples/browser-shop/tamesu.llmfake.yaml --out "$out/browser-agent-browser"
+test -f "$out"/browser-agent-browser/tests/*/run-1/trace.har || { echo "no HAR was written with the agent-browser engine" >&2; exit 1; }
 stop_agent "$web"
 
 # LiveKit text mode: livekit-server --dev (the binary on the PATH, or the

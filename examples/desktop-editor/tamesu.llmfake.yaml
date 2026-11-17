@@ -1,0 +1,14 @@
+# Project configuration for CI: the fake agent replays the tool calls in
+# llmfake-script.json (TAMESU_LLMFAKE_SCRIPT) against the real agent-desktop
+# and a real editor, so the desktop pipeline runs without keys.
+version: 1
+suites: ["suite.yaml"]
+genkit:
+  plugins: [fake]
+models:
+  default: fake/text
+  judge: fake/judge
+  browser_agent: fake/browser
+defaults: { timeout: 2m, repeat: 1, max_goal_steps: 6 }
+cache: { dir: "${TAMESU_CACHE_DIR:-.tamesu/cache}" }
+reporters: [console, junit, html]

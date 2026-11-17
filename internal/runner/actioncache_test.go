@@ -46,7 +46,10 @@ func (p *cachePage) Navigate(_ context.Context, u string) error {
 	p.actions = append(p.actions, "navigate", u)
 	return nil
 }
-func (p *cachePage) Press(context.Context, string) error                { return nil }
+func (p *cachePage) Press(_ context.Context, key string) error {
+	p.actions = append(p.actions, "press", key)
+	return nil
+}
 func (p *cachePage) Wait(context.Context, time.Duration) error          { return nil }
 func (p *cachePage) Screenshot(context.Context) ([]byte, error)         { return nil, nil }
 func (p *cachePage) Eval(context.Context, string) (any, error)          { return nil, nil }

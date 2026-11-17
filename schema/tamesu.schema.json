@@ -206,9 +206,10 @@
         "engine": {
           "type": "string",
           "enum": [
-            "chromium"
+            "chromium",
+            "agent-browser"
           ],
-          "description": "chromium (the default and only engine)"
+          "description": "What reads the page's elements and acts on them for goal and expect steps: chromium (the default; tamesu's own driver) or agent-browser (the agent-browser CLI attached to the same browser). The browser and everything else about the session are the same under both."
         },
         "viewport": {
           "type": "string",
@@ -435,6 +436,26 @@
           ]
         }
       ]
+    },
+    "DesktopOptions": {
+      "properties": {
+        "engine": {
+          "type": "string",
+          "enum": [
+            "agent-desktop"
+          ],
+          "description": "What drives the app: agent-desktop (the default and only engine)"
+        },
+        "args": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Command-line arguments passed to the app when it is launched (templates allowed)."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "Dispatch": {
       "properties": {
@@ -1662,15 +1683,15 @@
       "properties": {
         "goal": {
           "type": "string",
-          "description": "Agentic: the browser agent acts until the goal is met."
+          "description": "Agentic: the agent acts on the page or the app until the goal is met."
         },
         "expect": {
           "type": "string",
-          "description": "Agentic assertion against the current page."
+          "description": "Agentic assertion against the current page or window."
         },
         "action": {
           "type": "object",
-          "description": "Deterministic: one of navigate click fill press wait screenshot eval_js assert_url assert_text mock a11y visual."
+          "description": "Deterministic: one of navigate click fill press wait screenshot eval_js assert_url assert_text mock a11y visual (browser); click fill press wait screenshot assert_text (desktop)."
         }
       },
       "additionalProperties": false,
@@ -1695,6 +1716,7 @@
           "type": "string",
           "enum": [
             "browser",
+            "desktop",
             "rest",
             "livekit",
             "sip",
@@ -1720,6 +1742,14 @@
         "handoff": {
           "$ref": "#/$defs/HandoffSignal",
           "description": "How the agent signals that a person took over (tool / json_path / regex plus where the destination and summary are)"
+        },
+        "app": {
+          "type": "string",
+          "description": "desktop targets; the application to launch: its name or bundle id (templates allowed). An app that is already running is joined and left open afterwards."
+        },
+        "desktop": {
+          "$ref": "#/$defs/DesktopOptions",
+          "description": "desktop targets; engine / args"
         },
         "browser": {
           "$ref": "#/$defs/BrowserOptions",

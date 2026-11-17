@@ -30,6 +30,7 @@ updates:
       - "/llm/plugins/speechmatics"
       - "/targets/a2a"
       - "/targets/browser"
+      - "/targets/desktop"
       - "/targets/grpc"
       - "/targets/livekit"
       - "/targets/mcp"

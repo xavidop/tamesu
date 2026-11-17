@@ -65,10 +65,12 @@ tests:
 
 | Key | Type | Required | Description | Example |
 |---|---|---|---|---|
-| `type` | one of `browser`, `rest`, `livekit`, `sip`, `realtime`, `grpc`, `pipecat`, `model`, `twilio`, `mcp`, `a2a`, `voice` | yes | What the target is; it decides which other keys apply | `type: rest` |
+| `type` | one of `browser`, `desktop`, `rest`, `livekit`, `sip`, `realtime`, `grpc`, `pipecat`, `model`, `twilio`, `mcp`, `a2a`, `voice` | yes | What the target is; it decides which other keys apply | `type: rest` |
 | `url` | string |  | The page (browser) or endpoint (rest / realtime / pipecat / twilio / a2a / voice) or grpc://host:port (grpc) or LiveKit server (livekit). | `url: "${AGENT_URL:-http://localhost:8080/chat}"` |
 | `connect` | [ConnectConfig](#connectconfig) |  | How reaching the agent is retried (attempts / backoff / max_backoff) | `connect: { attempts: 5, backoff: 1s, max_backoff: 10s }` |
 | `handoff` | [HandoffSignal](#handoffsignal) |  | How the agent signals that a person took over (tool / json_path / regex plus where the destination and summary are) | `handoff: { tool: transfer_to_human, to: department, summary: summary }` |
+| `app` | string |  | desktop targets; the application to launch: its name or bundle id (templates allowed). An app that is already running is joined and left open afterwards. | `app: TextEdit` |
+| `desktop` | [DesktopOptions](#desktopoptions) |  | desktop targets; engine / args | `desktop: { args: ["--new-window"] }` |
 | `browser` | [BrowserOptions](#browseroptions) |  | browser targets; engine / viewport / locale / mocks / recording | `browser: { viewport: 1280x800, locale: en-GB, recording: gif }` |
 | `auth` | [BrowserAuth](#browserauth) |  | browser targets; a pre-authenticated storage state | `auth: { storage_state: auth/state.json }` |
 | `allowed_domains` | list of string |  | Domains the browser agent may navigate to; defaults to the url's domain. | `allowed_domains: [shop.example, cdn.example]` |
@@ -178,7 +180,7 @@ tools:
 
 | Key | Type | Required | Description | Example |
 |---|---|---|---|---|
-| `engine` | one of `chromium` |  | chromium (the default and only engine) | `engine: chromium` |
+| `engine` | one of `chromium`, `agent-browser` |  | What reads the page's elements and acts on them for goal and expect steps: chromium (the default; tamesu's own driver) or agent-browser (the agent-browser CLI attached to the same browser). The browser and everything else about the session are the same under both. | `engine: agent-browser` |
 | `viewport` | string |  | WIDTHxHEIGHT such as 1280x800. | `viewport: 1280x800` |
 | `locale` | string |  | The browser locale such as en-GB; sets Accept-Language | `locale: en-GB` |
 | `mocks` | list of [BrowserMock](#browsermock) |  | Requests answered by tamesu instead of the network from the start of the session; the mock action adds more at run time. | `mocks: [ { url: "**/api/stock*", status: 200, body: { stock: 0 } } ]` |
@@ -225,6 +227,21 @@ Example:
 
 ```yaml
 auth: { storage_state: auth/customer.json }
+```
+
+## DesktopOptions
+
+| Key | Type | Required | Description | Example |
+|---|---|---|---|---|
+| `engine` | one of `agent-desktop` |  | What drives the app: agent-desktop (the default and only engine) | `engine: agent-desktop` |
+| `args` | list of string |  | Command-line arguments passed to the app when it is launched (templates allowed). | `args: ["--new-window", "{{vars.document}}"]` |
+
+Example:
+
+```yaml
+desktop:
+  engine: agent-desktop
+  args: ["--new-window"]
 ```
 
 ## RESTRequest
@@ -409,9 +426,9 @@ capture:
 
 | Key | Type | Required | Description | Example |
 |---|---|---|---|---|
-| `goal` | string |  | Agentic: the browser agent acts until the goal is met. | `goal: "Log in as {{secrets.USER}} and add the blue sneakers to the cart"` |
-| `expect` | string |  | Agentic assertion against the current page. | `expect: "The cart shows one pair of blue sneakers"` |
-| `action` | object (any keys) |  | Deterministic: one of navigate click fill press wait screenshot eval_js assert_url assert_text mock a11y visual. | `action: { fill: { ref: "#email", text: "{{secrets.USER}}" } }` |
+| `goal` | string |  | Agentic: the agent acts on the page or the app until the goal is met. | `goal: "Log in as {{secrets.USER}} and add the blue sneakers to the cart"` |
+| `expect` | string |  | Agentic assertion against the current page or window. | `expect: "The cart shows one pair of blue sneakers"` |
+| `action` | object (any keys) |  | Deterministic: one of navigate click fill press wait screenshot eval_js assert_url assert_text mock a11y visual (browser); click fill press wait screenshot assert_text (desktop). | `action: { fill: { ref: "#email", text: "{{secrets.USER}}" } }` |
 
 Example:
 

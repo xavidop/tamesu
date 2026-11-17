@@ -17,6 +17,7 @@ require (
 	github.com/xavidop/tamesu/llm v0.0.0
 	github.com/xavidop/tamesu/targets/a2a v0.0.0
 	github.com/xavidop/tamesu/targets/browser v0.0.0
+	github.com/xavidop/tamesu/targets/desktop v0.0.0
 	github.com/xavidop/tamesu/targets/grpc v0.0.0
 	github.com/xavidop/tamesu/targets/livekit v0.0.0
 	github.com/xavidop/tamesu/targets/mcp v0.0.0
@@ -350,6 +351,8 @@ replace github.com/xavidop/tamesu/targets/livekit => ../../targets/livekit
 replace github.com/xavidop/tamesu/targets/sip => ../../targets/sip
 
 replace github.com/xavidop/tamesu/targets/browser => ../../targets/browser
+
+replace github.com/xavidop/tamesu/targets/desktop => ../../targets/desktop
 
 replace github.com/xavidop/mamori/providers/httpcore => github.com/xavidop/mamori/providers/httpcore v0.0.0-20261025123623-b7a7aaf2c85a
 

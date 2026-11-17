@@ -80,6 +80,10 @@ jobs:
         run: go vet -tags integration ./...
       - name: go test (race, coverage)
         working-directory: ${{ matrix.dir }}
+        env:
+          # The agent-browser engine test (targets/browser) runs against the
+          # pinned agent-browser, which it may download here.
+          TAMESU_TEST_DOWNLOAD: "1"
         run: go test -race -count=1 -covermode=atomic -coverpkg=./... -coverprofile=coverage.out ./...
       - name: Coverage summary
         working-directory: ${{ matrix.dir }}
@@ -269,6 +273,39 @@ jobs:
           done
           exit 1
       - run: make integration
+
+  # The desktop target against a real app: the pinned agent-desktop CLI drives
+  # a GTK editor in a headless desktop session (Xvfb, a window manager and a
+  # session bus with the accessibility bus on it), first through the target's
+  # integration test, then through the tamesu binary with the fake agent. It
+  # runs in a container of a pinned system (scripts/integration-desktop.sh
+  # says why), so the editor is the same one on every run and on a laptop.
+  integration-desktop:
+    name: Integration (desktop through agent-desktop)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - run: make integration-desktop
+        env:
+          DESKTOP_DOCKER: "1"
+
+  # The same integration test on Windows, against Notepad, on the hosted
+  # runner's interactive desktop.
+  integration-desktop-windows:
+    name: Integration (desktop on Windows)
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: The desktop target against Notepad
+        working-directory: targets/desktop
+        env:
+          TAMESU_TEST_DOWNLOAD: "1"
+        run: go test -tags integration -count=1 -run Integration -v ./...
 
   # The phone example: examples/compose.yaml (livekit-server, Redis, livekit/sip,
   # Asterisk as carrier and IVR), `tamesu sip setup` against it, then outbound

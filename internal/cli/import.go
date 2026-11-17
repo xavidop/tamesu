@@ -35,7 +35,7 @@ func (a *app) newImportCmd() *cobra.Command {
 			if typ == "" {
 				typ = config.TargetREST
 			}
-			if !containsString(config.TargetTypes(), typ) || typ == config.TargetBrowser {
+			if !containsString(config.TargetTypes(), typ) || config.UsesSteps(typ) {
 				return usageError(fmt.Errorf("--type must be a conversational target type: %s", strings.Join(conversationalTypes(), ", ")))
 			}
 			if goldenDir != "" && out == "" {
@@ -111,7 +111,7 @@ func (a *app) newImportCmd() *cobra.Command {
 func conversationalTypes() []string {
 	var out []string
 	for _, t := range config.TargetTypes() {
-		if t != config.TargetBrowser {
+		if !config.UsesSteps(t) {
 			out = append(out, t)
 		}
 	}

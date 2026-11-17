@@ -32,6 +32,8 @@ type refNode struct {
 	frame cdptarget.ID
 	role  string
 	name  string
+	// ref is agent-browser's own number for the node, when it is the engine.
+	ref int
 }
 
 // Roles the observation keeps. Everything else is structure.
@@ -66,19 +68,30 @@ func (s *session) URL(ctx context.Context) (string, error) {
 // and its frames.
 func (s *session) Observe(ctx context.Context, withScreenshot bool) (target.Observation, error) {
 	var obs target.Observation
-	var view pageView
-	err := s.do(ctx, into(chromedp.Location(), &obs.URL), into(chromedp.Title(), &obs.Title),
-		func(ctx context.Context, t *chromedp.Target) (chromedp.Void, error) {
-			var err error
-			view, err = readPage(ctx, t)
-			return chromedp.Void{}, err
-		},
-	)
-	if err != nil {
-		return obs, fmt.Errorf("observe: %w", err)
+	if s.ab != nil {
+		if err := s.do(ctx, into(chromedp.Location(), &obs.URL), into(chromedp.Title(), &obs.Title)); err != nil {
+			return obs, fmt.Errorf("observe: %w", err)
+		}
+		tree, err := s.agentBrowserObserve(ctx)
+		if err != nil {
+			return obs, fmt.Errorf("observe: %w", err)
+		}
+		obs.Tree = tree
+	} else {
+		var view pageView
+		err := s.do(ctx, into(chromedp.Location(), &obs.URL), into(chromedp.Title(), &obs.Title),
+			func(ctx context.Context, t *chromedp.Target) (chromedp.Void, error) {
+				var err error
+				view, err = readPage(ctx, t)
+				return chromedp.Void{}, err
+			},
+		)
+		if err != nil {
+			return obs, fmt.Errorf("observe: %w", err)
+		}
+		s.readRemoteFrames(ctx, &view)
+		obs.Tree = s.tree(&view)
 	}
-	s.readRemoteFrames(ctx, &view)
-	obs.Tree = s.tree(&view)
 	s.mu.Lock()
 	if n := len(s.console); n > 0 {
 		obs.Console = append([]string(nil), s.console[max(0, n-10):]...)
@@ -289,8 +302,12 @@ func (s *session) Click(ctx context.Context, ref int) error {
 	return nil
 }
 
-// clickNode clicks the centre of the node's box through the DevTools protocol.
+// clickNode clicks the centre of the node's box through the DevTools
+// protocol, or through agent-browser when it is the engine.
 func (s *session) clickNode(ctx context.Context, n refNode) error {
+	if s.ab != nil {
+		return s.ab.click(ctx, n.ref)
+	}
 	return s.doIn(n.frame, ctx, func(ctx context.Context, t *chromedp.Target) (chromedp.Void, error) {
 		_, _ = cdp.Call(ctx, t, dom.ScrollIntoViewIfNeeded, dom.ScrollIntoViewIfNeededParams{BackendNodeID: n.backend})
 		res, err := cdp.Call(ctx, t, dom.GetContentQuads, dom.GetContentQuadsParams{BackendNodeID: n.backend})
@@ -336,6 +353,9 @@ func (s *session) Type(ctx context.Context, ref int, text string) error {
 // typeNode focuses the node, clears it and inserts text through the
 // DevTools protocol.
 func (s *session) typeNode(ctx context.Context, n refNode, text string) error {
+	if s.ab != nil {
+		return s.ab.fill(ctx, n.ref, text)
+	}
 	return s.doIn(n.frame, ctx, func(ctx context.Context, t *chromedp.Target) (chromedp.Void, error) {
 		if _, err := cdp.Call(ctx, t, dom.Focus, dom.FocusParams{BackendNodeID: n.backend}); err != nil {
 			return chromedp.Void{}, err
@@ -353,6 +373,14 @@ func (s *session) Select(ctx context.Context, ref int, value string) error {
 	n, err := s.node(ref)
 	if err != nil {
 		return err
+	}
+	if s.ab != nil {
+		if err := s.ab.selectOption(ctx, ref, value); err != nil {
+			return fmt.Errorf("select %q in [%d] %s %q: %w", value, ref, n.role, n.name, err)
+		}
+		s.settle(ctx)
+		s.event("select", fmt.Sprintf("[%d] %q", ref, value))
+		return nil
 	}
 	var picked bool
 	err = s.doIn(n.frame, ctx, func(ctx context.Context, t *chromedp.Target) (chromedp.Void, error) {

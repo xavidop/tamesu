@@ -222,6 +222,9 @@ func Run(ctx context.Context, o Options) (*report.Summary, error) {
 			typeSem[typ] = make(chan struct{}, n)
 		}
 	}
+	// A machine has one desktop: the runs of desktop targets take turns,
+	// whatever Parallel is. A run waits its turn before its timeout starts.
+	typeSem[config.TargetDesktop] = make(chan struct{}, 1)
 	var wg sync.WaitGroup
 	for _, it := range items {
 		wg.Add(1)

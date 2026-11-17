@@ -64,6 +64,7 @@ const ORDER = [
   "/docs/metrics",
   "/docs/configuration",
   "/docs/targets/browser",
+  "/docs/targets/desktop",
   "/docs/targets/rest",
   "/docs/targets/livekit",
   "/docs/targets/sip",

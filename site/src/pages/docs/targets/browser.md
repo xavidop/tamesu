@@ -43,6 +43,40 @@ usual locations and the `PATH`, else it downloads Chrome for Testing (stable) in
 `~/.cache/tamesu/chromium` on first use. `tamesu doctor` reports which one it found. The Docker
 image `ghcr.io/xavidop/tamesu` ships Chromium. `tamesu run --headed` shows the window.
 
+## Engines
+
+`browser.engine` chooses what reads the page for the agent and acts on what it picks:
+
+| Engine | What it is |
+|---|---|
+| `chromium` | tamesu's own driver, over the DevTools protocol. The default. |
+| `agent-browser` | The [agent-browser](https://github.com/vercel-labs/agent-browser) CLI, attached to the same Chromium. |
+
+```yaml
+targets:
+  web:
+    type: browser
+    url: ${APP_URL}
+    browser: { engine: agent-browser }
+```
+
+The engine covers the observation and the `click`, `type` and `select` on a ref, which is what
+`goal` and `expect` steps use. Everything else is the same under both: the browser tamesu
+launches, navigation and the allowed domains, deterministic actions on selectors, mocks, the
+accessibility audit, visual baselines, the recording, the HAR and the console log.
+
+- **The CLI.** tamesu runs a pinned version of agent-browser. On first use it downloads that
+  version into `~/.cache/tamesu/agent-browser` and checks the file against the SHA-256 tamesu
+  ships with before running it. Set `TAMESU_AGENT_BROWSER` to a binary of your own to use that
+  one instead. `tamesu doctor` reports which binary a run would use and its version.
+- **The DevTools port.** agent-browser reaches the browser through a DevTools port, which the
+  session opens on the loopback interface for as long as it lasts. With `chromium` there is no
+  port.
+- **Secrets.** What is typed reaches agent-browser on standard input, never as an argument.
+- **Changing engine.** The two engines name some elements differently and number their refs
+  differently, so plan again with `--update-cache` after a change, and prefer selectors to ref
+  numbers in `action` steps.
+
 ## How a goal runs
 
 1. **Observe.** The page becomes an accessibility tree, one line per element the agent can read
@@ -199,6 +233,8 @@ targets:
 ```
 
 ## Example
+
+Set `BROWSER_ENGINE=agent-browser` to run the same example on the other engine.
 
 [`examples/browser-shop`](https://github.com/xavidop/tamesu/tree/main/examples/browser-shop) tests
 [`examples/webapp`](https://github.com/xavidop/tamesu/tree/main/examples/webapp), a tiny shop

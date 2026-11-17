@@ -204,6 +204,9 @@ func replayOne(ctx context.Context, page target.Page, a target.Action) error {
 	case "navigate":
 		u, _ := a.Args["url"].(string)
 		return page.Navigate(ctx, u)
+	case "press":
+		key, _ := a.Args["key"].(string)
+		return page.Press(ctx, key)
 	case "wait":
 		ms, _ := a.Args["ms"].(float64)
 		if n, ok := a.Args["ms"].(int); ok {

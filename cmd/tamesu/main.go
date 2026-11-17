@@ -56,7 +56,7 @@ func main() {
 			NewProvider:   newProvider,
 			Targets:       targetFactories,
 			RemoteBinding: a2abind.New,
-			Checks:        []cli.DoctorCheck{checkModels, checkSpeech, checkChromium, checkLiveKit, checkSIP},
+			Checks:        []cli.DoctorCheck{checkModels, checkSpeech, checkChromium, checkAgentEngines, checkLiveKit, checkSIP},
 			SIPSetup:      sipSetup,
 			RecordBrowser: recordBrowser,
 			ServeMCP:      serveMCP,

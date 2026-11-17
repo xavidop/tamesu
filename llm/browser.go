@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -27,6 +28,16 @@ const (
 // Tool names the browser agent calls.
 var BrowserTools = []string{"click", "type", "select", "scroll", "navigate", "wait", "done"}
 
+// DesktopTools are the tools of the agent on a desktop target: no page to
+// scroll or address to load, and the keyboard instead.
+var DesktopTools = []string{"click", "type", "select", "press", "wait", "done"}
+
+// The prompts of the browserStep flow, by what the page is.
+const (
+	promptBrowserAgent = "browser_agent"
+	promptDesktopAgent = "desktop_agent"
+)
+
 var _ model.BrowserAgent = (*Client)(nil)
 
 // goalState is what the tools of one goal share: the page and the outcome.
@@ -38,6 +49,9 @@ type goalState struct {
 	// tree is the last observation's element list, to name the element a
 	// ref points at (so plans can be replayed on a fresh page).
 	tree string
+	// tools are the tools of this goal's surface (a web page or a desktop
+	// app); a call to another one is refused.
+	tools []string
 }
 
 type goalKey struct{}
@@ -57,6 +71,7 @@ type goalInput struct {
 	Screenshots    bool     `json:"screenshots,omitempty"`
 	AllowedDomains []string `json:"allowed_domains,omitempty"`
 	Model          string   `json:"model,omitempty"`
+	Desktop        bool     `json:"desktop,omitempty"`
 }
 
 type goalOutput struct {
@@ -101,6 +116,10 @@ type navigateInput struct {
 	URL string `json:"url" jsonschema:"description=An absolute URL on the application's domain."`
 }
 
+type pressInput struct {
+	Key string `json:"key" jsonschema:"description=A key or a combination such as Enter or Escape or cmd+s."`
+}
+
 type waitInput struct {
 	Ms int `json:"ms" jsonschema:"description=Milliseconds to wait, at most 10000."`
 }
@@ -112,7 +131,10 @@ type doneInput struct {
 
 // defineBrowser registers the browser tools and flows.
 func (c *Client) defineBrowser() {
-	c.tools = []ai.ToolRef{
+	all := []ai.ToolRef{
+		genkit.DefineTool(c.g, "press", "Send a key or a key combination to the application.", func(ctx *ai.ToolContext, in pressInput) (string, error) {
+			return c.act(ctx, "press", map[string]any{"key": in.Key}, func(st *goalState) error { return st.page.Press(ctx, in.Key) })
+		}),
 		genkit.DefineTool(c.g, "click", "Click the element with this ref.", func(ctx *ai.ToolContext, in refInput) (string, error) {
 			return c.act(ctx, "click", map[string]any{"ref": in.Ref}, func(st *goalState) error { return st.page.Click(ctx, in.Ref) })
 		}),
@@ -141,8 +163,22 @@ func (c *Client) defineBrowser() {
 			return "Recorded. Reply with one short sentence summarising the outcome.", nil
 		}),
 	}
+	c.tools, c.desktopTools = pick(all, BrowserTools), pick(all, DesktopTools)
 	c.goalFlow = genkit.DefineFlow(c.g, FlowBrowserStep, c.browserStep)
 	c.expectFlow = genkit.DefineFlow(c.g, FlowCheckExpect, c.checkExpect)
+}
+
+// pick returns the tools with these names, in that order.
+func pick(all []ai.ToolRef, names []string) []ai.ToolRef {
+	out := make([]ai.ToolRef, 0, len(names))
+	for _, name := range names {
+		for _, t := range all {
+			if t.Name() == name {
+				out = append(out, t)
+			}
+		}
+	}
+	return out
 }
 
 // act runs one page action for a tool and answers with the new page.
@@ -150,6 +186,11 @@ func (c *Client) act(ctx *ai.ToolContext, name string, args map[string]any, do f
 	st, err := stateFrom(ctx)
 	if err != nil {
 		return "", err
+	}
+	if len(st.tools) > 0 && !slices.Contains(st.tools, name) {
+		// A model can name a tool it was not offered; it is told, and the
+		// page is left alone.
+		return fmt.Sprintf("%s is not available here; the tools are %s", name, strings.Join(st.tools, ", ")), nil
 	}
 	st.steps++
 	if ref, ok := args["ref"].(int); ok {
@@ -184,8 +225,11 @@ func (c *Client) RunGoal(ctx context.Context, req model.GoalRequest) (model.Goal
 	if req.Page == nil {
 		return model.GoalResult{}, errors.New("llm: RunGoal needs a page")
 	}
-	st := &goalState{page: req.Page}
-	out, err := c.goalFlow.Run(context.WithValue(ctx, goalKey{}, st), goalInput{Goal: req.Goal, MaxSteps: req.MaxSteps, Screenshots: req.Screenshots, AllowedDomains: req.AllowedDomains, Model: req.Model})
+	st := &goalState{page: req.Page, tools: BrowserTools}
+	if req.Desktop {
+		st.tools = DesktopTools
+	}
+	out, err := c.goalFlow.Run(context.WithValue(ctx, goalKey{}, st), goalInput{Goal: req.Goal, MaxSteps: req.MaxSteps, Screenshots: req.Screenshots, AllowedDomains: req.AllowedDomains, Model: req.Model, Desktop: req.Desktop})
 	if err != nil {
 		return model.GoalResult{Steps: st.steps, Actions: st.actions}, err
 	}
@@ -197,9 +241,13 @@ func (c *Client) browserStep(ctx context.Context, in goalInput) (goalOutput, err
 	if err != nil {
 		return goalOutput{}, err
 	}
-	prompt := genkit.LookupPrompt(c.g, "browser_agent")
+	promptName, tools := promptBrowserAgent, c.tools
+	if in.Desktop {
+		promptName, tools = promptDesktopAgent, c.desktopTools
+	}
+	prompt := genkit.LookupPrompt(c.g, promptName)
 	if prompt == nil {
-		return goalOutput{}, fmt.Errorf("llm: prompt browser_agent is not loaded")
+		return goalOutput{}, fmt.Errorf("llm: prompt %s is not loaded", promptName)
 	}
 	maxSteps := in.MaxSteps
 	if maxSteps <= 0 {
@@ -218,7 +266,7 @@ func (c *Client) browserStep(ctx context.Context, in goalInput) (goalOutput, err
 			"goal": in.Goal, "max_steps": maxSteps, "observation": formatObservation(obs),
 			"allowed_domains": strings.Join(in.AllowedDomains, ", "), "open": "{{", "close": "}}",
 		}
-		opts := []ai.PromptExecuteOption{ai.WithInput(input), ai.WithModelName(modelName), ai.WithTools(c.tools...), ai.WithMaxTurns(maxSteps + 2)}
+		opts := []ai.PromptExecuteOption{ai.WithInput(input), ai.WithModelName(modelName), ai.WithTools(tools...), ai.WithMaxTurns(maxSteps + 2)}
 		if in.Screenshots && len(obs.Screenshot) > 0 {
 			shot := &ai.Document{Content: []*ai.Part{ai.NewMediaPart("image/png", "data:image/png;base64,"+base64.StdEncoding.EncodeToString(obs.Screenshot))}, Metadata: map[string]any{"name": "screenshot"}}
 			opts = append(opts, ai.WithDocs(shot))

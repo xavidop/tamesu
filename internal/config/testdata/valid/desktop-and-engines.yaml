@@ -1,0 +1,35 @@
+suite: desktop-and-engines
+targets:
+  notes:
+    type: desktop
+    app: TextEdit
+    desktop: { engine: agent-desktop, args: ["--new-window"] }
+  web:
+    type: browser
+    url: http://localhost:8080/
+    browser: { engine: agent-browser, viewport: 1280x800 }
+  classic:
+    type: browser
+    url: http://localhost:8080/
+    browser: { engine: chromium }
+tests:
+  - name: write a note
+    target: notes
+    steps:
+      - goal: Write a note that says hello
+      - expect: The document says hello
+      - action: { click: { role: button, name: Save } }
+      - action: { fill: { name: Title, text: Groceries } }
+      - action: { press: cmd+s }
+      - action: { wait: { text: Saved } }
+      - action: { screenshot: saved }
+      - action: { assert_text: Groceries }
+  - name: log in
+    target: web
+    steps:
+      - goal: Log in
+      - action: { assert_url: { contains: /home } }
+  - name: log in with the default engine
+    target: classic
+    steps:
+      - goal: Log in

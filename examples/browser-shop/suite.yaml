@@ -16,7 +16,7 @@ targets:
   web:
     type: browser
     url: ${WEBAPP_URL:-http://127.0.0.1:18090}/
-    browser: { engine: chromium, viewport: 1280x800, locale: en-US }
+    browser: { engine: "${BROWSER_ENGINE:-chromium}", viewport: 1280x800, locale: en-US }
     allowed_domains: ["127.0.0.1", "localhost"]
 
 tests:

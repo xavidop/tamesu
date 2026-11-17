@@ -52,6 +52,7 @@ var (
 // belongs to, so a field on the wrong kind of target earns a warning.
 var targetFieldTypes = map[string][]string{
 	"browser": {TargetBrowser}, "auth": {TargetBrowser}, "allowed_domains": {TargetBrowser},
+	"app": {TargetDesktop}, "desktop": {TargetDesktop},
 	"method": {TargetREST}, "headers": {TargetREST, TargetRealtime, TargetGRPC, TargetPipecat, TargetTwilio, TargetMCP, TargetA2A, TargetVoice}, "request": {TargetREST}, "response": {TargetREST}, "streaming": {TargetREST}, "session": {TargetREST, TargetGRPC, TargetLiveKit, TargetSIP, TargetRealtime, TargetPipecat, TargetModel, TargetTwilio, TargetMCP, TargetA2A, TargetVoice},
 	"api_key": {TargetLiveKit}, "api_secret": {TargetLiveKit}, "token": {TargetLiveKit}, "identity": {TargetLiveKit}, "room": {TargetLiveKit}, "dispatch": {TargetLiveKit},
 	"agent_identity_prefix": {TargetLiveKit}, "mode": {TargetLiveKit, TargetRealtime, TargetPipecat}, "data_topic": {TargetLiveKit}, "join_timeout": {TargetLiveKit},
@@ -242,7 +243,7 @@ func (v *validator) target(name string, t Target) {
 				v.errorf(with(hp, "regex"), "invalid regex: %v", err)
 			}
 		}
-		if t.Type == TargetBrowser {
+		if UsesSteps(t.Type) {
 			v.errorf(hp, "handoff applies to conversational targets")
 		}
 	}
@@ -262,6 +263,16 @@ func (v *validator) target(name string, t Target) {
 		}
 		if t.Browser != nil && t.Browser.Recording != "" && !slices.Contains(BrowserRecordingFormats, t.Browser.Recording) {
 			v.errorf(with(tp, "browser", "recording"), "recording must be one of %s", strings.Join(BrowserRecordingFormats, ", "))
+		}
+	case TargetDesktop:
+		if strings.TrimSpace(t.App) == "" {
+			v.errorf(tp, "desktop target needs app (the application to launch)")
+		}
+		if t.URL != "" {
+			v.warnf(with(tp, "url"), "url applies to targets that have an address; a desktop target launches app")
+		}
+		if t.Desktop != nil && t.Desktop.Engine != "" && !slices.Contains(DesktopEngines, t.Desktop.Engine) {
+			v.errorf(with(tp, "desktop", "engine"), "engine must be one of %s", strings.Join(DesktopEngines, ", "))
 		}
 	case TargetREST:
 		if t.URL == "" {
@@ -544,8 +555,8 @@ func (v *validator) target(name string, t Target) {
 	}
 	for i := 0; i+1 < len(n.Content); i += 2 {
 		key := n.Content[i].Value
-		if key == "connect" && t.Type == TargetBrowser {
-			v.warnf(with(tp, key), "connect applies to the targets that reach an agent over the network; a browser target ignores it")
+		if key == "connect" && UsesSteps(t.Type) {
+			v.warnf(with(tp, key), "connect applies to the targets that reach an agent over the network; a %s target ignores it", t.Type)
 		}
 		if want, ok := targetFieldTypes[key]; ok && !slices.Contains(want, t.Type) {
 			v.warnf(with(tp, key), "%s applies to %s targets only; this target is %s", key, strings.Join(want, " and "), t.Type)
@@ -634,8 +645,8 @@ func (v *validator) test(i int, t Test) {
 			v.errorf(with(tp, "languages", idx(j)), "a language is empty")
 		}
 	}
-	if len(t.Languages) > 0 && ok && ttype == TargetBrowser {
-		v.errorf(with(tp, "languages"), "languages applies to conversational tests; %q is a browser target", t.Target)
+	if len(t.Languages) > 0 && ok && UsesSteps(ttype) {
+		v.errorf(with(tp, "languages"), "languages applies to conversational tests; %q is a %s target", t.Target, ttype)
 	}
 	if p := t.Persona; p != nil {
 		if !p.Adversarial && len(p.Tactics) > 0 {
@@ -659,15 +670,15 @@ func (v *validator) test(i int, t Test) {
 		}
 	}
 	switch {
-	case ttype == TargetBrowser:
+	case UsesSteps(ttype):
 		if len(t.Steps) == 0 {
-			v.errorf(tp, "browser tests need steps")
+			v.errorf(tp, "%s tests need steps", ttype)
 		}
 		if t.Persona != nil {
-			v.errorf(with(tp, "persona"), "persona applies to conversational targets (rest, grpc, livekit, sip, realtime, pipecat); %q is a browser target", t.Target)
+			v.errorf(with(tp, "persona"), "persona applies to conversational targets (rest, grpc, livekit, sip, realtime, pipecat); %q is a %s target", t.Target, ttype)
 		}
 		if t.Scenario != nil {
-			v.errorf(with(tp, "scenario"), "scenario applies to conversational targets (rest, grpc, livekit, sip, realtime, pipecat); %q is a browser target", t.Target)
+			v.errorf(with(tp, "scenario"), "scenario applies to conversational targets (rest, grpc, livekit, sip, realtime, pipecat); %q is a %s target", t.Target, ttype)
 		}
 	case ok:
 		if cp := t.Counterpart; cp != nil {
@@ -690,11 +701,11 @@ func (v *validator) test(i int, t Test) {
 			v.errorf(tp, "conversational tests need scenario.goal (or a scenario.script to play)")
 		}
 		if len(t.Steps) > 0 {
-			v.errorf(with(tp, "steps"), "steps apply to browser tests; %q is a %s target", t.Target, ttype)
+			v.errorf(with(tp, "steps"), "steps apply to browser and desktop tests; %q is a %s target", t.Target, ttype)
 		}
 	}
 	for j, st := range t.Steps {
-		v.step(with(tp, "steps", idx(j)), st)
+		v.step(with(tp, "steps", idx(j)), st, ttype)
 	}
 	if t.Scenario != nil {
 		v.scenario(with(tp, "scenario"), *t.Scenario, ttype)
@@ -707,7 +718,7 @@ func (v *validator) test(i int, t Test) {
 	}
 }
 
-func (v *validator) step(sp []string, st Step) {
+func (v *validator) step(sp []string, st Step, ttype string) {
 	kinds := st.Kinds()
 	if len(kinds) != 1 {
 		v.errorf(sp, "a step is exactly one of goal, expect or action (have %s)", listOr(kinds, "none"))
@@ -717,12 +728,17 @@ func (v *validator) step(sp []string, st Step) {
 		return
 	}
 	keys := sortedKeys(st.Action)
+	names := ActionNamesFor(ttype)
 	if len(keys) != 1 {
-		v.errorf(with(sp, "action"), "an action is exactly one of %s (have %s)", strings.Join(ActionNames, ", "), listOr(keys, "none"))
+		v.errorf(with(sp, "action"), "an action is exactly one of %s (have %s)", strings.Join(names, ", "), listOr(keys, "none"))
 		return
 	}
-	if !slices.Contains(ActionNames, keys[0]) {
-		v.errorf(with(sp, "action", keys[0]), "unknown action %q (one of %s)", keys[0], strings.Join(ActionNames, ", "))
+	switch {
+	case slices.Contains(names, keys[0]):
+	case slices.Contains(ActionNames, keys[0]):
+		v.errorf(with(sp, "action", keys[0]), "%s is a browser action; a %s target has %s", keys[0], ttype, strings.Join(names, ", "))
+	default:
+		v.errorf(with(sp, "action", keys[0]), "unknown action %q (one of %s)", keys[0], strings.Join(names, ", "))
 	}
 }
 
@@ -979,7 +995,7 @@ func (v *validator) assertion(ap []string, a Assertion, ttype, mode string) {
 		if h.Expected != nil && !*h.Expected && (h.WithinTurns > 0 || h.To != nil || len(h.SummaryContains) > 0 || h.Summary != "") {
 			v.warnf(kp, "expected: false with other fields: only the absence of a handoff is checked")
 		}
-		if ttype == TargetBrowser {
+		if UsesSteps(ttype) {
 			v.errorf(kp, "handoff applies to conversational tests")
 		}
 	case "http":
@@ -1027,7 +1043,7 @@ func (v *validator) assertion(ap []string, a Assertion, ttype, mode string) {
 			v.errorf(with(ap, "on_turn"), "on_turn does not apply to command: the state is checked after the conversation")
 		}
 	}
-	if a.OnTurn.IsSet() && ttype == TargetBrowser {
+	if a.OnTurn.IsSet() && UsesSteps(ttype) {
 		v.errorf(with(ap, "on_turn"), "on_turn applies to conversational tests")
 	}
 }

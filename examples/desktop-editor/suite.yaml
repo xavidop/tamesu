@@ -1,0 +1,37 @@
+# The desktop example: the agent writes a note in a text editor, the way a
+# person would, through the operating system's accessibility tree. An expect
+# step checks the window agentically; deterministic actions open a menu, pick
+# an item of it and pin the text.
+#
+# DESKTOP_APP names the editor: TextEdit on macOS (the default here), Notepad
+# on Windows, mousepad or gedit on Linux. Run with
+# `tamesu run --config examples/desktop-editor/tamesu.yaml`.
+suite: desktop-editor
+tags: [example, desktop]
+
+secrets:
+  NOTE_PIN: env:NOTE_PIN
+
+vars:
+  note: Buy oat milk
+
+targets:
+  editor:
+    type: desktop
+    app: ${DESKTOP_APP:-TextEdit}
+
+tests:
+  - name: write a note
+    target: editor
+    steps:
+      - goal: "Type the note '{{vars.note}}, pin {{secrets.NOTE_PIN}}' into the document"
+      - expect: "The document holds the note about oat milk"
+      - action: { assert_text: "Buy oat milk" }
+      - action: { click: Edit }
+      - action: { click: Select All }
+      - action: { press: Escape }
+      - action: { assert_text: { matches: "oat milk, pin \\d+" } }
+    assert:
+      - judge: "The steps show a note being typed into a document and the document holding it"
+      - contains: "{{vars.note}}"
+      - metric: { name: goal_steps, lte: 6 }

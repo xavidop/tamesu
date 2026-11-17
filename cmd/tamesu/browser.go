@@ -21,7 +21,7 @@ func newBrowserTarget(_ context.Context, spec runner.TargetSpec) (target.Target,
 	t := spec.Config
 	cfg := browser.Config{URL: t.URL, AllowedDomains: t.AllowedDomains, Headed: spec.Headed}
 	if t.Browser != nil {
-		cfg.Viewport, cfg.Locale, cfg.Recording = t.Browser.Viewport, t.Browser.Locale, t.Browser.Recording
+		cfg.Viewport, cfg.Locale, cfg.Recording, cfg.Engine = t.Browser.Viewport, t.Browser.Locale, t.Browser.Recording, t.Browser.Engine
 		for _, m := range t.Browser.Mocks {
 			cfg.Mocks = append(cfg.Mocks, browser.Mock{URL: m.URL, Method: m.Method, Status: m.Status, Body: m.Body, Headers: m.Headers, DelayMs: m.DelayMs, Abort: m.Abort})
 		}

@@ -1,0 +1,7 @@
+{
+  "browser": [
+    {"tool": "type", "input": {"find": "textfield", "text": "Buy oat milk, pin {{secrets.NOTE_PIN}}"}},
+    {"tool": "press", "input": {"key": "Escape"}},
+    {"tool": "done", "input": {"success": true, "reason": "fake agent: the document holds the note"}}
+  ]
+}
