@@ -53,15 +53,6 @@ updates:
       # Everything else in one weekly PR.
       go-dependencies:
         patterns: ["*"]
-    ignore:
-      # mamori's providers are modules of their own inside its repository, and
-      # only the root module is tagged. Go resolves them by commit (the
-      # pseudo-versions in cmd/tamesu/go.mod); Dependabot takes the root's
-      # tags for theirs, proposes providers/aws v1.13.1, cannot resolve it and
-      # fails the whole run. They are bumped by hand, to the commit of the
-      # mamori release the root module is on:
-      #   cd cmd/tamesu && go get github.com/xavidop/mamori/providers/aws@<commit>
-      - dependency-name: "github.com/xavidop/mamori/providers/*"
     labels: [dependencies, go]
 
   # GitHub Actions used by the workflows
