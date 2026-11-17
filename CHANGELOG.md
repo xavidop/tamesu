@@ -2,6 +2,13 @@
 
 All notable changes to tamesu are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/). Each new release is added at the top, with notes generated from the commit messages.
 
+## [1.22.1](https://github.com/xavidop/tamesu/compare/v1.22.0...v1.22.1) (2026-11-17)
+
+
+### Bug Fixes
+
+* **deps:** require mamori's providers by version ([#62](https://github.com/xavidop/tamesu/issues/62)) ([2413f41](https://github.com/xavidop/tamesu/commit/2413f41d71b50ba50a84512923e82d033f96bdda))
+
 # [1.22.0](https://github.com/xavidop/tamesu/compare/v1.21.0...v1.22.0) (2026-11-17)
 
 
