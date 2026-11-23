@@ -95,8 +95,8 @@ require (
 	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/chromedp/cdproto v0.160.2 // indirect
-	github.com/chromedp/chromedp v0.23.1 // indirect
+	github.com/chromedp/cdproto v0.160.7 // indirect
+	github.com/chromedp/chromedp v0.24.0 // indirect
 	github.com/cloudflare/circl v1.6.4 // indirect
 	github.com/cncf/xds/go v0.0.0-20260202195803-dba9d589def2 // indirect
 	github.com/coder/websocket v1.8.15 // indirect
@@ -179,7 +179,7 @@ require (
 	github.com/livekit/psrpc v0.8.2 // indirect
 	github.com/livekit/server-sdk-go/v2 v2.19.0 // indirect
 	github.com/magefile/mage v1.17.2 // indirect
-	github.com/mark3labs/mcp-go v1.5.0 // indirect
+	github.com/mark3labs/mcp-go v1.6.0 // indirect
 	github.com/mattn/go-colorable v0.1.15 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mbleigh/raymond v0.0.0-20250414171441-6b3a58ab9e0a // indirect
