@@ -3,7 +3,7 @@ module github.com/xavidop/tamesu/targets/mcp
 go 1.27
 
 require (
-	github.com/mark3labs/mcp-go v1.5.0
+	github.com/mark3labs/mcp-go v1.6.0
 	github.com/stretchr/testify v1.12.1
 	github.com/xavidop/tamesu v0.0.0
 	github.com/xavidop/tamesu/targets/model v0.0.0

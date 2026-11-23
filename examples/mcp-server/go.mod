@@ -2,7 +2,7 @@ module github.com/xavidop/tamesu/examples/mcp-server
 
 go 1.27
 
-require github.com/mark3labs/mcp-go v1.5.0
+require github.com/mark3labs/mcp-go v1.6.0
 
 require (
 	github.com/google/jsonschema-go v0.4.2 // indirect
