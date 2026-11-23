@@ -2,6 +2,14 @@
 
 All notable changes to tamesu are listed here, newest first. Versions follow [Semantic Versioning](https://semver.org/). Each new release is added at the top, with notes generated from the commit messages.
 
+## [1.22.2](https://github.com/xavidop/tamesu/compare/v1.22.1...v1.22.2) (2026-11-23)
+
+
+### Bug Fixes
+
+* **deps:** bump agent-browser from 0.42.0 to 0.43.0 ([#63](https://github.com/xavidop/tamesu/issues/63)) ([9716165](https://github.com/xavidop/tamesu/commit/9716165bca2604f48b0941e948c6f243626db460))
+* **deps:** bump agent-desktop from 1.2.0 to 1.3.1 ([#64](https://github.com/xavidop/tamesu/issues/64)) ([d74f5bc](https://github.com/xavidop/tamesu/commit/d74f5bc4d0e7f35df3e5ab8c8f3631b60b490a33))
+
 ## [1.22.1](https://github.com/xavidop/tamesu/compare/v1.22.0...v1.22.1) (2026-11-17)
 
 
